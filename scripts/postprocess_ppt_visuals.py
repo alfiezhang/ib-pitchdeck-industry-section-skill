@@ -11,6 +11,8 @@ try:
     from pptx import Presentation
     from pptx.chart.data import CategoryChartData
     from pptx.enum.chart import XL_CHART_TYPE, XL_DATA_LABEL_POSITION, XL_LEGEND_POSITION
+    from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
+    from pptx.enum.text import PP_ALIGN
     from pptx.util import Emu, Pt
     from pptx.dml.color import RGBColor
 except ImportError as exc:
@@ -66,11 +68,17 @@ SLIDE_LAYOUTS = {
         "chart_box": (1000000, 2200000, 4450000, 3000000),
     },
     },
+    6: {
+        "matrix_page": {
+            "matrix_box": (3980000, 2380000, 4100000, 2500000),
+        },
+    },
 }
 
 BRAND_BLUE = RGBColor(0x0D, 0x57, 0xAA)
 GRID_GRAY = RGBColor(0xD9, 0xD9, 0xD9)
 TEXT_GRAY = RGBColor(0x55, 0x55, 0x55)
+ACCENT_RED = RGBColor(0xC0, 0x3C, 0x28)
 
 
 def load_json(path: Path) -> dict:
@@ -210,6 +218,155 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
     }
 
 
+def _coerce_float(value, default: Optional[float] = None) -> Optional[float]:
+    try:
+        if value is None or value == "":
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _matrix_points_from_chart_data(chart_data: dict) -> list[dict]:
+    rows = chart_data.get("source_rows") or []
+    points = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        label = str(row.get("label") or "").strip()
+        x = _coerce_float(row.get("x"))
+        y = _coerce_float(row.get("y"))
+        if x is None or y is None:
+            value = row.get("value")
+            if isinstance(value, dict):
+                x = _coerce_float(value.get("x"))
+                y = _coerce_float(value.get("y"))
+            elif isinstance(value, (list, tuple)) and len(value) >= 2:
+                x = _coerce_float(value[0])
+                y = _coerce_float(value[1])
+        if label and x is not None and y is not None:
+            points.append({"label": label, "x": x, "y": y, "note": row.get("note", "")})
+
+    if points:
+        return points
+
+    categories = chart_data.get("categories") or []
+    series = chart_data.get("series") or []
+    if len(series) < 2:
+        return []
+    x_values = series[0].get("values") or []
+    y_values = series[1].get("values") or []
+    for idx, label in enumerate(categories):
+        if idx >= len(x_values) or idx >= len(y_values):
+            continue
+        x = _coerce_float(x_values[idx])
+        y = _coerce_float(y_values[idx])
+        if label and x is not None and y is not None:
+            points.append({"label": str(label), "x": x, "y": y, "note": ""})
+    return points
+
+
+def _normalize(value: float, values: list[float]) -> float:
+    min_value = min(values)
+    max_value = max(values)
+    if max_value == min_value:
+        return 0.5
+    return (value - min_value) / (max_value - min_value)
+
+
+def _add_textbox(slide, left: int, top: int, width: int, height: int, text: str, font_size: int = 8, bold: bool = False) -> None:
+    textbox = slide.shapes.add_textbox(Emu(left), Emu(top), Emu(width), Emu(height))
+    tf = textbox.text_frame
+    tf.clear()
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    run = p.add_run()
+    run.text = text
+    run.font.size = Pt(font_size)
+    run.font.bold = bold
+    run.font.color.rgb = TEXT_GRAY
+
+
+def render_matrix_slide(slide, slide_data: dict, layout: dict) -> dict:
+    chart_data = slide_data.get("chart_data") or {}
+    body_copy = slide_data.get("body_copy") or {}
+    points = _matrix_points_from_chart_data(chart_data)
+    if len(points) < 2:
+        return {"rendered": False, "reason": "matrix_page needs at least two points with x/y values"}
+
+    left, top, width, height = layout["matrix_box"]
+    axis_label_x = body_copy.get("matrix_label_x") or chart_data.get("x_axis_label") or "Axis X"
+    axis_label_y = body_copy.get("matrix_label_y") or chart_data.get("y_axis_label") or "Axis Y"
+
+    # Background panel.
+    panel = slide.shapes.add_shape(
+        MSO_AUTO_SHAPE_TYPE.RECTANGLE,
+        Emu(left),
+        Emu(top),
+        Emu(width),
+        Emu(height),
+    )
+    panel.fill.solid()
+    panel.fill.fore_color.rgb = RGBColor(0xFA, 0xFB, 0xFC)
+    panel.line.color.rgb = GRID_GRAY
+    panel.line.width = Pt(1)
+
+    mid_x = left + width // 2
+    mid_y = top + height // 2
+    for line_left, line_top, line_width, line_height in [
+        (mid_x, top, 0, height),
+        (left, mid_y, width, 0),
+    ]:
+        line = slide.shapes.add_shape(
+            MSO_AUTO_SHAPE_TYPE.RECTANGLE,
+            Emu(line_left),
+            Emu(line_top),
+            Emu(max(line_width, 1)),
+            Emu(max(line_height, 1)),
+        )
+        line.fill.solid()
+        line.fill.fore_color.rgb = GRID_GRAY
+        line.line.color.rgb = GRID_GRAY
+
+    _add_textbox(slide, left, top + height + 80000, width, 180000, axis_label_x, 8, True)
+    _add_textbox(slide, left - 240000, top + height // 2 - 120000, 220000, 260000, axis_label_y, 8, True)
+
+    x_values = [point["x"] for point in points]
+    y_values = [point["y"] for point in points]
+    bubble_size = 175000
+    plotted = []
+    for idx, point in enumerate(points[:8]):
+        x_norm = _normalize(point["x"], x_values)
+        y_norm = _normalize(point["y"], y_values)
+        cx = left + int(260000 + x_norm * (width - 520000))
+        cy = top + int(height - 260000 - y_norm * (height - 520000))
+
+        bubble = slide.shapes.add_shape(
+            MSO_AUTO_SHAPE_TYPE.OVAL,
+            Emu(cx - bubble_size // 2),
+            Emu(cy - bubble_size // 2),
+            Emu(bubble_size),
+            Emu(bubble_size),
+        )
+        bubble.fill.solid()
+        bubble.fill.fore_color.rgb = BRAND_BLUE if idx else ACCENT_RED
+        bubble.line.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        bubble.line.width = Pt(1)
+
+        label_left = min(max(cx - 360000, left + 20000), left + width - 720000)
+        label_top = min(max(cy + 90000, top + 20000), top + height - 220000)
+        _add_textbox(slide, label_left, label_top, 720000, 180000, point["label"], 7, idx == 0)
+        plotted.append({"label": point["label"], "x": point["x"], "y": point["y"]})
+
+    return {
+        "rendered": True,
+        "chart_title": chart_data.get("title") or body_copy.get("matrix_title") or "",
+        "chart_type": "matrix",
+        "points": plotted,
+    }
+
+
 def add_metric_card(slide, left: int, top: int, width: int, height: int, label: str, value: str, accent: RGBColor) -> None:
     from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
     from pptx.enum.text import PP_ALIGN
@@ -341,7 +498,9 @@ def render_quant_slide(prs: Presentation, storyboard: dict, slide_no: int) -> di
         return {"slide_no": slide_no, "rendered": False, "reason": "clean deck has fewer slides than expected"}
 
     slide = prs.slides[slide_no - 1]
-    if slide_no == 1:
+    if page_type == "matrix_page":
+        result = render_matrix_slide(slide, slide_data, layout)
+    elif slide_no == 1:
         result = render_slide1_visual(slide, slide_data, layout)
     else:
         result = build_chart(slide, slide_data, layout)
@@ -389,12 +548,21 @@ def main() -> None:
     parser.add_argument("--storyboard", required=True, help="Path to industry_storyboard.json.")
     parser.add_argument("--output", required=True, help="Path to write the post-processed PPTX.")
     parser.add_argument("--log", help="Optional path to write a JSON log.")
+    parser.add_argument(
+        "--fail-on-unrendered",
+        action="store_true",
+        help="Exit non-zero if any slide with chart_data could not be rendered.",
+    )
     args = parser.parse_args()
 
     result = postprocess(Path(args.input_ppt), Path(args.storyboard), Path(args.output))
     if args.log:
         save_json(result, Path(args.log))
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    if args.fail_on_unrendered:
+        failed = [item for item in result["chart_rendering"] if not item.get("rendered")]
+        if failed:
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

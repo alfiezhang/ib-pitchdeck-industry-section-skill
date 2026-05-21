@@ -24,6 +24,19 @@ Produce a target-linked, source-disciplined 8-slide industry section that tells 
 - **User attachments** (optional — pitchbook drafts, CIM extracts, research notes)
 - **Existing `industry_input_memo.md`** (optional — treated as canonical input if provided and user says "do not expand")
 
+## Runtime Bootstrap
+
+Before starting from a brief or running PPT scripts, ensure the runtime is ready:
+
+```bash
+bash ./setup.sh
+./.venv/bin/python scripts/check_runtime_dependencies.py
+```
+
+If `.venv` creation fails because Python lacks `ensurepip` / `venv`, stop and install the matching system package (for example `python3-venv` or `python3.14-venv` on Debian/Ubuntu) or rerun with `PYTHON_BIN` pointing to a Python installation that supports `venv`.
+
+Do not proceed to research, storyboard, or PPT generation if mandatory runtime dependencies are missing.
+
 ## Default Workflow
 
 ### 1. Research Memo
@@ -34,6 +47,8 @@ Output: `industry_input_memo.md`
 **Stop for human review** unless the user explicitly requests one-shot generation.
 
 Reviewer should confirm: industry definition, market sizing logic, growth drivers, competitive landscape, target linkage, data sources and gaps.
+
+If this run starts from only a brief or attachments and verified online research cannot be completed, stop after reporting the failure. Continue only if the operator explicitly chooses a degraded mode; any degraded output must label unsupported facts as `training_data` and must not be treated as diligence-grade.
 
 ### 2. Storyboard Section
 Use `skills/storyboard-section/SKILL.md`.

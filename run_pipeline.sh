@@ -231,7 +231,8 @@ echo "[5/7] Post-processing visuals..."
   --input-ppt "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
   --storyboard "$STAGED_STORYBOARD" \
   --output "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
-  --log "$OUTPUT_DIR/artifacts/postprocess_ppt_visuals.log.json"
+  --log "$OUTPUT_DIR/artifacts/postprocess_ppt_visuals.log.json" \
+  --fail-on-unrendered
 
 # ── Step 6: Validate final output ────────────────────────────────
 echo "[6/7] Validating filled PPT..."

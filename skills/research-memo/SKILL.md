@@ -56,6 +56,8 @@ See `references/research_policy.md` for the full source hierarchy and verificati
 
 Key principles:
 - **Web research is mandatory** when starting from a brief or attachments.
+- **Dependency check is mandatory before fallback search**: run `bash ./setup.sh` and `./.venv/bin/python scripts/check_runtime_dependencies.py` before relying on `scripts/web_search.py`.
+- **Fail closed on mandatory research failure**: if built-in WebSearch/WebFetch and fallback search cannot return verified online sources, stop the workflow. Do not generate storyboard or PPT from `training_data` unless the operator explicitly chooses degraded mode.
 - **Record user-provided materials separately** from online research in `Source Materials`.
 - **Use the source hierarchy**: primary (government/regulatory filings) > secondary (industry association reports) > tertiary (consulting firm summaries) > lowest (news articles).
 - **Cross-check**: verify key numbers across multiple sources where possible.
@@ -89,7 +91,9 @@ When the AI's built-in `WebSearch` / `WebFetch` tools are unavailable (e.g., thi
    ```
 6. Read the results file and continue research with the data returned.
 
-Install dependencies first with `bash ./setup.sh` or `python -m pip install -r requirements.txt`.
+Install dependencies first with `bash ./setup.sh` and verify them with `./.venv/bin/python scripts/check_runtime_dependencies.py`. If setup fails because Python lacks venv/ensurepip support, install the matching system package such as `python3-venv` or `python3.14-venv`, then rerun setup.
+
+If all search providers fail or return zero results in a brief-only run, stop. Do not silently continue with `training_data` estimates.
 
 ## Expansion Rules (Memo Expansion Mode)
 

@@ -254,7 +254,7 @@ def search_auto(query: str, max_results: int = 5) -> list[dict]:
         return search_duckduckgo(query, max_results)
     except Exception as e:
         print(f"[web_search] DuckDuckGo failed: {e}", file=sys.stderr)
-        return []
+        raise RuntimeError("all web search providers failed") from e
 
 
 def search_multi_query(queries: list[str], provider: str, max_results: int = 5) -> list[dict]:
@@ -370,6 +370,11 @@ def main():
     else:
         print(json_str)
 
+    if not results:
+        print("[web_search] ERROR: no search results returned", file=sys.stderr)
+        return 2
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

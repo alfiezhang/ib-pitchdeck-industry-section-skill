@@ -71,6 +71,7 @@ Each slide must include:
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
+- For `matrix_page`, include either `source_rows` with numeric `x` and `y` values for each plotted player, or two numeric series whose values map to the matrix axes.
 - For quantitative slides, make `chart_data.title` a short on-slide chart label. Keep build instructions in `visual_direction` or `chart_data.notes`, not in the visible chart title field.
 - **target_link**: Explicit connection to the target. Every slide must answer: why does this matter for **this** target?
 - **source_note**: Attribution. Reference memo section or specific source.

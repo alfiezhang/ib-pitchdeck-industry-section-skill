@@ -45,7 +45,17 @@ if [[ ! -d "$VENV_DIR" ]]; then
     exit 1
   }
   echo "Creating .venv with $PYTHON_BIN..."
-  "$PYTHON_BIN" -m venv "$VENV_DIR"
+  if ! "$PYTHON_BIN" -m venv "$VENV_DIR"; then
+    echo "" >&2
+    echo "ERROR: Failed to create Python virtual environment." >&2
+    echo "This usually means the Python venv/ensurepip package is missing." >&2
+    echo "On Debian/Ubuntu, install the matching package, for example:" >&2
+    echo "  sudo apt install python3-venv" >&2
+    echo "  sudo apt install python3.14-venv   # if your interpreter is Python 3.14" >&2
+    echo "Then rerun: bash ./setup.sh" >&2
+    echo "Alternative: set PYTHON_BIN to a Python installation with venv support." >&2
+    exit 1
+  fi
 fi
 
 echo "Installing dependencies..."

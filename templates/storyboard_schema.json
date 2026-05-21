@@ -91,6 +91,8 @@
             "properties": {
               "chart_type": { "type": "string", "description": "Suggested visual type such as bar, line, stacked_bar, matrix, waterfall, or table." },
               "title": { "type": "string", "description": "Short chart title or caption." },
+              "x_axis_label": { "type": "string", "description": "Optional x-axis label, especially for matrix visuals." },
+              "y_axis_label": { "type": "string", "description": "Optional y-axis label, especially for matrix visuals." },
               "categories": {
                 "type": "array",
                 "items": { "type": "string" },
@@ -114,12 +116,34 @@
               "unit": { "type": "string", "description": "Display unit for values, such as RMB bn, %, stores, or index." },
               "source_rows": {
                 "type": "array",
-                "description": "Traceable source rows or datapoints used to construct the chart.",
+                "description": "Traceable source rows or datapoints used to construct the chart. For matrix_page, rows may include numeric x and y values or a value object/list containing x/y coordinates.",
                 "items": {
                   "type": "object",
                   "properties": {
                     "label": { "type": "string" },
-                    "value": { "type": ["number", "string"] },
+                    "value": {
+                      "oneOf": [
+                        { "type": "number" },
+                        { "type": "string" },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "x": { "type": "number" },
+                            "y": { "type": "number" }
+                          },
+                          "required": ["x", "y"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "array",
+                          "items": { "type": "number" },
+                          "minItems": 2,
+                          "maxItems": 2
+                        }
+                      ]
+                    },
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
                     "period": { "type": "string" },
                     "source": { "type": "string" },
                     "note": { "type": "string" }
