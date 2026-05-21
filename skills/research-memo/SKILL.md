@@ -1,0 +1,116 @@
+# Research Memo
+
+Generate or expand a structured industry research memo that serves as the canonical factual input for all downstream steps.
+
+This skill is called at the start of every standard workflow run. It ensures the LLM has a complete, well-sourced, well-structured research base before any storyline or copy drafting begins.
+
+This step is intentionally **LLM-driven**. The purpose is not to reduce research into a fixed template search routine, but to ensure the model leaves behind a memo that downstream steps can treat as the factual contract.
+
+## Purpose
+
+Produce `industry_input_memo.md` — a comprehensive, source-disciplined research memo covering the industry definition, market sizing, growth drivers, value chain, competitive landscape, trends, and target-specific implications.
+
+The memo is the **single source of truth** for all facts used in the storyboard. The storyboard skill does not introduce new facts beyond what is in the memo.
+
+## Inputs
+
+| Input | Required | Purpose |
+|-------|----------|---------|
+| Target brief / input card | Yes | Transaction context: target name, industry, transaction type |
+| User attachments | No | Pitchbook drafts, CIM extracts, equity research, consultant reports |
+| Existing `industry_input_memo.md` | No | If provided, this becomes expansion mode (refresh and deepen, don't start from scratch) |
+
+## Starting Modes
+
+### Memo Generation Mode
+- Trigger: brief only, or brief + attachments
+- Process: mandatory Web research → synthesize into structured memo
+- Always perform Web research, even when attachments are present
+
+### Memo Expansion Mode
+- Trigger: existing `industry_input_memo.md` is provided
+- Default behavior: expand with Web research (refresh stale data, deepen weak sections, fill gaps)
+- If user explicitly says "do not expand": treat memo as canonical, skip research
+
+## Output
+
+`industry_input_memo.md` following the structure defined in `references/industry_input_memo_template.md`.
+
+This memo is the stage contract for downstream reasoning:
+- storyboard should not introduce new facts beyond it
+- weak, missing, or conflicting data should be visible here rather than silently corrected later
+
+Required sections:
+- Project meta (target, industry, geography, transaction type, date)
+- Deal context (why this industry section matters for this transaction)
+- Target business summary
+- Industry definition and scope
+- Source materials (user-provided vs. web-researched, with attribution)
+- Page-by-page content notes (1–8)
+- Per page: `Presentation Hint`, `What should dominate this page`, `Visual Candidate`
+- For every `Key Data Points` entry: `Definition`, `Source Name`, `Source Date`, and `Confidence`
+
+## Research Rules
+
+See `references/research_policy.md` for the full source hierarchy and verification rules.
+
+Key principles:
+- **Web research is mandatory** when starting from a brief or attachments.
+- **Record user-provided materials separately** from online research in `Source Materials`.
+- **Use the source hierarchy**: primary (government/regulatory filings) > secondary (industry association reports) > tertiary (consulting firm summaries) > lowest (news articles).
+- **Cross-check**: verify key numbers across multiple sources where possible.
+- **Date everything**: note the period, geography, and source for every numeric fact.
+- **Label confidence explicitly** in every `Key Data Points` row:
+  - `verified`: directly supported by cited search/user-provided sources
+  - `inferred`: calculated or synthesized from cited facts with a clear reasoning bridge
+  - `training_data`: background knowledge not verified in this run and requiring follow-up
+- **Search for the latest source first**: do not hard-code a data year such as `2024` into search queries unless the metric is inherently year-specific or you are verifying a source already known to be the latest available period.
+- **Separate source date from data period**: the latest available disclosed datapoint may still be for 2024 or earlier; search broadly first, then record the actual reporting period in the memo.
+- **Capture chart-ready data, not only chart ideas**: when a page is likely to need a quantitative chart, preserve the underlying categories, series values, units, and source rows in the memo notes so downstream storyboarding can structure them.
+
+## Search Tool Fallback
+
+When the AI's built-in `WebSearch` / `WebFetch` tools are unavailable (e.g., third-party API proxy does not support them), use the project's fallback search script:
+
+**Three-tier fallback:**
+1. **First**: try the AI built-in `WebSearch` / `WebFetch`
+2. **Detect failure**: if the response contains phrases like "I don't have a web search tool", "I'd be happy to help but", or returns no actual URLs/data — treat it as a hallucination, not a real search result
+3. **Fallback 1 — Tavily** (requires `TAVILY_API_KEY` env var):
+   ```bash
+   python scripts/web_search.py --query "your search query" --provider tavily --output tmp/search_results.json
+   ```
+4. **Fallback 2 — DuckDuckGo** (free, no key needed):
+   ```bash
+   python scripts/web_search.py --query "your search query" --provider duckduckgo --output tmp/search_results.json
+   ```
+5. Or let auto mode handle it (Tavily first, DuckDuckGo fallback):
+   ```bash
+   python scripts/web_search.py --query "your search query" --output tmp/search_results.json
+   ```
+6. Read the results file and continue research with the data returned.
+
+Install dependencies first with `bash ./setup.sh` or `python -m pip install -r requirements.txt`.
+
+## Expansion Rules (Memo Expansion Mode)
+
+- Preserve useful transaction framing from the original memo.
+- Refresh weak, stale, unsupported, or missing sections with new Web research.
+- Do **not** carry unsupported claims from the old memo forward as facts.
+- If the old memo conflicts with stronger new evidence, prefer the more reliable, more recent, and more definition-matched source.
+- Directional judgments are allowed, but they must read as inference or hypothesis rather than disguised fact.
+
+## Human Review Gate
+
+After this skill produces `industry_input_memo.md`, **stop for human review** unless the user explicitly requested one-shot generation.
+
+Operational rule:
+- in default mode, stop here
+- in one-shot mode, continue only after making data gaps and source strength explicit in the memo rather than hiding uncertainty
+
+The reviewer should confirm:
+- Industry definition is accurate and appropriately scoped
+- Market sizing and segmentation logic is sound
+- Key growth drivers are well-identified and sourced
+- Competitive landscape is correctly characterized
+- Target linkage is explicit and transaction-relevant
+- Data sources are credible and gaps are acknowledged

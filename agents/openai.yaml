@@ -1,0 +1,4 @@
+interface:
+  display_name: "IB Industry Section"
+  short_description: "Draft and fill a target-linked IB industry section"
+  default_prompt: "Use $ib-industry-section to create a target-linked 8-slide investment banking industry section with memo, storyboard, PPT copy, and validated PPT output if requested."

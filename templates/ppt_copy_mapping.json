@@ -1,0 +1,361 @@
+{
+  "description": "Deterministic field-mapping guidance for converting industry_storyboard.json into industry_section_ppt_copy.json.",
+  "slides": [
+    {
+      "slide_no": 1,
+      "slide_key": "industry_overview",
+      "selected_page_type": "summary_page",
+      "ppt_copy_fields": {
+        "slide_title": {
+          "source_priority": [
+            "slide_title"
+          ],
+          "role": "conclusion_led_page_title"
+        },
+        "main_takeaway": {
+          "source_priority": [
+            "main_takeaway"
+          ],
+          "role": "page_conclusion"
+        },
+        "ppt_bullets": [
+          {
+            "target_field": "bullet_1",
+            "source_priority": [
+              "supporting_bullets[0]",
+              "key_data_points[0]",
+              "implication_for_target"
+            ],
+            "role": "industry_definition_or_scope"
+          },
+          {
+            "target_field": "bullet_2",
+            "source_priority": [
+              "key_data_points[0]",
+              "supporting_bullets[1]"
+            ],
+            "role": "market_size_or_growth_context"
+          },
+          {
+            "target_field": "bullet_3",
+            "source_priority": [
+              "supporting_bullets[2]",
+              "implication_for_target",
+              "key_data_points[0]"
+            ],
+            "role": "key_takeaway_or_stage_statement"
+          }
+        ],
+        "chart_title": {
+          "source_priority": [
+            "chart_suggestion.title"
+          ],
+          "role": "market_context_visual_title"
+        },
+        "source_footer": {
+          "source_priority": [
+            "sources"
+          ],
+          "role": "page_source_footer"
+        }
+      }
+    },
+    {
+      "slide_no": 2,
+      "slide_key": "market_size_segmentation",
+      "controlled_variants": {
+        "chart_page": {
+          "ppt_copy_fields": {
+            "slide_title": {
+              "source_priority": [
+                "slide_title",
+                "main_takeaway"
+              ],
+              "role": "conclusion_led_page_title"
+            },
+            "main_takeaway": {
+              "source_priority": [
+                "main_takeaway"
+              ],
+              "role": "page_conclusion"
+            },
+            "ppt_bullets": [
+              {
+                "target_field": "bullet_1",
+                "source_priority": [
+                  "supporting_bullets[0]",
+                  "key_data_points[0]"
+                ],
+                "role": "total_market_context"
+              },
+              {
+                "target_field": "bullet_2",
+                "source_priority": [
+                  "supporting_bullets[1]",
+                  "key_data_points[1]"
+                ],
+                "role": "segment_breakdown_context"
+              },
+              {
+                "target_field": "bullet_3",
+                "source_priority": [
+                  "supporting_bullets[2]",
+                  "implication_for_target"
+                ],
+                "role": "structural_shift_conclusion"
+              }
+            ],
+            "chart_title": {
+              "source_priority": [
+                "chart_suggestion.title",
+                "slide_title"
+              ],
+              "role": "market_segmentation_visual_title"
+            },
+            "source_footer": {
+              "source_priority": [
+                "sources"
+              ],
+              "role": "page_source_footer"
+            }
+          }
+        },
+        "chart_plus_mini_table_page": {
+          "ppt_copy_fields": {
+            "slide_title": {
+              "source_priority": [
+                "slide_title",
+                "main_takeaway"
+              ],
+              "role": "conclusion_led_page_title"
+            },
+            "main_takeaway": {
+              "source_priority": [
+                "main_takeaway"
+              ],
+              "role": "page_conclusion"
+            },
+            "ppt_bullets": [
+              {
+                "target_field": "bullet_1",
+                "source_priority": [
+                  "supporting_bullets[0]",
+                  "key_data_points[0]"
+                ],
+                "role": "chart_readthrough_primary"
+              },
+              {
+                "target_field": "bullet_2",
+                "source_priority": [
+                  "supporting_bullets[2]",
+                  "implication_for_target"
+                ],
+                "role": "chart_readthrough_secondary"
+              }
+            ],
+            "table_fields": [
+              {
+                "target_field": "table_header_1",
+                "source_priority": [
+                  "literal:Metric"
+                ],
+                "role": "mini_table_header_left"
+              },
+              {
+                "target_field": "table_header_2",
+                "source_priority": [
+                  "literal:Read-through"
+                ],
+                "role": "mini_table_header_right"
+              },
+              {
+                "target_field": "table_row_1",
+                "source_priority": [
+                  "key_data_points[0]"
+                ],
+                "role": "mini_table_row_1"
+              },
+              {
+                "target_field": "table_row_2",
+                "source_priority": [
+                  "supporting_bullets[1]"
+                ],
+                "role": "mini_table_row_2"
+              },
+              {
+                "target_field": "table_row_3",
+                "source_priority": [
+                  "implication_for_target"
+                ],
+                "role": "mini_table_row_3"
+              }
+            ],
+            "chart_title": {
+              "source_priority": [
+                "chart_suggestion.title",
+                "slide_title"
+              ],
+              "role": "market_segmentation_visual_title"
+            },
+            "source_footer": {
+              "source_priority": [
+                "sources"
+              ],
+              "role": "page_source_footer"
+            }
+          }
+        }
+      }
+    },
+    {
+      "slide_no": 3,
+      "slide_key": "key_industry_drivers",
+      "selected_page_type": "driver_card_page",
+      "ppt_copy_fields": {
+        "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
+        "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+        "cards": [
+          { "target_field": "card_1", "source_priority": ["drivers[0]"], "role": "demand_side_driver" },
+          { "target_field": "card_2", "source_priority": ["drivers[1]"], "role": "supply_side_driver" },
+          { "target_field": "card_3", "source_priority": ["drivers[2]"], "role": "technology_or_channel_driver" },
+          { "target_field": "card_4", "source_priority": ["drivers[3]"], "role": "policy_or_institutional_driver" }
+        ],
+        "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+      }
+    },
+    {
+      "slide_no": 4,
+      "slide_key": "value_chain_profit_pool",
+      "selected_page_type": "value_chain_page",
+      "ppt_copy_fields": {
+        "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
+        "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+        "panels": [
+          { "target_field": "top_left", "source_priority": ["value_chain.upstream"], "role": "upstream_stage" },
+          { "target_field": "top_center", "source_priority": ["value_chain.midstream"], "role": "midstream_stage" },
+          { "target_field": "top_right", "source_priority": ["value_chain.downstream"], "role": "downstream_stage" },
+          { "target_field": "bottom_left", "source_priority": ["value_chain.profit_pool_observation"], "role": "profit_pool_view" },
+          { "target_field": "bottom_center", "source_priority": ["value_chain.key_barriers_by_stage"], "role": "key_barriers_by_stage" },
+          { "target_field": "bottom_right", "source_priority": ["value_chain.target_positioning", "value_chain.extension_opportunities"], "role": "target_positioning_and_extension" }
+        ],
+        "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+      }
+    },
+    {
+      "slide_no": 5,
+      "slide_key": "key_barriers_value_drivers",
+      "selected_page_type": "moat_page",
+      "ppt_copy_fields": {
+        "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
+        "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+        "cards": [
+          { "target_field": "card_1", "source_priority": ["barriers[0]"], "role": "barrier_1" },
+          { "target_field": "card_2", "source_priority": ["barriers[1]"], "role": "barrier_2" },
+          { "target_field": "card_3", "source_priority": ["barriers[2]"], "role": "barrier_3" }
+        ],
+        "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+      }
+    },
+    {
+      "slide_no": 6,
+      "slide_key": "competitive_landscape",
+      "controlled_variants": {
+        "compare_table_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title", "main_takeaway"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "table_fields": [
+              { "target_field": "table_header", "source_priority": ["literal:Peer / positioning"], "role": "compare_table_header" },
+              { "target_field": "table_row_1", "source_priority": ["competition.key_players[0]"], "role": "compare_table_row_1" },
+              { "target_field": "table_row_2", "source_priority": ["competition.key_players[1]"], "role": "compare_table_row_2" },
+              { "target_field": "table_row_3", "source_priority": ["competition.key_players[2]"], "role": "compare_table_row_3" },
+              { "target_field": "table_row_4", "source_priority": ["competition.market_concentration"], "role": "compare_table_structural_judgment_1" },
+              { "target_field": "table_row_5", "source_priority": ["competition.industry_structure"], "role": "compare_table_structural_judgment_2" },
+              { "target_field": "table_row_6", "source_priority": ["competition.competitive_dimensions"], "role": "compare_table_structural_judgment_3" }
+            ],
+            "panels": [
+              { "target_field": "right_top", "source_priority": ["competition.industry_structure"], "role": "industry_structure_judgment" },
+              { "target_field": "right_mid", "source_priority": ["competition.industry_evolution"], "role": "industry_evolution" },
+              { "target_field": "right_bottom", "source_priority": ["competition.target_relative_positioning"], "role": "target_relative_positioning" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        },
+        "matrix_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title", "main_takeaway"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "matrix_fields": [
+              { "target_field": "left_panel", "source_priority": ["competition.key_players", "competition.market_concentration"], "role": "matrix_supporting_player_notes" },
+              { "target_field": "matrix_title", "source_priority": ["chart_suggestion.title", "slide_title"], "role": "matrix_title" },
+              { "target_field": "matrix_label_x", "source_priority": ["literal:Channel reach"], "role": "matrix_axis_x" },
+              { "target_field": "matrix_label_y", "source_priority": ["literal:Premium perception"], "role": "matrix_axis_y" }
+            ],
+            "panels": [
+              { "target_field": "right_top", "source_priority": ["competition.industry_structure"], "role": "industry_structure_judgment" },
+              { "target_field": "right_mid", "source_priority": ["competition.industry_evolution"], "role": "industry_evolution" },
+              { "target_field": "right_bottom", "source_priority": ["competition.target_relative_positioning"], "role": "target_relative_positioning" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        }
+      }
+    },
+    {
+      "slide_no": 7,
+      "slide_key": "industry_trends_future_evolution",
+      "controlled_variants": {
+        "trend_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title", "main_takeaway"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "cards": [
+              { "target_field": "card_1", "source_priority": ["trends[0]"], "role": "trend_1" },
+              { "target_field": "card_2", "source_priority": ["trends[1]"], "role": "trend_2" },
+              { "target_field": "card_3", "source_priority": ["trends[2]"], "role": "trend_3" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        },
+        "timeline_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title", "main_takeaway"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "timeline_fields": [
+              { "target_field": "stage_1", "source_priority": ["trends[0]"], "role": "timeline_stage_1" },
+              { "target_field": "stage_2", "source_priority": ["trends[1]"], "role": "timeline_stage_2" },
+              { "target_field": "stage_3", "source_priority": ["trends[2]"], "role": "timeline_stage_3" },
+              { "target_field": "stage_4", "source_priority": ["implication_for_target"], "role": "timeline_stage_4" },
+              { "target_field": "timeline_note", "source_priority": ["chart_suggestion.note", "implication_for_target"], "role": "timeline_note" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        }
+      }
+    },
+    {
+      "slide_no": 8,
+      "slide_key": "key_takeaways_for_target",
+      "selected_page_type": "summary_page",
+      "ppt_copy_fields": {
+        "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
+        "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+        "panels": [
+          { "target_field": "left_panel", "source_priority": ["target_summary.why_industry_is_attractive"], "role": "why_industry_is_attractive" },
+          { "target_field": "right_top", "source_priority": ["target_summary.why_target_is_well_positioned"], "role": "why_target_is_well_positioned" },
+          { "target_field": "right_mid", "source_priority": ["target_summary.key_industry_changes_benefiting_target"], "role": "key_industry_changes_benefiting_target" },
+          { "target_field": "right_bottom", "source_priority": ["target_summary.open_diligence_questions"], "role": "open_diligence_questions" }
+        ],
+        "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+      }
+    }
+  ],
+  "formatting_rules": {
+    "objects_should_remain_structurally_distinct": true,
+    "arrays_should_be_compressed_to_concise_ppt_lines": true,
+    "competitive_landscape_compare_table_row_6_may_flatten_competitive_dimensions_array": true,
+    "objects_should_be_rendered_as_concise_label_value_or_claim_evidence_lines": true,
+    "missing_values_follow_qc_and_fallback_policy": true,
+    "variant_selection_is_controlled_by_storyboard": true
+  }
+}

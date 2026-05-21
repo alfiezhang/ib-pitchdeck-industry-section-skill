@@ -1,0 +1,23 @@
+.DS_Store
+
+# Python caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local tool state
+.claude/
+.env
+.env.*
+
+# Ad hoc scratch directories
+ref/
+dist/
+
+# Generated test outputs
+test/**/artifacts/
+test/**/replacement_dict.json
+test/**/filled_ppt_validation.json
+test/**/industry_section_filled.pptx
+test/**/industry_section_filled_clean.pptx

@@ -1,0 +1,25 @@
+{
+  "target_company": "",
+  "transaction_type": "",
+  "industry": "",
+  "subsector": "",
+  "geography": "",
+  "language": "English",
+  "deal_context": "",
+  "target_business_summary": "",
+  "known_investment_highlights": [],
+  "known_risks_or_open_questions": [],
+  "source_materials": [
+    {
+      "source_name": "",
+      "source_type": "",
+      "source_date": "",
+      "geography": "",
+      "notes": ""
+    }
+  ],
+  "management_hypotheses": [],
+  "peer_set": [],
+  "must_cover_topics": [],
+  "must_avoid_topics": []
+}

@@ -1,0 +1,366 @@
+{
+  "template_file": "assets/industry_section_template_master.pptx",
+  "replacement_method": "text_token_search_replace",
+  "layout_binding_by_slide": {
+    "1": {
+      "selected_page_type": "summary_page",
+      "structure_summary": "Definition and subsegments on the left, market context in the middle, conclusion-led takeaways on the right.",
+      "field_roles": {
+        "slide_title": "conclusion_led_page_title",
+        "main_takeaway": "page_conclusion",
+        "bullet_1": "industry_definition_or_scope",
+        "bullet_2": "market_size_or_growth_context",
+        "bullet_3": "key_takeaway_or_stage_statement",
+        "chart_title": "market_context_visual_title",
+        "source_footer": "page_source_footer"
+      }
+    },
+    "2": {
+      "selection_mode": "controlled_choice",
+      "page_type_to_variant_key": {
+        "chart_page": "02a",
+        "chart_plus_mini_table_page": "02b"
+      },
+      "variants": {
+        "chart_page": {
+          "variant_key": "02a",
+          "structure_summary": "Chart-led page with three supporting readout bullets.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "bullet_1": "total_market_context",
+            "bullet_2": "segment_breakdown_context",
+            "bullet_3": "structural_shift_conclusion",
+            "chart_title": "market_segmentation_visual_title",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "chart_plus_mini_table_page": {
+          "variant_key": "02b",
+          "structure_summary": "Chart-led page with a compact mini-table for supporting segment detail.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "bullet_1": "chart_readthrough_primary",
+            "bullet_2": "chart_readthrough_secondary",
+            "table_header_1": "mini_table_header_left",
+            "table_header_2": "mini_table_header_right",
+            "table_row_1": "mini_table_row_1",
+            "table_row_2": "mini_table_row_2",
+            "table_row_3": "mini_table_row_3",
+            "chart_title": "market_segmentation_visual_title",
+            "source_footer": "page_source_footer"
+          }
+        }
+      }
+    },
+    "3": {
+      "selected_page_type": "driver_card_page",
+      "structure_summary": "Driver-card page with distinct modules rather than blended bullets.",
+      "field_roles": {
+        "slide_title": "conclusion_led_page_title",
+        "main_takeaway": "page_conclusion",
+        "card_1": "demand_side_driver",
+        "card_2": "supply_side_driver",
+        "card_3": "technology_or_channel_driver",
+        "card_4": "policy_or_institutional_driver",
+        "source_footer": "page_source_footer"
+      }
+    },
+    "4": {
+      "selected_page_type": "value_chain_page",
+      "structure_summary": "Top row for value-chain stages, bottom row for profit pool, barriers, and target positioning.",
+      "field_roles": {
+        "slide_title": "conclusion_led_page_title",
+        "main_takeaway": "page_conclusion",
+        "top_left": "upstream_stage",
+        "top_center": "midstream_stage",
+        "top_right": "downstream_stage",
+        "bottom_left": "profit_pool_view",
+        "bottom_center": "key_barriers_by_stage",
+        "bottom_right": "target_positioning_and_extension",
+        "source_footer": "page_source_footer"
+      }
+    },
+    "5": {
+      "selected_page_type": "moat_page",
+      "structure_summary": "Three moat modules, each tied to commercial consequences and target relevance.",
+      "field_roles": {
+        "slide_title": "conclusion_led_page_title",
+        "main_takeaway": "page_conclusion",
+        "card_1": "barrier_1",
+        "card_2": "barrier_2",
+        "card_3": "barrier_3",
+        "source_footer": "page_source_footer"
+      }
+    },
+    "6": {
+      "selection_mode": "controlled_choice",
+      "page_type_to_variant_key": {
+        "compare_table_page": "06a",
+        "matrix_page": "06b"
+      },
+      "variants": {
+        "compare_table_page": {
+          "variant_key": "06a",
+          "structure_summary": "Peer-comparison table on the left with structure judgment and target positioning panels on the right.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "table_header": "compare_table_header",
+            "table_row_1": "compare_table_row_1",
+            "table_row_2": "compare_table_row_2",
+            "table_row_3": "compare_table_row_3",
+            "table_row_4": "compare_table_row_4",
+            "table_row_5": "compare_table_row_5",
+            "table_row_6": "compare_table_row_6",
+            "right_top": "industry_structure_judgment",
+            "right_mid": "industry_evolution",
+            "right_bottom": "target_relative_positioning",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "matrix_page": {
+          "variant_key": "06b",
+          "structure_summary": "Positioning matrix with supporting player notes on the left and interpretive panels on the right.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "left_panel": "matrix_supporting_player_notes",
+            "matrix_title": "matrix_title",
+            "matrix_label_x": "matrix_axis_x",
+            "matrix_label_y": "matrix_axis_y",
+            "right_top": "industry_structure_judgment",
+            "right_mid": "industry_evolution",
+            "right_bottom": "target_relative_positioning",
+            "source_footer": "page_source_footer"
+          }
+        }
+      }
+    },
+    "7": {
+      "selection_mode": "controlled_choice",
+      "page_type_to_variant_key": {
+        "trend_page": "07a",
+        "timeline_page": "07b"
+      },
+      "variants": {
+        "trend_page": {
+          "variant_key": "07a",
+          "structure_summary": "Three parallel trend cards with evidence and implication.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "card_1": "trend_1",
+            "card_2": "trend_2",
+            "card_3": "trend_3",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "timeline_page": {
+          "variant_key": "07b",
+          "structure_summary": "Sequential timeline view showing how the industry evolves over time.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "stage_1": "timeline_stage_1",
+            "stage_2": "timeline_stage_2",
+            "stage_3": "timeline_stage_3",
+            "stage_4": "timeline_stage_4",
+            "timeline_note": "timeline_note",
+            "source_footer": "page_source_footer"
+          }
+        }
+      }
+    },
+    "8": {
+      "selected_page_type": "summary_page",
+      "structure_summary": "Synthesis page combining attractiveness, target positioning, key benefits, and DD questions.",
+      "field_roles": {
+        "slide_title": "conclusion_led_page_title",
+        "main_takeaway": "page_conclusion",
+        "left_panel": "why_industry_is_attractive",
+        "right_top": "why_target_is_well_positioned",
+        "right_mid": "key_industry_changes_benefiting_target",
+        "right_bottom": "open_diligence_questions",
+        "source_footer": "page_source_footer"
+      }
+    }
+  },
+  "slides": [
+    {
+      "slide_no": 1,
+      "slide_key": "industry_overview",
+      "selected_page_type": "summary_page",
+      "tokens": [
+        { "placeholder": "{{slide_01_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+        { "placeholder": "{{slide_01_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+        { "placeholder": "{{slide_01_bullet_1}}", "field_name": "bullet_1", "max_chars": 120, "notes": "" },
+        { "placeholder": "{{slide_01_bullet_2}}", "field_name": "bullet_2", "max_chars": 120, "notes": "" },
+        { "placeholder": "{{slide_01_bullet_3}}", "field_name": "bullet_3", "max_chars": 120, "notes": "" },
+        { "placeholder": "{{slide_01_chart_title}}", "field_name": "chart_title", "max_chars": 75, "notes": "" },
+        { "placeholder": "{{slide_01_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+      ]
+    },
+    {
+      "slide_no": 2,
+      "slide_key": "market_size_segmentation",
+      "controlled_variants": {
+        "chart_page": {
+          "variant_key": "02a",
+          "tokens": [
+            { "placeholder": "{{slide_02a_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_02a_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_02a_bullet_1}}", "field_name": "bullet_1", "max_chars": 120, "notes": "" },
+            { "placeholder": "{{slide_02a_bullet_2}}", "field_name": "bullet_2", "max_chars": 120, "notes": "" },
+            { "placeholder": "{{slide_02a_bullet_3}}", "field_name": "bullet_3", "max_chars": 120, "notes": "" },
+            { "placeholder": "{{slide_02a_chart_title}}", "field_name": "chart_title", "max_chars": 75, "notes": "" },
+            { "placeholder": "{{slide_02a_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "chart_plus_mini_table_page": {
+          "variant_key": "02b",
+          "tokens": [
+            { "placeholder": "{{slide_02b_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_02b_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_02b_bullet_1}}", "field_name": "bullet_1", "max_chars": 120, "notes": "" },
+            { "placeholder": "{{slide_02b_bullet_2}}", "field_name": "bullet_2", "max_chars": 120, "notes": "" },
+            { "placeholder": "{{slide_02b_table_header_1}}", "field_name": "table_header_1", "max_chars": 45, "notes": "" },
+            { "placeholder": "{{slide_02b_table_header_2}}", "field_name": "table_header_2", "max_chars": 55, "notes": "" },
+            { "placeholder": "{{slide_02b_table_row_1}}", "field_name": "table_row_1", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_02b_table_row_2}}", "field_name": "table_row_2", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_02b_table_row_3}}", "field_name": "table_row_3", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_02b_chart_title}}", "field_name": "chart_title", "max_chars": 75, "notes": "" },
+            { "placeholder": "{{slide_02b_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        }
+      }
+    },
+    {
+      "slide_no": 3,
+      "slide_key": "key_industry_drivers",
+      "selected_page_type": "driver_card_page",
+      "tokens": [
+        { "placeholder": "{{slide_03_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+        { "placeholder": "{{slide_03_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+        { "placeholder": "{{slide_03_card_1}}", "field_name": "card_1", "max_chars": 160, "notes": "" },
+        { "placeholder": "{{slide_03_card_2}}", "field_name": "card_2", "max_chars": 160, "notes": "" },
+        { "placeholder": "{{slide_03_card_3}}", "field_name": "card_3", "max_chars": 160, "notes": "" },
+        { "placeholder": "{{slide_03_card_4}}", "field_name": "card_4", "max_chars": 160, "notes": "" },
+        { "placeholder": "{{slide_03_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+      ]
+    },
+    {
+      "slide_no": 4,
+      "slide_key": "value_chain_profit_pool",
+      "selected_page_type": "value_chain_page",
+      "tokens": [
+        { "placeholder": "{{slide_04_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+        { "placeholder": "{{slide_04_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+        { "placeholder": "{{slide_04_top_left}}", "field_name": "top_left", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_04_top_center}}", "field_name": "top_center", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_04_top_right}}", "field_name": "top_right", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_04_bottom_left}}", "field_name": "bottom_left", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_04_bottom_center}}", "field_name": "bottom_center", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_04_bottom_right}}", "field_name": "bottom_right", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_04_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+      ]
+    },
+    {
+      "slide_no": 5,
+      "slide_key": "key_barriers_value_drivers",
+      "selected_page_type": "moat_page",
+      "tokens": [
+        { "placeholder": "{{slide_05_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+        { "placeholder": "{{slide_05_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+        { "placeholder": "{{slide_05_card_1}}", "field_name": "card_1", "max_chars": 160, "notes": "" },
+        { "placeholder": "{{slide_05_card_2}}", "field_name": "card_2", "max_chars": 160, "notes": "" },
+        { "placeholder": "{{slide_05_card_3}}", "field_name": "card_3", "max_chars": 160, "notes": "" },
+        { "placeholder": "{{slide_05_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+      ]
+    },
+    {
+      "slide_no": 6,
+      "slide_key": "competitive_landscape",
+      "controlled_variants": {
+        "compare_table_page": {
+          "variant_key": "06a",
+          "tokens": [
+            { "placeholder": "{{slide_06a_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_06a_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_06a_table_header}}", "field_name": "table_header", "max_chars": 60, "notes": "" },
+            { "placeholder": "{{slide_06a_table_row_1}}", "field_name": "table_row_1", "max_chars": 110, "notes": "" },
+            { "placeholder": "{{slide_06a_table_row_2}}", "field_name": "table_row_2", "max_chars": 110, "notes": "" },
+            { "placeholder": "{{slide_06a_table_row_3}}", "field_name": "table_row_3", "max_chars": 110, "notes": "" },
+            { "placeholder": "{{slide_06a_table_row_4}}", "field_name": "table_row_4", "max_chars": 110, "notes": "" },
+            { "placeholder": "{{slide_06a_table_row_5}}", "field_name": "table_row_5", "max_chars": 110, "notes": "" },
+            { "placeholder": "{{slide_06a_table_row_6}}", "field_name": "table_row_6", "max_chars": 110, "notes": "" },
+            { "placeholder": "{{slide_06a_right_top}}", "field_name": "right_top", "max_chars": 190, "notes": "" },
+            { "placeholder": "{{slide_06a_right_mid}}", "field_name": "right_mid", "max_chars": 190, "notes": "" },
+            { "placeholder": "{{slide_06a_right_bottom}}", "field_name": "right_bottom", "max_chars": 190, "notes": "" },
+            { "placeholder": "{{slide_06a_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "matrix_page": {
+          "variant_key": "06b",
+          "tokens": [
+            { "placeholder": "{{slide_06b_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_06b_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_06b_left_panel}}", "field_name": "left_panel", "max_chars": 190, "notes": "" },
+            { "placeholder": "{{slide_06b_matrix_title}}", "field_name": "matrix_title", "max_chars": 75, "notes": "" },
+            { "placeholder": "{{slide_06b_matrix_label_x}}", "field_name": "matrix_label_x", "max_chars": 45, "notes": "" },
+            { "placeholder": "{{slide_06b_matrix_label_y}}", "field_name": "matrix_label_y", "max_chars": 45, "notes": "" },
+            { "placeholder": "{{slide_06b_right_top}}", "field_name": "right_top", "max_chars": 190, "notes": "" },
+            { "placeholder": "{{slide_06b_right_mid}}", "field_name": "right_mid", "max_chars": 190, "notes": "" },
+            { "placeholder": "{{slide_06b_right_bottom}}", "field_name": "right_bottom", "max_chars": 190, "notes": "" },
+            { "placeholder": "{{slide_06b_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        }
+      }
+    },
+    {
+      "slide_no": 7,
+      "slide_key": "industry_trends_future_evolution",
+      "controlled_variants": {
+        "trend_page": {
+          "variant_key": "07a",
+          "tokens": [
+            { "placeholder": "{{slide_07a_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07a_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_07a_card_1}}", "field_name": "card_1", "max_chars": 160, "notes": "" },
+            { "placeholder": "{{slide_07a_card_2}}", "field_name": "card_2", "max_chars": 160, "notes": "" },
+            { "placeholder": "{{slide_07a_card_3}}", "field_name": "card_3", "max_chars": 160, "notes": "" },
+            { "placeholder": "{{slide_07a_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "timeline_page": {
+          "variant_key": "07b",
+          "tokens": [
+            { "placeholder": "{{slide_07b_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07b_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_07b_stage_1}}", "field_name": "stage_1", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07b_stage_2}}", "field_name": "stage_2", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07b_stage_3}}", "field_name": "stage_3", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07b_stage_4}}", "field_name": "stage_4", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07b_timeline_note}}", "field_name": "timeline_note", "max_chars": 120, "notes": "" },
+            { "placeholder": "{{slide_07b_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        }
+      }
+    },
+    {
+      "slide_no": 8,
+      "slide_key": "key_takeaways_for_target",
+      "selected_page_type": "summary_page",
+      "tokens": [
+        { "placeholder": "{{slide_08_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+        { "placeholder": "{{slide_08_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+        { "placeholder": "{{slide_08_left_panel}}", "field_name": "left_panel", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_08_right_top}}", "field_name": "right_top", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_08_right_mid}}", "field_name": "right_mid", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_08_right_bottom}}", "field_name": "right_bottom", "max_chars": 190, "notes": "" },
+        { "placeholder": "{{slide_08_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+      ]
+    }
+  ]
+}

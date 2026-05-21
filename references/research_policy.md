@@ -1,0 +1,68 @@
+# Research Policy
+
+Use this file when the workflow starts from a brief, attachments, or an existing memo that the user wants to expand.
+
+## Research Baseline
+- Web research is mandatory unless the user already provided `industry_input_memo.md` and explicitly said not to expand it.
+- Provided materials are high-priority inputs, but they do not replace Web research.
+- The memo must stay transaction-oriented and target-linked. Do not drift into a generic industry report.
+- If Web research is not actually completed, do not silently finish the memo. Record `HIGH PRIORITY GAP: online research not completed`.
+- Search for the latest source first. Do not anchor queries to a stale year such as `2024` unless the task is explicitly limited to that period or you are checking a known year-specific source.
+- Treat `source freshness` and `data period` separately: the freshest source may still report 2024 data, and that is acceptable if it is the latest available disclosure.
+
+## Search Tool Fallback
+
+**Three-tier fallback** when built-in `WebSearch` / `WebFetch` are unreliable:
+
+1. **First**: use AI built-in `WebSearch` / `WebFetch`
+2. **Detect hallucination** (treat as failure):
+   - Response contains "I don't have a web search tool", "I'd be happy to help but", "I can suggest"
+   - No actual URLs in the response
+   - Returns only general advice without specific data points
+   - Data conflicts with known facts from user-provided materials
+3. **Fallback 1 — Tavily**: `python scripts/web_search.py --query "..." --provider tavily --output tmp/search_results.json`
+4. **Fallback 2 — DuckDuckGo**: `python scripts/web_search.py --query "..." --provider duckduckgo --output tmp/search_results.json`
+5. **Auto mode**: `python scripts/web_search.py --query "..." --output tmp/search_results.json` (Tavily → DuckDuckGo)
+6. Read the JSON results file and continue research
+
+The fallback script is at `scripts/web_search.py`. Install deps with `bash ./setup.sh` or `python -m pip install -r requirements.txt`.
+
+## Source Hierarchy
+Prefer sources in this order when facts conflict:
+1. user-provided primary materials, management materials, CIM excerpts, diligence materials
+2. official company disclosures, annual reports, regulatory filings, regulator or industry-association publications
+3. high-quality databases, broker research, and established industry reports
+4. reputable media and second-hand commentary
+
+When sources conflict, prefer the one that is:
+- more reliable
+- more recent
+- more aligned with the exact geography, period, and metric definition in scope
+
+## Fact Discipline
+- Hard numbers such as market size, CAGR, market share, rankings, margins, pricing, and regulatory claims need direct support.
+- If direct support is missing, use `Insufficient data` instead of inventing a number.
+- For every `Key Data Points` item, fill `Confidence` as one of:
+  - `verified`: directly supported by a cited source used in this run
+  - `inferred`: reasoned synthesis or calculation from cited facts
+  - `training_data`: background knowledge not verified in this run and requiring follow-up
+- Directional judgments are allowed when they are useful for transaction framing, but label them as inference or management hypothesis rather than settled fact.
+- Do not carry unsupported claims from an older memo forward as facts during memo expansion.
+- If something is important and missing, use `HIGH PRIORITY GAP: ...`.
+- If something should be improved but is not blocking, use `RECOMMENDED TO SUPPLEMENT: ...`.
+
+## Memo Construction Rules
+- Preserve the memo template headings, field names, and order exactly. Do not merge, rename, delete, or reorder fields.
+- Always separate `Provided Material Sources` from `Online Research Sources`.
+- If attachments are used to expand an existing memo, note that in `Source Materials` notes when useful.
+- Infer `Industry`, `Subsector`, and `Geography` from the provided materials plus Web research rather than pre-setting them without support.
+- If multiple industry-definition cuts are plausible, choose the one most suitable for a pitchbook industry chapter and note the boundary in `Industry Definition` or `Definition Risks`.
+- If `Industry`, `Subsector`, or `Geography` still cannot be determined reliably, write `Insufficient data` or a `HIGH PRIORITY GAP`.
+- `Output Language` must be either `English` or `Chinese`.
+- `Source Reliability` must be one of `primary`, `secondary`, or `low-certainty`.
+- Keep each page tied to the Target through implication, positioning, diligence questions, or strategic relevance.
+- `Presentation Hint`, `What should dominate this page`, and `Visual Candidate` are soft guidance only.
+- If a page is likely to require a quantitative chart, preserve chart-ready datapoints in the page notes:
+  categories, series values, units, period, geography, and exact source row logic where possible.
+- Do not let research notes or old memo language lock the final page type for Slides 2, 6, or 7.
+- Fill `Additional Sector-Specific Notes`, `HIGH PRIORITY GAP`, `RECOMMENDED TO SUPPLEMENT`, and `Definition Risks` explicitly instead of omitting them.

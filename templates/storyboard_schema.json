@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Industry Storyboard",
+  "description": "Single-step LLM reasoning artifact that merges storyline strategy, page planning, page type selection, slide-level PPT copy, and template binding for the IB Industry Section workflow.",
+  "type": "object",
+  "required": ["section_meta", "storyline_strategy", "slides", "template_binding", "qc_self_check"],
+  "properties": {
+    "section_meta": {
+      "type": "object",
+      "description": "Top-level metadata for this industry section generation run.",
+      "required": ["target_name", "industry", "language", "output_mode", "source_memo"],
+      "properties": {
+        "target_name": { "type": "string", "description": "Target company name." },
+        "industry": { "type": "string", "description": "Industry classification (e.g., 'China Premium Tea-based Beverage Chain')." },
+        "geography": { "type": "string", "description": "Primary geography (e.g., 'China', 'Asia-Pacific')." },
+        "language": { "type": "string", "enum": ["en", "zh-CN"], "description": "Output language." },
+        "output_mode": { "type": "string", "enum": ["standard_8_slide"], "description": "Output mode. Currently only standard_8_slide is supported." },
+        "source_memo": { "type": "string", "description": "Path to the canonical industry_input_memo.md used as input." }
+      }
+    },
+    "storyline_strategy": {
+      "type": "object",
+      "description": "Narrative strategy that governs the entire 8-slide section. This is where LLM reasoning about the industry thesis lives.",
+      "required": ["one_sentence_thesis", "transaction_relevance", "primary_investor_questions", "key_messages"],
+      "properties": {
+        "one_sentence_thesis": { "type": "string", "description": "The single most important conclusion this industry section should leave the reader with." },
+        "transaction_relevance": { "type": "string", "description": "Why this industry story matters for the transaction (IPO, M&A, fundraising, etc.)." },
+        "primary_investor_questions": {
+          "type": "array", "items": { "type": "string" },
+          "description": "The 3-5 most important questions an investor would ask about this industry in the context of this transaction."
+        },
+        "key_messages": {
+          "type": "array", "items": { "type": "string" },
+          "description": "The 5-8 key messages that the 8-slide section must convey. Each message should map to roughly one slide."
+        },
+        "known_weaknesses_or_data_gaps": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Known limitations: data that could not be verified, segments with weak sourcing, or analytical gaps."
+        },
+        "tone_guidance": { "type": "string", "description": "Tone direction: bullish, balanced, cautious, defensive, etc., with rationale." }
+      }
+    },
+    "slides": {
+      "type": "array",
+      "description": "The 8-slide page plan. Each slide includes narrative role, page type selection with rationale, and PPT-ready copy.",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["slide_no", "slide_role", "selected_page_type", "decision_rationale", "headline", "main_message", "target_link", "source_note"],
+        "properties": {
+          "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+          "slide_role": {
+            "type": "string",
+            "enum": [
+              "industry_overview",
+              "market_size_segmentation",
+              "growth_drivers",
+              "value_chain_profit_pool",
+              "barriers_value_drivers",
+              "competitive_landscape",
+              "industry_trends_future_evolution",
+              "key_takeaways_for_target"
+            ]
+          },
+          "selected_page_type": {
+            "type": "string",
+            "description": "The page type chosen for this slide. Must be a valid option per templates/page_type_rules.json.",
+            "enum": [
+              "summary_page",
+              "chart_page", "chart_plus_mini_table_page",
+              "driver_card_page",
+              "value_chain_page",
+              "moat_page",
+              "compare_table_page", "matrix_page",
+              "trend_page", "timeline_page"
+            ]
+          },
+          "decision_rationale": { "type": "string", "description": "Why this page type was chosen over alternatives. Required for controlled-variant slides (2, 6, 7); for fixed slides, explain the content-structure fit." },
+          "headline": { "type": "string", "description": "Conclusion-led slide headline. Must be a complete investment insight, not a topic label." },
+          "main_message": { "type": "string", "description": "One-sentence takeaway that captures the slide's core argument." },
+          "body_copy": {
+            "type": "object",
+            "description": "Slide body content structured for PPT. Fields vary by page type. Use the field names expected by ppt_copy_schema.json for this slide role.",
+            "additionalProperties": { "type": "string" }
+          },
+          "visual_direction": { "type": "string", "description": "Guidance for chart, diagram, or visual element. What should the visual communicate? What data should drive it?" },
+          "chart_data": {
+            "type": "object",
+            "description": "Optional structured data payload for chart-ready slides. Use when the slide depends on a quantitative visual rather than only a qualitative sketch.",
+            "properties": {
+              "chart_type": { "type": "string", "description": "Suggested visual type such as bar, line, stacked_bar, matrix, waterfall, or table." },
+              "title": { "type": "string", "description": "Short chart title or caption." },
+              "categories": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "X-axis categories, time periods, segments, or buckets."
+              },
+              "series": {
+                "type": "array",
+                "description": "Series values for the chart.",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "values"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "values": {
+                      "type": "array",
+                      "items": { "type": "number" }
+                    }
+                  }
+                }
+              },
+              "unit": { "type": "string", "description": "Display unit for values, such as RMB bn, %, stores, or index." },
+              "source_rows": {
+                "type": "array",
+                "description": "Traceable source rows or datapoints used to construct the chart.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": { "type": "string" },
+                    "value": { "type": ["number", "string"] },
+                    "period": { "type": "string" },
+                    "source": { "type": "string" },
+                    "note": { "type": "string" }
+                  }
+                }
+              },
+              "notes": { "type": "string", "description": "Construction notes, caveats, or interpolation logic." }
+            },
+            "additionalProperties": false
+          },
+          "target_link": { "type": "string", "description": "Explicit connection to the target company. Every slide must answer: why does this matter for the target?" },
+          "source_note": { "type": "string", "description": "Source attribution for facts on this slide. Reference memo section or specific source name." },
+          "data_gaps": { "type": "array", "items": { "type": "string" }, "description": "Known data gaps or unverified claims on this slide." }
+        }
+      }
+    },
+    "template_binding": {
+      "type": "object",
+      "description": "Final decisions on which template variant to use for controlled-variant slides.",
+      "required": ["slide_2_variant", "slide_6_variant", "slide_7_variant"],
+      "properties": {
+        "slide_2_variant": { "type": "string", "enum": ["chart_page", "chart_plus_mini_table_page"], "description": "Selected variant for Slide 2 (market size & segmentation)." },
+        "slide_6_variant": { "type": "string", "enum": ["compare_table_page", "matrix_page"], "description": "Selected variant for Slide 6 (competitive landscape)." },
+        "slide_7_variant": { "type": "string", "enum": ["trend_page", "timeline_page"], "description": "Selected variant for Slide 7 (industry trends)." },
+        "inactive_variants_to_remove": {
+          "type": "array", "items": { "type": "string" },
+          "description": "List of page types NOT selected on variant slides. Used by clean_filled_ppt.py to remove physical slides."
+        }
+      }
+    },
+    "qc_self_check": {
+      "type": "object",
+      "description": "Self-assessment of the storyboard quality before human review.",
+      "required": ["generic_industry_report_risk", "target_linkage_check", "source_support_check", "page_repetition_check", "template_fit_check"],
+      "properties": {
+        "generic_industry_report_risk": { "type": "string", "description": "Does this read like a generic industry report? If so, what's missing to make it transaction-specific?" },
+        "target_linkage_check": { "type": "string", "description": "Does every slide explicitly connect back to the target? Flag any slide where the connection is weak." },
+        "source_support_check": { "type": "string", "description": "Are all key numbers sourced? Are any facts fabricated or unverifiable? List concerns." },
+        "page_repetition_check": { "type": "string", "description": "Is any content repeated across slides? Do adjacent slides have distinct messages?" },
+        "template_fit_check": { "type": "string", "description": "Will the copy fit in the PPT template? Are any slides overloaded with text?" }
+      }
+    }
+  }
+}

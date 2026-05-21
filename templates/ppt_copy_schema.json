@@ -1,0 +1,183 @@
+{
+  "meta": {
+    "target_company": "",
+    "transaction_type": "",
+    "industry": "",
+    "subsector": "",
+    "geography": "",
+    "language": "English"
+  },
+  "ppt_copy_slides": [
+    {
+      "slide_no": 1,
+      "slide_key": "industry_overview",
+      "selected_page_type": "summary_page",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "bullet_1": "",
+        "bullet_2": "",
+        "bullet_3": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    },
+    {
+      "slide_no": 2,
+      "slide_key": "market_size_segmentation",
+      "selected_page_type": "",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "bullet_1": "",
+        "bullet_2": "",
+        "bullet_3": "",
+        "table_header_1": "",
+        "table_header_2": "",
+        "table_row_1": "",
+        "table_row_2": "",
+        "table_row_3": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    },
+    {
+      "slide_no": 3,
+      "slide_key": "key_industry_drivers",
+      "selected_page_type": "driver_card_page",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "card_1": "",
+        "card_2": "",
+        "card_3": "",
+        "card_4": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    },
+    {
+      "slide_no": 4,
+      "slide_key": "value_chain_profit_pool",
+      "selected_page_type": "value_chain_page",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "top_left": "",
+        "top_center": "",
+        "top_right": "",
+        "bottom_left": "",
+        "bottom_center": "",
+        "bottom_right": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    },
+    {
+      "slide_no": 5,
+      "slide_key": "key_barriers_value_drivers",
+      "selected_page_type": "moat_page",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "card_1": "",
+        "card_2": "",
+        "card_3": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    },
+    {
+      "slide_no": 6,
+      "slide_key": "competitive_landscape",
+      "selected_page_type": "",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "table_header": "",
+        "table_row_1": "",
+        "table_row_2": "",
+        "table_row_3": "",
+        "table_row_4": "",
+        "table_row_5": "",
+        "table_row_6": "",
+        "left_panel": "",
+        "matrix_title": "",
+        "matrix_label_x": "",
+        "matrix_label_y": "",
+        "right_top": "",
+        "right_mid": "",
+        "right_bottom": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    },
+    {
+      "slide_no": 7,
+      "slide_key": "industry_trends_future_evolution",
+      "selected_page_type": "",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "card_1": "",
+        "card_2": "",
+        "card_3": "",
+        "stage_1": "",
+        "stage_2": "",
+        "stage_3": "",
+        "stage_4": "",
+        "timeline_note": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    },
+    {
+      "slide_no": 8,
+      "slide_key": "key_takeaways_for_target",
+      "selected_page_type": "summary_page",
+      "slide_title": "",
+      "main_takeaway": "",
+      "content": {
+        "left_panel": "",
+        "right_top": "",
+        "right_mid": "",
+        "right_bottom": ""
+      },
+      "chart_title": "",
+      "source_footer": "",
+      "speaker_note": ""
+    }
+  ],
+  "rules": {
+    "active_slide_keys_only": true,
+    "controlled_layout_variants": {
+      "market_size_segmentation": [
+        "chart_page",
+        "chart_plus_mini_table_page"
+      ],
+      "competitive_landscape": [
+        "compare_table_page",
+        "matrix_page"
+      ],
+      "industry_trends_future_evolution": [
+        "trend_page",
+        "timeline_page"
+      ]
+    },
+    "slide_02_table_fields_only_active_for_chart_plus_mini_table_page": true,
+    "inactive_variant_fields_may_remain_blank": true,
+    "selected_page_type_required_for_variant_slides": true,
+    "title_should_be_conclusion_led": true,
+    "takeaway_one_sentence_only": true,
+    "content_fields_should_follow_ppt_copy_mapping": true,
+    "content_fields_should_match_ppt_mapping_roles": true,
+    "source_footer_required": true
+  }
+}
