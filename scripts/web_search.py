@@ -9,12 +9,16 @@ Features:
   - Result quality filtering (removes noise, irrelevant domains)
   - Multi-query batch search (--queries "q1" "q2" "q3")
   - Query splitting for long CJK queries (better DDG results)
+  - Site/domain-constrained search (--site, --sites, --site-mode)
+  - Source registry integration (--source-registry, --source-pack)
 
 Usage:
   python scripts/web_search.py -q "中国目标行业市场规模"
   python scripts/web_search.py -q "示例公司 营收" --provider tavily -n 3
   python scripts/web_search.py --queries "目标行业市场规模" "示例公司营收" "目标行业趋势" -o tmp/search_batch.json
   python scripts/web_search.py -q "中国目标细分市场发展现状及未来趋势分析" --split-query
+  python scripts/web_search.py -q "年度报告 营收" --site cninfo.com.cn --site-mode priority
+  python scripts/web_search.py -q "行业趋势" --source-pack china_official --source-registry templates/source_registry.json
 
 Environment:
   TAVILY_API_KEY  — required for Tavily provider. Get free key at https://tavily.com
@@ -28,6 +32,8 @@ import os
 import re
 import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
 from urllib.parse import urlparse
 
 
@@ -183,6 +189,53 @@ def split_cjk_query(query: str) -> list[str]:
     return queries[:4]  # Cap at 4 sub-queries
 
 
+# ── Source registry ──────────────────────────────────────────────
+
+def load_source_registry(path: str) -> dict:
+    """Load source_registry.json and return the parsed object."""
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def resolve_domains(
+    source_pack_names: list[str],
+    extra_domains: list[str],
+    registry_path: Optional[str] = None,
+) -> list[str]:
+    """Resolve source pack names and extra domains into a flat, deduplicated domain list.
+
+    Priority: explicit domains first, then source pack domains in order.
+    """
+    domains = list(extra_domains)
+    seen = set(domains)
+
+    if not source_pack_names:
+        return domains
+
+    if not registry_path:
+        print("[web_search] WARNING: source packs specified but no --source-registry path", file=sys.stderr)
+        return domains
+
+    try:
+        registry = load_source_registry(registry_path)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"[web_search] WARNING: cannot load source registry: {e}", file=sys.stderr)
+        return domains
+
+    packs = registry.get("source_packs", {})
+    for pack_name in source_pack_names:
+        pack = packs.get(pack_name)
+        if pack is None:
+            print(f"[web_search] WARNING: source pack '{pack_name}' not found in registry", file=sys.stderr)
+            continue
+        for d in pack.get("domains", []):
+            if d not in seen:
+                domains.append(d)
+                seen.add(d)
+
+    return domains
+
+
 # ── Search providers ─────────────────────────────────────────────
 
 def search_tavily(query: str, max_results: int = 5) -> list[dict]:
@@ -257,6 +310,80 @@ def search_auto(query: str, max_results: int = 5) -> list[dict]:
         raise RuntimeError("all web search providers failed") from e
 
 
+def _build_site_query(query: str, domain: str) -> str:
+    """Build a site:domain query string."""
+    return f"site:{domain} {query}"
+
+
+def search_with_sites(
+    queries: list[str],
+    sites: list[str],
+    site_mode: str,
+    provider: str,
+    max_results: int,
+    source_packs: list[str],
+) -> tuple[list[dict], list[dict]]:
+    """Run queries with site: constraints and return (all_results, query_log_entries).
+
+    site_mode='only': only run site-constrained queries.
+    site_mode='priority': run site-constrained queries first, then fallback unrestricted if results are sparse.
+    """
+    # Site search only works reliably with DuckDuckGo
+    # Tavily API does not support site: prefix syntax
+    effective_provider = provider
+    if provider in ("auto", "tavily"):
+        print("[web_search] Site search requires DuckDuckGo; switching provider to duckduckgo", file=sys.stderr)
+        effective_provider = "duckduckgo"
+
+    search_fn = PROVIDERS[effective_provider]
+    all_results = []
+    seen_urls = set()
+    query_log = []
+
+    for q in queries:
+        for domain in sites:
+            site_query = _build_site_query(q, domain)
+            log_entry = {
+                "query": site_query,
+                "domain": domain,
+                "result_count": 0,
+                "mode": site_mode,
+            }
+            try:
+                results = search_fn(site_query, max_results)
+                log_entry["result_count"] = len(results)
+                for r in results:
+                    if r["url"] not in seen_urls:
+                        seen_urls.add(r["url"])
+                        all_results.append(r)
+            except Exception as e:
+                print(f"[web_search] Site query '{site_query}' failed: {e}", file=sys.stderr)
+            query_log.append(log_entry)
+
+    # In priority mode, if site-constrained results are sparse, fall back to unrestricted
+    if site_mode == "priority" and len(all_results) < max_results:
+        print(f"[web_search] Site-constrained results sparse ({len(all_results)}); running unrestricted queries...", file=sys.stderr)
+        for q in queries:
+            log_entry = {
+                "query": q,
+                "domain": None,
+                "result_count": 0,
+                "mode": "unrestricted_fallback",
+            }
+            try:
+                results = search_fn(q, max_results)
+                log_entry["result_count"] = len(results)
+                for r in results:
+                    if r["url"] not in seen_urls:
+                        seen_urls.add(r["url"])
+                        all_results.append(r)
+            except Exception as e:
+                print(f"[web_search] Unrestricted query '{q}' failed: {e}", file=sys.stderr)
+            query_log.append(log_entry)
+
+    return all_results, query_log
+
+
 def search_multi_query(queries: list[str], provider: str, max_results: int = 5) -> list[dict]:
     """Run multiple queries and merge + deduplicate results."""
     search_fn = PROVIDERS[provider]
@@ -320,6 +447,29 @@ def main():
     parser.add_argument(
         "--output", "-o", help="Output JSON file path (default: stdout)"
     )
+    # Site / domain-constrained search
+    parser.add_argument(
+        "--site",
+        help="Constrain search to a single domain (e.g., cninfo.com.cn). Forces DuckDuckGo provider."
+    )
+    parser.add_argument(
+        "--sites", nargs="+",
+        help="Constrain search to multiple domains. Forces DuckDuckGo provider."
+    )
+    parser.add_argument(
+        "--site-mode",
+        choices=["priority", "only"],
+        default="priority",
+        help="priority = site search first, fallback unrestricted if sparse; only = site search only (default: priority)"
+    )
+    parser.add_argument(
+        "--source-registry",
+        help="Path to templates/source_registry.json for resolving source packs"
+    )
+    parser.add_argument(
+        "--source-pack", action="append", dest="source_packs", default=[],
+        help="Source pack name(s) from the registry to use as domain constraints (repeatable: --source-pack china_official --source-pack consulting_reports)"
+    )
     args = parser.parse_args()
 
     if not args.query and not args.queries:
@@ -331,13 +481,64 @@ def main():
         queries = split_cjk_query(queries[0])
         print(f"[web_search] Split into {len(queries)} sub-queries: {queries}", file=sys.stderr)
 
-    # Search
-    if len(queries) > 1:
+    # Resolve sites from --site, --sites, and --source-pack
+    sites = []
+    if args.site:
+        sites.append(args.site)
+    if args.sites:
+        for s in args.sites:
+            if s not in sites:
+                sites.append(s)
+
+    # Resolve source pack domains
+    if args.source_packs and args.source_registry:
+        pack_domains = resolve_domains(args.source_packs, [], args.source_registry)
+        for d in pack_domains:
+            if d not in sites:
+                sites.append(d)
+    elif args.source_packs and not args.source_registry:
+        print("[web_search] WARNING: --source-pack specified without --source-registry; ignoring packs", file=sys.stderr)
+
+    query_log = []
+    if sites:
+        print(f"[web_search] Site mode: {args.site_mode}, domains: {sites}", file=sys.stderr)
+        all_results, query_log = search_with_sites(
+            queries=queries,
+            sites=sites,
+            site_mode=args.site_mode,
+            provider=args.provider,
+            max_results=args.max_results,
+            source_packs=args.source_packs,
+        )
+        provider_used = "duckduckgo"  # Site search always uses DDG
+    elif len(queries) > 1:
         print(f"[web_search] Running {len(queries)} queries...", file=sys.stderr)
-        results = search_multi_query(queries, args.provider, args.max_results)
+        all_results = search_multi_query(queries, args.provider, args.max_results)
+        provider_used = args.provider
+        if provider_used == "auto" and all_results:
+            provider_used = all_results[0].get("source", "unknown")
+        # Build simple query log for non-site mode
+        for q in queries:
+            query_log.append({
+                "query": q,
+                "domain": None,
+                "result_count": None,
+                "mode": "unrestricted",
+            })
     else:
         search_fn = PROVIDERS[args.provider]
-        results = search_fn(queries[0], args.max_results)
+        all_results = search_fn(queries[0], args.max_results)
+        provider_used = args.provider
+        if provider_used == "auto" and all_results:
+            provider_used = all_results[0].get("source", "unknown")
+        query_log.append({
+            "query": queries[0],
+            "domain": None,
+            "result_count": None,
+            "mode": "unrestricted",
+        })
+
+    results = all_results
 
     # Filter
     if not args.no_filter:
@@ -348,10 +549,8 @@ def main():
         if filtered:
             print(f"[web_search] Filtered out {filtered} low-quality results", file=sys.stderr)
 
-    # Output
-    provider_used = args.provider
-    if provider_used == "auto" and results:
-        provider_used = results[0].get("source", "unknown")
+    # Populate actual result counts in query log after filtering
+    # (We don't know per-query counts post-merge, so leave as-is or update from pre-filter)
 
     output = {
         "queries": queries,
@@ -361,10 +560,22 @@ def main():
         "results": results,
     }
 
+    # Add site/search metadata when site search or source packs are active
+    if sites:
+        output["site_mode"] = args.site_mode
+        output["sites"] = sites
+        output["source_packs"] = args.source_packs
+        output["queries_executed"] = query_log
+    elif args.source_packs:
+        output["source_packs"] = args.source_packs
+        output["queries_executed"] = query_log
+
     json_str = json.dumps(output, ensure_ascii=False, indent=2)
 
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
             f.write(json_str)
         print(f"[web_search] {len(results)} results written to {args.output}", file=sys.stderr)
     else:

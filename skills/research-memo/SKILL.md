@@ -16,9 +16,10 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 
 | Input | Required | Purpose |
 |-------|----------|---------|
-| Target brief / input card | Yes | Transaction context: target name, industry, transaction type |
+| Target brief / input card | Yes | Transaction context: target name, industry, transaction type, and optional `research_direction` |
 | User attachments | No | Pitchbook drafts, CIM extracts, equity research, consultant reports |
 | Existing `industry_input_memo.md` | No | If provided, this becomes expansion mode (refresh and deepen, don't start from scratch) |
+| `templates/source_registry.json` | Auto | Default source packs and domains for priority search |
 
 ## Starting Modes
 
@@ -32,6 +33,34 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 - Default behavior: expand with Web research (refresh stale data, deepen weak sections, fill gaps)
 - If user explicitly says "do not expand": treat memo as canonical, skip research
 
+## Source Priority
+
+Before starting search, resolve the source domain priority chain:
+
+1. **User-specified**: `input_card.research_direction.preferred_source_domains` or `priority_websites`
+2. **User-specified source packs**: `input_card.research_direction.preferred_source_packs`
+3. **Default source packs**: `templates/source_registry.json` → `default_packs`
+4. **Unrestricted web search**
+
+Use `scripts/web_search.py --site` / `--source-pack` / `--source-registry` for domain-constrained search.
+Site mode forces DuckDuckGo because Tavily API does not support `site:` syntax.
+
+## Multi-Round Search
+
+Research must cover all 9 dimensions. See `references/research_policy.md` for the detailed search matrix.
+
+Each of the 9 dimensions requires at minimum:
+- 1 broad query
+- 1 domain-constrained (source-pack or preferred-domain) query
+- 1 latest/current query (for time-sensitive dimensions)
+
+If the user provides a peer set, search each core peer for:
+- Company disclosure / annual report / prospectus
+- Market positioning
+- One financial or operating metric
+
+Write `artifacts/search_log.md` incrementally during the research phase using `references/search_log_template.md`.
+
 ## Output
 
 `industry_input_memo.md` following the structure defined in `references/industry_input_memo_template.md`.
@@ -42,13 +71,30 @@ This memo is the stage contract for downstream reasoning:
 
 Required sections:
 - Project meta (target, industry, geography, transaction type, date)
+- **Research Plan** (source priority, search coverage checklist)
 - Deal context (why this industry section matters for this transaction)
 - Target business summary
 - Industry definition and scope
 - Source materials (user-provided vs. web-researched, with attribution)
+- **Evidence Ledger** (table: Evidence ID → claim → source → reliability → confidence)
 - Page-by-page content notes (1–8)
-- Per page: `Presentation Hint`, `What should dominate this page`, `Visual Candidate`
-- For every `Key Data Points` entry: `Definition`, `Source Name`, `Source Date`, and `Confidence`
+- Per page: `Evidence Rows` (at least 2-3 items), `Key Data Points` with `chart_ready` flags, `Chart-ready Data` where applicable
+- `Presentation Hint`, `Visual Candidate`
+- For every `Key Data Points` entry: `Definition`, `Source Name`, `Source Date`, `Confidence`, and `chart_ready` (true/false)
+
+### Evidence Ledger
+
+Every important claim or metric must have an Evidence ID (EV-001, EV-002, ...). These IDs are the anchor points for downstream:
+- Storyboard `source_note` fields reference them
+- Phase 2/3 fact-grounding harness traces them
+
+### Evidence Rows per Page
+
+Each page must have at least 2-3 evidence rows. If a page cannot meet this, flag `HIGH PRIORITY GAP`.
+
+### Chart-ready Data
+
+For quantitative pages (especially Slide 2), mark chart-ready Key Data Points with `chart_ready: true` and add a `Chart-ready Data` block with categories, values, units, periods, and source Evidence IDs.
 
 ## Research Rules
 
@@ -91,6 +137,24 @@ When the AI's built-in `WebSearch` / `WebFetch` tools are unavailable (e.g., thi
    ```
 6. Read the results file and continue research with the data returned.
 
+For priority site search:
+```bash
+./.venv/bin/python scripts/web_search.py \
+  --query "target industry market size" \
+  --site cninfo.com.cn \
+  --site-mode priority \
+  --output tmp/search_results.json
+```
+
+For source-pack search:
+```bash
+./.venv/bin/python scripts/web_search.py \
+  --query "industry regulation policy" \
+  --source-pack china_official \
+  --source-registry templates/source_registry.json \
+  --output tmp/search_results.json
+```
+
 Install dependencies first with `bash ./setup.sh` and verify them with `./.venv/bin/python scripts/check_runtime_dependencies.py`. If setup fails because Python lacks venv/ensurepip support, install the matching system package such as `python3-venv` or `python3.14-venv`, then rerun setup.
 
 If all search providers fail or return zero results in a brief-only run, stop. Do not silently continue with `training_data` estimates.
@@ -118,3 +182,6 @@ The reviewer should confirm:
 - Competitive landscape is correctly characterized
 - Target linkage is explicit and transaction-relevant
 - Data sources are credible and gaps are acknowledged
+- Research Plan shows coverage of all 9 dimensions
+- Evidence Ledger entries are present for key claims
+- Chart-ready data has been preserved for quantitative pages

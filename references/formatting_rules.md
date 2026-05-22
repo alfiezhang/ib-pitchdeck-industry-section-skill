@@ -26,10 +26,13 @@ The final output should look like a finished investment-banking presentation, no
 3. **One focal point per slide.**
    Each slide should have one dominant conclusion the reader notices first.
 
-4. **Do not let text density overwhelm the page.**
+4. **Content density: fill the template, don't just occupy it.**
+   - Use the available template capacity fully. Thin copy that barely fills placeholders is as much a quality issue as overflow.
    - Prefer at most 6-7 bullets in a box.
    - Prefer each bullet to fit within 2 lines.
    - If copy looks like memo prose, compress it.
+   - If copy is a single generic sentence, expand it with evidence.
+   - See `templates/content_quality_rules.json` for per-field density targets.
 
 5. **Comparisons must read like structured comparisons.**
    Comparison pages should not feel like long descriptive sentences stacked vertically.
@@ -42,6 +45,30 @@ The final output should look like a finished investment-banking presentation, no
 
 8. **Scaffold labels must not survive into the final deck.**
    Template-helper text such as `PRIMARY CHART`, `POINT 1`, `STANDARD`, page-type names, or slide-key tags must be removed before delivery.
+
+## Content Density by Field Type
+
+The following are target character ranges for body_copy fields. They are enforced by `validate_content_quality.py` as advisory warnings. See `templates/content_quality_rules.json` for the canonical thresholds.
+
+| Field Type | Target Range | Description |
+|---|---|---|
+| title / headline | 50–100 chars | Complete investment insight, not a topic label |
+| main_takeaway | 80–140 chars | One sentence: opinion + evidence or implication |
+| bullet / card | 70–130 chars | Label + opinion + data point or implication |
+| panel | 100–160 chars | Context synthesis + judgment + target relevance |
+| table_row | 60–100 chars | Metric-led, label prefix bolded |
+| timeline_stage | 60–100 chars | Event + timeframe + significance |
+| source_footer | 30+ chars | Specific source name or Evidence ID |
+
+Each active field should contain: **label/prefix + opinion/judgment + evidence/implication**.
+
+### Anti-Patterns That Produce Thin Copy
+
+| Too Thin | Problem | Fix |
+|---|---|---|
+| "Market growing rapidly" | No data, no source | Add CAGR, size, source: "Market growing at 12% CAGR (EV-003)" |
+| "竞争激烈" | Label only | Add structure: "CR5 < 15%，头部品牌靠渠道/产品拉开差距（EV-007）" |
+| "Industry reports" as source_note | Generic | Use Evidence ID or named source: "Euromonitor 2025 (EV-003)" |
 
 ## Emphasis Rules
 
@@ -98,3 +125,6 @@ Use inline markers only when they improve scanability without breaking layout di
 - Making a chart page text-heavy because the chart inputs were not structured upstream
 - Treating placeholder fill success as a proxy for presentation quality
 - Leaving scaffold labels such as `PRIMARY CHART`, `POINT 1`, or `STANDARD` visible in the final deck
+- Writing thin single-sentence copy that barely fills placeholders
+- Using generic source attributions ("industry reports", "public sources") instead of named sources or Evidence IDs
+- Writing vague claims ("market growing rapidly") without specific data and source references

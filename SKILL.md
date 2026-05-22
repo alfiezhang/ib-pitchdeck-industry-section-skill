@@ -16,13 +16,28 @@ Design principle:
 
 ## Purpose
 
-Produce a target-linked, source-disciplined 8-slide industry section that tells a coherent transaction story — not a generic industry report. LLM reasoning drives storyline strategy, page planning, page type selection, and slide-level copy in one integrated step (`industry_storyboard.json`), while deterministic scripts handle PPT token filling.
+Produce a target-linked, source-disciplined 8-slide industry section that tells a coherent transaction story — not a generic industry report. LLM reasoning drives storyline strategy, page planning, page type selection, and slide-level copy in one integrated step (`industry_storyboard.json`), while deterministic scripts handle PPT token filling and quality validation.
 
 ## Inputs
 
 - **Target brief** or **input card** (`templates/input_card.template.json`)
+  - Now supports `research_direction` with priority websites, source domains, source packs, topics, peer set, and exclusions.
 - **User attachments** (optional — pitchbook drafts, CIM extracts, research notes)
 - **Existing `industry_input_memo.md`** (optional — treated as canonical input if provided and user says "do not expand")
+
+## Source Registry
+
+`templates/source_registry.json` contains default priority-source packs and domain lists for research.
+
+Source priority chain (applied automatically unless user overrides):
+1. User-specified domains from `input_card.research_direction`
+2. User-specified source packs
+3. Default source packs (`source_registry.json` → `default_packs`)
+4. Unrestricted web search
+
+Source packs include: `china_official`, `china_capital_markets`, `global_official`, `global_company_filings`, `consulting_reports`, `business_media`.
+
+The enhanced `scripts/web_search.py` supports `--site`, `--sites`, `--site-mode priority|only`, `--source-registry`, and `--source-pack` flags. Site-constrained search forces DuckDuckGo (Tavily API does not support `site:` syntax).
 
 ## Runtime Bootstrap
 
@@ -42,22 +57,36 @@ Do not proceed to research, storyboard, or PPT generation if mandatory runtime d
 ### 1. Research Memo
 Use `skills/research-memo/SKILL.md`.
 
-Output: `industry_input_memo.md`
+The research phase now includes:
+- **Source priority resolution**: apply the chain described in Source Registry above.
+- **Multi-round search**: cover all 9 dimensions (definition, size, segmentation, drivers, value chain, barriers, competition, trends, target implications).
+- **Search log**: write `artifacts/search_log.md` incrementally during research.
+- **Evidence Ledger**: assign an Evidence ID (EV-001, EV-002, ...) to each important claim or metric.
+- **Chart-ready data**: mark quantitative Key Data Points with `chart_ready: true`.
+- **Per-page Evidence Rows**: at least 2-3 per page.
+
+Output: `industry_input_memo.md` (following updated `references/industry_input_memo_template.md`)
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
 
-Reviewer should confirm: industry definition, market sizing logic, growth drivers, competitive landscape, target linkage, data sources and gaps.
+Reviewer should confirm: industry definition, market sizing logic, growth drivers, competitive landscape, target linkage, data sources and gaps, Research Plan coverage, Evidence Ledger completeness.
 
 If this run starts from only a brief or attachments and verified online research cannot be completed, stop after reporting the failure. Continue only if the operator explicitly chooses a degraded mode; any degraded output must label unsupported facts as `training_data` and must not be treated as diligence-grade.
 
 ### 2. Storyboard Section
 Use `skills/storyboard-section/SKILL.md`.
 
-Input: `industry_input_memo.md` + target brief + page type rules + slide layout library
+Input: `industry_input_memo.md` + target brief + page type rules + slide layout library + content quality rules
 
 Output: `industry_storyboard.json`
 
-This is the **main LLM reasoning step**. It generates, in one pass: storyline strategy, 8-slide page plan, selected page types (with rationale), slide-level PPT copy, source notes, and template binding decisions.
+This is the **main LLM reasoning step**. It generates, in one pass: storyline strategy, 8-slide page plan, selected page types (with rationale), slide-level PPT copy, source notes (with Evidence IDs), and template binding decisions.
+
+**Content density requirements** (enforced by `templates/content_quality_rules.json`):
+- Every body_copy field: label + opinion + evidence/implication
+- Per-field density targets (see storyboard prompt for ranges)
+- No banned generic phrases in body_copy or source_note
+- At least 2 Evidence IDs or memo section references per slide
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
 
@@ -68,6 +97,20 @@ Run `scripts/validate_storyboard.py` before conversion or PPT filling.
 Output: `artifacts/storyboard_validation.json`
 
 This is deterministic validation of page type choices, `template_binding`, and active `body_copy` fields. If it fails, fix `industry_storyboard.json` upstream.
+
+### 3b. Content Quality Validation (advisory)
+
+Run `scripts/validate_content_quality.py` after storyboard validation. This is advisory by default — it produces warnings, not hard errors.
+
+```bash
+./.venv/bin/python scripts/validate_content_quality.py \
+  --storyboard industry_storyboard.json \
+  --memo industry_input_memo.md \
+  --rules templates/content_quality_rules.json \
+  --output artifacts/content_quality_validation.json
+```
+
+Review the output. Address density_warnings, source_warnings, chart_data_warnings, generic_copy_warnings, and evidence_warnings before proceeding. Use `--quality-gate` to make this a hard gate when desired.
 
 ### 4. PPT Copy Finalize *(optional)*
 Use `skills/ppt-copy-finalize/SKILL.md`.
@@ -109,11 +152,13 @@ Do **not** require separate manual review for intermediate debug files; the work
 ## Required Outputs
 
 - `industry_input_memo.md`
+- `artifacts/search_log.md` (written incrementally during research)
 - `industry_storyboard.json`
+- `artifacts/storyboard_validation.json`
+- `artifacts/content_quality_validation.json` (advisory)
 - `industry_section_ppt_copy.json` (canonical input to deterministic PPT filling)
 - `replacement_dict.json`
 - `industry_section_filled_clean.pptx` (when PPT output is requested)
-- `<run_dir>/artifacts/storyboard_validation.json` (when PPT output is requested)
 - `filled_ppt_validation.json`
 
 ## Input Resolution
@@ -150,10 +195,13 @@ Only static skill assets should be resolved relative to the skill package itself
 - `industry_storyboard.json` is the main LLM reasoning artifact.
 - `industry_section_ppt_copy.json` remains the canonical input to deterministic PPT filling.
 - Web research is mandatory when starting from a brief or attachments.
+- Source attribution must reference specific sources or Evidence IDs, not "industry reports" or "public sources."
+- Every body_copy field must contain opinion + evidence, not just a topic label or vague claim.
 
 ## When to Run Optional Steps
 
 - **PPT Copy Finalize**: run when storyboard copy exceeds PPT placeholder limits, when copy is verbose rather than punchy, or when the user requests a cleaner `industry_section_ppt_copy.json`.
+- **Content Quality Validation**: always run before PPT filling. Review warnings and fix issues in the storyboard before proceeding.
 - **Storyboard validation**: always run before deterministic PPT filling. Fix the storyboard contract before attempting PPT execution.
 
 ## Failure Handling
@@ -161,3 +209,4 @@ Only static skill assets should be resolved relative to the skill package itself
 - If a step fails, stop the chain, preserve completed run outputs, and report the failed step plus the next recommended action.
 - If `fill-ppt` scripts fail, fix the upstream PPT copy or mapping — never patch the final PPT manually.
 - If validation fails, diagnose and fix upstream rather than bypassing validation.
+- If content quality validation produces warnings, address them before PPT filling — thin copy will produce thin slides.

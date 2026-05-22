@@ -74,8 +74,63 @@ Each slide must include:
 - For `matrix_page`, include either `source_rows` with numeric `x` and `y` values for each plotted player, or two numeric series whose values map to the matrix axes.
 - For quantitative slides, make `chart_data.title` a short on-slide chart label. Keep build instructions in `visual_direction` or `chart_data.notes`, not in the visible chart title field.
 - **target_link**: Explicit connection to the target. Every slide must answer: why does this matter for **this** target?
-- **source_note**: Attribution. Reference memo section or specific source.
+- **source_note**: Attribution. Reference memo Evidence ID (e.g., EV-001), memo section, or specific source name. Do NOT write "industry reports", "public sources", or similarly vague attributions.
 - **data_gaps**: Flag unverified claims or missing data on this slide.
+
+## Content Density Contract
+
+The template capacity should be used fully — the goal is a rich, well-supported deck, not minimal placeholder-filling.
+
+### Per-Field Density Targets
+
+Aim for these character ranges. Fields shorter than the minimum are likely too thin; fields exceeding the maximum should be split or compressed.
+
+| Field Type | Target Range | Notes |
+|---|---|---|
+| title / headline | 50–100 chars | Must be a complete investment insight |
+| main_takeaway | 80–140 chars | One sentence: opinion + evidence/implication |
+| bullet / card | 70–130 chars | Structured: label + opinion + data point OR implication |
+| panel | 100–160 chars | Synthesis paragraph: context + judgment + target relevance |
+| table_row | 60–100 chars | Metric-led, label bolded |
+| timeline_stage | 60–100 chars | Event + timeframe + significance |
+| source_footer | 30+ chars | Specific source name or Evidence ID; never generic |
+
+### Copy Structure Contract
+
+Every active body_copy field must contain:
+1. **A label or topic prefix** (what is this about)
+2. **An opinion or judgment** (why it matters)
+3. **Evidence, data, source implication, or target implication** (what backs it up)
+
+Recommended pattern:
+```
+Structural growth: Market size / CAGR / penetration shift supports long-term capacity expansion
+Competitive divergence: Leading players pull ahead on channel, product, and cost advantages
+Target implication: This trend directly reinforces BaseCo's xxx capability
+```
+
+### What "Empty" Looks Like (and How to Avoid It)
+
+| Too Thin (reject) | Acceptable | Strong |
+|---|---|---|
+| "Market is growing rapidly" | "Market growing at 12% CAGR, driven by premiumization and channel expansion" | "¥XXX bn market growing 12% CAGR (2022-27E); premium segment outpaces mass by 3× (EV-003)" |
+| "竞争激烈" | "行业集中度较低，CR5 < 15%" | "CR5 < 15%，但头部品牌以渠道/产品/成本优势持续拉开份额差距（EV-007, EV-008）" |
+| "Large market potential" | "TAM ¥XXX bn, current penetration only X%" | "TAM ¥XXX bn; penetration at X% vs Y% in mature markets, implying Z× headroom (EV-002)" |
+
+### Banned Generic Phrases
+
+Do NOT use these unless immediately followed by a specific number, source, or named entity:
+
+- "rapidly growing", "large market potential", "competitive market", "growing demand"
+- "favorable policies", "strong growth", "significant opportunity", "promising outlook"
+- "竞争激烈", "市场空间广阔", "发展迅速", "增长潜力巨大", "政策利好", "前景广阔"
+
+Do NOT use these in source_note:
+
+- "industry reports", "public sources", "market research", "industry data"
+- "公开资料", "行业报告", "公开信息", "市场研究"
+
+If you catch yourself writing any of these, replace with specific evidence + source reference.
 
 ## Formatting Discipline
 
@@ -85,16 +140,15 @@ Each slide must include:
 - For colon-led labels such as `Industry structure:` or `BaseCo position:`, prefer bolding the label prefix rather than highlighting the whole sentence.
 - Do not leave template-helper labels in visible copy. Terms such as `PRIMARY CHART`, `POINT 1`, or page-type names are scaffold only and must not appear in deliverable text.
 
-Do **not** overload slides. Write for PowerPoint, not for a research memo.
-
 ## Source Discipline
 
 - Do **not** invent numbers, CAGRs, company rankings, market shares, or source names.
-- If a figure is from the memo, reference the memo section or source note.
+- If a figure is from the memo, reference the memo section or Evidence ID (e.g., EV-001).
 - If evidence is weak, soften the wording (e.g., "estimated," "indicative," "based on available data").
 - If a fact cannot be verified at all, write `Insufficient data` and flag it in `data_gaps`.
 - Directional judgments are allowed, but they must read as **inference or hypothesis**, not disguised fact.
 - If source quality is weak, make that weakness visible in `known_weaknesses_or_data_gaps`, `data_gaps`, or `qc_self_check`; do not smooth it over for narrative completeness.
+- Every slide should reference at least 2 distinct Evidence IDs or memo sections in its body_copy + source_note combined.
 
 ## QC Self-Check
 
@@ -105,6 +159,7 @@ Before finalizing, honestly assess:
 3. **Source support**: Are all key numbers sourced? Any fabricated facts?
 4. **Page repetition**: Is any content repeated across slides?
 5. **Template fit**: Will the copy physically fit in the PPT placeholders?
+6. **Content density**: Are any body_copy fields too thin (below density targets)? Are any generic phrases used without specific evidence?
 
 In one-shot mode, it is acceptable to continue toward PPT output only if weak-source areas, data gaps, and page-type tradeoffs are explicit in this storyboard.
 

@@ -21,5 +21,15 @@
   "management_hypotheses": [],
   "peer_set": [],
   "must_cover_topics": [],
-  "must_avoid_topics": []
+  "must_avoid_topics": [],
+  "research_direction": {
+    "_description": "Optional controls to steer web research toward higher-quality or domain-specific sources. All fields are optional — leave empty to use source_registry defaults.",
+    "priority_websites": [],
+    "preferred_source_domains": [],
+    "preferred_source_packs": [],
+    "priority_topics": [],
+    "peer_set": [],
+    "avoid_topics": [],
+    "avoid_sources": []
+  }
 }

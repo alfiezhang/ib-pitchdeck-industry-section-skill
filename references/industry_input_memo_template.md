@@ -12,6 +12,30 @@ Memo Version:
 
 ---
 
+## Research Plan
+> Fill this section before starting search. It governs the research phase.
+
+Priority Websites (user-specified):
+Preferred Domains:
+Preferred Source Packs (from templates/source_registry.json):
+Default Source Packs Applied:
+Priority Topics:
+Peer Set:
+Avoid Topics / Sources:
+
+Search Coverage Plan (check off as completed):
+- [ ] Industry definition / scope
+- [ ] Market size and growth
+- [ ] Segmentation
+- [ ] Demand drivers
+- [ ] Value chain / profit pool
+- [ ] Barriers / value drivers
+- [ ] Competitive landscape / peer set
+- [ ] Trends / regulation / technology shifts
+- [ ] Target-specific implications
+
+---
+
 ## Deal Context
 
 ---
@@ -64,31 +88,48 @@ Notes:
 
 ---
 
+## Evidence Ledger
+> Every important claim or metric in the memo should have a corresponding Evidence ID.
+> These IDs are the anchor points for downstream storyboard source_note fields and
+> for the Phase 2/3 fact-grounding harness.
+
+| Evidence ID | Claim / Metric | Source Name | Source URL | Source Date | Data Period | Reliability | Confidence |
+|---|---|---|---|---|---|---|---|
+| EV-001 | | | | | | | |
+| EV-002 | | | | | | | |
+| EV-003 | | | | | | | |
+| EV-004 | | | | | | | |
+| EV-005 | | | | | | | |
+
+<!-- Add rows as needed. Confidence: verified | inferred | training_data -->
+
+---
+
 ## Known Investment Highlights
-- 
-- 
-- 
+-
+-
+-
 
 ---
 
 ## Known Risks or Open Questions
-- 
-- 
-- 
+-
+-
+-
 
 ---
 
 ## Management Hypotheses
-- 
-- 
-- 
+-
+-
+-
 
 ---
 
 ## Peer Set
-- 
-- 
-- 
+-
+-
+-
 
 ---
 
@@ -96,13 +137,20 @@ Notes:
 Page Objective:
 Main Takeaway:
 Supporting Points:
-- 
-- 
-- 
+-
+-
+-
 Implication for Target:
 
 Presentation Hint:
 Visual Candidate:
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
 
 Key Data Points:
 - Metric:
@@ -114,9 +162,10 @@ Key Data Points:
   Source Name:
   Source Date:
   Confidence: # verified | inferred | training_data
+  chart_ready: false  # set to true if this datapoint can directly feed a chart
 
 Sources:
-- 
+-
 
 ---
 
@@ -124,13 +173,20 @@ Sources:
 Page Objective:
 Main Takeaway:
 Supporting Points:
-- 
-- 
-- 
+-
+-
+-
 Implication for Target:
 
 Presentation Hint:
 Visual Candidate:
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
 
 Key Data Points:
 - Metric:
@@ -142,9 +198,18 @@ Key Data Points:
   Source Name:
   Source Date:
   Confidence: # verified | inferred | training_data
+  chart_ready: false
+
+Chart-ready Data:
+- Category:
+  Value:
+  Unit:
+  Period:
+  Source:
+  Evidence ID:
 
 Sources:
-- 
+-
 
 ---
 
@@ -159,14 +224,21 @@ Driver 1/2/3/4:
 - Implication for Target:
 
 Supporting Points:
-- 
-- 
+-
+-
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
 
 Presentation Hint:
 Visual Candidate:
 
 Sources:
-- 
+-
 
 ---
 
@@ -182,16 +254,23 @@ Target Positioning:
 Extension Opportunities:
 
 Supporting Points:
-- 
-- 
+-
+-
 
 Implication for Target:
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
 
 Presentation Hint:
 Visual Candidate:
 
 Sources:
-- 
+-
 
 ---
 
@@ -206,16 +285,23 @@ Barrier 1/2/3:
 - Whether target has it:
 
 Supporting Points:
-- 
-- 
+-
+-
 
 Implication for Target:
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
 
 Presentation Hint:
 Visual Candidate:
 
 Sources:
-- 
+-
 
 ---
 
@@ -230,16 +316,32 @@ Target Relative Positioning:
 Industry Evolution:
 
 Supporting Points:
-- 
-- 
+-
+-
 
 Implication for Target:
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
+
+Chart-ready Data (if applicable):
+- Player:
+  Metric:
+  Value:
+  Unit:
+  Period:
+  Source:
+  Evidence ID:
 
 Presentation Hint:
 Visual Candidate:
 
 Sources:
-- 
+-
 
 ---
 
@@ -255,14 +357,21 @@ Trend 1/2/3:
 - Implication for Target:
 
 Supporting Points:
-- 
-- 
+-
+-
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
 
 Presentation Hint:
 Visual Candidate:
 
 Sources:
-- 
+-
 
 ---
 
@@ -273,33 +382,40 @@ Why Industry Is Attractive:
 Why Target Is Well Positioned:
 
 Key Industry Changes Benefiting Target:
-- 
-- 
-- 
+-
+-
+-
 
 Open Diligence Questions:
-- 
-- 
-- 
+-
+-
+-
 
 Investor Takeaway:
 
 Supporting Points:
-- 
-- 
+-
+-
+
+Evidence Rows (at least 2-3):
+- Evidence ID:
+  Claim:
+  Value:
+  Source:
+  Confidence:
 
 Presentation Hint:
 Visual Candidate:
 
 Sources:
-- 
+-
 
 ---
 
 ## Additional Sector-Specific Notes
-- 
-- 
-- 
+-
+-
+-
 如无，写：Insufficient data
 
 ---
@@ -307,14 +423,16 @@ Sources:
 ## Critical Missing / Recommended Supplementation
 
 ### HIGH PRIORITY GAP
-- 
-- 
-- 
+-
+-
+-
 
 ### RECOMMENDED TO SUPPLEMENT
-- 
-- 
-- 
+-
+-
+-
 
 ### Definition Risks
-- 
+-
+-
+-

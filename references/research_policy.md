@@ -10,6 +10,68 @@ Use this file when the workflow starts from a brief, attachments, or an existing
 - Search for the latest source first. Do not anchor queries to a stale year such as `2024` unless the task is explicitly limited to that period or you are checking a known year-specific source.
 - Treat `source freshness` and `data period` separately: the freshest source may still report 2024 data, and that is acceptable if it is the latest available disclosure.
 
+## Source Priority Chain
+
+Resolve search domains in this order:
+
+1. **User-specified domains** from `input_card.research_direction.preferred_source_domains` or `priority_websites`
+2. **User-specified source packs** from `input_card.research_direction.preferred_source_packs`
+3. **Default source packs** from `templates/source_registry.json` → `default_packs`
+4. **Unrestricted web search** (no domain constraint)
+
+Use `--site-mode priority` for tiers 1-3 (site-constrained first, unrestricted fallback if sparse).
+Use `--site-mode only` when the user explicitly requires domain-only search.
+
+## Multi-Round Search Matrix
+
+When starting from a brief or attachments, search coverage must span all 9 dimensions below. Each dimension requires at least one broad query and one domain-constrained (source-pack or preferred-domain) query. For time-sensitive dimensions, add one latest/current query.
+
+| # | Dimension | Broad Query Example | Domain-Constrained | Latest/Current |
+|---|---|---|---|---|
+| 1 | Industry definition / scope | "industry definition scope classification" | stats.gov.cn / oecd.org | Current year reports |
+| 2 | Market size and growth | "market size growth rate forecast" | consulting reports / government stats | Latest fiscal year |
+| 3 | Segmentation | "market segmentation by category channel" | iresearch.com.cn / consulting | Current period |
+| 4 | Demand drivers | "demand drivers consumption trends" | 36kr.com / caixin.com | Recent quarters |
+| 5 | Value chain / profit pool | "value chain profit pool margin distribution" | consulting reports | Latest reports |
+| 6 | Barriers / value drivers | "entry barriers competitive moat" | consulting / media | Current landscape |
+| 7 | Competitive landscape / peer set | "competitive landscape market share ranking" | cninfo.com.cn / sec.gov | Latest filings |
+| 8 | Trends / regulation / technology | "industry trends regulation policy technology" | government / consulting | Recent 6 months |
+| 9 | Target-specific implications | "[target name] strategy financial performance" | cninfo.com.cn / hkexnews.hk / sec.gov | Latest disclosure |
+
+### Peer Set Search (when user provides peer_set)
+
+For each core peer in the peer set, search at minimum:
+- Company disclosure / annual report / prospectus
+- Market positioning
+- One financial or operating metric
+
+### Site Search Usage
+
+When running site-constrained search with `scripts/web_search.py`:
+
+```bash
+# Single domain, priority mode
+./.venv/bin/python scripts/web_search.py \
+  --query "target industry market size" \
+  --site cninfo.com.cn \
+  --site-mode priority \
+  --output tmp/search_results.json
+
+# Source pack with registry
+./.venv/bin/python scripts/web_search.py \
+  --query "industry regulation policy" \
+  --source-pack china_official \
+  --source-registry templates/source_registry.json \
+  --site-mode priority \
+  --output tmp/search_results.json
+```
+
+Note: `--site` / `--sites` forces DuckDuckGo provider because Tavily API does not support `site:` syntax.
+
+## Search Log
+
+Write `artifacts/search_log.md` incrementally during the research phase. Use `references/search_log_template.md` as the template. Record every search attempt (not just successful ones) to create an audit trail for downstream fact-checking.
+
 ## Search Tool Fallback
 
 **Three-tier fallback** when built-in `WebSearch` / `WebFetch` are unreliable:
@@ -64,5 +126,8 @@ When sources conflict, prefer the one that is:
 - `Presentation Hint`, `What should dominate this page`, and `Visual Candidate` are soft guidance only.
 - If a page is likely to require a quantitative chart, preserve chart-ready datapoints in the page notes:
   categories, series values, units, period, geography, and exact source row logic where possible.
+- Mark chart-ready datapoints explicitly with `chart_ready: true` in `Key Data Points`.
 - Do not let research notes or old memo language lock the final page type for Slides 2, 6, or 7.
 - Fill `Additional Sector-Specific Notes`, `HIGH PRIORITY GAP`, `RECOMMENDED TO SUPPLEMENT`, and `Definition Risks` explicitly instead of omitting them.
+- Fill the `Evidence Ledger` with an entry for each important claim or metric. Use the Evidence ID (e.g., EV-001) as a stable reference across the memo and downstream storyboard `source_note` fields.
+- Fill `Evidence Rows` per page with at least 2-3 items. If a page cannot meet this minimum, flag it in `HIGH PRIORITY GAP`.

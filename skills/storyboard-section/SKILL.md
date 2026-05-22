@@ -20,6 +20,7 @@ The storyboard is a **planning + drafting** artifact, not a mechanical schema fi
 | `templates/slide_layout_library.json` | Yes | Physical slide XML file bindings per page type |
 | `templates/ppt_copy_schema.json` | Yes | Field-level schema for body_copy structure |
 | `templates/storyboard_schema.json` | Yes | Output schema — the contract this skill must fulfill |
+| `templates/content_quality_rules.json` | Yes | Density targets, banned phrases, and quality thresholds |
 
 ## Output
 
@@ -29,7 +30,7 @@ The storyboard is a **planning + drafting** artifact, not a mechanical schema fi
 2. **storyline_strategy**: one-sentence thesis, transaction relevance, investor questions (3–5), key messages (5–8), known data gaps, tone guidance
 3. **slides** (×8): slide role, selected page type, decision rationale, headline, main message, body copy, visual direction, optional chart_data, target link, source note, data gaps
 4. **template_binding**: final variant selections for slides 2/6/7, list of inactive variants to remove
-5. **qc_self_check**: honest self-assessment covering generic report risk, target linkage, source support, repetition, template fit
+5. **qc_self_check**: honest self-assessment covering generic report risk, target linkage, source support, repetition, template fit, and content density
 
 ## Page Type Selection
 
@@ -76,7 +77,27 @@ The `storyline_strategy` section captures this reasoning explicitly.
 - **Matrix slides need coordinates**: for `matrix_page`, include numeric x/y coordinates per plotted player in `chart_data.source_rows`, or provide two numeric series that map to the x and y axes.
 - **`chart_title` must stay client-facing downstream**: quantitative slides should make `chart_data.title` usable as the on-slide chart label; execution notes belong in `visual_direction` or `chart_data.notes`.
 - **Target link is mandatory on every slide**: If a slide doesn't connect to the target, it's a generic industry slide — fix it or flag it.
-- **Source notes are mandatory**: Reference memo sections or specific source names. "Industry reports" is too vague.
+- **Source notes are mandatory**: Reference memo Evidence IDs (e.g., EV-001), memo sections, or named sources. Never write "industry reports" or similarly vague attributions.
+
+## Content Density
+
+Use the available template capacity fully — the goal is a rich, well-supported deck, not minimal placeholder-filling.
+
+Target ranges (from `templates/content_quality_rules.json`):
+
+| Field Type | Target Range |
+|---|---|
+| title / headline | 50–100 chars |
+| main_takeaway | 80–140 chars |
+| bullet / card | 70–130 chars |
+| panel | 100–160 chars |
+| table_row | 60–100 chars |
+| timeline_stage | 60–100 chars |
+| source_footer | 30+ chars |
+
+Every active body_copy field must contain: **label/prefix + opinion/judgment + evidence/data/implication**. See the storyboard prompt (`prompts/storyboard_section.prompt.md`) for examples.
+
+Fields that fall below the minimum will be flagged by `validate_content_quality.py`.
 
 ## Guardrails
 
@@ -85,6 +106,22 @@ The `storyline_strategy` section captures this reasoning explicitly.
 - Directional judgments are allowed but must read as inference ("management believes," "this suggests," "indicative"), not as hard fact.
 - If a fact cannot be verified, write `Insufficient data` and flag it in `data_gaps`.
 - If the memo contains conflicting data, state the conflict rather than silently picking one side or averaging.
+- Every slide should reference at least 2 Evidence IDs or memo sections across body_copy + source_note.
+- Avoid banned generic phrases (see `templates/content_quality_rules.json`).
+
+## Post-Storyboard Quality Check
+
+After producing `industry_storyboard.json`, run the content quality validator before human review:
+
+```bash
+./.venv/bin/python scripts/validate_content_quality.py \
+  --storyboard industry_storyboard.json \
+  --memo industry_input_memo.md \
+  --rules templates/content_quality_rules.json \
+  --output artifacts/content_quality_validation.json
+```
+
+This is advisory by default (warnings only, no hard fail). Review the output and address warnings before proceeding to PPT filling.
 
 ## Human Review Gate
 
@@ -99,5 +136,7 @@ The reviewer should confirm:
 - Page sequence tells a coherent story
 - Page type choices are appropriate for the content
 - Every slide has a clear target link
-- Key numbers have source attribution
+- Key numbers have source attribution with Evidence IDs
 - No generic-industry-report feel
+- Body copy fields meet density targets
+- No banned generic phrases in source_note or body_copy

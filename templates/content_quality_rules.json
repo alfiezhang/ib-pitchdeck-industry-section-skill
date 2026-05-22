@@ -1,0 +1,57 @@
+{
+  "_description": "Content quality thresholds and banned-phrase lists used by validate_content_quality.py. These rules supplement — not replace — the structural contract enforced by validate_storyboard.py.",
+
+  "min_chars_by_field_type": {
+    "_note": "These are advisory targets. Fields shorter than the minimum generate a density_warning, not an error.",
+    "title": 45,
+    "main_takeaway": 80,
+    "bullet": 70,
+    "card": 80,
+    "panel": 90,
+    "table_row": 60,
+    "timeline_stage": 60,
+    "source_footer": 30
+  },
+
+  "generic_source_phrases": [
+    "industry reports",
+    "public sources",
+    "market research",
+    "industry data",
+    "various sources",
+    "publicly available",
+    "公开资料",
+    "行业报告",
+    "公开信息",
+    "市场研究",
+    "多方来源"
+  ],
+
+  "generic_copy_phrases": [
+    "rapidly growing",
+    "large market potential",
+    "competitive market",
+    "growing demand",
+    "favorable policies",
+    "strong growth",
+    "significant opportunity",
+    "leading player",
+    "well-positioned",
+    "promising outlook",
+    "竞争激烈",
+    "市场空间广阔",
+    "发展迅速",
+    "增长潜力巨大",
+    "政策利好",
+    "前景广阔",
+    "优势明显",
+    "行业领先"
+  ],
+
+  "required_storyboard_checks": {
+    "source_note_specific": true,
+    "chart_data_source_rows_for_quant_slides": true,
+    "no_training_data_unless_degraded_mode": true,
+    "min_evidence_per_slide": 2
+  }
+}

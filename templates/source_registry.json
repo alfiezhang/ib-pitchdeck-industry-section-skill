@@ -1,0 +1,125 @@
+{
+  "_description": "Default priority sources for industry research. Source packs are domain collections that guide web search toward higher-quality results. default_packs are auto-selected when user provides no explicit preference. Additional packs are available for opt-in via input_card.research_direction.preferred_source_packs.",
+  "_search_priority": "user-specified domains > user-specified source_packs > default_packs > unrestricted web search",
+  "_note": "default_packs are intentionally kept narrow (4 packs) to avoid excessive site:domain queries. Users can opt into additional packs per case. The LLM research planner (Phase 2) will auto-select relevant packs based on industry.",
+
+  "default_packs": [
+    "china_official",
+    "china_capital_markets",
+    "global_official",
+    "consulting_reports"
+  ],
+
+  "source_packs": {
+    "china_official": {
+      "description": "China official government and regulator sources",
+      "domains": [
+        "stats.gov.cn",
+        "miit.gov.cn",
+        "ndrc.gov.cn",
+        "samr.gov.cn",
+        "customs.gov.cn",
+        "pbc.gov.cn",
+        "csrc.gov.cn",
+        "mofcom.gov.cn"
+      ]
+    },
+    "china_capital_markets": {
+      "description": "China A-share / HKEX company disclosures, filings, and market data",
+      "domains": [
+        "cninfo.com.cn",
+        "sse.com.cn",
+        "szse.cn",
+        "bse.cn",
+        "hkexnews.hk",
+        "hkex.com.hk"
+      ]
+    },
+    "china_financial_data": {
+      "description": "China financial data platforms and research report aggregators. Opt-in via preferred_source_packs.",
+      "domains": [
+        "eastmoney.com",
+        "cnstock.com",
+        "hibor.com.cn",
+        "10jqka.com.cn"
+      ]
+    },
+    "global_official": {
+      "description": "Global official statistics and multilateral sources",
+      "domains": [
+        "sec.gov",
+        "census.gov",
+        "bls.gov",
+        "bea.gov",
+        "fred.stlouisfed.org",
+        "worldbank.org",
+        "imf.org",
+        "oecd.org",
+        "ec.europa.eu"
+      ]
+    },
+    "global_company_filings": {
+      "description": "Company disclosure and filings sources",
+      "domains": [
+        "sec.gov",
+        "annualreports.com",
+        "companieshouse.gov.uk"
+      ]
+    },
+    "global_market_research": {
+      "description": "Independent market research platforms and syndicated data providers. Distinct from consulting firms — these publish structured market data, not advisory reports. Opt-in via preferred_source_packs.",
+      "domains": [
+        "statista.com",
+        "ibisworld.com",
+        "grandviewresearch.com",
+        "marketresearch.com",
+        "spglobal.com",
+        "tradingeconomics.com",
+        "mordorintelligence.com"
+      ]
+    },
+    "asia_pacific_official": {
+      "description": "Asia-Pacific government statistics, central banks, and securities regulators. Opt-in when target is in Japan, Korea, India, or Southeast Asia.",
+      "domains": [
+        "e-stat.go.jp",
+        "fsa.go.jp",
+        "kostat.go.kr",
+        "mospi.gov.in",
+        "rbi.org.in",
+        "sebi.gov.in",
+        "singstat.gov.sg",
+        "sgx.com"
+      ]
+    },
+    "consulting_reports": {
+      "description": "Consulting and industry report sources",
+      "domains": [
+        "mckinsey.com",
+        "bcg.com",
+        "bain.com",
+        "deloitte.com",
+        "pwc.com",
+        "ey.com",
+        "kpmg.com",
+        "accenture.com",
+        "frost.com",
+        "iresearch.com.cn",
+        "analysys.cn",
+        "questmobile.com.cn"
+      ]
+    },
+    "business_media": {
+      "description": "Reputable business and industry media",
+      "domains": [
+        "reuters.com",
+        "bloomberg.com",
+        "ft.com",
+        "wsj.com",
+        "36kr.com",
+        "caixin.com",
+        "cls.cn",
+        "yicai.com"
+      ]
+    }
+  }
+}

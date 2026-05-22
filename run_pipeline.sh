@@ -13,6 +13,7 @@
 #   --work-root DIR        Working directory for default outputs (default: infer from inputs, else cwd)
 #   --attempt-name NAME    Attempt name for default output layout
 #   --python PATH          Python interpreter to use (default: .venv/bin/python, then python3)
+#   --quality-gate         Enable content quality validation as a hard gate (fail on warnings)
 #   -h, --help             Show this help
 #
 # Defaults:
@@ -33,6 +34,7 @@ PYTHON_CMD_ARG=""
 WORK_ROOT_ARG=""
 ATTEMPT_NAME_ARG=""
 PPT_COPY_EXPLICIT=0
+QUALITY_GATE=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -48,6 +50,8 @@ while [[ $# -gt 0 ]]; do
       ATTEMPT_NAME_ARG="$2"; shift 2 ;;
     --python)
       PYTHON_CMD_ARG="$2"; shift 2 ;;
+    --quality-gate)
+      QUALITY_GATE=1; shift ;;
     -h|--help)
       sed -n '2,/^$/p' "$0" | sed 's/^# \?//'; exit 0 ;;
     -*)
@@ -156,6 +160,36 @@ echo "[bootstrap] validating storyboard contract..."
   --storyboard "$STAGED_STORYBOARD" \
   --schema "$SCRIPT_DIR/templates/storyboard_schema.json" \
   --output "$OUTPUT_DIR/artifacts/storyboard_validation.json"
+
+# ── Step 0b: Content quality validation (advisory by default) ────
+# Uncomment the block below to enable content quality validation.
+# Use --quality-gate to make it a hard gate (fail on warnings).
+#
+# MEMO_FILE=""
+# for memo_candidate in \
+#   "$(dirname "$STORYBOARD")/industry_input_memo.md" \
+#   "$(dirname "$PPT_COPY")/industry_input_memo.md" \
+#   "$OUTPUT_DIR/industry_input_memo.md"
+# do
+#   if [[ -f "$memo_candidate" ]]; then
+#     MEMO_FILE="$memo_candidate"
+#     break
+#   fi
+# done
+#
+# echo "[bootstrap] validating content quality..."
+# QUALITY_ARGS=(
+#   --storyboard "$STAGED_STORYBOARD"
+#   --rules "$SCRIPT_DIR/templates/content_quality_rules.json"
+#   --output "$OUTPUT_DIR/artifacts/content_quality_validation.json"
+# )
+# if [[ -n "$MEMO_FILE" ]]; then
+#   QUALITY_ARGS+=(--memo "$MEMO_FILE")
+# fi
+# if [[ $QUALITY_GATE -eq 1 ]]; then
+#   QUALITY_ARGS+=(--quality-gate)
+# fi
+# "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_content_quality.py" "${QUALITY_ARGS[@]}"
 
 if [[ -f "$PPT_COPY" ]]; then
   stage_file "$PPT_COPY" "$STAGED_PPT_COPY"
