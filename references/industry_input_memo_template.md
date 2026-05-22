@@ -8,6 +8,8 @@ Subsector:
 Geography:
 Output Language:
 Prepared Date:
+Research As-Of Date:
+User Material Data Cutoff:
 Memo Version:
 
 ---
@@ -27,6 +29,7 @@ Selected Source Packs / Domains:
 Added Industry-Specific Domains:
 Excluded Packs / Domains:
 Source Selection Rationale:
+Latest Search Rule:
 Priority Topics:
 Peer Set:
 Avoid Topics / Sources:

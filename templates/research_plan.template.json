@@ -6,7 +6,10 @@
     "subsector": "",
     "geography": "",
     "language": "English",
-    "prepared_date": ""
+    "prepared_date": "",
+    "research_as_of_date": "",
+    "user_material_data_cutoff": "",
+    "freshness_rule": "Treat dates in user-provided materials as data periods, not as the current research date. Latest/current queries must search the current or most recent available period first; use old-year queries only to verify a known historical datapoint."
   },
   "source_registry": {
     "path": "templates/source_registry.json",

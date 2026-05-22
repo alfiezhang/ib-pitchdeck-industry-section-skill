@@ -75,6 +75,7 @@ Use `skills/research-memo/SKILL.md`.
 
 The research phase now includes:
 - **Research plan**: create `artifacts/research_plan.json` before memo synthesis; validate it with `scripts/validate_research_plan.py`.
+- **Freshness discipline**: fill `research_as_of_date` and `user_material_data_cutoff`; treat user-material periods as historical data periods, not as the current research date.
 - **Source priority resolution**: apply the source planning rule described in Source Registry above.
 - **Multi-round search**: cover all 9 dimensions (definition, size, segmentation, drivers, value chain, barriers, competition, trends, target implications).
 - **Search log**: write `artifacts/search_log.md` incrementally during research.

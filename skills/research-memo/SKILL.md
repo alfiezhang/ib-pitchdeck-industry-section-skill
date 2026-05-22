@@ -78,11 +78,12 @@ Before memo synthesis, create `artifacts/research_plan.json` using `templates/re
 
 Execution order:
 1. Read `templates/source_registry.json` as a source menu only. Do not execute default packs yet.
-2. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, data terms, peer names, source leads, and geography-specific terminology.
-3. Fill `broad_discovery.discovered_source_leads` with useful domains found during broad search.
-4. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
-5. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
-6. Run targeted validation queries against selected sources, not every default pack against every query.
+2. Fill `meta.research_as_of_date` with the run date and `meta.user_material_data_cutoff` with the latest period found in user-provided materials, or `not specified`.
+3. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, data terms, peer names, source leads, and geography-specific terminology.
+4. Fill `broad_discovery.discovered_source_leads` with useful domains found during broad search.
+5. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
+6. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
+7. Run targeted validation queries against selected sources, not every default pack against every query.
 
 Validate the plan before memo synthesis:
 
@@ -163,8 +164,8 @@ Key principles:
   - `verified`: directly supported by cited search/user-provided sources
   - `inferred`: calculated or synthesized from cited facts with a clear reasoning bridge
   - `training_data`: background knowledge not verified in this run and requiring follow-up
-- **Search for the latest source first**: do not hard-code a data year such as `2024` into search queries unless the metric is inherently year-specific or you are verifying a source already known to be the latest available period.
-- **Separate source date from data period**: the latest available disclosed datapoint may still be for 2024 or earlier; search broadly first, then record the actual reporting period in the memo.
+- **Search for the latest source first**: do not hard-code a year or period from user-provided materials into search queries unless the metric is inherently year-specific or you are verifying a source already known to be the latest available period.
+- **Separate source date from data period**: the latest available disclosed datapoint may still be for an earlier period; search broadly first, then record the actual reporting period in the memo.
 - **Capture chart-ready data, not only chart ideas**: when a page is likely to need a quantitative chart, preserve the underlying categories, series values, units, and source rows in the memo notes so downstream storyboarding can structure them.
 
 ## Search Tool Fallback

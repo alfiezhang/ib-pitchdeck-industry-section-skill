@@ -68,7 +68,7 @@ Each active field should contain: **label/prefix + opinion/judgment + evidence/i
 |---|---|---|
 | "Market growing rapidly" | No data, no source | Add CAGR, size, source: "Market growing at 12% CAGR (EV-003)" |
 | "竞争激烈" | Label only | Add structure: "CR5 < 15%，头部品牌靠渠道/产品拉开差距（EV-007）" |
-| "Industry reports" as source_note | Generic | Use Evidence ID or named source: "Euromonitor 2025 (EV-003)" |
+| "Industry reports" as source_note | Generic | Use Evidence ID or named source: "Named source, latest available report (EV-003)" |
 
 ## Emphasis Rules
 

@@ -8,7 +8,9 @@ the memo is written.
 
 import argparse
 import json
+import re
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +28,24 @@ EXPECTED_DIMENSIONS = {
     "trends_regulation_technology",
     "target_specific_implications",
 }
+
+YEAR_RE = re.compile(r"\b(20\d{2})\b")
+FRESHNESS_TERMS = (
+    "latest",
+    "current",
+    "recent",
+    "newest",
+    "updated",
+    "most recent",
+    "最新",
+    "当前",
+    "近期",
+    "近年",
+    "今年",
+    "去年",
+    "近6个月",
+    "近三年",
+)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -60,9 +80,70 @@ def pack_domains(registry: dict[str, Any], pack_name: str) -> list[str]:
     return non_empty_strings(domains)
 
 
-def validate(plan: dict[str, Any], registry: dict[str, Any] | None = None) -> dict[str, Any]:
+def extract_years(text: str) -> set[int]:
+    return {int(match) for match in YEAR_RE.findall(text)}
+
+
+def has_freshness_cue(text: str, current_year: int) -> bool:
+    lowered = text.lower()
+    if str(current_year) in lowered or str(current_year - 1) in lowered:
+        return True
+    return any(term.lower() in lowered for term in FRESHNESS_TERMS)
+
+
+def check_freshness_metadata(plan: dict[str, Any], warnings: list[str]) -> None:
+    meta = plan.get("meta", {})
+    if not isinstance(meta, dict):
+        return
+    if not text_present(meta.get("research_as_of_date")):
+        warnings.append("meta.research_as_of_date should be populated with the run date before search")
+    if not text_present(meta.get("user_material_data_cutoff")):
+        warnings.append(
+            "meta.user_material_data_cutoff should state the latest period found in user-provided materials, "
+            "or 'not specified'"
+        )
+
+
+def check_query_freshness(
+    dimension: str,
+    field_name: str,
+    query: str,
+    current_year: int,
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    years = extract_years(query)
+    stale_years = sorted(year for year in years if year <= current_year - 2)
+    fresh_years = sorted(year for year in years if year >= current_year - 1)
+
+    if field_name == "latest_query" and not has_freshness_cue(query, current_year):
+        warnings.append(
+            f"dimension '{dimension}' latest_query has no freshness cue; include 'latest/current/recent' "
+            f"or {current_year}/{current_year - 1}"
+        )
+
+    if stale_years and not fresh_years:
+        message = (
+            f"dimension '{dimension}' {field_name} appears anchored to stale year(s) {stale_years}. "
+            f"Do not treat user-material years as the current research period; use latest/current or "
+            f"{current_year}/{current_year - 1} for freshness checks, and put old-year verification in targeted queries."
+        )
+        if field_name == "latest_query":
+            errors.append(message)
+        else:
+            warnings.append(message)
+
+
+def validate(
+    plan: dict[str, Any],
+    registry: dict[str, Any] | None = None,
+    current_year: int | None = None,
+) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
+    current_year = current_year or date.today().year
+
+    check_freshness_metadata(plan, warnings)
 
     source_registry = plan.get("source_registry", {})
     if not isinstance(source_registry, dict):
@@ -94,6 +175,15 @@ def validate(plan: dict[str, Any], registry: dict[str, Any] | None = None) -> di
             continue
         if item.get("mode") not in ("unrestricted", None, ""):
             errors.append(f"broad_discovery query {idx} must use mode='unrestricted'")
+        if text_present(item.get("query")):
+            check_query_freshness(
+                str(item.get("dimension") or idx),
+                "broad_discovery.query",
+                str(item.get("query")),
+                current_year,
+                errors,
+                warnings,
+            )
 
     source_selection = plan.get("source_selection", {})
     selected_packs = source_selection.get("selected_source_packs", []) if isinstance(source_selection, dict) else []
@@ -149,8 +239,18 @@ def validate(plan: dict[str, Any], registry: dict[str, Any] | None = None) -> di
 
         if not text_present(dim.get("broad_query")):
             warnings.append(f"dimension '{dimension or idx}' has no broad_query")
-        if not text_present(dim.get("latest_query")):
+        latest_query = dim.get("latest_query")
+        if not text_present(latest_query):
             warnings.append(f"dimension '{dimension or idx}' has no latest_query")
+        else:
+            check_query_freshness(
+                dimension or str(idx),
+                "latest_query",
+                str(latest_query),
+                current_year,
+                errors,
+                warnings,
+            )
 
         targeted = dim.get("targeted_validation_queries", [])
         if not isinstance(targeted, list):
@@ -165,6 +265,14 @@ def validate(plan: dict[str, Any], registry: dict[str, Any] | None = None) -> di
             if text_present(query.get("query")):
                 targeted_query_count += 1
                 filled_targeted += 1
+                check_query_freshness(
+                    dimension or str(idx),
+                    f"targeted query {t_idx}",
+                    str(query.get("query")),
+                    current_year,
+                    errors,
+                    warnings,
+                )
             pack = str(query.get("source_pack", "")).strip()
             if pack:
                 pack_names.add(pack)
@@ -213,7 +321,8 @@ def validate(plan: dict[str, Any], registry: dict[str, Any] | None = None) -> di
             "dimensions_planned": len(seen_dimensions),
             "dimensions_with_targeted_validation": dimensions_with_targeted,
             "selected_source_pack_count": len(pack_names),
-            "resolved_high_priority_domain_count": len(resolved_domains)
+            "resolved_high_priority_domain_count": len(resolved_domains),
+            "freshness_current_year": current_year,
         }
     }
 
@@ -224,6 +333,12 @@ def main() -> None:
     parser.add_argument("--source-registry", help="Path to templates/source_registry.json")
     parser.add_argument("--output", help="Optional path to write validation report JSON")
     parser.add_argument("--quality-gate", action="store_true", help="Treat warnings as errors")
+    parser.add_argument(
+        "--current-year",
+        type=int,
+        default=date.today().year,
+        help="Current year used to detect stale year-anchored latest queries.",
+    )
     args = parser.parse_args()
 
     try:
@@ -253,9 +368,9 @@ def main() -> None:
                     "metrics": {}
                 }
             else:
-                result = validate(plan, registry)
+                result = validate(plan, registry, current_year=args.current_year)
         else:
-            result = validate(plan, registry)
+            result = validate(plan, registry, current_year=args.current_year)
 
     if args.quality_gate and result.get("warning_count", 0) > 0:
         result["is_valid"] = False

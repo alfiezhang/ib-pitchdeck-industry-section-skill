@@ -10,6 +10,9 @@ Preferred Domains:
 Preferred Source Packs:
 Default Source Packs Used (explicit only):
 Source Registry Read As Menu Before Search: # yes/no
+Research As-Of Date:
+User Material Data Cutoff:
+Latest Search Rule: # treat user-provided years as data periods; latest/current queries must search the current or most recent available period first
 Priority Topics:
 Peer Set:
 Avoid Topics / Sources:

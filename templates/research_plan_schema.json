@@ -15,7 +15,10 @@
         "subsector": { "type": "string" },
         "geography": { "type": "string" },
         "language": { "type": "string" },
-        "prepared_date": { "type": "string" }
+        "prepared_date": { "type": "string" },
+        "research_as_of_date": { "type": "string" },
+        "user_material_data_cutoff": { "type": "string" },
+        "freshness_rule": { "type": "string" }
       },
       "additionalProperties": true
     },
