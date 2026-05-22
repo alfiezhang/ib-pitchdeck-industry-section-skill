@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Industry Research Plan",
+  "description": "Planning artifact for the research phase. It makes source selection explicit before memo synthesis and provides a Phase 2/3 harness interface.",
+  "type": "object",
+  "required": ["meta", "source_registry", "broad_discovery", "source_selection", "dimension_plan", "quality_controls"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["target_company", "transaction_type", "industry", "geography", "language"],
+      "properties": {
+        "target_company": { "type": "string" },
+        "transaction_type": { "type": "string" },
+        "industry": { "type": "string" },
+        "subsector": { "type": "string" },
+        "geography": { "type": "string" },
+        "language": { "type": "string" },
+        "prepared_date": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "source_registry": {
+      "type": "object",
+      "required": ["path", "read_as_menu_before_search", "default_packs_auto_run"],
+      "properties": {
+        "path": { "type": "string" },
+        "read_as_menu_before_search": { "type": "boolean" },
+        "default_packs_auto_run": { "type": "boolean" },
+        "rule": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "broad_discovery": {
+      "type": "object",
+      "required": ["queries"],
+      "properties": {
+        "minimum_initial_queries": { "type": "integer", "minimum": 0 },
+        "recommended_initial_queries": { "type": "string" },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["dimension", "query", "purpose", "mode"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "query": { "type": "string" },
+              "purpose": { "type": "string" },
+              "mode": { "type": "string", "enum": ["unrestricted"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "discovered_source_leads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "domain": { "type": "string" },
+              "source_name": { "type": "string" },
+              "why_relevant": { "type": "string" },
+              "dimension": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_selection": {
+      "type": "object",
+      "required": ["selected_source_packs", "selected_domains"],
+      "properties": {
+        "selection_rule": { "type": "string" },
+        "selected_source_packs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_pack", "used_for_dimensions", "reason"],
+            "properties": {
+              "source_pack": { "type": "string" },
+              "used_for_dimensions": { "type": "array", "items": { "type": "string" } },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "selected_domains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["domain", "used_for_dimensions", "reason", "from_registry"],
+            "properties": {
+              "domain": { "type": "string" },
+              "used_for_dimensions": { "type": "array", "items": { "type": "string" } },
+              "reason": { "type": "string" },
+              "from_registry": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "excluded_packs_or_domains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "dimension_plan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["dimension", "broad_query", "targeted_validation_queries", "latest_query", "expected_evidence"],
+        "properties": {
+          "dimension": { "type": "string" },
+          "broad_query": { "type": "string" },
+          "targeted_validation_queries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["query", "source_pack", "domains", "reason"],
+              "properties": {
+                "query": { "type": "string" },
+                "source_pack": { "type": "string" },
+                "domains": { "type": "array", "items": { "type": "string" } },
+                "reason": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "latest_query": { "type": "string" },
+          "expected_evidence": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "quality_controls": {
+      "type": "object",
+      "properties": {
+        "do_not_use_all_default_packs_for_every_query": { "type": "boolean" },
+        "record_every_search_in": { "type": "string" },
+        "validate_with": { "type": "string" },
+        "fallback_if_research_fails": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

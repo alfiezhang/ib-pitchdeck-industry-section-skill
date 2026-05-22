@@ -39,6 +39,13 @@ Source packs include: `china_official`, `china_capital_markets`, `global_officia
 
 The enhanced `scripts/web_search.py` supports `--site`, `--sites`, `--site-mode priority|only`, `--source-registry`, `--source-pack`, and `--use-default-packs` flags. Site-constrained search forces DuckDuckGo (Tavily API does not support `site:` syntax). Do not use `--use-default-packs` for every query; reserve it for a deliberate source-discovery pass or targeted validation pass.
 
+Research source planning rule:
+1. Read `templates/source_registry.json` as a menu before search.
+2. Run initial unrestricted broad discovery queries before any default-pack search.
+3. Write `artifacts/research_plan.json` from `templates/research_plan.template.json`.
+4. Select source packs/domains by research dimension, with reasons. Aim for 6-15 distinct high-priority domains across the full memo; use more only for regulated, cross-border, or data-sparse industries.
+5. Run targeted validation against selected packs/domains. Do not run every default pack against every query.
+
 ## Runtime Bootstrap
 
 Before starting from a brief or running PPT scripts, ensure the runtime is ready:
@@ -58,7 +65,8 @@ Do not proceed to research, storyboard, or PPT generation if mandatory runtime d
 Use `skills/research-memo/SKILL.md`.
 
 The research phase now includes:
-- **Source priority resolution**: apply the chain described in Source Registry above.
+- **Research plan**: create `artifacts/research_plan.json` before memo synthesis; validate it with `scripts/validate_research_plan.py`.
+- **Source priority resolution**: apply the source planning rule described in Source Registry above.
 - **Multi-round search**: cover all 9 dimensions (definition, size, segmentation, drivers, value chain, barriers, competition, trends, target implications).
 - **Search log**: write `artifacts/search_log.md` incrementally during research.
 - **Evidence Ledger**: assign an Evidence ID (EV-001, EV-002, ...) to each important claim or metric.
@@ -152,6 +160,8 @@ Do **not** require separate manual review for intermediate debug files; the work
 ## Required Outputs
 
 - `industry_input_memo.md`
+- `artifacts/research_plan.json`
+- `artifacts/research_plan_validation.json`
 - `artifacts/search_log.md` (written incrementally during research)
 - `industry_storyboard.json`
 - `artifacts/storyboard_validation.json`

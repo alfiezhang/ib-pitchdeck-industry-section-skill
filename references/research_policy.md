@@ -22,6 +22,27 @@ Use unrestricted web search by default. Add domain constraints only when the use
 Use `--site-mode priority` for explicit domain-constrained searches (site-constrained first, unrestricted fallback if sparse).
 Use `--site-mode only` when the user explicitly requires domain-only search.
 
+## Research Plan Sequence
+
+Before writing the memo, create `artifacts/research_plan.json` using `templates/research_plan.template.json`.
+
+Follow this sequence:
+1. Read `templates/source_registry.json` as a menu of possible source packs/domains. Do not execute searches from default packs yet.
+2. Run 3-6 unrestricted broad discovery queries before default-pack or source-pack searches. Use them to learn industry vocabulary, metric names, player names, source leads, and jurisdiction-specific terminology.
+3. Select sources by research dimension. For each dimension, choose 1-3 relevant source packs/domains when appropriate. Across the full memo, aim for 6-15 distinct high-priority domains.
+4. Add 0-5 industry-specific domains discovered during broad search if they are authoritative for the target industry.
+5. Explain every selected pack/domain in `source_selection.reason`.
+6. Run targeted validation queries against selected packs/domains. Do not run every default pack against every query.
+
+Validate the plan before memo synthesis:
+
+```bash
+./.venv/bin/python scripts/validate_research_plan.py \
+  --plan artifacts/research_plan.json \
+  --source-registry templates/source_registry.json \
+  --output artifacts/research_plan_validation.json
+```
+
 ## Multi-Round Search Matrix
 
 When starting from a brief or attachments, search coverage must span all 9 dimensions below. Each dimension requires at least one broad query. Use one domain-constrained query when a preferred domain, relevant source pack, or default-pack pass is appropriate for that dimension. For time-sensitive dimensions, add one latest/current query.
@@ -67,6 +88,17 @@ When running site-constrained search with `scripts/web_search.py`:
 ```
 
 Note: `--site` / `--sites` forces DuckDuckGo provider because Tavily API does not support `site:` syntax.
+
+Use `--use-default-packs` only after the research plan calls for an explicit default-pack validation pass:
+
+```bash
+./.venv/bin/python scripts/web_search.py \
+  --query "target industry market size latest official data" \
+  --use-default-packs \
+  --source-registry templates/source_registry.json \
+  --site-mode priority \
+  --output tmp/search_results.json
+```
 
 ## Search Log
 

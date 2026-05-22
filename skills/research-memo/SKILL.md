@@ -20,6 +20,7 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 | User attachments | No | Pitchbook drafts, CIM extracts, equity research, consultant reports |
 | Existing `industry_input_memo.md` | No | If provided, this becomes expansion mode (refresh and deepen, don't start from scratch) |
 | `templates/source_registry.json` | Optional | Source packs and domains for explicit priority search |
+| `templates/research_plan.template.json` | Yes | Planning artifact for broad discovery, source selection, and targeted validation |
 
 ## Starting Modes
 
@@ -44,6 +45,27 @@ Use unrestricted web search by default. Add domain constraints only when the use
 
 Use `scripts/web_search.py --site` / `--source-pack` / `--source-registry` / `--use-default-packs` for domain-constrained search.
 Site mode forces DuckDuckGo because Tavily API does not support `site:` syntax.
+
+## Research Plan Sequence
+
+Before memo synthesis, create `artifacts/research_plan.json` using `templates/research_plan.template.json`.
+
+Execution order:
+1. Read `templates/source_registry.json` as a source menu only. Do not execute default packs yet.
+2. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, data terms, peer names, source leads, and geography-specific terminology.
+3. Fill `broad_discovery.discovered_source_leads` with useful domains found during broad search.
+4. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
+5. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
+6. Run targeted validation queries against selected sources, not every default pack against every query.
+
+Validate the plan before memo synthesis:
+
+```bash
+./.venv/bin/python scripts/validate_research_plan.py \
+  --plan artifacts/research_plan.json \
+  --source-registry templates/source_registry.json \
+  --output artifacts/research_plan_validation.json
+```
 
 ## Multi-Round Search
 
@@ -72,6 +94,7 @@ This memo is the stage contract for downstream reasoning:
 Required sections:
 - Project meta (target, industry, geography, transaction type, date)
 - **Research Plan** (source priority, search coverage checklist)
+- **Source Selection Rationale** (why selected packs/domains are relevant, and what was intentionally excluded)
 - Deal context (why this industry section matters for this transaction)
 - Target business summary
 - Industry definition and scope
@@ -102,6 +125,8 @@ See `references/research_policy.md` for the full source hierarchy and verificati
 
 Key principles:
 - **Web research is mandatory** when starting from a brief or attachments.
+- **Broad discovery precedes default-pack search**: read the source registry first, but do not run `--use-default-packs` until broad discovery has identified which source families are likely useful.
+- **Research plan validation is mandatory** before memo synthesis. Fix errors first; warnings require judgment and should be recorded if accepted.
 - **Dependency check is mandatory before fallback search**: run `bash ./setup.sh` and `./.venv/bin/python scripts/check_runtime_dependencies.py` before relying on `scripts/web_search.py`.
 - **Fail closed on mandatory research failure**: if built-in WebSearch/WebFetch and fallback search cannot return verified online sources, stop the workflow. Do not generate storyboard or PPT from `training_data` unless the operator explicitly chooses degraded mode.
 - **Record user-provided materials separately** from online research in `Source Materials`.
@@ -154,6 +179,17 @@ For source-pack search:
   --source-registry templates/source_registry.json \
   --output tmp/search_results.json
 ```
+
+For an explicit default-pack validation pass after broad discovery:
+```bash
+./.venv/bin/python scripts/web_search.py \
+  --query "industry market size latest official data" \
+  --use-default-packs \
+  --source-registry templates/source_registry.json \
+  --output tmp/search_results.json
+```
+
+Use the default-pack command sparingly. It is useful for source discovery or validation, but it can fan out to many `site:` searches.
 
 Install dependencies first with `bash ./setup.sh` and verify them with `./.venv/bin/python scripts/check_runtime_dependencies.py`. If setup fails because Python lacks venv/ensurepip support, install the matching system package such as `python3-venv` or `python3.14-venv`, then rerun setup.
 

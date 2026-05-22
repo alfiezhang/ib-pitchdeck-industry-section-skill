@@ -1,0 +1,207 @@
+{
+  "meta": {
+    "target_company": "",
+    "transaction_type": "",
+    "industry": "",
+    "subsector": "",
+    "geography": "",
+    "language": "English",
+    "prepared_date": ""
+  },
+  "source_registry": {
+    "path": "templates/source_registry.json",
+    "read_as_menu_before_search": true,
+    "default_packs_auto_run": false,
+    "rule": "Do not run default source packs before broad discovery. Read the registry as a menu, run broad discovery, then select relevant packs/domains for targeted validation."
+  },
+  "broad_discovery": {
+    "minimum_initial_queries": 3,
+    "recommended_initial_queries": "3-6 unrestricted queries before source-pack search",
+    "queries": [
+      {
+        "dimension": "industry_definition_scope",
+        "query": "",
+        "purpose": "Discover industry vocabulary, scope, classification, and authoritative source leads.",
+        "mode": "unrestricted"
+      },
+      {
+        "dimension": "market_size_growth",
+        "query": "",
+        "purpose": "Discover market sizing terms, available periods, geographies, and recurring source names.",
+        "mode": "unrestricted"
+      },
+      {
+        "dimension": "competitive_landscape",
+        "query": "",
+        "purpose": "Discover major players, peer names, market share language, and disclosure sources.",
+        "mode": "unrestricted"
+      }
+    ],
+    "discovered_source_leads": [
+      {
+        "domain": "",
+        "source_name": "",
+        "why_relevant": "",
+        "dimension": ""
+      }
+    ]
+  },
+  "source_selection": {
+    "selection_rule": "After broad discovery, select sources by research dimension. Aim for 6-15 distinct high-priority domains across the full memo, with 1-3 relevant packs/domains per dimension when appropriate. Add more for regulated, cross-border, or data-sparse industries.",
+    "selected_source_packs": [
+      {
+        "source_pack": "",
+        "used_for_dimensions": [],
+        "reason": ""
+      }
+    ],
+    "selected_domains": [
+      {
+        "domain": "",
+        "used_for_dimensions": [],
+        "reason": "",
+        "from_registry": false
+      }
+    ],
+    "excluded_packs_or_domains": [
+      {
+        "name": "",
+        "reason": ""
+      }
+    ]
+  },
+  "dimension_plan": [
+    {
+      "dimension": "industry_definition_scope",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "market_size_growth",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "segmentation",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "demand_drivers",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "value_chain_profit_pool",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "barriers_value_drivers",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "competitive_landscape_peer_set",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "trends_regulation_technology",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    },
+    {
+      "dimension": "target_specific_implications",
+      "broad_query": "",
+      "targeted_validation_queries": [
+        {
+          "query": "",
+          "source_pack": "",
+          "domains": [],
+          "reason": ""
+        }
+      ],
+      "latest_query": "",
+      "expected_evidence": ""
+    }
+  ],
+  "quality_controls": {
+    "do_not_use_all_default_packs_for_every_query": true,
+    "record_every_search_in": "artifacts/search_log.md",
+    "validate_with": "scripts/validate_research_plan.py",
+    "fallback_if_research_fails": "Stop unless the operator explicitly chooses degraded mode."
+  }
+}

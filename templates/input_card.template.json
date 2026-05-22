@@ -23,7 +23,7 @@
   "must_cover_topics": [],
   "must_avoid_topics": [],
   "research_direction": {
-    "_description": "Optional controls to steer web research toward higher-quality or domain-specific sources. All fields are optional — leave empty to use source_registry defaults.",
+    "_description": "Optional controls to steer web research toward higher-quality or domain-specific sources. All fields are optional. Leave empty to start with unrestricted broad discovery, then let the research plan select relevant source_registry packs/domains.",
     "priority_websites": [],
     "preferred_source_domains": [],
     "preferred_source_packs": [],

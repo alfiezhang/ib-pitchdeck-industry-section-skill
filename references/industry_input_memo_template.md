@@ -15,10 +15,18 @@ Memo Version:
 ## Research Plan
 > Fill this section before starting search. It governs the research phase.
 
+Research Plan Artifact:
+Research Plan Validation:
 Priority Websites (user-specified):
 Preferred Domains:
 Preferred Source Packs (from templates/source_registry.json):
-Default Source Packs Applied:
+Default Source Packs Applied (explicit only):
+Source Registry Read As Menu Before Search:
+Initial Broad Discovery Queries:
+Selected Source Packs / Domains:
+Added Industry-Specific Domains:
+Excluded Packs / Domains:
+Source Selection Rationale:
 Priority Topics:
 Peer Set:
 Avoid Topics / Sources:

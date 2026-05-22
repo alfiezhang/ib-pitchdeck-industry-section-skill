@@ -8,10 +8,23 @@
 Priority Websites:
 Preferred Domains:
 Preferred Source Packs:
-Default Source Packs Used:
+Default Source Packs Used (explicit only):
+Source Registry Read As Menu Before Search: # yes/no
 Priority Topics:
 Peer Set:
 Avoid Topics / Sources:
+
+---
+
+## Source Plan Summary
+
+Initial Broad Discovery Queries Completed:
+Research Plan Validation:
+Selected Source Packs:
+Selected Domains:
+Added Industry-Specific Domains:
+Excluded Packs / Domains:
+Source Selection Rationale:
 
 ---
 
@@ -22,7 +35,10 @@ Avoid Topics / Sources:
 - **Provider**: # built-in WebSearch | Tavily | DuckDuckGo
 - **Site / Domain Constraint**: # e.g., site:cninfo.com.cn or empty
 - **Source Pack**: # e.g., china_capital_markets or empty
+- **Search Stage**: # broad_discovery | source_planning | targeted_validation | latest_check | peer_check
 - **Mode**: # priority | only | unrestricted
+- **Dimension**: # e.g., market_size_growth
+- **Selected Source Reason**:
 - **Result Count**:
 - **Selected Sources**:
 - **Rejected Sources** (with reason):
@@ -33,7 +49,10 @@ Avoid Topics / Sources:
 - **Provider**:
 - **Site / Domain Constraint**:
 - **Source Pack**:
+- **Search Stage**:
 - **Mode**:
+- **Dimension**:
+- **Selected Source Reason**:
 - **Result Count**:
 - **Selected Sources**:
 - **Rejected Sources** (with reason):
@@ -44,7 +63,10 @@ Avoid Topics / Sources:
 - **Provider**:
 - **Site / Domain Constraint**:
 - **Source Pack**:
+- **Search Stage**:
 - **Mode**:
+- **Dimension**:
+- **Selected Source Reason**:
 - **Result Count**:
 - **Selected Sources**:
 - **Rejected Sources** (with reason):
