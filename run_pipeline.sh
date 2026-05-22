@@ -162,34 +162,31 @@ echo "[bootstrap] validating storyboard contract..."
   --output "$OUTPUT_DIR/artifacts/storyboard_validation.json"
 
 # ── Step 0b: Content quality validation (advisory by default) ────
-# Uncomment the block below to enable content quality validation.
-# Use --quality-gate to make it a hard gate (fail on warnings).
-#
-# MEMO_FILE=""
-# for memo_candidate in \
-#   "$(dirname "$STORYBOARD")/industry_input_memo.md" \
-#   "$(dirname "$PPT_COPY")/industry_input_memo.md" \
-#   "$OUTPUT_DIR/industry_input_memo.md"
-# do
-#   if [[ -f "$memo_candidate" ]]; then
-#     MEMO_FILE="$memo_candidate"
-#     break
-#   fi
-# done
-#
-# echo "[bootstrap] validating content quality..."
-# QUALITY_ARGS=(
-#   --storyboard "$STAGED_STORYBOARD"
-#   --rules "$SCRIPT_DIR/templates/content_quality_rules.json"
-#   --output "$OUTPUT_DIR/artifacts/content_quality_validation.json"
-# )
-# if [[ -n "$MEMO_FILE" ]]; then
-#   QUALITY_ARGS+=(--memo "$MEMO_FILE")
-# fi
-# if [[ $QUALITY_GATE -eq 1 ]]; then
-#   QUALITY_ARGS+=(--quality-gate)
-# fi
-# "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_content_quality.py" "${QUALITY_ARGS[@]}"
+MEMO_FILE=""
+for memo_candidate in \
+  "$(dirname "$STORYBOARD")/industry_input_memo.md" \
+  "$(dirname "$PPT_COPY")/industry_input_memo.md" \
+  "$OUTPUT_DIR/industry_input_memo.md"
+do
+  if [[ -f "$memo_candidate" ]]; then
+    MEMO_FILE="$memo_candidate"
+    break
+  fi
+done
+
+echo "[bootstrap] validating content quality..."
+QUALITY_ARGS=(
+  --storyboard "$STAGED_STORYBOARD"
+  --rules "$SCRIPT_DIR/templates/content_quality_rules.json"
+  --output "$OUTPUT_DIR/artifacts/content_quality_validation.json"
+)
+if [[ -n "$MEMO_FILE" ]]; then
+  QUALITY_ARGS+=(--memo "$MEMO_FILE")
+fi
+if [[ $QUALITY_GATE -eq 1 ]]; then
+  QUALITY_ARGS+=(--quality-gate)
+fi
+"$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_content_quality.py" "${QUALITY_ARGS[@]}"
 
 if [[ -f "$PPT_COPY" ]]; then
   stage_file "$PPT_COPY" "$STAGED_PPT_COPY"

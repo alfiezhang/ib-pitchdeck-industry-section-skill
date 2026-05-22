@@ -36,6 +36,9 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_SOURCE_REGISTRY = SCRIPT_DIR.parent / "templates" / "source_registry.json"
+
 
 # ── Proxy detection ──────────────────────────────────────────────
 
@@ -197,6 +200,15 @@ def load_source_registry(path: str) -> dict:
         return json.load(f)
 
 
+def default_source_packs(registry_path: str) -> list[str]:
+    """Return default source pack names from the registry."""
+    registry = load_source_registry(registry_path)
+    packs = registry.get("default_packs", [])
+    if not isinstance(packs, list):
+        raise RuntimeError("source registry default_packs must be an array")
+    return [str(pack) for pack in packs]
+
+
 def resolve_domains(
     source_pack_names: list[str],
     extra_domains: list[str],
@@ -213,22 +225,22 @@ def resolve_domains(
         return domains
 
     if not registry_path:
-        print("[web_search] WARNING: source packs specified but no --source-registry path", file=sys.stderr)
-        return domains
+        raise RuntimeError("source packs specified but no source registry path is available")
 
     try:
         registry = load_source_registry(registry_path)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"[web_search] WARNING: cannot load source registry: {e}", file=sys.stderr)
-        return domains
+        raise RuntimeError(f"cannot load source registry: {e}") from e
 
     packs = registry.get("source_packs", {})
     for pack_name in source_pack_names:
         pack = packs.get(pack_name)
         if pack is None:
-            print(f"[web_search] WARNING: source pack '{pack_name}' not found in registry", file=sys.stderr)
-            continue
-        for d in pack.get("domains", []):
+            raise RuntimeError(f"source pack '{pack_name}' not found in registry")
+        pack_domains = pack.get("domains", [])
+        if not isinstance(pack_domains, list):
+            raise RuntimeError(f"source pack '{pack_name}' domains must be an array")
+        for d in pack_domains:
             if d not in seen:
                 domains.append(d)
                 seen.add(d)
@@ -464,6 +476,7 @@ def main():
     )
     parser.add_argument(
         "--source-registry",
+        default=str(DEFAULT_SOURCE_REGISTRY),
         help="Path to templates/source_registry.json for resolving source packs"
     )
     parser.add_argument(
@@ -490,14 +503,21 @@ def main():
             if s not in sites:
                 sites.append(s)
 
+    source_packs = list(args.source_packs)
+    if not source_packs and args.source_registry:
+        try:
+            source_packs = default_source_packs(args.source_registry)
+            if source_packs:
+                print(f"[web_search] Using default source packs: {source_packs}", file=sys.stderr)
+        except Exception as e:
+            print(f"[web_search] WARNING: cannot load default source packs: {e}", file=sys.stderr)
+
     # Resolve source pack domains
-    if args.source_packs and args.source_registry:
-        pack_domains = resolve_domains(args.source_packs, [], args.source_registry)
+    if source_packs:
+        pack_domains = resolve_domains(source_packs, [], args.source_registry)
         for d in pack_domains:
             if d not in sites:
                 sites.append(d)
-    elif args.source_packs and not args.source_registry:
-        print("[web_search] WARNING: --source-pack specified without --source-registry; ignoring packs", file=sys.stderr)
 
     query_log = []
     if sites:
@@ -508,7 +528,7 @@ def main():
             site_mode=args.site_mode,
             provider=args.provider,
             max_results=args.max_results,
-            source_packs=args.source_packs,
+            source_packs=source_packs,
         )
         provider_used = "duckduckgo"  # Site search always uses DDG
     elif len(queries) > 1:
@@ -564,10 +584,10 @@ def main():
     if sites:
         output["site_mode"] = args.site_mode
         output["sites"] = sites
-        output["source_packs"] = args.source_packs
+        output["source_packs"] = source_packs
         output["queries_executed"] = query_log
-    elif args.source_packs:
-        output["source_packs"] = args.source_packs
+    elif source_packs:
+        output["source_packs"] = source_packs
         output["queries_executed"] = query_log
 
     json_str = json.dumps(output, ensure_ascii=False, indent=2)
