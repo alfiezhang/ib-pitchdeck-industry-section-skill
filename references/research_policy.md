@@ -12,19 +12,19 @@ Use this file when the workflow starts from a brief, attachments, or an existing
 
 ## Source Priority Chain
 
-Resolve search domains in this order:
+Use unrestricted web search by default. Add domain constraints only when the user provided preferred sources, the research plan selected a source pack, or the operator deliberately requests a default-pack source pass.
 
 1. **User-specified domains** from `input_card.research_direction.preferred_source_domains` or `priority_websites`
 2. **User-specified source packs** from `input_card.research_direction.preferred_source_packs`
-3. **Default source packs** from `templates/source_registry.json` → `default_packs`
-4. **Unrestricted web search** (no domain constraint)
+3. **Default source packs** from `templates/source_registry.json` → `default_packs`, only when explicitly enabled with `--use-default-packs`
+4. **Unrestricted web search** (no domain constraint), the normal fallback and default
 
-Use `--site-mode priority` for tiers 1-3 (site-constrained first, unrestricted fallback if sparse).
+Use `--site-mode priority` for explicit domain-constrained searches (site-constrained first, unrestricted fallback if sparse).
 Use `--site-mode only` when the user explicitly requires domain-only search.
 
 ## Multi-Round Search Matrix
 
-When starting from a brief or attachments, search coverage must span all 9 dimensions below. Each dimension requires at least one broad query and one domain-constrained (source-pack or preferred-domain) query. For time-sensitive dimensions, add one latest/current query.
+When starting from a brief or attachments, search coverage must span all 9 dimensions below. Each dimension requires at least one broad query. Use one domain-constrained query when a preferred domain, relevant source pack, or default-pack pass is appropriate for that dimension. For time-sensitive dimensions, add one latest/current query.
 
 | # | Dimension | Broad Query Example | Domain-Constrained | Latest/Current |
 |---|---|---|---|---|

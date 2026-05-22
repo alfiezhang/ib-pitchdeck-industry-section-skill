@@ -1,7 +1,7 @@
 {
-  "_description": "Default priority sources for industry research. Source packs are domain collections that guide web search toward higher-quality results. default_packs are auto-selected when user provides no explicit preference. Additional packs are available for opt-in via input_card.research_direction.preferred_source_packs.",
-  "_search_priority": "user-specified domains > user-specified source_packs > default_packs > unrestricted web search",
-  "_note": "default_packs are intentionally kept narrow (4 packs) to avoid excessive site:domain queries. Users can opt into additional packs per case. The LLM research planner (Phase 2) will auto-select relevant packs based on industry.",
+  "_description": "Priority sources for industry research. Source packs are domain collections that guide web search toward higher-quality results. default_packs are opt-in via --use-default-packs or an explicit research plan. Additional packs are available through input_card.research_direction.preferred_source_packs.",
+  "_search_priority": "unrestricted web search by default; user-specified domains/source_packs when provided; default_packs only when explicitly enabled",
+  "_note": "default_packs are intentionally opt-in because they can expand one query into many site:domain searches. Users can opt into additional packs per case. The LLM research planner (Phase 2) can select relevant packs based on industry.",
 
   "default_packs": [
     "china_official",

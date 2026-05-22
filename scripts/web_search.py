@@ -19,6 +19,7 @@ Usage:
   python scripts/web_search.py -q "中国目标细分市场发展现状及未来趋势分析" --split-query
   python scripts/web_search.py -q "年度报告 营收" --site cninfo.com.cn --site-mode priority
   python scripts/web_search.py -q "行业趋势" --source-pack china_official --source-registry templates/source_registry.json
+  python scripts/web_search.py -q "行业趋势" --use-default-packs --source-registry templates/source_registry.json
 
 Environment:
   TAVILY_API_KEY  — required for Tavily provider. Get free key at https://tavily.com
@@ -483,6 +484,10 @@ def main():
         "--source-pack", action="append", dest="source_packs", default=[],
         help="Source pack name(s) from the registry to use as domain constraints (repeatable: --source-pack china_official --source-pack consulting_reports)"
     )
+    parser.add_argument(
+        "--use-default-packs", action="store_true",
+        help="Use default_packs from the source registry as domain constraints. Opt-in only to avoid excessive site: queries."
+    )
     args = parser.parse_args()
 
     if not args.query and not args.queries:
@@ -504,13 +509,13 @@ def main():
                 sites.append(s)
 
     source_packs = list(args.source_packs)
-    if not source_packs and args.source_registry:
+    if args.use_default_packs and not source_packs:
         try:
             source_packs = default_source_packs(args.source_registry)
             if source_packs:
                 print(f"[web_search] Using default source packs: {source_packs}", file=sys.stderr)
         except Exception as e:
-            print(f"[web_search] WARNING: cannot load default source packs: {e}", file=sys.stderr)
+            raise RuntimeError(f"cannot load default source packs: {e}") from e
 
     # Resolve source pack domains
     if source_packs:

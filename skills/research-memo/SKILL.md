@@ -19,7 +19,7 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 | Target brief / input card | Yes | Transaction context: target name, industry, transaction type, and optional `research_direction` |
 | User attachments | No | Pitchbook drafts, CIM extracts, equity research, consultant reports |
 | Existing `industry_input_memo.md` | No | If provided, this becomes expansion mode (refresh and deepen, don't start from scratch) |
-| `templates/source_registry.json` | Auto | Default source packs and domains for priority search |
+| `templates/source_registry.json` | Optional | Source packs and domains for explicit priority search |
 
 ## Starting Modes
 
@@ -35,14 +35,14 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 
 ## Source Priority
 
-Before starting search, resolve the source domain priority chain:
+Use unrestricted web search by default. Add domain constraints only when the user provides preferred sources, the research plan selects a source pack, or a deliberate default-pack source pass is needed.
 
 1. **User-specified**: `input_card.research_direction.preferred_source_domains` or `priority_websites`
 2. **User-specified source packs**: `input_card.research_direction.preferred_source_packs`
-3. **Default source packs**: `templates/source_registry.json` → `default_packs`
-4. **Unrestricted web search**
+3. **Default source packs**: `templates/source_registry.json` → `default_packs`, only with `--use-default-packs`
+4. **Unrestricted web search**, the normal default
 
-Use `scripts/web_search.py --site` / `--source-pack` / `--source-registry` for domain-constrained search.
+Use `scripts/web_search.py --site` / `--source-pack` / `--source-registry` / `--use-default-packs` for domain-constrained search.
 Site mode forces DuckDuckGo because Tavily API does not support `site:` syntax.
 
 ## Multi-Round Search
@@ -51,7 +51,7 @@ Research must cover all 9 dimensions. See `references/research_policy.md` for th
 
 Each of the 9 dimensions requires at minimum:
 - 1 broad query
-- 1 domain-constrained (source-pack or preferred-domain) query
+- 1 domain-constrained query when a preferred domain, relevant source pack, or default-pack pass is appropriate
 - 1 latest/current query (for time-sensitive dimensions)
 
 If the user provides a peer set, search each core peer for:

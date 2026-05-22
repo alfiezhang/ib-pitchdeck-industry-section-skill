@@ -29,15 +29,15 @@ Produce a target-linked, source-disciplined 8-slide industry section that tells 
 
 `templates/source_registry.json` contains default priority-source packs and domain lists for research.
 
-Source priority chain (applied automatically unless user overrides):
+Source priority options:
 1. User-specified domains from `input_card.research_direction`
 2. User-specified source packs
-3. Default source packs (`source_registry.json` → `default_packs`)
-4. Unrestricted web search
+3. Default source packs (`source_registry.json` → `default_packs`) only when `--use-default-packs` is requested
+4. Unrestricted web search, which remains the default when no site or source-pack option is passed
 
 Source packs include: `china_official`, `china_capital_markets`, `global_official`, `global_company_filings`, `consulting_reports`, `business_media`.
 
-The enhanced `scripts/web_search.py` supports `--site`, `--sites`, `--site-mode priority|only`, `--source-registry`, and `--source-pack` flags. Site-constrained search forces DuckDuckGo (Tavily API does not support `site:` syntax).
+The enhanced `scripts/web_search.py` supports `--site`, `--sites`, `--site-mode priority|only`, `--source-registry`, `--source-pack`, and `--use-default-packs` flags. Site-constrained search forces DuckDuckGo (Tavily API does not support `site:` syntax). Do not use `--use-default-packs` for every query; reserve it for a deliberate source-discovery pass or targeted validation pass.
 
 ## Runtime Bootstrap
 
