@@ -31,7 +31,7 @@
         "mode": "unrestricted"
       },
       {
-        "dimension": "competitive_landscape",
+        "dimension": "competitive_landscape_peer_set",
         "query": "",
         "purpose": "Discover major players, peer names, market share language, and disclosure sources.",
         "mode": "unrestricted"
