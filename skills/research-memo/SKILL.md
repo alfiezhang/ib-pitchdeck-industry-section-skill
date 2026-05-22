@@ -24,6 +24,32 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 
 ## Starting Modes
 
+## Input Card Discipline
+
+Do not enrich or rewrite `input_card.json` with inferred facts before research.
+
+Allowed in input card:
+- user-provided facts and explicit user requirements
+- safe normalized metadata such as industry, geography, language, and transaction type, marked in `_provenance.normalized_metadata_paths`
+
+Not allowed in input card unless explicitly provided by the user and marked in `_provenance.user_provided_paths`:
+- peer set
+- priority websites or preferred domains
+- preferred source packs
+- investment highlights
+- risks/open questions
+- must-cover topics
+
+Planner-generated peers, sources, risks, and research topics belong in `artifacts/research_plan.json`, then in `industry_input_memo.md` once researched.
+
+Validate before research when an input card is generated:
+
+```bash
+./.venv/bin/python scripts/validate_input_card.py \
+  --input-card input_card.json \
+  --output artifacts/input_card_validation.json
+```
+
 ### Memo Generation Mode
 - Trigger: brief only, or brief + attachments
 - Process: mandatory Web research → synthesize into structured memo

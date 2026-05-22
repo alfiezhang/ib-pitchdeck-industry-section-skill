@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from json_utils import load_json_file
+
 
 EXPECTED_DIMENSIONS = {
     "industry_definition_scope",
@@ -27,8 +29,7 @@ EXPECTED_DIMENSIONS = {
 
 
 def load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    return load_json_file(path)
 
 
 def text_present(value: Any) -> bool:
@@ -227,7 +228,7 @@ def main() -> None:
 
     try:
         plan = load_json(Path(args.plan))
-    except (FileNotFoundError, json.JSONDecodeError) as exc:
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         result = {
             "is_valid": False,
             "error_count": 1,
@@ -241,7 +242,7 @@ def main() -> None:
         if args.source_registry:
             try:
                 registry = load_json(Path(args.source_registry))
-            except (FileNotFoundError, json.JSONDecodeError) as exc:
+            except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
                 registry = None
                 result = {
                     "is_valid": False,

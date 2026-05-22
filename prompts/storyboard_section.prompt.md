@@ -166,3 +166,9 @@ In one-shot mode, it is acceptable to continue toward PPT output only if weak-so
 ## Output Format
 
 Return **valid JSON only**. Do not include markdown code fences, explanations, or any text outside the JSON object.
+
+JSON syntax hard rules:
+- JSON keys and string delimiters must use ASCII double quotes only: `"`.
+- Never use Chinese/smart quotes: `“”‘’`.
+- Never use single quotes for JSON keys or string delimiters.
+- If final PPT validation returns `is_valid=false`, do not deliver the PPT; fix the underlying issue.

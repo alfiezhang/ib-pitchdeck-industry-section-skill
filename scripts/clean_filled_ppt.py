@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 from zipfile import ZipFile
 
+from json_utils import load_json_file
+
 
 P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -22,12 +24,9 @@ SLIDE_LAYOUT_LIBRARY_PATH = Path(__file__).resolve().parents[1] / "templates" / 
 
 def load_json(path: Path):
     try:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        return load_json_file(path)
     except FileNotFoundError as exc:
         raise FileNotFoundError(f"JSON file not found: {path}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
 
 
 def load_slide_layout_library(path: Path = SLIDE_LAYOUT_LIBRARY_PATH) -> dict[int, dict]:

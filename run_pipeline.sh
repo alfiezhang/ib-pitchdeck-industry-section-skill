@@ -273,7 +273,8 @@ echo "[6/7] Validating filled PPT..."
   --control-file "$STAGED_STORYBOARD" \
   --replacement-dict "$OUTPUT_DIR/replacement_dict.json" \
   --ppt-mapping "$PPT_MAPPING" \
-  --output "$OUTPUT_DIR/filled_ppt_validation.json"
+  --output "$OUTPUT_DIR/filled_ppt_validation.json" \
+  --fail-on-issue
 
 # ── Step 7: Summarize staged inputs ──────────────────────────────
 echo "[7/7] Run directory ready."

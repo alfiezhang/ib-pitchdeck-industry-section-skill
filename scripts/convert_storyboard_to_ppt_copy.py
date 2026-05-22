@@ -32,6 +32,8 @@ import json
 import sys
 from pathlib import Path
 
+from json_utils import load_json_file
+
 
 SLIDE_KEY_MAP = {
     "industry_overview": "industry_overview",
@@ -113,8 +115,7 @@ EXPECTED_CONTENT_FIELDS = {
 
 
 def load_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    return load_json_file(path)
 
 
 def save_json(data: dict, path: Path) -> None:

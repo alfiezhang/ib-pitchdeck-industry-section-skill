@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Union
 
+from json_utils import load_json_file
+
 try:
     from pptx import Presentation
     from pptx.chart.data import CategoryChartData
@@ -41,6 +43,34 @@ SCAFFOLD_LABELS = {
     "MATRIX_PAGE",
     "TREND_PAGE",
     "TIMELINE_PAGE",
+    "THESIS_SUMMARY_PAGE",
+    "DRIVER_CARDS_PAGE",
+    "VALUE_CHAIN_ARCHITECTURE_PAGE",
+    "MOAT_BARRIER_PAGE",
+    "PRIORITY_TREND_PAGE",
+    "TRANSACTION_IMPLICATION_PAGE",
+    "PEER COMPARE TABLE",
+    "CRx / STRUCTURE",
+    "COMPETITION DIMENSIONS",
+    "TARGET RELATIVE POSITIONING",
+    "PRIORITY TREND",
+    "SECONDARY TREND",
+    "WATCHLIST",
+    "INDUSTRY ATTRACTIVENESS",
+    "KEY INDUSTRY CHANGES BENEFITING TARGET",
+    "OPEN DD QUESTIONS",
+    "DRIVER 1",
+    "DRIVER 2",
+    "DRIVER 3",
+    "DRIVER 4",
+    "BARRIER 1",
+    "BARRIER 2",
+    "BARRIER 3",
+    "UPSTREAM",
+    "MIDSTREAM",
+    "DOWNSTREAM",
+    "PROFIT POOL",
+    "KEY BARRIERS",
     "industry_overview",
     "market_size_segmentation",
     "key_industry_drivers",
@@ -82,8 +112,7 @@ ACCENT_RED = RGBColor(0xC0, 0x3C, 0x28)
 
 
 def load_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    return load_json_file(path)
 
 
 def save_json(data: dict, path: Path) -> None:
@@ -113,10 +142,40 @@ def remove_scaffold_labels(prs: Presentation) -> list[dict]:
             if not hasattr(shape, "text"):
                 continue
             text = shape.text.strip()
-            if text in SCAFFOLD_LABELS:
+            if text in SCAFFOLD_LABELS or text.upper().endswith("_PAGE"):
                 clear_text(shape)
                 removed.append({"slide_no": slide_idx, "label": text, "shape_name": shape.name})
     return removed
+
+
+def is_footer_page_number_candidate(shape, slide_width: int, slide_height: int) -> bool:
+    if not hasattr(shape, "text"):
+        return False
+    text = shape.text.strip()
+    if not text.isdigit():
+        return False
+    return shape.left >= slide_width * 0.55 and shape.top >= slide_height * 0.85
+
+
+def rewrite_page_numbers(prs: Presentation) -> list[dict]:
+    updates = []
+    slide_width = int(prs.slide_width)
+    slide_height = int(prs.slide_height)
+    for slide_idx, slide in enumerate(prs.slides, start=1):
+        for shape in slide.shapes:
+            if is_footer_page_number_candidate(shape, slide_width, slide_height):
+                old = shape.text.strip()
+                set_single_paragraph(shape, str(slide_idx))
+                updates.append(
+                    {
+                        "slide_no": slide_idx,
+                        "shape_name": shape.name,
+                        "old": old,
+                        "new": str(slide_idx),
+                    }
+                )
+                break
+    return updates
 
 
 def find_slide_data(storyboard: dict, slide_no: int) -> Optional[dict]:
@@ -509,6 +568,23 @@ def render_quant_slide(prs: Presentation, storyboard: dict, slide_no: int) -> di
     return result
 
 
+def has_postprocess_renderer(slide_data: dict) -> bool:
+    slide_no = int(slide_data["slide_no"])
+    page_type = slide_data.get("selected_page_type")
+    return page_type in SLIDE_LAYOUTS.get(slide_no, {})
+
+
+def skipped_non_rendered_slide(slide_data: dict) -> dict:
+    return {
+        "slide_no": int(slide_data["slide_no"]),
+        "selected_page_type": slide_data.get("selected_page_type"),
+        "rendered": False,
+        "required_render": False,
+        "skipped": True,
+        "reason": "no deterministic postprocess renderer for this page type; text/table layout remains authoritative",
+    }
+
+
 def save_presentation(prs: Presentation, output_path: Path) -> None:
     if output_path.exists():
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
@@ -524,10 +600,14 @@ def postprocess(input_ppt: Path, storyboard_path: Path, output_ppt: Path) -> dic
     prs = Presentation(str(input_ppt))
 
     removed_labels = remove_scaffold_labels(prs)
+    page_number_updates = rewrite_page_numbers(prs)
     chart_results = []
     for slide_data in storyboard.get("slides", []):
         if slide_data.get("chart_data"):
-            chart_results.append(render_quant_slide(prs, storyboard, int(slide_data["slide_no"])))
+            if has_postprocess_renderer(slide_data):
+                chart_results.append(render_quant_slide(prs, storyboard, int(slide_data["slide_no"])))
+            else:
+                chart_results.append(skipped_non_rendered_slide(slide_data))
 
     save_presentation(prs, output_ppt)
 
@@ -536,6 +616,7 @@ def postprocess(input_ppt: Path, storyboard_path: Path, output_ppt: Path) -> dic
         "storyboard": str(storyboard_path),
         "output_ppt": str(output_ppt),
         "removed_scaffold_labels": removed_labels,
+        "page_number_updates": page_number_updates,
         "chart_rendering": chart_results,
     }
 
@@ -551,7 +632,7 @@ def main() -> None:
     parser.add_argument(
         "--fail-on-unrendered",
         action="store_true",
-        help="Exit non-zero if any slide with chart_data could not be rendered.",
+        help="Exit non-zero if a required deterministic visual renderer fails.",
     )
     args = parser.parse_args()
 
@@ -560,7 +641,11 @@ def main() -> None:
         save_json(result, Path(args.log))
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if args.fail_on_unrendered:
-        failed = [item for item in result["chart_rendering"] if not item.get("rendered")]
+        failed = [
+            item
+            for item in result["chart_rendering"]
+            if not item.get("rendered") and item.get("required_render", True)
+        ]
         if failed:
             raise SystemExit(1)
 

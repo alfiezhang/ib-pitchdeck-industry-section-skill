@@ -5,6 +5,7 @@ Use this file when the workflow starts from a brief, attachments, or an existing
 ## Research Baseline
 - Web research is mandatory unless the user already provided `industry_input_memo.md` and explicitly said not to expand it.
 - Provided materials are high-priority inputs, but they do not replace Web research.
+- Do not treat planner-inferred peers, sources, risks, or research topics as user-provided input. Keep them in `research_plan.json` until supported by research.
 - The memo must stay transaction-oriented and target-linked. Do not drift into a generic industry report.
 - If Web research is not actually completed, do not silently finish the memo. Record `HIGH PRIORITY GAP: online research not completed`.
 - Search for the latest source first. Do not anchor queries to a stale year such as `2024` unless the task is explicitly limited to that period or you are checking a known year-specific source.

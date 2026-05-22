@@ -22,6 +22,7 @@ Produce a target-linked, source-disciplined 8-slide industry section that tells 
 
 - **Target brief** or **input card** (`templates/input_card.template.json`)
   - Now supports `research_direction` with priority websites, source domains, source packs, topics, peer set, and exclusions.
+  - Do not enrich `input_card` with planner-inferred peers, risks, source preferences, or must-cover topics. The input card is for user-provided facts plus safe normalized metadata; planner hypotheses belong in `artifacts/research_plan.json`.
 - **User attachments** (optional — pitchbook drafts, CIM extracts, research notes)
 - **Existing `industry_input_memo.md`** (optional — treated as canonical input if provided and user says "do not expand")
 
@@ -58,6 +59,14 @@ bash ./setup.sh
 If `.venv` creation fails because Python lacks `ensurepip` / `venv`, stop and install the matching system package (for example `python3-venv` or `python3.14-venv` on Debian/Ubuntu) or rerun with `PYTHON_BIN` pointing to a Python installation that supports `venv`.
 
 Do not proceed to research, storyboard, or PPT generation if mandatory runtime dependencies are missing.
+
+Before research, validate any generated input card:
+
+```bash
+./.venv/bin/python scripts/validate_input_card.py \
+  --input-card input_card.json \
+  --output artifacts/input_card_validation.json
+```
 
 ## Default Workflow
 
@@ -138,6 +147,8 @@ This is a **deterministic script-driven step**. The LLM does not hand-write `rep
 
 Outputs: `replacement_dict.json` → `industry_section_filled.pptx` → `industry_section_filled_clean.pptx` → `filled_ppt_validation.json`
 
+Final PPT validation is a hard gate. If `filled_ppt_validation.json` has `summary.is_valid=false`, do not deliver the PPT. Fix the underlying issue instead of explaining it away.
+
 Operational note:
 - Recommended dependency install command: `bash ./setup.sh`
 - `run_pipeline.sh` can now start from `industry_storyboard.json` alone and auto-generate `industry_section_ppt_copy.json` when it is missing.
@@ -171,6 +182,16 @@ Do **not** require separate manual review for intermediate debug files; the work
 - `industry_section_filled_clean.pptx` (when PPT output is requested)
 - `filled_ppt_validation.json`
 
+For final delivery, run:
+
+```bash
+./.venv/bin/python scripts/validate_final_delivery.py \
+  --run-dir <work_root>/runs/attempt_<timestamp> \
+  --output <work_root>/runs/attempt_<timestamp>/artifacts/final_delivery_validation.json
+```
+
+Do not deliver if final delivery validation fails.
+
 ## Input Resolution
 
 This skill is meant to run inside a user's arbitrary workspace. Do not assume the current directory is clean, relevant, or already organized for this workflow.
@@ -197,6 +218,7 @@ Only static skill assets should be resolved relative to the skill package itself
 ## Non-Negotiable Rules
 
 - Do **not** fabricate market data, source names, CAGRs, market sizes, or company facts.
+- Do **not** rewrite user input into enriched facts before research. Inferred peers, source packs, priority websites, risks, and must-cover topics must be labeled as planner hypotheses in `research_plan.json` or researched findings in `industry_input_memo.md`.
 - Separate facts from interpretations. Directional judgments must read as inference, not disguised fact.
 - Every important number must have a source note. If a fact cannot be verified, write `Insufficient data`.
 - If source data conflicts, state the conflict — do not average without explanation.
@@ -204,6 +226,7 @@ Only static skill assets should be resolved relative to the skill package itself
 - `replacement_dict.json` must be generated **deterministically** from final PPT copy — never hand-written by the LLM.
 - `industry_storyboard.json` is the main LLM reasoning artifact.
 - `industry_section_ppt_copy.json` remains the canonical input to deterministic PPT filling.
+- JSON artifacts must use ASCII double quotes (`"`) for all keys and string delimiters. Never use Chinese/smart quotes (`“”‘’`) in JSON syntax.
 - Web research is mandatory when starting from a brief or attachments.
 - Source attribution must reference specific sources or Evidence IDs, not "industry reports" or "public sources."
 - Every body_copy field must contain opinion + evidence, not just a topic label or vague claim.

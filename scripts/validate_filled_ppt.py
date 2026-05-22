@@ -8,6 +8,15 @@ from typing import Optional
 from zipfile import ZipFile
 import xml.etree.ElementTree as ET
 
+from json_utils import load_json_file
+
+try:
+    from pptx import Presentation
+except ImportError as exc:
+    raise SystemExit(
+        "python-pptx is required for validate_filled_ppt.py. "
+        "Run this script with the project virtualenv created by ./setup.sh."
+    ) from exc
 
 TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
 P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
@@ -15,15 +24,121 @@ R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 SLIDE_LAYOUT_LIBRARY_PATH = Path(__file__).resolve().parents[1] / "templates" / "slide_layout_library.json"
 
+DISALLOWED_VISIBLE_LABELS = {
+    "STANDARD",
+    "PRIMARY CHART",
+    "CHART / VISUAL",
+    "MINI TABLE / SEGMENT CUT",
+    "POINT 1",
+    "POINT 2",
+    "POINT 3",
+    "DRIVER 1",
+    "DRIVER 2",
+    "DRIVER 3",
+    "DRIVER 4",
+    "BARRIER 1",
+    "BARRIER 2",
+    "BARRIER 3",
+    "UPSTREAM",
+    "MIDSTREAM",
+    "DOWNSTREAM",
+    "PROFIT POOL",
+    "KEY BARRIERS",
+    "PEER COMPARE TABLE",
+    "CRX / STRUCTURE",
+    "COMPETITION DIMENSIONS",
+    "TARGET RELATIVE POSITIONING",
+    "PRIORITY TREND",
+    "SECONDARY TREND",
+    "WATCHLIST",
+    "INDUSTRY ATTRACTIVENESS",
+    "KEY INDUSTRY CHANGES BENEFITING TARGET",
+    "OPEN DD QUESTIONS",
+}
+
 
 def load_json(path: Path):
     try:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        return load_json_file(path)
     except FileNotFoundError as exc:
         raise FileNotFoundError(f"JSON file not found: {path}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
+
+
+def normalize_visible_text(text: str) -> str:
+    return " ".join(text.strip().split())
+
+
+def is_disallowed_visible_label(text: str) -> bool:
+    normalized = normalize_visible_text(text)
+    upper = normalized.upper()
+    if upper.endswith("_PAGE"):
+        return True
+    if upper in DISALLOWED_VISIBLE_LABELS:
+        return True
+    if re.fullmatch(r"(SUMMARY|CHART|DRIVER_CARD|VALUE_CHAIN|MOAT|COMPARE_TABLE|MATRIX|TREND|TIMELINE)_PAGE", upper):
+        return True
+    return False
+
+
+def collect_visible_text_issues(pptx_path: Path) -> list[dict]:
+    prs = Presentation(str(pptx_path))
+    issues = []
+    for slide_idx, slide in enumerate(prs.slides, start=1):
+        for shape in slide.shapes:
+            text = getattr(shape, "text", "") if hasattr(shape, "text") else ""
+            if not text or not text.strip():
+                continue
+            normalized = normalize_visible_text(text)
+            if is_disallowed_visible_label(normalized):
+                issues.append(
+                    {
+                        "slide_no": slide_idx,
+                        "shape_name": shape.name,
+                        "text": normalized,
+                    }
+                )
+    return issues
+
+
+def is_footer_page_number_candidate(shape, slide_width: int, slide_height: int) -> bool:
+    text = getattr(shape, "text", "") if hasattr(shape, "text") else ""
+    normalized = normalize_visible_text(text)
+    if not re.fullmatch(r"\d{1,3}", normalized):
+        return False
+    return shape.left >= slide_width * 0.55 and shape.top >= slide_height * 0.85
+
+
+def collect_page_number_issues(pptx_path: Path) -> dict:
+    prs = Presentation(str(pptx_path))
+    page_numbers = []
+    slide_width = int(prs.slide_width)
+    slide_height = int(prs.slide_height)
+    for slide_idx, slide in enumerate(prs.slides, start=1):
+        candidates = []
+        for shape in slide.shapes:
+            if is_footer_page_number_candidate(shape, slide_width, slide_height):
+                candidates.append(normalize_visible_text(shape.text))
+        page_numbers.append({"slide_no": slide_idx, "numbers": candidates})
+
+    expected = [str(i) for i in range(1, len(prs.slides) + 1)]
+    actual = [item["numbers"][0] if len(item["numbers"]) == 1 else "" for item in page_numbers]
+    issues = []
+    for idx, item in enumerate(page_numbers):
+        expected_no = expected[idx]
+        if item["numbers"] != [expected_no]:
+            issues.append(
+                {
+                    "slide_no": item["slide_no"],
+                    "expected": expected_no,
+                    "found": item["numbers"],
+                }
+            )
+    return {
+        "expected": expected,
+        "actual": actual,
+        "issues": issues,
+        "is_valid": not issues,
+    }
 
 
 def load_slide_layout_library(path: Path = SLIDE_LAYOUT_LIBRARY_PATH) -> dict[int, dict]:
@@ -213,6 +328,8 @@ def build_report(
     remaining_placeholders = collect_remaining_placeholders(filled_ppt_path)
     active_placeholders = collect_active_placeholders(ppt_mapping, control_file, control_file_path)
     suspicious_missing_values = collect_suspicious_missing_values(replacement_dict, active_placeholders)
+    visible_text_issues = collect_visible_text_issues(clean_ppt_path)
+    page_number_check = collect_page_number_issues(clean_ppt_path)
 
     kept_slide_count_ok = len(actual_kept_slides) == len(expected_physical_slides) == 8
     renumbered_after_resave = actual_kept_slides == [f"slide{i}.xml" for i in range(1, len(actual_kept_slides) + 1)]
@@ -221,6 +338,8 @@ def build_report(
     )
     placeholders_ok = not remaining_placeholders
     suspicious_values_ok = not suspicious_missing_values
+    visible_text_ok = not visible_text_issues
+    page_numbers_ok = page_number_check["is_valid"]
 
     return {
         "summary": {
@@ -233,17 +352,30 @@ def build_report(
             "expected_kept_slide_count": len(expected_physical_slides),
             "actual_kept_slide_count": len(actual_kept_slides),
             "suspicious_missing_active_value_count": len(suspicious_missing_values),
+            "visible_scaffold_label_count": len(visible_text_issues),
+            "page_number_issue_count": len(page_number_check["issues"]),
             "placeholders_ok": placeholders_ok,
             "kept_slide_count_ok": kept_slide_count_ok,
             "kept_slide_selection_ok": kept_slide_selection_ok,
             "kept_slide_files_renumbered_after_resave": renumbered_after_resave,
             "suspicious_values_ok": suspicious_values_ok,
-            "is_valid": placeholders_ok and kept_slide_count_ok and kept_slide_selection_ok and suspicious_values_ok,
+            "visible_text_ok": visible_text_ok,
+            "page_numbers_ok": page_numbers_ok,
+            "is_valid": (
+                placeholders_ok
+                and kept_slide_count_ok
+                and kept_slide_selection_ok
+                and suspicious_values_ok
+                and visible_text_ok
+                and page_numbers_ok
+            ),
         },
         "expected_kept_slides": expected,
         "actual_kept_physical_slides": actual_kept_slides,
         "remaining_placeholders_in_filled_ppt": remaining_placeholders,
         "suspicious_missing_active_values": suspicious_missing_values,
+        "visible_scaffold_label_issues": visible_text_issues,
+        "page_number_check": page_number_check,
     }
 
 

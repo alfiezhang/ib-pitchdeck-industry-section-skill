@@ -38,3 +38,8 @@ For each slide, map storyboard `body_copy` fields to `ppt_copy_schema.json` cont
 
 ## Output Format
 Return **valid JSON only**. No markdown fences, no explanations.
+
+JSON syntax hard rules:
+- JSON keys and string delimiters must use ASCII double quotes only: `"`.
+- Never use Chinese/smart quotes: `“”‘’`.
+- Never use single quotes for JSON keys or string delimiters.

@@ -125,8 +125,11 @@ Run the final validation gate.
   --control-file industry_storyboard.json \
   --replacement-dict replacement_dict.json \
   --ppt-mapping templates/ppt_mapping.json \
-  --output filled_ppt_validation.json
+  --output filled_ppt_validation.json \
+  --fail-on-issue
 ```
+
+If `filled_ppt_validation.json` has `summary.is_valid=false`, do not deliver the PPT. Fix the underlying issue. Do not reinterpret failed validation as a harmless warning.
 
 ## Outputs
 

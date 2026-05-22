@@ -1,4 +1,9 @@
 {
+  "_provenance": {
+    "_description": "Mark where each populated field came from. Do not mark inferred research/planner fields as user_provided. Planner-generated peers, sources, risks, and research topics belong in artifacts/research_plan.json, not input_card.json.",
+    "user_provided_paths": [],
+    "normalized_metadata_paths": []
+  },
   "target_company": "",
   "transaction_type": "",
   "industry": "",

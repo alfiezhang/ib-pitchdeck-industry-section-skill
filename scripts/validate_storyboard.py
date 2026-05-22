@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from convert_storyboard_to_ppt_copy import EXPECTED_CONTENT_FIELDS
+from json_utils import load_json_file
 
 
 FIXED_PAGE_TYPES = {
@@ -61,8 +62,7 @@ REQUIRED_QC_FIELDS = {
 
 
 def load_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    return load_json_file(path)
 
 
 def is_blank(value) -> bool:
@@ -234,11 +234,11 @@ def validate(storyboard_path: Path, schema_path: Optional[Path] = None) -> dict:
 
     try:
         storyboard = load_json(storyboard_path)
-    except json.JSONDecodeError as exc:
+    except ValueError as exc:
         return {
             "is_valid": False,
             "storyboard": str(storyboard_path),
-            "errors": [f"invalid JSON: {exc}"],
+            "errors": [str(exc)],
             "warnings": [],
         }
 

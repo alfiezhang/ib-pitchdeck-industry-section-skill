@@ -12,12 +12,13 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from json_utils import load_json_file
+
 
 # ── Helpers ──────────────────────────────────────────────────────
 
 def load_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    return load_json_file(path)
 
 
 def load_text(path: Path) -> str:
@@ -189,6 +190,44 @@ def check_training_data_usage(
             )
 
 
+# ── Source quality checks ────────────────────────────────────────
+
+def check_weak_source_markers(
+    text: str,
+    markers: list[str],
+    slide_no: int,
+    field_name: str,
+    warnings: list[str],
+) -> None:
+    text_lower = normalize(text)
+    for marker in markers:
+        if normalize(marker) in text_lower:
+            warnings.append(
+                f"slide {slide_no}: weak source marker '{marker}' found in {field_name}; "
+                "do not use weak or unresolved sources as core support"
+            )
+            return
+
+
+def check_memo_source_quality(
+    memo_text: str,
+    weak_markers: list[str],
+    warnings: list[str],
+) -> None:
+    if not memo_text:
+        return
+    for line_no, line in enumerate(memo_text.splitlines(), start=1):
+        if not line.startswith("| EV-"):
+            continue
+        line_lower = normalize(line)
+        for marker in weak_markers:
+            if normalize(marker) in line_lower:
+                warnings.append(
+                    f"memo line {line_no}: weak source marker '{marker}' appears in Evidence Ledger"
+                )
+                break
+
+
 # ── Evidence-per-slide check ─────────────────────────────────────
 
 def check_evidence_linkage(
@@ -243,7 +282,7 @@ def validate(
     # Load inputs
     try:
         storyboard = load_json(storyboard_path)
-    except json.JSONDecodeError as exc:
+    except (ValueError, json.JSONDecodeError) as exc:
         return {
             "is_valid": False,
             "storyboard": str(storyboard_path),
@@ -257,7 +296,7 @@ def validate(
 
     try:
         rules = load_json(rules_path)
-    except (FileNotFoundError, json.JSONDecodeError) as exc:
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return {
             "is_valid": False,
             "storyboard": str(storyboard_path),
@@ -279,6 +318,7 @@ def validate(
 
     generic_source = rules.get("generic_source_phrases", [])
     generic_copy = rules.get("generic_copy_phrases", [])
+    weak_source_markers = rules.get("weak_source_markers", [])
     min_evidence = rules.get("required_storyboard_checks", {}).get("min_evidence_per_slide", 2)
 
     slides = storyboard.get("slides", [])
@@ -320,6 +360,13 @@ def validate(
                 source_note, generic_source, slide_no, "source_note",
                 source_warnings, "generic source phrase",
             )
+            check_weak_source_markers(
+                source_note,
+                weak_source_markers,
+                slide_no,
+                "source_note",
+                source_warnings,
+            )
 
         # 5. Chart data completeness
         check_chart_data(slide, rules, chart_data_warnings)
@@ -331,6 +378,9 @@ def validate(
         # 7. Evidence linkage
         if memo_text:
             check_evidence_linkage(slide, memo_text, min_evidence, evidence_warnings)
+
+    if memo_text:
+        check_memo_source_quality(memo_text, weak_source_markers, source_warnings)
 
     all_warnings = (
         density_warnings

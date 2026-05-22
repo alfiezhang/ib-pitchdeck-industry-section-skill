@@ -48,6 +48,18 @@
     "行业领先"
   ],
 
+  "weak_source_markers": [
+    "training_data",
+    "EV-web",
+    "web_search",
+    "知乎",
+    "zhihu.com",
+    "百家号",
+    "baijiahao",
+    "行业媒体/数据平台综合",
+    "行业媒体/数据平台"
+  ],
+
   "required_storyboard_checks": {
     "source_note_specific": true,
     "chart_data_source_rows_for_quant_slides": true,
