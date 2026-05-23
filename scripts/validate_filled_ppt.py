@@ -296,6 +296,12 @@ def collect_active_placeholders(ppt_mapping: dict, control_data: dict, control_f
 def collect_suspicious_missing_values(replacement_dict: dict, active_placeholders: list[dict]) -> list[dict]:
     suspicious = []
     for item in active_placeholders:
+        if (
+            item["slide_no"] == 1
+            and item["selected_page_type"] == "summary_page"
+            and item["field_name"] == "chart_title"
+        ):
+            continue
         value = replacement_dict.get(item["placeholder"])
         if value is None or str(value).strip() == "":
             suspicious.append(

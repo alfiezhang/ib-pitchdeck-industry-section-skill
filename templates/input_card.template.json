@@ -1,6 +1,7 @@
 {
   "_provenance": {
-    "_description": "Mark where each populated field came from. Do not mark inferred research/planner fields as user_provided. Planner-generated peers, sources, risks, and research topics belong in artifacts/research_plan.json, not input_card.json.",
+    "_description": "Input card is transcription-only. Copy user-provided facts faithfully; do not enrich, infer, rewrite into highlights, or add planner-generated peers/sources/topics. Mark every populated field source.",
+    "request_language": "",
     "user_provided_paths": [],
     "normalized_metadata_paths": []
   },
@@ -9,7 +10,7 @@
   "industry": "",
   "subsector": "",
   "geography": "",
-  "language": "English",
+  "language": "",
   "deal_context": "",
   "target_business_summary": "",
   "known_investment_highlights": [],
@@ -28,7 +29,7 @@
   "must_cover_topics": [],
   "must_avoid_topics": [],
   "research_direction": {
-    "_description": "Optional controls to steer web research toward higher-quality or domain-specific sources. All fields are optional. Leave empty to start with unrestricted broad discovery, then let the research plan select relevant source_registry packs/domains.",
+    "_description": "Optional user-provided controls only. Leave empty unless the user explicitly specified preferred websites, domains, source packs, topics, peers, or exclusions. Planner-generated research choices belong in artifacts/research_plan.json.",
     "priority_websites": [],
     "preferred_source_domains": [],
     "preferred_source_packs": [],

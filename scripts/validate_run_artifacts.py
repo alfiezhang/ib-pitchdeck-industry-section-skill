@@ -92,6 +92,13 @@ def validate(run_dir: Path, require_research: bool = True) -> dict[str, Any]:
             "warnings": [],
         }
 
+    nested_runs = run_dir / "runs"
+    if nested_runs.exists():
+        errors.append(
+            "nested runs directory found inside run package; use one run directory as the package of record "
+            "instead of creating runs/attempt_* under an existing attempt directory"
+        )
+
     for relative in REQUIRED_CORE_FILES:
         check_file_exists(run_dir, relative, errors)
 
@@ -105,7 +112,11 @@ def validate(run_dir: Path, require_research: bool = True) -> dict[str, Any]:
             if not (run_dir / claimed).exists():
                 errors.append(f"memo claims artifact exists but file is missing: {claimed}")
 
+    if (run_dir / "input_card.json").exists():
+        check_file_exists(run_dir, "artifacts/input_card_validation.json", errors)
+
     for relative in [
+        "artifacts/input_card_validation.json",
         "artifacts/storyboard_validation.json",
         "artifacts/research_plan_validation.json",
         "filled_ppt_validation.json",

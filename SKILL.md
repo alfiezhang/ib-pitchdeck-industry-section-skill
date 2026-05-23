@@ -23,6 +23,7 @@ Produce a target-linked, source-disciplined 8-slide industry section that tells 
 - **Target brief** or **input card** (`templates/input_card.template.json`)
   - Now supports `research_direction` with priority websites, source domains, source packs, topics, peer set, and exclusions.
   - Do not enrich `input_card` with planner-inferred peers, risks, source preferences, or must-cover topics. The input card is for user-provided facts plus safe normalized metadata; planner hypotheses belong in `artifacts/research_plan.json`.
+  - Generate `input_card.json` in transcription mode: copy the user's facts faithfully, perform only minimal metadata normalization, leave planner/research fields empty unless explicitly provided, and set output language to the user's request language unless the user asks otherwise.
 - **User attachments** (optional — pitchbook drafts, CIM extracts, research notes)
 - **Existing `industry_input_memo.md`** (optional — treated as canonical input if provided and user says "do not expand")
 
@@ -46,6 +47,7 @@ Research source planning rule:
 3. Write `artifacts/research_plan.json` from `templates/research_plan.template.json`.
 4. Select source packs/domains by research dimension, with reasons. Aim for 6-15 distinct high-priority domains across the full memo; use more only for regulated, cross-border, or data-sparse industries.
 5. Run targeted validation against selected packs/domains. Do not run every default pack against every query.
+6. Write `artifacts/search_log.md` incrementally. Do not enter memo synthesis, storyboard, or PPT filling unless `research_plan.json`, `research_plan_validation.json`, and `search_log.md` exist in the same run directory.
 
 ## Runtime Bootstrap
 
@@ -60,7 +62,7 @@ If `.venv` creation fails because Python lacks `ensurepip` / `venv`, stop and in
 
 Do not proceed to research, storyboard, or PPT generation if mandatory runtime dependencies are missing.
 
-Before research, validate any generated input card:
+Before research, validate any generated input card. If validation fails, rewrite the input card from the original user brief in transcription mode instead of patching it with inferred content:
 
 ```bash
 ./.venv/bin/python scripts/validate_input_card.py \
@@ -214,12 +216,15 @@ Generated working files should live near the resolved user materials. By default
 
 - `<work_root>/runs/attempt_<timestamp>/`
 
+Use one run directory as the single package of record. Do not create a second nested `runs/attempt_*` directory inside an existing attempt directory, and do not copy only the final PPT out of the pipeline directory as the apparent delivery.
+
 Only static skill assets should be resolved relative to the skill package itself, such as `scripts/`, `templates/`, `assets/`, `references/`, and `prompts/`.
 
 ## Non-Negotiable Rules
 
 - Do **not** fabricate market data, source names, CAGRs, market sizes, or company facts.
 - Do **not** rewrite user input into enriched facts before research. Inferred peers, source packs, priority websites, risks, and must-cover topics must be labeled as planner hypotheses in `research_plan.json` or researched findings in `industry_input_memo.md`.
+- Default output language follows the user's request language. Only use another language when the user explicitly asks for it.
 - Separate facts from interpretations. Directional judgments must read as inference, not disguised fact.
 - Every important number must have a source note. If a fact cannot be verified, write `Insufficient data`.
 - If source data conflicts, state the conflict — do not average without explanation.

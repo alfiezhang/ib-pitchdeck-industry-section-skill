@@ -28,6 +28,13 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 
 Do not enrich or rewrite `input_card.json` with inferred facts before research.
 
+Build `input_card.json` in transcription mode:
+- copy the user's brief faithfully into `target_business_summary`
+- do not split user text into investment highlights, risks, peers, topics, or source preferences unless the user explicitly provided those as separate requirements
+- leave `research_direction` empty unless the user explicitly supplied preferred websites, domains, packs, topics, peers, or exclusions
+- set `language` to the user's request language by default; use another language only when explicitly requested
+- if unsure whether a value is user-provided or inferred, leave the field blank and handle it in `research_plan.json`
+
 Allowed in input card:
 - user-provided facts and explicit user requirements
 - safe normalized metadata such as industry, geography, language, and transaction type, marked in `_provenance.normalized_metadata_paths`
@@ -49,6 +56,8 @@ Validate before research when an input card is generated:
   --input-card input_card.json \
   --output artifacts/input_card_validation.json
 ```
+
+If this validation fails, restart from the original user brief and regenerate the card in transcription mode. Do not patch the failed card by adding new inferred content.
 
 ### Memo Generation Mode
 - Trigger: brief only, or brief + attachments
@@ -93,6 +102,8 @@ Validate the plan before memo synthesis:
   --source-registry templates/source_registry.json \
   --output artifacts/research_plan_validation.json
 ```
+
+The validated research plan and `artifacts/search_log.md` must live in the same run directory as the memo, storyboard, and PPT outputs. Do not proceed to storyboard or PPT generation if either artifact is missing.
 
 ## Multi-Round Search
 

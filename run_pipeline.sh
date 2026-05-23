@@ -14,6 +14,7 @@
 #   --attempt-name NAME    Attempt name for default output layout
 #   --python PATH          Python interpreter to use (default: .venv/bin/python, then python3)
 #   --quality-gate         Enable content quality validation as a hard gate (fail on warnings)
+#   --no-research-gate     Skip research artifact gate (PPT-only debug runs only)
 #   -h, --help             Show this help
 #
 # Defaults:
@@ -35,6 +36,7 @@ WORK_ROOT_ARG=""
 ATTEMPT_NAME_ARG=""
 PPT_COPY_EXPLICIT=0
 QUALITY_GATE=0
+RESEARCH_GATE=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +54,8 @@ while [[ $# -gt 0 ]]; do
       PYTHON_CMD_ARG="$2"; shift 2 ;;
     --quality-gate)
       QUALITY_GATE=1; shift ;;
+    --no-research-gate)
+      RESEARCH_GATE=0; shift ;;
     -h|--help)
       sed -n '2,/^$/p' "$0" | sed 's/^# \?//'; exit 0 ;;
     -*)
@@ -123,7 +127,11 @@ fi
 
 if [[ -z "$OUTPUT_DIR" ]]; then
   ATTEMPT_NAME="${ATTEMPT_NAME_ARG:-attempt_$(date +%Y%m%d_%H%M%S)}"
-  OUTPUT_DIR="$WORK_ROOT/runs/${ATTEMPT_NAME}"
+  if [[ "$(basename "$WORK_ROOT")" == attempt_* ]]; then
+    OUTPUT_DIR="$WORK_ROOT"
+  else
+    OUTPUT_DIR="$WORK_ROOT/runs/${ATTEMPT_NAME}"
+  fi
 fi
 
 mkdir -p "$OUTPUT_DIR"
@@ -153,7 +161,38 @@ stage_file() {
   fi
 }
 
+require_research_artifact() {
+  local src_dir="$1"
+  local rel="$2"
+  if [[ ! -f "$src_dir/$rel" ]]; then
+    echo "ERROR: missing mandatory research artifact before PPT pipeline: $src_dir/$rel" >&2
+    echo "Create and validate research_plan.json, write search_log.md, then rerun. Use --no-research-gate only for PPT-only debug runs." >&2
+    exit 1
+  fi
+}
+
+stage_optional_artifact() {
+  local src_dir="$1"
+  local rel="$2"
+  if [[ -f "$src_dir/$rel" ]]; then
+    mkdir -p "$OUTPUT_DIR/$(dirname "$rel")"
+    stage_file "$src_dir/$rel" "$OUTPUT_DIR/$rel"
+  fi
+}
+
 stage_file "$STORYBOARD" "$STAGED_STORYBOARD"
+
+INPUT_DIR="$(cd "$(dirname "$STORYBOARD")" && pwd)"
+if [[ $RESEARCH_GATE -eq 1 ]]; then
+  require_research_artifact "$INPUT_DIR" "artifacts/research_plan.json"
+  require_research_artifact "$INPUT_DIR" "artifacts/research_plan_validation.json"
+  require_research_artifact "$INPUT_DIR" "artifacts/search_log.md"
+fi
+stage_optional_artifact "$INPUT_DIR" "input_card.json"
+stage_optional_artifact "$INPUT_DIR" "artifacts/input_card_validation.json"
+stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan.json"
+stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan_validation.json"
+stage_optional_artifact "$INPUT_DIR" "artifacts/search_log.md"
 
 echo "[bootstrap] validating storyboard contract..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_storyboard.py" \

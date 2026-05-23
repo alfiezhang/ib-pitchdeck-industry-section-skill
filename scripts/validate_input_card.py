@@ -4,12 +4,17 @@
 The input card is a normalization layer, not a research output. Inferred peers,
 risks, source preferences, and research topics belong in artifacts/research_plan.json
 or industry_input_memo.md unless the user explicitly provided them.
+
+Generation rule: build the input card in transcription mode. Copy the user's brief
+faithfully into user-provided fields, perform only minimal metadata normalization,
+and leave planner/research fields empty unless the user explicitly supplied them.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -41,6 +46,24 @@ LOW_RISK_NORMALIZED_PATHS = {
     "transaction_type",
 }
 
+ALLOWED_LANGUAGES = {
+    "Chinese",
+    "English",
+    "zh-CN",
+    "en",
+    "中文",
+    "英文",
+}
+LANGUAGE_ALIASES = {
+    "Chinese": "Chinese",
+    "zh-CN": "Chinese",
+    "中文": "Chinese",
+    "English": "English",
+    "en": "English",
+    "英文": "English",
+}
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
 
 def get_path(data: dict[str, Any], path: str) -> Any:
     cur: Any = data
@@ -71,12 +94,24 @@ def provenance_paths(data: dict[str, Any], key: str) -> set[str]:
     return {str(item).strip() for item in values if str(item).strip()}
 
 
+def request_language(data: dict[str, Any]) -> str:
+    provenance = data.get("_provenance", {})
+    if not isinstance(provenance, dict):
+        return ""
+    return str(provenance.get("request_language", "")).strip()
+
+
+def canonical_language(value: str) -> str:
+    return LANGUAGE_ALIASES.get(value.strip(), value.strip())
+
+
 def validate(data: dict[str, Any], allow_enriched: bool = False) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
 
     user_provided = provenance_paths(data, "user_provided_paths")
     normalized = provenance_paths(data, "normalized_metadata_paths")
+    req_language = request_language(data)
 
     if allow_enriched:
         warnings.append("allow_enriched=true: inferred input-card fields are not treated as errors")
@@ -96,6 +131,29 @@ def validate(data: dict[str, Any], allow_enriched: bool = False) -> dict[str, An
             warnings.append(
                 f"{path} is populated without provenance; mark it as user_provided or normalized_metadata"
             )
+
+    language = str(data.get("language", "")).strip()
+    if not language:
+        warnings.append(
+            "language is blank; default output language should follow the user's request language unless explicitly overridden"
+        )
+    elif language not in ALLOWED_LANGUAGES:
+        warnings.append(f"language value '{language}' is non-standard; expected one of {sorted(ALLOWED_LANGUAGES)}")
+    elif req_language and canonical_language(language) != canonical_language(req_language) and "language" not in user_provided:
+        errors.append(
+            f"language is '{language}' but request_language is '{req_language}'. "
+            "Default to the user's request language unless the user explicitly asked for another output language."
+        )
+    elif (
+        not req_language
+        and language in {"English", "en", "英文"}
+        and "language" not in user_provided
+        and CJK_RE.search(str(data.get("target_business_summary", "")))
+    ):
+        errors.append(
+            "language defaults to English while the user brief appears Chinese and no explicit language override is marked. "
+            "Default output language should follow the user's request language."
+        )
 
     return {
         "is_valid": not errors,
