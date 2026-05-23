@@ -66,7 +66,7 @@ For each selection, explain your reasoning in `decision_rationale`.
 
 Each slide must include:
 
-- **headline**: A conclusion-led investment insight, not a topic label. E.g., "China's premium tea market is a ¥XXX bn structural growth opportunity with 15%+ CAGR" — not "Market Size Overview."
+- **headline**: A conclusion-led investment insight, not a topic label. E.g., "The addressable market is a ¥XXX bn structural growth opportunity with evidence-backed CAGR" — not "Market Size Overview."
 - **main_message**: One sentence that captures the slide's core argument.
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
@@ -106,14 +106,14 @@ Recommended pattern:
 ```
 Structural growth: Market size / CAGR / penetration shift supports long-term capacity expansion
 Competitive divergence: Leading players pull ahead on channel, product, and cost advantages
-Target implication: This trend directly reinforces BaseCo's xxx capability
+Target implication: This trend directly reinforces the target's differentiated capability
 ```
 
 ### What "Empty" Looks Like (and How to Avoid It)
 
 | Too Thin (reject) | Acceptable | Strong |
 |---|---|---|
-| "Market is growing rapidly" | "Market growing at 12% CAGR, driven by premiumization and channel expansion" | "¥XXX bn market growing 12% CAGR (2022-27E); premium segment outpaces mass by 3× (EV-003)" |
+| "Market is growing rapidly" | "Market growing at X% CAGR, driven by named demand and channel factors" | "¥XXX bn market growing at X% CAGR over the sourced forecast period; higher-value segment outpaces mass segment by Y× (EV-003)" |
 | "竞争激烈" | "行业集中度较低，CR5 < 15%" | "CR5 < 15%，但头部品牌以渠道/产品/成本优势持续拉开份额差距（EV-007, EV-008）" |
 | "Large market potential" | "TAM ¥XXX bn, current penetration only X%" | "TAM ¥XXX bn; penetration at X% vs Y% in mature markets, implying Z× headroom (EV-002)" |
 
@@ -137,7 +137,7 @@ If you catch yourself writing any of these, replace with specific evidence + sou
 - Decide emphasis in the content itself before PPT filling.
 - Prefer bold emphasis over color emphasis.
 - Use color emphasis only for one short conclusion phrase or one critical contrast on a slide.
-- For colon-led labels such as `Industry structure:` or `BaseCo position:`, prefer bolding the label prefix rather than highlighting the whole sentence.
+- For colon-led labels such as `Industry structure:` or `Target position:`, prefer bolding the label prefix rather than highlighting the whole sentence.
 - Do not leave template-helper labels in visible copy. Terms such as `PRIMARY CHART`, `POINT 1`, or page-type names are scaffold only and must not appear in deliverable text.
 
 ## Source Discipline

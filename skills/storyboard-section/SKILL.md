@@ -70,7 +70,7 @@ The `storyline_strategy` section captures this reasoning explicitly.
 
 ## Copy Rules
 
-- **Headlines must be conclusion-led**: "China's premium tea market is a ¥XXX bn structural growth opportunity" — not "Market Size Overview."
+- **Headlines must be conclusion-led**: "The addressable market is a ¥XXX bn structural growth opportunity" — not "Market Size Overview."
 - **Main messages must be one sentence**: The slide's thesis in a single investment-grade sentence.
 - **Body copy must be PPT-ready**: Bullets, cards, or panels — scannable, not paragraph-length. Use the field names from `ppt_copy_schema.json` for each slide role.
 - **Chart-ready slides should carry data, not only chart ideas**: when a slide depends on a quantitative visual, include `chart_data` with chart type, categories, series, unit, and source-row notes.

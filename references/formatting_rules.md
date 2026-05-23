@@ -66,7 +66,7 @@ Each active field should contain: **label/prefix + opinion/judgment + evidence/i
 
 | Too Thin | Problem | Fix |
 |---|---|---|
-| "Market growing rapidly" | No data, no source | Add CAGR, size, source: "Market growing at 12% CAGR (EV-003)" |
+| "Market growing rapidly" | No data, no source | Add CAGR, size, source: "Market growing at X% CAGR (EV-003)" |
 | "竞争激烈" | Label only | Add structure: "CR5 < 15%，头部品牌靠渠道/产品拉开差距（EV-007）" |
 | "Industry reports" as source_note | Generic | Use Evidence ID or named source: "Named source, latest available report (EV-003)" |
 
@@ -79,7 +79,7 @@ Use inline markers only when they improve scanability without breaking layout di
 
 ### Preferred Uses
 
-- If a sentence contains a label structure such as `行业结构：...`, `BaseCo 位置：...`, or `关键尽调问题：...`, prefer bolding the label prefix before the colon rather than coloring the whole phrase.
+- If a sentence contains a label structure such as `行业结构：...`, `标的位置：...`, or `关键尽调问题：...`, prefer bolding the label prefix before the colon rather than coloring the whole phrase.
 - On comparison and summary pages, prefer bolding the label prefix and the single key proof point.
 - Reserve color highlight for one short headline phrase or one critical contrast on the page.
 
@@ -108,13 +108,13 @@ Use inline markers only when they improve scanability without breaking layout di
 - Visually prioritize the target
 - At most 1-2 peers may receive secondary emphasis
 - Right-panel conclusion should read like a synthesis, not another data dump
-- Prefer `BaseCo：`, `行业结构：`, `行业演化：`, `BaseCo 位置：` style bold prefixes over color
+- Prefer `标的公司：`, `行业结构：`, `行业演化：`, `标的位置：` style bold prefixes over color
 
 ### Slide 8 — Key Takeaways for Target
 - Highlight the investment conclusion
 - Bold one synergy or proof point
 - Keep diligence questions concise and decision-oriented
-- Prefer bold label prefixes such as `行业吸引力：`, `BaseCo 为什么能赢：`, `买方协同空间：`, `关键尽调问题：`
+- Prefer bold label prefixes such as `行业吸引力：`, `标的公司为什么能赢：`, `买方协同空间：`, `关键尽调问题：`
 
 ## Anti-Patterns
 
