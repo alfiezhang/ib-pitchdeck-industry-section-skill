@@ -200,7 +200,9 @@ echo "[bootstrap] validating storyboard contract..."
   --schema "$SCRIPT_DIR/templates/storyboard_schema.json" \
   --output "$OUTPUT_DIR/artifacts/storyboard_validation.json"
 
-# ── Step 0b: Content quality validation (advisory by default) ────
+# ── Step 0b: Content quality validation ──────────────────────────
+# Density warnings are advisory; source_warnings are blocking unless
+# validate_content_quality.py is run with --allow-source-warnings.
 MEMO_FILE=""
 for memo_candidate in \
   "$(dirname "$STORYBOARD")/industry_input_memo.md" \

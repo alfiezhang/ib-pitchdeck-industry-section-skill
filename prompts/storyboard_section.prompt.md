@@ -171,4 +171,6 @@ JSON syntax hard rules:
 - JSON keys and string delimiters must use ASCII double quotes only: `"`.
 - Never use Chinese/smart quotes: `“”‘’`.
 - Never use single quotes for JSON keys or string delimiters.
+- Prefer constructing the artifact as a native object/dict and serializing with a JSON writer such as `json.dump(..., ensure_ascii=False, indent=2)`; do not hand-edit malformed JSON into place.
+- If validation fails, fix the structured source data and re-serialize. Do not patch final JSON with global quote replacement or other text-only repairs.
 - If final PPT validation returns `is_valid=false`, do not deliver the PPT; fix the underlying issue.

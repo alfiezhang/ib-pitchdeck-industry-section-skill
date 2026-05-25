@@ -168,4 +168,6 @@ JSON 语法硬规则：
 - JSON key 和字符串边界只能使用 ASCII 双引号：`"`。
 - 不得使用中文/智能引号：`“”‘’`。
 - 不得使用单引号包裹 JSON key 或字符串。
+- 优先先构造原生对象 / dict，再用 JSON writer 序列化，例如 `json.dump(..., ensure_ascii=False, indent=2)`；不要手工把格式错误的 JSON 改到文件里。
+- 如果验证失败，应修复结构化源数据后重新序列化；不要用全局替换引号等纯文本修补方式修最终 JSON。
 - 如果最终 PPT 验证结果为 `is_valid=false`，不得交付 PPT；必须修复底层问题。

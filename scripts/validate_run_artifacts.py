@@ -57,6 +57,7 @@ def memo_claimed_artifacts(memo_text: str) -> list[str]:
         match = re.match(r"Research Plan (?:Artifact|Validation):\s*(.+?)\s*$", line)
         if match:
             value = match.group(1).strip()
+            value = re.split(r"\s+\(", value, maxsplit=1)[0].strip()
             if value and value.lower() not in {"none", "n/a", "not applicable"}:
                 claimed.append(value)
     return claimed
@@ -65,15 +66,15 @@ def memo_claimed_artifacts(memo_text: str) -> list[str]:
 def validate_search_log(path: Path) -> list[str]:
     warnings = []
     text = read_text(path)
-    if "## Search Attempts" not in text:
+    attempt_count = len(re.findall(r"^###\s+Search\s+#?\d+", text, flags=re.MULTILINE))
+    if not re.search(r"^##\s+Search Attempts\s*$", text, flags=re.MULTILINE) and attempt_count < 3:
         warnings.append("search_log.md missing '## Search Attempts' section")
-    if "## Coverage Checklist" not in text:
+    if not re.search(r"^##\s+(?:Search )?Coverage Checklist\s*$", text, flags=re.MULTILINE):
         warnings.append("search_log.md missing '## Coverage Checklist' section")
-    if "broad_discovery" not in text:
+    if not re.search(r"(broad_discovery|Broad Discovery)", text, flags=re.IGNORECASE):
         warnings.append("search_log.md has no broad_discovery stage")
-    if "targeted_validation" not in text and "latest_check" not in text:
+    if not re.search(r"(targeted_validation|latest_check|Targeted Validation|Latest)", text, flags=re.IGNORECASE):
         warnings.append("search_log.md has no targeted_validation/latest_check stage")
-    attempt_count = len(re.findall(r"^### Search\s+\d+", text, flags=re.MULTILINE))
     if attempt_count < 3:
         warnings.append(f"search_log.md has only {attempt_count} search attempt(s); expected at least 3")
     return warnings

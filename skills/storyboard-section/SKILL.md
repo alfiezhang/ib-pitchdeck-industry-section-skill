@@ -121,7 +121,7 @@ After producing `industry_storyboard.json`, run the content quality validator be
   --output artifacts/content_quality_validation.json
 ```
 
-This is advisory by default (warnings only, no hard fail). Review the output and address warnings before proceeding to PPT filling.
+Density and generic-copy warnings are advisory by default, but source warnings are blocking because weak or vague attribution can make unsupported claims look diligence-grade. Review the output and address warnings before proceeding to PPT filling.
 
 ## Human Review Gate
 
@@ -129,7 +129,7 @@ After this skill produces `industry_storyboard.json`, **stop for human review** 
 
 Operational rule:
 - in default mode, stop here
-- in one-shot mode, continue only if the storyboard makes weak-source areas, data gaps, and page-type tradeoffs explicit rather than burying them
+- in one-shot mode, continue only if machine gates pass; weak-source areas require explicit degraded/debug mode and must not be delivered as diligence-grade output
 
 The reviewer should confirm:
 - Industry thesis supports the transaction

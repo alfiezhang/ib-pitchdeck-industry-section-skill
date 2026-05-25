@@ -43,11 +43,13 @@ The enhanced `scripts/web_search.py` supports `--site`, `--sites`, `--site-mode 
 
 Research source planning rule:
 1. Read `templates/source_registry.json` as a menu before search.
-2. Run initial unrestricted broad discovery queries before any default-pack search.
-3. Write `artifacts/research_plan.json` from `templates/research_plan.template.json`.
-4. Select source packs/domains by research dimension, with reasons. Aim for 6-15 distinct high-priority domains across the full memo; use more only for regulated, cross-border, or data-sparse industries.
-5. Run targeted validation against selected packs/domains. Do not run every default pack against every query.
-6. Write `artifacts/search_log.md` incrementally. Do not enter memo synthesis, storyboard, or PPT filling unless `research_plan.json`, `research_plan_validation.json`, and `search_log.md` exist in the same run directory.
+2. Create a lightweight discovery plan in `artifacts/research_plan.json` from `templates/research_plan.template.json`. At this stage, fill meta fields and broad discovery queries only; keep industry boundaries, peer sets, source packs, and priority domains provisional or blank unless the user explicitly provided them.
+3. Write `artifacts/search_log.md` before the first search attempt, using `references/search_log_template.md`. Update it incrementally during research; do not backfill it only after the memo is written.
+4. Run initial unrestricted broad discovery queries before any default-pack or source-pack search. Use these searches to learn vocabulary, industry boundaries, metric names, source leads, and likely peer categories.
+5. Upgrade the discovery plan into a formal research plan: add discovered source leads, selected source packs/domains by dimension, targeted validation queries, and selection reasons. Aim for 6-15 distinct high-priority domains across the full memo; use more only for regulated, cross-border, or data-sparse industries.
+6. Validate the formal `artifacts/research_plan.json` before memo synthesis.
+7. Run targeted validation against selected packs/domains. Do not run every default pack against every query.
+8. Do not enter memo synthesis, storyboard, or PPT filling unless `research_plan.json`, `research_plan_validation.json`, and `search_log.md` exist in the same run directory.
 
 ## Runtime Bootstrap
 
@@ -118,9 +120,9 @@ Output: `artifacts/storyboard_validation.json`
 
 This is deterministic validation of page type choices, `template_binding`, and active `body_copy` fields. If it fails, fix `industry_storyboard.json` upstream.
 
-### 3b. Content Quality Validation (advisory)
+### 3b. Content Quality Validation
 
-Run `scripts/validate_content_quality.py` after storyboard validation. This is advisory by default — it produces warnings, not hard errors.
+Run `scripts/validate_content_quality.py` after storyboard validation. Density warnings remain advisory by default, but `source_warnings` are a hard gate because weak or generic attributions can make unsupported claims look diligence-grade.
 
 ```bash
 ./.venv/bin/python scripts/validate_content_quality.py \
@@ -130,7 +132,7 @@ Run `scripts/validate_content_quality.py` after storyboard validation. This is a
   --output artifacts/content_quality_validation.json
 ```
 
-Review the output. Address density_warnings, source_warnings, chart_data_warnings, generic_copy_warnings, and evidence_warnings before proceeding. Use `--quality-gate` to make this a hard gate when desired.
+Review the output. Address `source_warnings` before proceeding. Address `density_warnings`, `chart_data_warnings`, `generic_copy_warnings`, and `evidence_warnings` as quality improvements, or use `--quality-gate` to make every warning a hard gate. Use `--allow-source-warnings` only for explicitly degraded/debug drafts that will not be delivered as diligence-grade output.
 
 ### 4. PPT Copy Finalize *(optional)*
 Use `skills/ppt-copy-finalize/SKILL.md`.
@@ -169,7 +171,7 @@ Do **not** require separate manual review for intermediate debug files; the work
 
 - **Default mode**: stop after `industry_input_memo.md`, then stop again after `industry_storyboard.json`.
 - **One-shot mode**: continue through storyboard, ppt_copy, and PPT filling only when the user explicitly asks for one-shot generation, full draft generation, or direct PPT output.
-- **Weak-source caution**: if source quality is clearly weak or key facts remain unverified, it is still acceptable to continue in one-shot mode, but generated outputs must flag gaps explicitly rather than smoothing them over.
+- **Weak-source caution**: one-shot mode removes manual review pauses, not machine gates. If source quality is clearly weak or key facts remain unverified, stop unless the operator explicitly chooses degraded/debug mode. Degraded output must flag gaps explicitly and must not be delivered as diligence-grade output.
 
 ## Required Outputs
 
@@ -179,7 +181,7 @@ Do **not** require separate manual review for intermediate debug files; the work
 - `artifacts/search_log.md` (written incrementally during research)
 - `industry_storyboard.json`
 - `artifacts/storyboard_validation.json`
-- `artifacts/content_quality_validation.json` (advisory)
+- `artifacts/content_quality_validation.json`
 - `industry_section_ppt_copy.json` (canonical input to deterministic PPT filling)
 - `replacement_dict.json`
 - `industry_section_filled_clean.pptx` (when PPT output is requested)
@@ -240,7 +242,7 @@ Only static skill assets should be resolved relative to the skill package itself
 ## When to Run Optional Steps
 
 - **PPT Copy Finalize**: run when storyboard copy exceeds PPT placeholder limits, when copy is verbose rather than punchy, or when the user requests a cleaner `industry_section_ppt_copy.json`.
-- **Content Quality Validation**: always run before PPT filling. Review warnings and fix issues in the storyboard before proceeding.
+- **Content Quality Validation**: always run before PPT filling. Source warnings are blocking; review other warnings and fix issues in the storyboard before proceeding.
 - **Storyboard validation**: always run before deterministic PPT filling. Fix the storyboard contract before attempting PPT execution.
 
 ## Failure Handling
@@ -248,4 +250,4 @@ Only static skill assets should be resolved relative to the skill package itself
 - If a step fails, stop the chain, preserve completed run outputs, and report the failed step plus the next recommended action.
 - If `fill-ppt` scripts fail, fix the upstream PPT copy or mapping — never patch the final PPT manually.
 - If validation fails, diagnose and fix upstream rather than bypassing validation.
-- If content quality validation produces warnings, address them before PPT filling — thin copy will produce thin slides.
+- If content quality validation produces source warnings, fix source attribution or evidence before PPT filling. Other warnings should be addressed when they materially affect deck quality; thin copy will produce thin slides.

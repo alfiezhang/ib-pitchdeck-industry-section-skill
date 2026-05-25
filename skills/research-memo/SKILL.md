@@ -83,16 +83,19 @@ Site mode forces DuckDuckGo because Tavily API does not support `site:` syntax.
 
 ## Research Plan Sequence
 
-Before memo synthesis, create `artifacts/research_plan.json` using `templates/research_plan.template.json`.
+Before memo synthesis, create `artifacts/research_plan.json` using `templates/research_plan.template.json`. This begins as a lightweight discovery plan and becomes the formal research plan after broad discovery. It is not a post-hoc summary.
 
 Execution order:
 1. Read `templates/source_registry.json` as a source menu only. Do not execute default packs yet.
 2. Fill `meta.research_as_of_date` with the run date and `meta.user_material_data_cutoff` with the latest period found in user-provided materials, or `not specified`.
-3. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, data terms, peer names, source leads, and geography-specific terminology.
-4. Fill `broad_discovery.discovered_source_leads` with useful domains found during broad search.
-5. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
-6. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
-7. Run targeted validation queries against selected sources, not every default pack against every query.
+3. Draft broad discovery queries in the plan before running them. Do not lock industry boundaries, peer sets, source packs, or priority domains yet unless the user explicitly provided them.
+4. Create `artifacts/search_log.md` from `references/search_log_template.md` before the first search attempt.
+5. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, data terms, peer names, source leads, and geography-specific terminology. Record each attempt immediately in `search_log.md`.
+6. Update the plan with broad-discovery findings: industry definition candidates, vocabulary, metric names, peer categories, and discovered source leads.
+7. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant source packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
+8. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
+9. Add targeted validation queries and latest/current queries based on the discovered industry vocabulary and source leads.
+10. Run targeted validation queries against selected sources, not every default pack against every query.
 
 Validate the plan before memo synthesis:
 
@@ -103,7 +106,7 @@ Validate the plan before memo synthesis:
   --output artifacts/research_plan_validation.json
 ```
 
-The validated research plan and `artifacts/search_log.md` must live in the same run directory as the memo, storyboard, and PPT outputs. Do not proceed to storyboard or PPT generation if either artifact is missing.
+The validated research plan and `artifacts/search_log.md` must live in the same run directory as the memo, storyboard, and PPT outputs. Do not proceed to memo synthesis, storyboard, or PPT generation if the research plan validation artifact or search log is missing.
 
 ## Multi-Round Search
 
@@ -119,7 +122,7 @@ If the user provides a peer set, search each core peer for:
 - Market positioning
 - One financial or operating metric
 
-Write `artifacts/search_log.md` incrementally during the research phase using `references/search_log_template.md`.
+Write `artifacts/search_log.md` incrementally during the research phase using `references/search_log_template.md`. Preserve these machine-readable headings exactly: `## Search Attempts`, `### Search N`, `Search Stage`, and `## Coverage Checklist`.
 
 ## Output
 
@@ -165,6 +168,8 @@ Key principles:
 - **Web research is mandatory** when starting from a brief or attachments.
 - **Broad discovery precedes default-pack search**: read the source registry first, but do not run `--use-default-packs` until broad discovery has identified which source families are likely useful.
 - **Research plan validation is mandatory** before memo synthesis. Fix errors first; warnings require judgment and should be recorded if accepted.
+- **Search log is procedural, not post-hoc**: create it before the first search attempt and update it after each search. Do not reconstruct a clean log only after the memo is complete.
+- **Discovery plan is intentionally lightweight**: before broad discovery, avoid filling unknown peer sets, source packs, and industry boundaries from model prior knowledge. Let broad discovery inform the formal plan.
 - **Dependency check is mandatory before fallback search**: run `bash ./setup.sh` and `./.venv/bin/python scripts/check_runtime_dependencies.py` before relying on `scripts/web_search.py`.
 - **Fail closed on mandatory research failure**: if built-in WebSearch/WebFetch and fallback search cannot return verified online sources, stop the workflow. Do not generate storyboard or PPT from `training_data` unless the operator explicitly chooses degraded mode.
 - **Record user-provided materials separately** from online research in `Source Materials`.

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Validate content quality of industry_storyboard.json against the research memo and quality rules.
 
-This is an advisory validator — it produces warnings, not hard errors, unless --quality-gate is set.
-It checks content density, source specificity, generic-phrase usage, and evidence linkage.
+Density and generic-copy findings are advisory by default. Source-quality findings are blocking by
+default because weak or generic attributions can make unsupported facts look diligence-grade.
 """
 
 import argparse
@@ -271,6 +271,7 @@ def validate(
     storyboard_path: Path,
     memo_path: Optional[Path],
     rules_path: Path,
+    block_source_warnings: bool = True,
 ) -> dict:
     errors: list[str] = []
     density_warnings: list[str] = []
@@ -390,6 +391,12 @@ def validate(
         + evidence_warnings
     )
 
+    blocking_warnings = source_warnings if block_source_warnings else []
+    if blocking_warnings:
+        errors.append(
+            "source quality gate failed: resolve weak/generic source warnings before PPT delivery"
+        )
+
     return {
         "is_valid": len(errors) == 0,
         "storyboard": str(storyboard_path),
@@ -398,6 +405,8 @@ def validate(
         "error_count": len(errors),
         "warning_count": len(all_warnings),
         "errors": errors,
+        "blocking_warning_count": len(blocking_warnings),
+        "blocking_warnings": blocking_warnings,
         "density_warnings": density_warnings,
         "source_warnings": source_warnings,
         "chart_data_warnings": chart_data_warnings,
@@ -436,12 +445,17 @@ def main() -> None:
         "--warnings-as-errors", action="store_true",
         help="Alias for --quality-gate."
     )
+    parser.add_argument(
+        "--allow-source-warnings", action="store_true",
+        help="Do not fail on source_warnings. Use only for explicitly degraded/debug drafts.",
+    )
     args = parser.parse_args()
 
     result = validate(
         storyboard_path=Path(args.storyboard),
         memo_path=Path(args.memo) if args.memo else None,
         rules_path=Path(args.rules),
+        block_source_warnings=not args.allow_source_warnings,
     )
 
     gate = args.quality_gate or args.warnings_as_errors

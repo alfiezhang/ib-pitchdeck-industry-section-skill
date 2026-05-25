@@ -25,15 +25,20 @@ Use `--site-mode only` when the user explicitly requires domain-only search.
 
 ## Research Plan Sequence
 
-Before writing the memo, create `artifacts/research_plan.json` using `templates/research_plan.template.json`.
+Before writing the memo, create `artifacts/research_plan.json` using `templates/research_plan.template.json`. The plan starts as a lightweight discovery plan, evolves after broad discovery, and must be validated as a formal research plan before memo synthesis.
 
 Follow this sequence:
 1. Read `templates/source_registry.json` as a menu of possible source packs/domains. Do not execute searches from default packs yet.
-2. Run 3-6 unrestricted broad discovery queries before default-pack or source-pack searches. Use them to learn industry vocabulary, metric names, player names, source leads, and jurisdiction-specific terminology.
-3. Select sources by research dimension. For each dimension, choose 1-3 relevant source packs/domains when appropriate. Across the full memo, aim for 6-15 distinct high-priority domains.
-4. Add 0-5 industry-specific domains discovered during broad search if they are authoritative for the target industry.
-5. Explain every selected pack/domain in `source_selection.reason`.
-6. Run targeted validation queries against selected packs/domains. Do not run every default pack against every query.
+2. Draft the broad discovery query set in `artifacts/research_plan.json`. Keep unknown industry boundaries, peer sets, source packs, priority domains, and must-cover topics provisional or blank unless the user explicitly supplied them.
+3. Create `artifacts/search_log.md` from `references/search_log_template.md` before the first search attempt.
+4. Run 3-6 unrestricted broad discovery queries before default-pack or source-pack searches. Use them to learn industry vocabulary, metric names, player names, source leads, and jurisdiction-specific terminology.
+5. Record each search attempt immediately in `artifacts/search_log.md`; do not backfill the log after memo writing.
+6. Update the plan with broad-discovery findings: definition candidates, vocabulary, metric names, source leads, peer categories, and relevant geography/period cues.
+7. Select sources by research dimension. For each dimension, choose 1-3 relevant source packs/domains when appropriate. Across the full memo, aim for 6-15 distinct high-priority domains.
+8. Add 0-5 industry-specific domains discovered during broad search if they are authoritative for the target industry.
+9. Explain every selected pack/domain in `source_selection.reason`.
+10. Add targeted validation and latest/current queries based on the discovered vocabulary and source leads.
+11. Run targeted validation queries against selected packs/domains. Do not run every default pack against every query.
 
 Validate the plan before memo synthesis:
 
@@ -103,7 +108,7 @@ Use `--use-default-packs` only after the research plan calls for an explicit def
 
 ## Search Log
 
-Write `artifacts/search_log.md` incrementally during the research phase. Use `references/search_log_template.md` as the template. Record every search attempt (not just successful ones) to create an audit trail for downstream fact-checking.
+Write `artifacts/search_log.md` incrementally during the research phase. Use `references/search_log_template.md` as the template and preserve the machine-readable headings `## Search Attempts`, `### Search N`, `Search Stage`, and `## Coverage Checklist`. Record every search attempt (not just successful ones) to create an audit trail for downstream fact-checking.
 
 ## Search Tool Fallback
 
