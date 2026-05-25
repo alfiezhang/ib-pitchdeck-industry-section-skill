@@ -16,7 +16,7 @@ Convert the reasoning-rich `industry_storyboard.json` into the canonical `indust
    - Slide 6: `{slide_6_variant}`
    - Slide 7: `{slide_7_variant}`
    Unless the storyboard is internally inconsistent (e.g., a slide's `selected_page_type` conflicts with `template_binding`), in which case flag the inconsistency and use the `template_binding` value as authoritative.
-3. **Compress text to fit PPT placeholders.** Bullets should be scannable, not paragraph-length. Headlines should be conclusion-led one-liners. Main takeaways should be single sentences.
+3. **Compress text to fit PPT placeholders.** Bullets should be scannable, not paragraph-length. Headlines must be conclusion-led one-liners under `templates/text_fit_rules.json`. Main takeaways should target one line and must not exceed two estimated lines.
 4. **Preserve source notes.** Every slide's `source_footer` must carry forward the storyboard's `source_note`.
 5. **Preserve target linkage.** Every slide's `main_takeaway` should reflect the storyboard's `target_link` intent.
 6. **Ensure the output conforms to `templates/ppt_copy_schema.json`.** All required fields must be present. Use `ppt_copy_mapping.json` for field-level role-to-field mapping.

@@ -34,7 +34,7 @@ Must include:
 
 1. **No new facts.** The storyboard is the sole source of truth. Do not add data, claims, or interpretations that were not in the storyboard.
 2. **No page type changes.** The `selected_page_type` for each slide must exactly match the storyboard's `template_binding` decisions.
-3. **Compress for PPT.** Headlines and bullets should be concise, scannable, and fit within PPT placeholder character limits. Prefer punchy investment language over descriptive prose.
+3. **Compress for PPT.** Headlines and bullets should be concise, scannable, and fit within PPT placeholder limits. Headlines must fit one line under `templates/text_fit_rules.json`; main takeaways target one line and must not exceed two estimated lines.
 4. **Preserve source notes.** Every slide's `source_footer` must carry forward the storyboard's `source_note`.
 5. **Preserve target linkage.** Every slide's `main_takeaway` should reflect the storyboard's `target_link` intent.
 6. **Field alignment.** Map storyboard `body_copy` fields to the exact field names expected by `ppt_copy_schema.json` for each slide role. Use `templates/ppt_copy_mapping.json` for guidance.

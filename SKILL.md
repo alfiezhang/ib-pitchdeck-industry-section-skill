@@ -109,6 +109,8 @@ This is the **main LLM reasoning step**. It generates, in one pass: storyline st
 - Per-field density targets (see storyboard prompt for ranges)
 - No banned generic phrases in body_copy or source_note
 - At least 2 Evidence IDs or memo section references per slide
+- Headline and main_message fit rules are enforced by `templates/text_fit_rules.json`: title must fit one line; subtitle/main_message targets one line and must not exceed two lines.
+- Slide 1 right-side visual area is executable: storyboard must set `chart_data.chart_type` to `bar`, `stacked_bar`, `line`, `metric_cards`, or `none`; non-`none` choices need data that `scripts/postprocess_ppt_visuals.py` can render.
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
 
@@ -122,7 +124,7 @@ This is deterministic validation of page type choices, `template_binding`, and a
 
 ### 3b. Content Quality Validation
 
-Run `scripts/validate_content_quality.py` after storyboard validation. Density warnings remain advisory by default, but `source_warnings` are a hard gate because weak or generic attributions can make unsupported claims look diligence-grade.
+Run `scripts/validate_content_quality.py` after storyboard validation. Density warnings remain advisory by default, but `source_warnings` and title/subtitle line-fit breaches are hard gates because weak sourcing and unreadable titles can make output non-deliverable.
 
 ```bash
 ./.venv/bin/python scripts/validate_content_quality.py \
@@ -132,7 +134,7 @@ Run `scripts/validate_content_quality.py` after storyboard validation. Density w
   --output artifacts/content_quality_validation.json
 ```
 
-Review the output. Address `source_warnings` before proceeding. Address `density_warnings`, `chart_data_warnings`, `generic_copy_warnings`, and `evidence_warnings` as quality improvements, or use `--quality-gate` to make every warning a hard gate. Use `--allow-source-warnings` only for explicitly degraded/debug drafts that will not be delivered as diligence-grade output.
+Review the output. Address `source_warnings` and blocking `layout_warnings` before proceeding. Address `density_warnings`, non-blocking `layout_warnings`, `chart_data_warnings`, `generic_copy_warnings`, and `evidence_warnings` as quality improvements, or use `--quality-gate` to make every warning a hard gate. Use `--allow-source-warnings` only for explicitly degraded/debug drafts that will not be delivered as diligence-grade output.
 
 ### 4. PPT Copy Finalize *(optional)*
 Use `skills/ppt-copy-finalize/SKILL.md`.

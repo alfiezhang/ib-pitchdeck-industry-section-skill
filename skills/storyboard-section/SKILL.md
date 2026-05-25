@@ -74,6 +74,7 @@ The `storyline_strategy` section captures this reasoning explicitly.
 - **Main messages must be one sentence**: The slide's thesis in a single investment-grade sentence.
 - **Body copy must be PPT-ready**: Bullets, cards, or panels — scannable, not paragraph-length. Use the field names from `ppt_copy_schema.json` for each slide role.
 - **Chart-ready slides should carry data, not only chart ideas**: when a slide depends on a quantitative visual, include `chart_data` with chart type, categories, series, unit, and source-row notes.
+- **Slide 1 visual anchor is executable**: Slide 1's right-side `CHART / VISUAL` area is rendered from `chart_data`. Use `bar`, `stacked_bar`, or `line` with categories/series/source_rows; use `metric_cards` with at least two source_rows; use `none` only when there is no verified visual data.
 - **Matrix slides need coordinates**: for `matrix_page`, include numeric x/y coordinates per plotted player in `chart_data.source_rows`, or provide two numeric series that map to the x and y axes.
 - **`chart_title` must stay client-facing downstream**: quantitative slides should make `chart_data.title` usable as the on-slide chart label; execution notes belong in `visual_direction` or `chart_data.notes`.
 - **Target link is mandatory on every slide**: If a slide doesn't connect to the target, it's a generic industry slide — fix it or flag it.
@@ -87,8 +88,8 @@ Target ranges (from `templates/content_quality_rules.json`):
 
 | Field Type | Target Range |
 |---|---|
-| title / headline | 50–100 chars |
-| main_takeaway | 80–140 chars |
+| title / headline | Must fit one title line under `templates/text_fit_rules.json` |
+| main_takeaway | Target one line; hard max two lines under `templates/text_fit_rules.json` |
 | bullet / card | 70–130 chars |
 | panel | 100–160 chars |
 | table_row | 60–100 chars |
@@ -121,7 +122,7 @@ After producing `industry_storyboard.json`, run the content quality validator be
   --output artifacts/content_quality_validation.json
 ```
 
-Density and generic-copy warnings are advisory by default, but source warnings are blocking because weak or vague attribution can make unsupported claims look diligence-grade. Review the output and address warnings before proceeding to PPT filling.
+Density and generic-copy warnings are advisory by default. Source warnings and title/subtitle line-fit breaches are blocking because they affect diligence quality and final PPT readability. Review the output and address warnings before proceeding to PPT filling.
 
 ## Human Review Gate
 

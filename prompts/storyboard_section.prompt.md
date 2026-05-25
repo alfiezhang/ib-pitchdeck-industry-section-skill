@@ -66,11 +66,13 @@ For each selection, explain your reasoning in `decision_rationale`.
 
 Each slide must include:
 
-- **headline**: A conclusion-led investment insight, not a topic label. E.g., "The addressable market is a ¥XXX bn structural growth opportunity with evidence-backed CAGR" — not "Market Size Overview."
-- **main_message**: One sentence that captures the slide's core argument.
+- **headline**: A conclusion-led investment insight, not a topic label. It must fit on one title line under `templates/text_fit_rules.json`; keep it short and move evidence/detail to `main_message` or body copy.
+- **main_message**: One sentence that captures the slide's core argument. Target one line; two lines are acceptable only when necessary; three lines are not acceptable.
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
+- **Chart legend labels**: Keep each `series.name` short enough to work as a chart legend label, ideally 2-8 Chinese characters or 1-3 English words. Do not use full-sentence series names.
+- **Slide 1 visual contract**: Slide 1 uses a large right-side `CHART / VISUAL` anchor. It must include executable `chart_data.chart_type`: use `bar`, `stacked_bar`, or `line` with `categories`, `series`, `unit`, and `source_rows`; use `metric_cards` with at least two `source_rows`; or use `none` only when there is no verified visual data. Do not put procedural instructions into `chart_data.title`.
 - For `matrix_page`, include either `source_rows` with numeric `x` and `y` values for each plotted player, or two numeric series whose values map to the matrix axes.
 - For quantitative slides, make `chart_data.title` a short on-slide chart label. Keep build instructions in `visual_direction` or `chart_data.notes`, not in the visible chart title field.
 - **target_link**: Explicit connection to the target. Every slide must answer: why does this matter for **this** target?
@@ -87,8 +89,8 @@ Aim for these character ranges. Fields shorter than the minimum are likely too t
 
 | Field Type | Target Range | Notes |
 |---|---|---|
-| title / headline | 50–100 chars | Must be a complete investment insight |
-| main_takeaway | 80–140 chars | One sentence: opinion + evidence/implication |
+| title / headline | Template one-line fit | Short investment judgment; must pass `text_fit_rules.json` |
+| main_takeaway | Template 1-line target, 2-line max | One sentence: opinion + evidence/implication |
 | bullet / card | 70–130 chars | Structured: label + opinion + data point OR implication |
 | panel | 100–160 chars | Synthesis paragraph: context + judgment + target relevance |
 | table_row | 60–100 chars | Metric-led, label bolded |
@@ -159,7 +161,8 @@ Before finalizing, honestly assess:
 3. **Source support**: Are all key numbers sourced? Any fabricated facts?
 4. **Page repetition**: Is any content repeated across slides?
 5. **Template fit**: Will the copy physically fit in the PPT placeholders?
-6. **Content density**: Are any body_copy fields too thin (below density targets)? Are any generic phrases used without specific evidence?
+6. **Title/subtitle line fit**: Does every headline fit on one line, and every main_message fit in no more than two lines?
+7. **Content density**: Are any body_copy fields too thin (below density targets)? Are any generic phrases used without specific evidence?
 
 In one-shot mode, it is acceptable to continue toward PPT output only if weak-source areas, data gaps, and page-type tradeoffs are explicit in this storyboard.
 

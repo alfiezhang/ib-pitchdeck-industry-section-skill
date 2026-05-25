@@ -86,6 +86,7 @@ SLIDE_LAYOUTS = {
         "summary_page": {
             "title_box": (3785616, 1655064, 7607808, 360000),
             "visual_box": (3920000, 2350000, 7300000, 2850000),
+            "chart_box": (3920000, 2350000, 7300000, 2850000),
         }
     },
     2: {
@@ -109,6 +110,7 @@ BRAND_BLUE = RGBColor(0x0D, 0x57, 0xAA)
 GRID_GRAY = RGBColor(0xD9, 0xD9, 0xD9)
 TEXT_GRAY = RGBColor(0x55, 0x55, 0x55)
 ACCENT_RED = RGBColor(0xC0, 0x3C, 0x28)
+LEGEND_FONT_SIZE = 8
 
 
 def load_json(path: Path) -> dict:
@@ -208,6 +210,45 @@ def apply_chart_title(slide, text: str, layout: dict) -> bool:
     return True
 
 
+def chart_type_for(chart_data: dict):
+    chart_type = str(chart_data.get("chart_type") or "bar").lower()
+    if chart_type in {"bar", "column", "clustered_bar", "clustered_column"}:
+        return XL_CHART_TYPE.COLUMN_CLUSTERED
+    if chart_type in {"stacked_bar", "stacked_column"}:
+        return XL_CHART_TYPE.COLUMN_STACKED
+    if chart_type in {"line", "line_chart"}:
+        return XL_CHART_TYPE.LINE_MARKERS
+    return None
+
+
+def short_label(value: str, max_units: float = 14.0) -> str:
+    text = str(value or "").strip()
+    units = 0.0
+    result = []
+    for ch in text:
+        if ch.isspace():
+            char_units = 0.3
+        elif ord(ch) < 128:
+            char_units = 0.55
+        else:
+            char_units = 1.0
+        if units + char_units > max_units:
+            return "".join(result).rstrip() + "..."
+        result.append(ch)
+        units += char_units
+    return text
+
+
+def format_chart_legend(chart) -> None:
+    if not chart.has_legend:
+        return
+    chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+    chart.legend.include_in_layout = False
+    chart.legend.font.size = Pt(LEGEND_FONT_SIZE)
+    chart.legend.font.color.rgb = TEXT_GRAY
+    chart.legend.font.bold = False
+
+
 def build_chart(slide, slide_data: dict, layout: dict) -> dict:
     chart_data = slide_data.get("chart_data") or {}
     series = chart_data.get("series") or []
@@ -215,21 +256,29 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
     if not series or not categories:
         return {"rendered": False, "reason": "missing chart_data series/categories"}
 
-    chart_series = series[0]
-    values = chart_series.get("values") or []
-    if len(values) != len(categories):
-        return {"rendered": False, "reason": "series/category length mismatch"}
+    ppt_chart_type = chart_type_for(chart_data)
+    if ppt_chart_type is None:
+        return {
+            "rendered": False,
+            "reason": f"unsupported chart_type for deterministic chart renderer: {chart_data.get('chart_type')}",
+        }
 
     chart_title = chart_data.get("title") or ""
     apply_chart_title(slide, chart_title, layout)
 
     chart_payload = CategoryChartData()
     chart_payload.categories = categories
-    chart_payload.add_series(chart_series.get("name") or "", values)
+    for chart_series in series:
+        values = chart_series.get("values") or []
+        if len(values) != len(categories):
+            return {"rendered": False, "reason": "series/category length mismatch"}
+        chart_payload.add_series(short_label(chart_series.get("name") or ""), values)
 
     left, top, width, height = layout["chart_box"]
+    if len(series) > 1:
+        height = int(height * 0.88)
     graphic_frame = slide.shapes.add_chart(
-        XL_CHART_TYPE.COLUMN_CLUSTERED,
+        ppt_chart_type,
         Emu(left),
         Emu(top),
         Emu(width),
@@ -239,9 +288,7 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
     chart = graphic_frame.chart
     chart.has_title = False
     chart.has_legend = len(series) > 1
-    if chart.has_legend:
-        chart.legend.position = XL_LEGEND_POSITION.BOTTOM
-        chart.legend.include_in_layout = False
+    format_chart_legend(chart)
 
     category_axis = chart.category_axis
     category_axis.tick_labels.font.size = Pt(9)
@@ -262,18 +309,19 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
     data_labels.font.bold = True
     data_labels.number_format = '#,##0'
 
-    for s in chart.series:
+    palette = [BRAND_BLUE, ACCENT_RED, RGBColor(0x6C, 0x8E, 0xB8)]
+    for idx, s in enumerate(chart.series):
         fill = s.format.fill
         fill.solid()
-        fill.fore_color.rgb = BRAND_BLUE
-        s.format.line.color.rgb = BRAND_BLUE
+        fill.fore_color.rgb = palette[idx % len(palette)]
+        s.format.line.color.rgb = palette[idx % len(palette)]
 
     return {
         "rendered": True,
         "chart_title": chart_title,
         "chart_type": chart_data.get("chart_type"),
         "categories": categories,
-        "series_name": chart_series.get("name") or "",
+        "series_count": len(series),
     }
 
 
@@ -493,9 +541,22 @@ def format_metric_value(label: str, value: Union[float, int], unit: str) -> str:
 
 def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
     chart_data = slide_data.get("chart_data") or {}
+    chart_type = str(chart_data.get("chart_type") or "").lower()
+    if chart_type in {"none", "no_chart", "text"}:
+        return {
+            "rendered": False,
+            "required_render": False,
+            "reason": "slide 1 chart_type is none; visual area intentionally left as text/context",
+        }
+    if chart_type in {"bar", "column", "clustered_bar", "clustered_column", "stacked_bar", "stacked_column", "line", "line_chart"}:
+        return build_chart(slide, slide_data, layout)
+
     rows = chart_data.get("source_rows") or []
     if len(rows) < 2:
-        return {"rendered": False, "reason": "slide 1 needs at least two source_rows for metric cards"}
+        return {
+            "rendered": False,
+            "reason": "slide 1 needs chart_data series/categories for charts or at least two source_rows for metric cards",
+        }
 
     chart_title = chart_data.get("title") or ""
     apply_chart_title(slide, chart_title, layout)

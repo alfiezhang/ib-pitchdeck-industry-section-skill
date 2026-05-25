@@ -9,6 +9,7 @@ import argparse
 import json
 import re
 import sys
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +40,37 @@ def is_blank(value) -> bool:
 def normalize(s: str) -> str:
     """Lowercase and strip for phrase matching."""
     return s.strip().lower()
+
+
+def display_units(text: str) -> float:
+    """Approximate rendered line width in CJK-character units."""
+    clean = re.sub(r"\[\[/?(?:b|hl)\]\]", "", text or "")
+    units = 0.0
+    for ch in clean:
+        code = ord(ch)
+        if ch in "\n\r":
+            continue
+        if ch.isspace():
+            units += 0.3
+        elif ch in ",.;:!?()[]{}<>/\\|-_+=~'\"":
+            units += 0.35
+        elif code < 128:
+            units += 0.55
+        elif 0xFF61 <= code <= 0xFF9F:
+            units += 0.55
+        else:
+            units += 1.0
+    return units
+
+
+def estimate_lines(text: str, max_line_units: float) -> int:
+    if not text or max_line_units <= 0:
+        return 0
+    lines = 0
+    for segment in re.split(r"\r?\n", text):
+        units = display_units(segment)
+        lines += max(1, math.ceil(units / max_line_units))
+    return lines
 
 
 # ── Density checks ───────────────────────────────────────────────
@@ -79,6 +111,40 @@ def check_field_density(
             f"slide {slide_no}: '{field_name}' is {len(field_value.strip())} chars "
             f"(min recommended: {threshold} chars)"
         )
+
+
+def check_text_fit(
+    text: str,
+    storyboard_field: str,
+    slide_no: int,
+    page_type: str,
+    text_fit_rules: dict,
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    aliases = text_fit_rules.get("storyboard_field_aliases", {})
+    field_name = aliases.get(storyboard_field, storyboard_field)
+    rule = text_fit_rules.get("fields", {}).get(f"{slide_no}:{page_type}:{field_name}")
+    if not rule:
+        return
+    max_line_units = float(rule.get("max_line_units") or 0)
+    actual_lines = estimate_lines(text, max_line_units)
+    target_lines = int(rule.get("target_lines") or 0)
+    max_lines = int(rule.get("max_lines") or 0)
+    placeholder = rule.get("placeholder", "")
+    if target_lines and actual_lines > target_lines:
+        warnings.append(
+            f"slide {slide_no}: '{storyboard_field}' estimated at {actual_lines} line(s) "
+            f"for {placeholder}; target is {target_lines} line(s)"
+        )
+    if max_lines and actual_lines > max_lines:
+        message = (
+            f"slide {slide_no}: '{storyboard_field}' estimated at {actual_lines} line(s) "
+            f"for {placeholder}; max allowed is {max_lines} line(s)"
+        )
+        warnings.append(message)
+        if rule.get("block_if_exceeds_max_lines", True):
+            blocking_warnings.append(message)
 
 
 # ── Generic phrase checks ────────────────────────────────────────
@@ -133,11 +199,46 @@ def check_chart_data(
     slide: dict,
     rules: dict,
     warnings: list[str],
+    blocking_warnings: list[str],
 ) -> None:
     """Check chart_data completeness for quantitative slides."""
     slide_no = slide.get("slide_no")
     page_type = slide.get("selected_page_type", "")
     chart_data = slide.get("chart_data")
+
+    if slide_no == 1:
+        if not chart_data or not isinstance(chart_data, dict):
+            message = (
+                "slide 1: summary_page visual area needs chart_data with chart_type "
+                "('bar', 'stacked_bar', 'line', 'metric_cards', or 'none')"
+            )
+            warnings.append(message)
+            blocking_warnings.append(message)
+            return
+        chart_type = str(chart_data.get("chart_type") or "").lower()
+        if chart_type in {"none", "no_chart", "text"}:
+            return
+        if chart_type in {"bar", "column", "clustered_bar", "clustered_column", "stacked_bar", "stacked_column", "line", "line_chart"}:
+            if not chart_data.get("categories") or not chart_data.get("series"):
+                message = f"slide 1: chart_type '{chart_type}' requires categories and series"
+                warnings.append(message)
+                blocking_warnings.append(message)
+            if not chart_data.get("source_rows"):
+                message = f"slide 1: chart_type '{chart_type}' requires source_rows"
+                warnings.append(message)
+                blocking_warnings.append(message)
+            return
+        if chart_type in {"metric_cards", "metric_card", "metrics", ""}:
+            rows = chart_data.get("source_rows") or []
+            if len(rows) < 2:
+                message = "slide 1: metric_cards visual requires at least two source_rows"
+                warnings.append(message)
+                blocking_warnings.append(message)
+            return
+        message = f"slide 1: unsupported chart_type '{chart_type}' for deterministic visual rendering"
+        warnings.append(message)
+        blocking_warnings.append(message)
+        return
 
     # Quantitative page types should have chart_data
     quantitative_types = {"chart_page", "chart_plus_mini_table_page"}
@@ -153,7 +254,7 @@ def check_chart_data(
     if rules.get("required_storyboard_checks", {}).get("chart_data_source_rows_for_quant_slides", True):
         if page_type in quantitative_types and not chart_data.get("source_rows"):
             warnings.append(
-                f"slide {slide_no}: chart_data has no source_rows — "
+                f"slide {slide_no}: chart_data has no source_rows - "
                 "quantitative slides should trace chart data back to sources"
             )
 
@@ -272,6 +373,7 @@ def validate(
     memo_path: Optional[Path],
     rules_path: Path,
     block_source_warnings: bool = True,
+    text_fit_rules_path: Optional[Path] = None,
 ) -> dict:
     errors: list[str] = []
     density_warnings: list[str] = []
@@ -279,6 +381,8 @@ def validate(
     chart_data_warnings: list[str] = []
     generic_copy_warnings: list[str] = []
     evidence_warnings: list[str] = []
+    layout_warnings: list[str] = []
+    layout_blocking_warnings: list[str] = []
 
     # Load inputs
     try:
@@ -310,6 +414,17 @@ def validate(
             "evidence_warnings": [],
         }
 
+    text_fit_rules = {}
+    if text_fit_rules_path is None:
+        candidate = rules_path.parent / "text_fit_rules.json"
+        if candidate.exists():
+            text_fit_rules_path = candidate
+    if text_fit_rules_path:
+        try:
+            text_fit_rules = load_json(text_fit_rules_path)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"cannot load text fit rules: {exc}")
+
     memo_text = ""
     if memo_path:
         try:
@@ -331,16 +446,37 @@ def validate(
         if not isinstance(slide, dict):
             continue
         slide_no = slide.get("slide_no")
+        page_type = slide.get("selected_page_type", "")
 
         # 1. Headline density
         headline = slide.get("headline", "")
         if headline:
             check_field_density("headline", headline, rules, slide_no, density_warnings)
+            if text_fit_rules:
+                check_text_fit(
+                    headline,
+                    "headline",
+                    slide_no,
+                    page_type,
+                    text_fit_rules,
+                    layout_warnings,
+                    layout_blocking_warnings,
+                )
 
         # 2. Main message density
         main_message = slide.get("main_message", "")
         if main_message:
             check_field_density("main_message", main_message, rules, slide_no, density_warnings)
+            if text_fit_rules:
+                check_text_fit(
+                    main_message,
+                    "main_message",
+                    slide_no,
+                    page_type,
+                    text_fit_rules,
+                    layout_warnings,
+                    layout_blocking_warnings,
+                )
 
         # 3. Body copy density + generic phrases
         body_copy = slide.get("body_copy", {})
@@ -370,7 +506,7 @@ def validate(
             )
 
         # 5. Chart data completeness
-        check_chart_data(slide, rules, chart_data_warnings)
+        check_chart_data(slide, rules, chart_data_warnings, layout_blocking_warnings)
 
         # 6. Training data usage
         if memo_text:
@@ -389,12 +525,16 @@ def validate(
         + chart_data_warnings
         + generic_copy_warnings
         + evidence_warnings
+        + layout_warnings
     )
 
-    blocking_warnings = source_warnings if block_source_warnings else []
+    blocking_warnings = []
+    if block_source_warnings:
+        blocking_warnings.extend(source_warnings)
+    blocking_warnings.extend(layout_blocking_warnings)
     if blocking_warnings:
         errors.append(
-            "source quality gate failed: resolve weak/generic source warnings before PPT delivery"
+            "content quality gate failed: resolve blocking source/layout warnings before PPT delivery"
         )
 
     return {
@@ -402,6 +542,7 @@ def validate(
         "storyboard": str(storyboard_path),
         "memo": str(memo_path) if memo_path else "",
         "rules": str(rules_path),
+        "text_fit_rules": str(text_fit_rules_path) if text_fit_rules_path else "",
         "error_count": len(errors),
         "warning_count": len(all_warnings),
         "errors": errors,
@@ -412,6 +553,7 @@ def validate(
         "chart_data_warnings": chart_data_warnings,
         "generic_copy_warnings": generic_copy_warnings,
         "evidence_warnings": evidence_warnings,
+        "layout_warnings": layout_warnings,
     }
 
 
@@ -432,6 +574,10 @@ def main() -> None:
     parser.add_argument(
         "--rules", required=True,
         help="Path to templates/content_quality_rules.json."
+    )
+    parser.add_argument(
+        "--text-fit-rules",
+        help="Optional path to templates/text_fit_rules.json. Defaults to sibling file next to --rules when present."
     )
     parser.add_argument(
         "--output",
@@ -456,6 +602,7 @@ def main() -> None:
         memo_path=Path(args.memo) if args.memo else None,
         rules_path=Path(args.rules),
         block_source_warnings=not args.allow_source_warnings,
+        text_fit_rules_path=Path(args.text_fit_rules) if args.text_fit_rules else None,
     )
 
     gate = args.quality_gate or args.warnings_as_errors

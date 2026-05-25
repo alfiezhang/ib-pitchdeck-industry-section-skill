@@ -1,0 +1,258 @@
+{
+  "_description": "Template-derived line-fit rules for storyboard headline/main_message and PPT copy slide_title/main_takeaway. Regenerate after changing the PPT template.",
+  "template_file": "assets/industry_section_template_master.pptx",
+  "ppt_mapping": "templates/ppt_mapping.json",
+  "estimation": {
+    "unit_model": "CJK characters count as 1.0 unit; ASCII letters/digits count as 0.55; spaces and narrow punctuation count as 0.3.",
+    "title_font_size_fallback_pt": 28.0,
+    "notes": "This is a deterministic preflight estimate, not a PowerPoint rendering engine."
+  },
+  "storyboard_field_aliases": {
+    "headline": "slide_title",
+    "main_message": "main_takeaway"
+  },
+  "fields": {
+    "1:summary_page:slide_title": {
+      "placeholder": "{{slide_01_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "1:summary_page:main_takeaway": {
+      "placeholder": "{{slide_01_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "2:chart_page:slide_title": {
+      "placeholder": "{{slide_02a_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "2:chart_page:main_takeaway": {
+      "placeholder": "{{slide_02a_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "2:chart_plus_mini_table_page:slide_title": {
+      "placeholder": "{{slide_02b_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "2:chart_plus_mini_table_page:main_takeaway": {
+      "placeholder": "{{slide_02b_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "3:driver_card_page:slide_title": {
+      "placeholder": "{{slide_03_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "3:driver_card_page:main_takeaway": {
+      "placeholder": "{{slide_03_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "4:value_chain_page:slide_title": {
+      "placeholder": "{{slide_04_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "4:value_chain_page:main_takeaway": {
+      "placeholder": "{{slide_04_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "5:moat_page:slide_title": {
+      "placeholder": "{{slide_05_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "5:moat_page:main_takeaway": {
+      "placeholder": "{{slide_05_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "6:compare_table_page:slide_title": {
+      "placeholder": "{{slide_06a_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "6:compare_table_page:main_takeaway": {
+      "placeholder": "{{slide_06a_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "6:matrix_page:slide_title": {
+      "placeholder": "{{slide_06b_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "6:matrix_page:main_takeaway": {
+      "placeholder": "{{slide_06b_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_page:slide_title": {
+      "placeholder": "{{slide_07a_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_page:main_takeaway": {
+      "placeholder": "{{slide_07a_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:timeline_page:slide_title": {
+      "placeholder": "{{slide_07b_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:timeline_page:main_takeaway": {
+      "placeholder": "{{slide_07b_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    },
+    "8:summary_page:slide_title": {
+      "placeholder": "{{slide_08_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "8:summary_page:main_takeaway": {
+      "placeholder": "{{slide_08_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 61.4,
+      "block_if_exceeds_max_lines": true
+    }
+  }
+}

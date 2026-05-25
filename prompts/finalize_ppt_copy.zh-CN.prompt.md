@@ -16,7 +16,7 @@
    - 第 6 页：`{slide_6_variant}`
    - 第 7 页：`{slide_7_variant}`
    除非故事板内部不一致（如某页的 `selected_page_type` 与 `template_binding` 冲突），此时标注冲突，以 `template_binding` 的值为准。
-3. **压缩文本以适配 PPT 占位符。** 要点应可扫读，而非段落形式。标题应为结论导向的一句话。核心信息应为单句。
+3. **压缩文本以适配 PPT 占位符。** 要点应可扫读，而非段落形式。标题必须按 `templates/text_fit_rules.json` 单行显示。核心信息应为单句，目标 1 行，最多不得超过 2 行。
 4. **保留来源注释。** 每页的 `source_footer` 必须承接故事板的 `source_note`。
 5. **保留标的关联。** 每页的 `main_takeaway` 应体现故事板 `target_link` 的意图。
 6. **确保输出符合 `templates/ppt_copy_schema.json`。** 所有必填字段必须存在。使用 `ppt_copy_mapping.json` 进行字段级别角色到字段的映射。

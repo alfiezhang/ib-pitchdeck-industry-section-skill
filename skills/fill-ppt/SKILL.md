@@ -112,7 +112,7 @@ Apply object-level visual cleanup after token fill. This step is where real char
 
 Current scope:
 - removes template scaffold labels such as `PRIMARY CHART`, `POINT 1`, `STANDARD`
-- renders a real chart object on Slide 2 when `chart_data` is present
+- renders real visual objects on Slide 1 and Slide 2 when executable `chart_data` is present
 
 ### 7. Validate Filled PPT
 

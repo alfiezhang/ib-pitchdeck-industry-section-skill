@@ -3,8 +3,8 @@
 
   "min_chars_by_field_type": {
     "_note": "These are advisory targets. Fields shorter than the minimum generate a density_warning, not an error.",
-    "title": 45,
-    "main_takeaway": 80,
+    "title": 16,
+    "main_takeaway": 45,
     "bullet": 70,
     "card": 80,
     "panel": 90,

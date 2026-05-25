@@ -53,12 +53,12 @@ def validate_current_content_quality(run_dir: Path, rules_path: Path) -> tuple[l
         errors.append("current content quality validation failed")
         warnings.extend(str(item) for item in result.get("errors", []))
 
-    source_warnings = result.get("source_warnings", [])
-    if source_warnings:
+    blocking_warnings = result.get("blocking_warnings", [])
+    if blocking_warnings:
         errors.append(
-            "current content quality validation contains source_warnings; weak sources must be resolved before delivery"
+            "current content quality validation contains blocking source/layout warnings; resolve before delivery"
         )
-        warnings.extend(str(item) for item in source_warnings)
+        warnings.extend(str(item) for item in blocking_warnings)
     return errors, warnings
 
 
