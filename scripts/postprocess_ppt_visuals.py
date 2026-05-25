@@ -101,7 +101,8 @@ SLIDE_LAYOUTS = {
     },
     6: {
         "matrix_page": {
-            "matrix_box": (3980000, 2380000, 4100000, 2500000),
+            "matrix_box": (1220000, 2200000, 6100000, 3000000),
+            "cleanup_box": (868000, 1620000, 6880000, 4480000),
         },
     },
 }
@@ -127,6 +128,27 @@ def clear_text(shape) -> None:
         return
     text_frame = shape.text_frame
     text_frame.clear()
+
+
+def remove_shape(shape) -> None:
+    element = shape._element
+    element.getparent().remove(element)
+
+
+def intersects(shape, box: tuple[int, int, int, int]) -> bool:
+    left, top, width, height = box
+    right = left + width
+    bottom = top + height
+    shape_left = int(shape.left)
+    shape_top = int(shape.top)
+    shape_right = shape_left + int(shape.width)
+    shape_bottom = shape_top + int(shape.height)
+    return not (
+        shape_right < left
+        or shape_left > right
+        or shape_bottom < top
+        or shape_top > bottom
+    )
 
 
 def set_single_paragraph(shape, text: str) -> None:
@@ -402,6 +424,15 @@ def render_matrix_slide(slide, slide_data: dict, layout: dict) -> dict:
     if len(points) < 2:
         return {"rendered": False, "reason": "matrix_page needs at least two points with x/y values"}
 
+    cleanup_box = layout.get("cleanup_box")
+    removed_shapes = []
+    if cleanup_box:
+        for shape in list(slide.shapes):
+            if intersects(shape, cleanup_box):
+                text = getattr(shape, "text", "").strip() if hasattr(shape, "text") else ""
+                remove_shape(shape)
+                removed_shapes.append({"shape_name": shape.name, "text": text[:80]})
+
     left, top, width, height = layout["matrix_box"]
     axis_label_x = body_copy.get("matrix_label_x") or chart_data.get("x_axis_label") or "Axis X"
     axis_label_y = body_copy.get("matrix_label_y") or chart_data.get("y_axis_label") or "Axis Y"
@@ -471,6 +502,7 @@ def render_matrix_slide(slide, slide_data: dict, layout: dict) -> dict:
         "chart_title": chart_data.get("title") or body_copy.get("matrix_title") or "",
         "chart_type": "matrix",
         "points": plotted,
+        "removed_existing_matrix_shapes": removed_shapes,
     }
 
 
