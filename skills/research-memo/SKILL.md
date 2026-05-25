@@ -97,16 +97,19 @@ Execution order:
 9. Add targeted validation queries and latest/current queries based on the discovered industry vocabulary and source leads.
 10. Run targeted validation queries against selected sources, not every default pack against every query.
 
-Validate the plan before memo synthesis:
+Validate the formal plan before memo synthesis:
 
 ```bash
 ./.venv/bin/python scripts/validate_research_plan.py \
   --plan artifacts/research_plan.json \
   --source-registry templates/source_registry.json \
+  --stage formal \
   --output artifacts/research_plan_validation.json
 ```
 
 The validated research plan and `artifacts/search_log.md` must live in the same run directory as the memo, storyboard, and PPT outputs. Do not proceed to memo synthesis, storyboard, or PPT generation if the research plan validation artifact or search log is missing.
+
+Formal validation is an audit gate, not a cosmetic format check. If it reports missing targeted validation queries, missing latest/current queries, or missing selected source packs/domains, update `research_plan.json` first. Search attempts recorded in `search_log.md` prove execution; `research_plan.json` is the control record and must reflect the actual targeted validation and source-selection logic.
 
 ## Multi-Round Search
 
@@ -116,6 +119,8 @@ Each of the 9 dimensions requires at minimum:
 - 1 broad query
 - 1 domain-constrained query when a preferred domain, relevant source pack, or default-pack pass is appropriate
 - 1 latest/current query (for time-sensitive dimensions)
+
+For one-shot PPT delivery, at least 6 dimensions must have filled targeted validation queries in `dimension_plan`, and the full plan should resolve 6-15 high-priority domains across selected packs/domains.
 
 If the user provides a peer set, search each core peer for:
 - Company disclosure / annual report / prospectus
@@ -168,12 +173,14 @@ Key principles:
 - **Web research is mandatory** when starting from a brief or attachments.
 - **Broad discovery precedes default-pack search**: read the source registry first, but do not run `--use-default-packs` until broad discovery has identified which source families are likely useful.
 - **Research plan validation is mandatory** before memo synthesis. Fix errors first; warnings require judgment and should be recorded if accepted.
+- **Formal research plan warnings are not harmless** in one-shot delivery. Missing targeted queries, latest/current queries, selected source packs, or selected domains must be fixed before memo synthesis.
 - **Search log is procedural, not post-hoc**: create it before the first search attempt and update it after each search. Do not reconstruct a clean log only after the memo is complete.
 - **Discovery plan is intentionally lightweight**: before broad discovery, avoid filling unknown peer sets, source packs, and industry boundaries from model prior knowledge. Let broad discovery inform the formal plan.
 - **Dependency check is mandatory before fallback search**: run `bash ./setup.sh` and `./.venv/bin/python scripts/check_runtime_dependencies.py` before relying on `scripts/web_search.py`.
 - **Fail closed on mandatory research failure**: if built-in WebSearch/WebFetch and fallback search cannot return verified online sources, stop the workflow. Do not generate storyboard or PPT from `training_data` unless the operator explicitly chooses degraded mode.
 - **Record user-provided materials separately** from online research in `Source Materials`.
 - **Use the source hierarchy**: primary (government/regulatory filings) > secondary (industry association reports) > tertiary (consulting firm summaries) > lowest (news articles).
+- **Keep weak sources out of core evidence**: Q&A sites, repost platforms, document-sharing sites, generic company-info pages, SEO research portals, and unsourced media roundups can suggest search terms but should be recorded as `Rejected Sources` or lead-only sources unless no stronger source exists.
 - **Cross-check**: verify key numbers across multiple sources where possible.
 - **Date everything**: note the period, geography, and source for every numeric fact.
 - **Label confidence explicitly** in every `Key Data Points` row:

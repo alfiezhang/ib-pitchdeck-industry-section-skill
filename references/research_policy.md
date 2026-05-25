@@ -40,14 +40,19 @@ Follow this sequence:
 10. Add targeted validation and latest/current queries based on the discovered vocabulary and source leads.
 11. Run targeted validation queries against selected packs/domains. Do not run every default pack against every query.
 
-Validate the plan before memo synthesis:
+Validate the formal plan before memo synthesis:
 
 ```bash
 ./.venv/bin/python scripts/validate_research_plan.py \
   --plan artifacts/research_plan.json \
   --source-registry templates/source_registry.json \
+  --stage formal \
   --output artifacts/research_plan_validation.json
 ```
+
+Use `--stage discovery` only for an optional early sanity check before broad search. Do not use discovery-stage validation to justify memo synthesis or PPT delivery.
+
+Search log coverage is not a substitute for a complete formal plan. `search_log.md` records what happened; `research_plan.json` is the control record. Before memo synthesis, it must include the actual targeted validation queries, latest/current queries, selected packs/domains, and source-selection rationale.
 
 ## Multi-Round Search Matrix
 
@@ -133,6 +138,8 @@ Prefer sources in this order when facts conflict:
 2. official company disclosures, annual reports, regulatory filings, regulator or industry-association publications
 3. high-quality databases, broker research, and established industry reports
 4. reputable media and second-hand commentary
+
+Weak sources are lead-only by default: Q&A sites, repost accounts, document-sharing pages, generic company-info pages, SEO research portals, and unsourced roundup media should not be selected as verified evidence when stronger sources exist. If one is retained because no stronger source is available, label it low-certainty and state the limitation.
 
 When sources conflict, prefer the one that is:
 - more reliable

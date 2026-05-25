@@ -47,9 +47,9 @@ Research source planning rule:
 3. Write `artifacts/search_log.md` before the first search attempt, using `references/search_log_template.md`. Update it incrementally during research; do not backfill it only after the memo is written.
 4. Run initial unrestricted broad discovery queries before any default-pack or source-pack search. Use these searches to learn vocabulary, industry boundaries, metric names, source leads, and likely peer categories.
 5. Upgrade the discovery plan into a formal research plan: add discovered source leads, selected source packs/domains by dimension, targeted validation queries, and selection reasons. Aim for 6-15 distinct high-priority domains across the full memo; use more only for regulated, cross-border, or data-sparse industries.
-6. Validate the formal `artifacts/research_plan.json` before memo synthesis.
+6. Validate the formal `artifacts/research_plan.json` before memo synthesis. A discovery-stage plan is not enough for memo/PPT work; missing targeted validation queries, selected domains, or selected source packs/domains are blocking in formal validation.
 7. Run targeted validation against selected packs/domains. Do not run every default pack against every query.
-8. Do not enter memo synthesis, storyboard, or PPT filling unless `research_plan.json`, `research_plan_validation.json`, and `search_log.md` exist in the same run directory.
+8. Do not enter memo synthesis, storyboard, or PPT filling unless `research_plan.json`, `research_plan_validation.json`, and `search_log.md` exist in the same run directory and the formal research plan gate is passing.
 
 ## Runtime Bootstrap
 
@@ -94,6 +94,21 @@ Output: `industry_input_memo.md` (following updated `references/industry_input_m
 Reviewer should confirm: industry definition, market sizing logic, growth drivers, competitive landscape, target linkage, data sources and gaps, Research Plan coverage, Evidence Ledger completeness.
 
 If this run starts from only a brief or attachments and verified online research cannot be completed, stop after reporting the failure. Continue only if the operator explicitly chooses a degraded mode; any degraded output must label unsupported facts as `training_data` and must not be treated as diligence-grade.
+
+Research plan audit rule:
+- Broad discovery coverage in `search_log.md` does not by itself make research complete.
+- After broad discovery, update `artifacts/research_plan.json` with actual selected source packs/domains, targeted validation queries, latest/current queries, and selection rationale.
+- Run formal validation before memo synthesis:
+
+```bash
+./.venv/bin/python scripts/validate_research_plan.py \
+  --plan artifacts/research_plan.json \
+  --source-registry templates/source_registry.json \
+  --stage formal \
+  --output artifacts/research_plan_validation.json
+```
+
+If formal validation fails, fix `research_plan.json` before writing the memo. Do not dismiss missing targeted queries or missing selected sources as formatting warnings.
 
 ### 2. Storyboard Section
 Use `skills/storyboard-section/SKILL.md`.
@@ -188,6 +203,8 @@ Do **not** require separate manual review for intermediate debug files; the work
 - `replacement_dict.json`
 - `industry_section_filled_clean.pptx` (when PPT output is requested)
 - `filled_ppt_validation.json`
+- `artifacts/final_delivery_validation.json`
+- `artifacts/run_quality_summary.md`
 
 For final delivery, run:
 
@@ -195,6 +212,13 @@ For final delivery, run:
 ./.venv/bin/python scripts/validate_final_delivery.py \
   --run-dir <work_root>/runs/attempt_<timestamp> \
   --output <work_root>/runs/attempt_<timestamp>/artifacts/final_delivery_validation.json
+```
+
+Then generate a short quality report:
+
+```bash
+./.venv/bin/python scripts/generate_run_quality_summary.py \
+  --run-dir <work_root>/runs/attempt_<timestamp>
 ```
 
 Do not deliver if final delivery validation fails.
@@ -239,6 +263,7 @@ Only static skill assets should be resolved relative to the skill package itself
 - JSON artifacts must use ASCII double quotes (`"`) for all keys and string delimiters. Never use Chinese/smart quotes (`“”‘’`) in JSON syntax.
 - Web research is mandatory when starting from a brief or attachments.
 - Source attribution must reference specific sources or Evidence IDs, not "industry reports" or "public sources."
+- Weak sources such as Q&A sites, low-quality reposts, document-sharing pages, generic company-info pages, or SEO research portals may be used only as lead-finding aids. Put them in Rejected Sources or Lead-only Sources unless no stronger source exists, and label any retained claim as low confidence.
 - Every body_copy field must contain opinion + evidence, not just a topic label or vague claim.
 
 ## When to Run Optional Steps

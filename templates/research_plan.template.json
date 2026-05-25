@@ -205,6 +205,8 @@
     "do_not_use_all_default_packs_for_every_query": true,
     "record_every_search_in": "artifacts/search_log.md",
     "validate_with": "scripts/validate_research_plan.py",
+    "formal_validation_command": "./.venv/bin/python scripts/validate_research_plan.py --plan artifacts/research_plan.json --source-registry templates/source_registry.json --stage formal --output artifacts/research_plan_validation.json",
+    "formal_gate_rule": "Before memo synthesis, formal validation must pass. Missing targeted validation queries, latest/current queries, selected domains, or selected source packs/domains are blocking workflow issues, not cosmetic formatting warnings.",
     "fallback_if_research_fails": "Stop unless the operator explicitly chooses degraded mode."
   }
 }

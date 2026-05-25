@@ -317,14 +317,19 @@ def check_memo_source_quality(
 ) -> None:
     if not memo_text:
         return
+    source_line_re = re.compile(
+        r"(^\|\s*EV-|source|来源|材料|资料|http|www\.|\.com|\.cn|\.org|"
+        r"Source Name|Online Research Sources|Source Materials)",
+        flags=re.IGNORECASE,
+    )
     for line_no, line in enumerate(memo_text.splitlines(), start=1):
-        if not line.startswith("| EV-"):
+        if not source_line_re.search(line):
             continue
         line_lower = normalize(line)
         for marker in weak_markers:
             if normalize(marker) in line_lower:
                 warnings.append(
-                    f"memo line {line_no}: weak source marker '{marker}' appears in Evidence Ledger"
+                    f"memo line {line_no}: weak source marker '{marker}' appears in source/evidence text"
                 )
                 break
 

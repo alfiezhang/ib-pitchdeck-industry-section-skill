@@ -138,10 +138,13 @@ def validate(
     plan: dict[str, Any],
     registry: dict[str, Any] | None = None,
     current_year: int | None = None,
+    stage: str = "formal",
 ) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
+    blocking_warnings: list[str] = []
     current_year = current_year or date.today().year
+    formal_stage = stage == "formal"
 
     check_freshness_metadata(plan, warnings)
 
@@ -167,7 +170,10 @@ def validate(
         if isinstance(item, dict) and text_present(item.get("query"))
     ]
     if len(filled_broad_queries) < 3:
-        warnings.append("broad_discovery should include at least 3 filled unrestricted queries")
+        message = "broad_discovery should include at least 3 filled unrestricted queries"
+        warnings.append(message)
+        if formal_stage:
+            blocking_warnings.append(message)
 
     for idx, item in enumerate(broad_queries, start=1):
         if not isinstance(item, dict):
@@ -238,10 +244,16 @@ def validate(
             seen_dimensions.add(dimension)
 
         if not text_present(dim.get("broad_query")):
-            warnings.append(f"dimension '{dimension or idx}' has no broad_query")
+            message = f"dimension '{dimension or idx}' has no broad_query"
+            warnings.append(message)
+            if formal_stage:
+                blocking_warnings.append(message)
         latest_query = dim.get("latest_query")
         if not text_present(latest_query):
-            warnings.append(f"dimension '{dimension or idx}' has no latest_query")
+            message = f"dimension '{dimension or idx}' has no latest_query"
+            warnings.append(message)
+            if formal_stage:
+                blocking_warnings.append(message)
         else:
             check_query_freshness(
                 dimension or str(idx),
@@ -288,12 +300,21 @@ def validate(
 
     missing_dimensions = EXPECTED_DIMENSIONS - seen_dimensions
     if missing_dimensions:
-        warnings.append("dimension_plan missing dimensions: " + ", ".join(sorted(missing_dimensions)))
+        message = "dimension_plan missing dimensions: " + ", ".join(sorted(missing_dimensions))
+        warnings.append(message)
+        if formal_stage:
+            blocking_warnings.append(message)
 
     if targeted_query_count == 0:
-        warnings.append("no filled targeted_validation_queries found")
+        message = "no filled targeted_validation_queries found"
+        warnings.append(message)
+        if formal_stage:
+            blocking_warnings.append(message)
     if dimensions_with_targeted < 6:
-        warnings.append("fewer than 6 dimensions have targeted validation queries")
+        message = "fewer than 6 dimensions have targeted validation queries"
+        warnings.append(message)
+        if formal_stage:
+            blocking_warnings.append(message)
 
     default_packs = default_source_packs(registry or {})
     if default_packs and default_packs.issubset(pack_names):
@@ -305,16 +326,22 @@ def validate(
             resolved_domains.update(pack_domains(registry, pack))
 
     if len(resolved_domains) < 6:
-        warnings.append("fewer than 6 distinct high-priority domains selected across the plan")
+        message = "fewer than 6 distinct high-priority domains selected across the plan"
+        warnings.append(message)
+        if formal_stage:
+            blocking_warnings.append(message)
     if len(resolved_domains) > 20:
         warnings.append("more than 20 distinct high-priority domains selected; consider narrowing per query")
 
     return {
-        "is_valid": not errors,
+        "is_valid": not errors and not blocking_warnings,
         "error_count": len(errors),
         "warning_count": len(warnings),
         "errors": errors,
         "warnings": warnings,
+        "blocking_warning_count": len(blocking_warnings),
+        "blocking_warnings": blocking_warnings,
+        "stage": stage,
         "metrics": {
             "broad_discovery_query_count": len(filled_broad_queries),
             "targeted_validation_query_count": targeted_query_count,
@@ -333,6 +360,15 @@ def main() -> None:
     parser.add_argument("--source-registry", help="Path to templates/source_registry.json")
     parser.add_argument("--output", help="Optional path to write validation report JSON")
     parser.add_argument("--quality-gate", action="store_true", help="Treat warnings as errors")
+    parser.add_argument(
+        "--stage",
+        choices=["discovery", "formal"],
+        default="formal",
+        help=(
+            "discovery allows a lightweight pre-search plan; formal is the pre-memo/pre-delivery "
+            "gate and requires targeted validation queries plus source selection."
+        ),
+    )
     parser.add_argument(
         "--current-year",
         type=int,
@@ -368,9 +404,9 @@ def main() -> None:
                     "metrics": {}
                 }
             else:
-                result = validate(plan, registry, current_year=args.current_year)
+                result = validate(plan, registry, current_year=args.current_year, stage=args.stage)
         else:
-            result = validate(plan, registry, current_year=args.current_year)
+            result = validate(plan, registry, current_year=args.current_year, stage=args.stage)
 
     if args.quality_gate and result.get("warning_count", 0) > 0:
         result["is_valid"] = False

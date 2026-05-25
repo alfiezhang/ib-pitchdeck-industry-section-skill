@@ -2,6 +2,8 @@
 
 > This file is written incrementally during the research phase. Record every search attempt — not just successful ones.
 > Purpose: create an audit trail for downstream fact-checking and Phase 2/3 harness grounding.
+> Search log records execution. `artifacts/research_plan.json` is the control record and must be updated before memo synthesis with the actual selected sources and targeted validation queries.
+> Weak sources are lead-only by default. Put Q&A/repost/document-sharing/generic company-info/SEO research pages in Rejected Sources or Lead-only Sources unless no stronger source exists.
 
 ## Research Configuration
 
@@ -44,6 +46,7 @@ Source Selection Rationale:
 - **Selected Source Reason**:
 - **Result Count**:
 - **Selected Sources**:
+- **Lead-only Sources**:
 - **Rejected Sources** (with reason):
 - **Notes**:
 
@@ -58,6 +61,7 @@ Source Selection Rationale:
 - **Selected Source Reason**:
 - **Result Count**:
 - **Selected Sources**:
+- **Lead-only Sources**:
 - **Rejected Sources** (with reason):
 - **Notes**:
 
@@ -72,6 +76,7 @@ Source Selection Rationale:
 - **Selected Source Reason**:
 - **Result Count**:
 - **Selected Sources**:
+- **Lead-only Sources**:
 - **Rejected Sources** (with reason):
 - **Notes**:
 

@@ -30,6 +30,19 @@ REQUIRED_RESEARCH_FILES = [
     "artifacts/search_log.md",
 ]
 
+WEAK_SOURCE_MARKERS = (
+    "zhihu",
+    "知乎",
+    "baijiahao",
+    "百家号",
+    "docin",
+    "豆丁",
+    "aiqicha",
+    "爱企查",
+    "chinairn",
+    "中研普华",
+)
+
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -77,6 +90,17 @@ def validate_search_log(path: Path) -> list[str]:
         warnings.append("search_log.md has no targeted_validation/latest_check stage")
     if attempt_count < 3:
         warnings.append(f"search_log.md has only {attempt_count} search attempt(s); expected at least 3")
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        lowered = line.lower()
+        if "**selected sources**" not in lowered:
+            continue
+        for marker in WEAK_SOURCE_MARKERS:
+            if marker.lower() in lowered:
+                warnings.append(
+                    f"search_log.md line {line_no}: weak source marker '{marker}' appears in Selected Sources; "
+                    "use weak sources as lead-only/rejected sources unless no stronger source exists"
+                )
+                break
     return warnings
 
 
@@ -132,6 +156,18 @@ def validate(run_dir: Path, require_research: bool = True) -> dict[str, Any]:
             continue
         if not ok:
             errors.append(f"validation artifact is not passing: {relative} ({field}=false)")
+        if relative == "artifacts/research_plan_validation.json":
+            try:
+                validation_data = load_json_file(path)
+            except Exception:
+                validation_data = {}
+            if isinstance(validation_data, dict):
+                metrics = validation_data.get("metrics", {})
+                if isinstance(metrics, dict):
+                    if int(metrics.get("targeted_validation_query_count") or 0) == 0:
+                        warnings.append("research_plan_validation.json records zero targeted validation queries")
+                    if int(metrics.get("resolved_high_priority_domain_count") or 0) == 0:
+                        warnings.append("research_plan_validation.json records zero selected high-priority domains")
 
     content_quality_path = run_dir / "artifacts/content_quality_validation.json"
     if content_quality_path.exists():

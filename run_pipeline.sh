@@ -194,6 +194,15 @@ stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan_validation.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/search_log.md"
 
+if [[ $RESEARCH_GATE -eq 1 ]]; then
+  echo "[bootstrap] validating formal research plan..."
+  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_research_plan.py" \
+    --plan "$OUTPUT_DIR/artifacts/research_plan.json" \
+    --source-registry "$SCRIPT_DIR/templates/source_registry.json" \
+    --stage formal \
+    --output "$OUTPUT_DIR/artifacts/research_plan_validation.json"
+fi
+
 echo "[bootstrap] validating storyboard contract..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_storyboard.py" \
   --storyboard "$STAGED_STORYBOARD" \
@@ -317,8 +326,17 @@ echo "[6/7] Validating filled PPT..."
   --output "$OUTPUT_DIR/filled_ppt_validation.json" \
   --fail-on-issue
 
-# ── Step 7: Summarize staged inputs ──────────────────────────────
-echo "[7/7] Run directory ready."
+# ── Step 7: Final delivery gate and quality summary ──────────────
+echo "[7/7] Running final delivery gate..."
+"$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_final_delivery.py" \
+  --run-dir "$OUTPUT_DIR" \
+  --source-registry "$SCRIPT_DIR/templates/source_registry.json" \
+  --output "$OUTPUT_DIR/artifacts/final_delivery_validation.json"
+
+"$PYTHON_CMD" "$SCRIPT_DIR/scripts/generate_run_quality_summary.py" \
+  --run-dir "$OUTPUT_DIR"
+
+echo "Run directory ready."
 echo "Staged inputs:"
 echo "  - $STAGED_PPT_COPY"
 echo "  - $STAGED_STORYBOARD"
@@ -331,3 +349,5 @@ echo "=== Pipeline complete ==="
 echo "Output dir:  $OUTPUT_DIR"
 echo "Clean PPT:   $OUTPUT_DIR/industry_section_filled_clean.pptx"
 echo "Validation:  $OUTPUT_DIR/filled_ppt_validation.json"
+echo "Final gate:  $OUTPUT_DIR/artifacts/final_delivery_validation.json"
+echo "Quality:     $OUTPUT_DIR/artifacts/run_quality_summary.md"

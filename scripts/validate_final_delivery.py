@@ -14,6 +14,7 @@ from json_utils import load_json_file
 from validate_content_quality import validate as validate_content_quality
 from validate_filled_ppt import build_report
 from validate_input_card import validate as validate_input_card_data
+from validate_research_plan import validate as validate_research_plan_data
 from validate_run_artifacts import validate as validate_run_artifacts
 
 
@@ -33,6 +34,60 @@ def validate_content_quality_artifact(path: Path) -> tuple[list[str], list[str]]
     data = load_json_file(path)
     if data.get("is_valid") is False:
         errors.append("content_quality_validation.json is_valid=false")
+    return errors, warnings
+
+
+def validate_research_plan_artifact(run_dir: Path, source_registry: Path | None) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    plan_path = run_dir / "artifacts/research_plan.json"
+    artifact_path = run_dir / "artifacts/research_plan_validation.json"
+    if not plan_path.exists():
+        errors.append("missing research_plan.json")
+        return errors, warnings
+
+    registry_data = None
+    if source_registry and not source_registry.exists() and not source_registry.is_absolute():
+        source_registry = REPO_ROOT / source_registry
+    if source_registry and source_registry.exists():
+        try:
+            registry_data = load_json_file(source_registry)
+        except Exception as exc:
+            errors.append(f"cannot load source registry for research plan validation: {exc}")
+
+    try:
+        plan_data = load_json_file(plan_path)
+    except Exception as exc:
+        errors.append(f"cannot load research_plan.json: {exc}")
+        return errors, warnings
+
+    current_result = validate_research_plan_data(plan_data, registry_data, stage="formal")
+    if current_result.get("is_valid") is False:
+        errors.append("formal research plan validation failed")
+        warnings.extend(str(item) for item in current_result.get("blocking_warnings", []))
+        warnings.extend(str(item) for item in current_result.get("errors", []))
+
+    if artifact_path.exists():
+        try:
+            artifact = load_json_file(artifact_path)
+        except Exception as exc:
+            errors.append(f"cannot read research_plan_validation.json: {exc}")
+        else:
+            if artifact.get("warning_count", 0):
+                warnings.append(
+                    f"research_plan_validation.json contains {artifact.get('warning_count')} warning(s); "
+                    "resolve them or regenerate the artifact with the formal plan"
+                )
+            metrics = artifact.get("metrics", {})
+            if isinstance(metrics, dict):
+                if int(metrics.get("targeted_validation_query_count") or 0) == 0:
+                    errors.append("research_plan_validation.json records zero targeted validation queries")
+                if int(metrics.get("resolved_high_priority_domain_count") or 0) == 0:
+                    errors.append("research_plan_validation.json records zero selected high-priority domains")
+    else:
+        errors.append("missing research_plan_validation.json")
+
     return errors, warnings
 
 
@@ -90,6 +145,10 @@ def validate(run_dir: Path, source_registry: Path | None = None) -> dict[str, An
     )
     errors.extend(content_errors)
     warnings.extend(content_warnings)
+
+    research_errors, research_warnings = validate_research_plan_artifact(run_dir, source_registry)
+    errors.extend(research_errors)
+    warnings.extend(research_warnings)
 
     current_content_errors, current_content_warnings = validate_current_content_quality(
         run_dir,
