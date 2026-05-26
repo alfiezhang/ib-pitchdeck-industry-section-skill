@@ -27,6 +27,25 @@ RICH_TEXT_TAG_RE = re.compile(r"\[\[(\/?)(b|hl)\]\]")
 A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 HIGHLIGHT_COLOR = "E85D04"
+BULLET_PREFIX = "• "
+
+
+def ensure_paragraph_properties(paragraph: ET.Element) -> ET.Element:
+    ppr = paragraph.find(f"{{{A_NS}}}pPr")
+    if ppr is None:
+        ppr = ET.Element(f"{{{A_NS}}}pPr")
+        paragraph.insert(0, ppr)
+    return ppr
+
+
+def apply_bullet_properties(paragraph: ET.Element) -> None:
+    ppr = ensure_paragraph_properties(paragraph)
+    ppr.set("marL", "228600")
+    ppr.set("indent", "-152400")
+    for tag in ("buNone", "buAutoNum", "buBlip", "buChar"):
+        for child in list(ppr.findall(f"{{{A_NS}}}{tag}")):
+            ppr.remove(child)
+    ET.SubElement(ppr, f"{{{A_NS}}}buChar", {"char": "•"})
 
 
 def parse_rich_text_segments(text: str) -> list[dict]:
@@ -87,6 +106,10 @@ def build_styled_runs(paragraph_xml: str, updated: str) -> str:
     wrapper = f'<root xmlns:a="{A_NS}">{paragraph_xml}</root>'
     root = ET.fromstring(wrapper)
     paragraph = root[0]
+    bullet_paragraph = updated.startswith(BULLET_PREFIX)
+    if bullet_paragraph:
+        updated = updated[len(BULLET_PREFIX):].lstrip()
+        apply_bullet_properties(paragraph)
 
     text_containers = []
     first_run_template = None
@@ -173,7 +196,7 @@ def rewrite_paragraph(paragraph_xml: str, replacements: dict[str, str]) -> tuple
     if updated == original:
         return paragraph_xml, 0
 
-    if has_rich_text_markup(updated) or "\n" in updated:
+    if updated.startswith(BULLET_PREFIX) or has_rich_text_markup(updated) or "\n" in updated:
         return build_styled_runs(paragraph_xml, updated), replacement_count
 
     # Keep escaped entities intact by writing the rebuilt paragraph text into the

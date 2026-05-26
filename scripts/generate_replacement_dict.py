@@ -15,6 +15,26 @@ TOP_LEVEL_FIELDS = {
     "speaker_note",
 }
 
+BULLET_PREFIX = "• "
+
+
+def should_prefix_bullet(field_name: str) -> bool:
+    lowered = field_name.lower()
+    if lowered in TOP_LEVEL_FIELDS:
+        return False
+    if any(key in lowered for key in ("table_", "matrix_label", "matrix_title", "chart_", "source")):
+        return False
+    return True
+
+
+def ensure_bullet_prefix(value: str, field_name: str) -> str:
+    text = value.strip()
+    if not text or not should_prefix_bullet(field_name):
+        return value
+    if text.startswith(("•", "-", "–", "—")):
+        return text
+    return BULLET_PREFIX + text
+
 
 def load_json(path: Path):
     try:
@@ -67,6 +87,7 @@ def add_tokens_for_variant(replacements, tokens, slide, keep_unmapped_empty, for
         placeholder = token["placeholder"]
         field_name = token["field_name"]
         value = stringify_value(resolve_field(slide, field_name))
+        value = ensure_bullet_prefix(value, field_name)
         if force_include or value or keep_unmapped_empty:
             replacements[placeholder] = value
 

@@ -14,7 +14,7 @@ try:
     from pptx.chart.data import CategoryChartData
     from pptx.enum.chart import XL_CHART_TYPE, XL_DATA_LABEL_POSITION, XL_LEGEND_POSITION
     from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
-    from pptx.enum.text import PP_ALIGN
+    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
     from pptx.util import Emu, Pt
     from pptx.dml.color import RGBColor
 except ImportError as exc:
@@ -71,6 +71,7 @@ SCAFFOLD_LABELS = {
     "DOWNSTREAM",
     "PROFIT POOL",
     "KEY BARRIERS",
+    "KEY MESSAGES",
     "industry_overview",
     "market_size_segmentation",
     "key_industry_drivers",
@@ -97,9 +98,13 @@ SLIDE_LAYOUTS = {
     "chart_plus_mini_table_page": {
         "title_box": (896112, 1655064, 4764024, 360000),
         "chart_box": (1000000, 2200000, 4450000, 3000000),
+        "table_box": (6010000, 1880000, 5020000, 1780000),
     },
     },
     6: {
+        "compare_table_page": {
+            "table_box": (960000, 1930000, 6660000, 3370000),
+        },
         "matrix_page": {
             "matrix_box": (1220000, 2200000, 6100000, 3000000),
             "cleanup_box": (868000, 1620000, 6880000, 4480000),
@@ -112,6 +117,7 @@ GRID_GRAY = RGBColor(0xD9, 0xD9, 0xD9)
 TEXT_GRAY = RGBColor(0x55, 0x55, 0x55)
 ACCENT_RED = RGBColor(0xC0, 0x3C, 0x28)
 LEGEND_FONT_SIZE = 8
+BODY_FONT = "Microsoft YaHei"
 
 
 def load_json(path: Path) -> dict:
@@ -157,6 +163,7 @@ def set_single_paragraph(shape, text: str) -> None:
     paragraph = text_frame.paragraphs[0]
     run = paragraph.add_run()
     run.text = text
+    run.font.name = BODY_FONT
 
 
 def remove_scaffold_labels(prs: Presentation) -> list[dict]:
@@ -226,6 +233,7 @@ def apply_chart_title(slide, text: str, layout: dict) -> bool:
     paragraph = target.text_frame.paragraphs[0]
     if paragraph.runs:
         font = paragraph.runs[0].font
+        font.name = BODY_FONT
         font.size = Pt(10)
         font.color.rgb = TEXT_GRAY
         font.bold = False
@@ -267,6 +275,7 @@ def format_chart_legend(chart) -> None:
     chart.legend.position = XL_LEGEND_POSITION.BOTTOM
     chart.legend.include_in_layout = False
     chart.legend.font.size = Pt(LEGEND_FONT_SIZE)
+    chart.legend.font.name = BODY_FONT
     chart.legend.font.color.rgb = TEXT_GRAY
     chart.legend.font.bold = False
 
@@ -314,12 +323,14 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
 
     category_axis = chart.category_axis
     category_axis.tick_labels.font.size = Pt(9)
+    category_axis.tick_labels.font.name = BODY_FONT
     category_axis.tick_labels.font.color.rgb = TEXT_GRAY
 
     value_axis = chart.value_axis
     value_axis.has_major_gridlines = True
     value_axis.major_gridlines.format.line.color.rgb = GRID_GRAY
     value_axis.tick_labels.font.size = Pt(9)
+    value_axis.tick_labels.font.name = BODY_FONT
     value_axis.tick_labels.font.color.rgb = TEXT_GRAY
     value_axis.format.line.color.rgb = GRID_GRAY
 
@@ -328,6 +339,7 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
     data_labels = plot.data_labels
     data_labels.position = XL_DATA_LABEL_POSITION.OUTSIDE_END
     data_labels.font.size = Pt(9)
+    data_labels.font.name = BODY_FONT
     data_labels.font.bold = True
     data_labels.number_format = '#,##0'
 
@@ -413,6 +425,7 @@ def _add_textbox(slide, left: int, top: int, width: int, height: int, text: str,
     run = p.add_run()
     run.text = text
     run.font.size = Pt(font_size)
+    run.font.name = BODY_FONT
     run.font.bold = bold
     run.font.color.rgb = TEXT_GRAY
 
@@ -531,6 +544,7 @@ def add_metric_card(slide, left: int, top: int, width: int, height: int, label: 
     r1 = p1.add_run()
     r1.text = label
     r1.font.size = Pt(10)
+    r1.font.name = BODY_FONT
     r1.font.bold = True
     r1.font.color.rgb = TEXT_GRAY
 
@@ -539,6 +553,7 @@ def add_metric_card(slide, left: int, top: int, width: int, height: int, label: 
     r2 = p2.add_run()
     r2.text = value
     r2.font.size = Pt(24)
+    r2.font.name = BODY_FONT
     r2.font.bold = True
     r2.font.color.rgb = accent
 
@@ -555,6 +570,7 @@ def add_supporting_note(slide, left: int, top: int, width: int, height: int, tex
     r = p.add_run()
     r.text = text
     r.font.size = Pt(10)
+    r.font.name = BODY_FONT
     r.font.color.rgb = TEXT_GRAY
 
 
@@ -635,6 +651,109 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
     }
 
 
+def split_table_cells(text: str, expected_cols: int) -> list[str]:
+    value = str(text or "").strip()
+    if not value:
+        return [""] * expected_cols
+    if "｜" in value:
+        cells = [part.strip() for part in value.split("｜")]
+    elif "|" in value:
+        cells = [part.strip() for part in value.split("|")]
+    elif " / " in value:
+        cells = [part.strip() for part in value.split(" / ")]
+    else:
+        cells = [value]
+    if len(cells) > expected_cols:
+        cells = cells[: expected_cols - 1] + [" / ".join(cells[expected_cols - 1 :])]
+    return cells + [""] * (expected_cols - len(cells))
+
+
+def remove_text_shapes_in_box(slide, box: tuple[int, int, int, int]) -> list[dict]:
+    removed = []
+    for shape in list(slide.shapes):
+        if not hasattr(shape, "text_frame"):
+            continue
+        if not intersects(shape, box):
+            continue
+        text = getattr(shape, "text", "").strip() if hasattr(shape, "text") else ""
+        remove_shape(shape)
+        removed.append({"shape_name": shape.name, "text": text[:80]})
+    return removed
+
+
+def set_cell_text(cell, text: str, font_size: int, bold: bool = False, color: RGBColor = TEXT_GRAY) -> None:
+    cell.text = ""
+    cell.margin_left = Emu(42000)
+    cell.margin_right = Emu(42000)
+    cell.margin_top = Emu(25000)
+    cell.margin_bottom = Emu(25000)
+    cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+    paragraph = cell.text_frame.paragraphs[0]
+    paragraph.alignment = PP_ALIGN.LEFT
+    run = paragraph.add_run()
+    run.text = str(text or "")
+    run.font.name = BODY_FONT
+    run.font.size = Pt(font_size)
+    run.font.bold = bold
+    run.font.color.rgb = color
+
+
+def style_table_shape(table_shape, header_fill: RGBColor = BRAND_BLUE) -> None:
+    table = table_shape.table
+    for row_idx, row in enumerate(table.rows):
+        for cell in row.cells:
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = header_fill if row_idx == 0 else RGBColor(0xFF, 0xFF, 0xFF)
+
+
+def render_slide2_mini_table(slide, slide_data: dict, layout: dict) -> dict:
+    body = slide_data.get("body_copy") or {}
+    headers = [body.get("table_header_1", ""), body.get("table_header_2", "")]
+    rows = [body.get(f"table_row_{idx}", "") for idx in range(1, 4)]
+    if not any(str(item).strip() for item in headers + rows):
+        return {"rendered": False, "reason": "missing slide 2 table body_copy fields"}
+
+    table_box = layout["table_box"]
+    removed = remove_text_shapes_in_box(slide, table_box)
+    left, top, width, height = table_box
+    table_shape = slide.shapes.add_table(4, 2, Emu(left), Emu(top), Emu(width), Emu(height))
+    table = table_shape.table
+    table.columns[0].width = Emu(int(width * 0.42))
+    table.columns[1].width = Emu(int(width * 0.58))
+    for idx, header in enumerate(headers):
+        set_cell_text(table.cell(0, idx), header, 7, True, RGBColor(0xFF, 0xFF, 0xFF))
+    for row_idx, row_text in enumerate(rows, start=1):
+        for col_idx, cell_text in enumerate(split_table_cells(row_text, 2)):
+            set_cell_text(table.cell(row_idx, col_idx), cell_text, 6, False)
+    style_table_shape(table_shape)
+    return {"rendered": True, "rows": 4, "columns": 2, "removed_text_shapes": removed}
+
+
+def render_slide6_compare_table(slide, slide_data: dict, layout: dict) -> dict:
+    body = slide_data.get("body_copy") or {}
+    headers = split_table_cells(body.get("table_header", ""), 6)
+    rows = [body.get(f"table_row_{idx}", "") for idx in range(1, 7)]
+    if not any(str(item).strip() for item in headers + rows):
+        return {"rendered": False, "reason": "missing slide 6 compare table body_copy fields"}
+
+    table_box = layout["table_box"]
+    removed = remove_text_shapes_in_box(slide, table_box)
+    left, top, width, height = table_box
+    table_shape = slide.shapes.add_table(7, 6, Emu(left), Emu(top), Emu(width), Emu(height))
+    table = table_shape.table
+    col_weights = [1.1, 1.5, 0.9, 0.8, 1.8, 0.9]
+    total = sum(col_weights)
+    for idx, weight in enumerate(col_weights):
+        table.columns[idx].width = Emu(int(width * weight / total))
+    for idx, header in enumerate(headers):
+        set_cell_text(table.cell(0, idx), header, 5, True, RGBColor(0xFF, 0xFF, 0xFF))
+    for row_idx, row_text in enumerate(rows, start=1):
+        for col_idx, cell_text in enumerate(split_table_cells(row_text, 6)):
+            set_cell_text(table.cell(row_idx, col_idx), cell_text, 5, False)
+    style_table_shape(table_shape)
+    return {"rendered": True, "rows": 7, "columns": 6, "removed_text_shapes": removed}
+
+
 def render_quant_slide(prs: Presentation, storyboard: dict, slide_no: int) -> dict:
     slide_data = find_slide_data(storyboard, slide_no)
     if not slide_data:
@@ -652,6 +771,10 @@ def render_quant_slide(prs: Presentation, storyboard: dict, slide_no: int) -> di
     slide = prs.slides[slide_no - 1]
     if page_type == "matrix_page":
         result = render_matrix_slide(slide, slide_data, layout)
+    elif slide_no == 2 and page_type == "chart_plus_mini_table_page":
+        result = render_slide2_mini_table(slide, slide_data, layout)
+    elif slide_no == 6 and page_type == "compare_table_page":
+        result = render_slide6_compare_table(slide, slide_data, layout)
     elif slide_no == 1:
         result = render_slide1_visual(slide, slide_data, layout)
     else:
@@ -696,7 +819,10 @@ def postprocess(input_ppt: Path, storyboard_path: Path, output_ppt: Path) -> dic
     page_number_updates = rewrite_page_numbers(prs)
     chart_results = []
     for slide_data in storyboard.get("slides", []):
-        if slide_data.get("chart_data"):
+        if slide_data.get("chart_data") or (
+            int(slide_data.get("slide_no", 0)) in {2, 6}
+            and has_postprocess_renderer(slide_data)
+        ):
             if has_postprocess_renderer(slide_data):
                 chart_results.append(render_quant_slide(prs, storyboard, int(slide_data["slide_no"])))
             else:

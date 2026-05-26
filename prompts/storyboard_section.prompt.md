@@ -69,6 +69,7 @@ Each slide must include:
 - **headline**: A conclusion-led investment insight, not a topic label. It must fit on one title line under `templates/text_fit_rules.json`; keep it short and move evidence/detail to `main_message` or body copy.
 - **main_message**: One sentence that captures the slide's core argument. Target one line; two lines are acceptable only when necessary; three lines are not acceptable.
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
+- **Bullet-style body copy**: Body text boxes must read as bullet points, not memo paragraphs. Write each active body_copy field as one concise bullet-style point. Do not put parenthetical source references such as `(EV-001)` or `(Named report)` in body text; all source IDs/names belong in `source_note`.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
 - **Chart legend labels**: Keep each `series.name` short enough to work as a chart legend label, ideally 2-8 Chinese characters or 1-3 English words. Do not use full-sentence series names.
@@ -91,8 +92,8 @@ Aim for these character ranges. Fields shorter than the minimum are likely too t
 |---|---|---|
 | title / headline | Template one-line fit | Short investment judgment; must pass `text_fit_rules.json` |
 | main_takeaway | Template 1-line target, 2-line max | One sentence: opinion + evidence/implication |
-| bullet / card | 70–130 chars | Structured: label + opinion + data point OR implication |
-| panel | 100–160 chars | Synthesis paragraph: context + judgment + target relevance |
+| bullet / card | 45–95 chars | Structured: label + opinion + data point OR implication; rendered as a bullet |
+| panel | 55–105 chars | Short bullet-style synthesis: context + judgment + target relevance |
 | table_row | 60–100 chars | Metric-led, label bolded |
 | timeline_stage | 60–100 chars | Event + timeframe + significance |
 | source_footer | 30+ chars | Specific source name or Evidence ID; never generic |
@@ -141,6 +142,8 @@ If you catch yourself writing any of these, replace with specific evidence + sou
 - Use color emphasis only for one short conclusion phrase or one critical contrast on a slide.
 - For colon-led labels such as `Industry structure:` or `Target position:`, prefer bolding the label prefix rather than highlighting the whole sentence.
 - Do not leave template-helper labels in visible copy. Terms such as `PRIMARY CHART`, `POINT 1`, or page-type names are scaffold only and must not appear in deliverable text.
+- Do not embed source references in body text. Evidence IDs, report names, annual reports, and announcement names should appear in `source_note`, not in parentheses inside bullets.
+- Slide 2 and Slide 6 table fields are post-processed into real PPT table objects. Use `｜` to separate table cells; do not write table rows as prose paragraphs.
 
 ## Source Discipline
 

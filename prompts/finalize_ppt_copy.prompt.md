@@ -22,6 +22,8 @@ Convert the reasoning-rich `industry_storyboard.json` into the canonical `indust
 6. **Ensure the output conforms to `templates/ppt_copy_schema.json`.** All required fields must be present. Use `ppt_copy_mapping.json` for field-level role-to-field mapping.
 7. **If text must be shortened, preserve the investment message over descriptive detail.** A punchy "Market is X, growing at Y" beats a wordy "The market for Z has been observed to grow at approximately Y% per annum."
 8. **Preserve uncertainty.** If the storyboard flags weak sourcing or data gaps, carry those caveats into source footers, speaker notes, or concise wording rather than making claims sound more certain.
+9. **Keep sources out of body copy.** Remove parenthetical source references such as `(EV-001)` or `(Named report)` from `content` fields. Source IDs and source names belong in `source_footer`.
+10. **Use bullet-style body copy.** Each `content` field should be one concise bullet-style point, not a long paragraph. For Slide 2/6 table rows, use `｜` to separate table cells so post-processing can render real PPT tables.
 
 ## Content Field Mapping
 

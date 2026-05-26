@@ -167,6 +167,37 @@ def check_generic_phrases(
             break  # One warning per field is enough
 
 
+INLINE_SOURCE_RE = re.compile(
+    r"[\(（][^()（）\n]*(?:EV-\d+|Source|source|来源|报告|年报|公告|research|Research)[^()（）\n]*[\)）]"
+)
+
+
+def check_inline_source_references(
+    text: str,
+    slide_no: int,
+    field_name: str,
+    warnings: list[str],
+) -> None:
+    if INLINE_SOURCE_RE.search(text):
+        warnings.append(
+            f"slide {slide_no}: inline source reference found in '{field_name}'; "
+            "move source IDs/names to source_note/source_footer"
+        )
+
+
+def check_body_length(
+    text: str,
+    slide_no: int,
+    field_name: str,
+    warnings: list[str],
+    max_units: float = 95.0,
+) -> None:
+    if display_units(text) > max_units:
+        warnings.append(
+            f"slide {slide_no}: '{field_name}' is paragraph-like; split/compress into shorter bullet text"
+        )
+
+
 # ── Source note specificity ──────────────────────────────────────
 
 def check_source_note_specificity(
@@ -489,6 +520,9 @@ def validate(
             for field_name, field_value in body_copy.items():
                 if isinstance(field_value, str) and field_value.strip():
                     check_field_density(field_name, field_value, rules, slide_no, density_warnings)
+                    if not field_name.lower().startswith(("table_", "matrix_")):
+                        check_body_length(field_value, slide_no, field_name, density_warnings)
+                    check_inline_source_references(field_value, slide_no, field_name, source_warnings)
                     check_generic_phrases(
                         field_value, generic_copy, slide_no, field_name,
                         generic_copy_warnings, "generic copy phrase",
