@@ -11,7 +11,7 @@
 #   --ppt-copy FILE        Explicit path to industry_section_ppt_copy.json
 #   --storyboard FILE      Explicit path to industry_storyboard.json
 #   --work-root DIR        Working directory for default outputs (default: infer from inputs, else cwd)
-#   --attempt-name NAME    Attempt name for default output layout
+#   --attempt-name NAME    Attempt name for default output layout; starts/switches active attempt
 #   --python PATH          Python interpreter to use (default: .venv/bin/python, then python3)
 #   --quality-gate         Enable content quality validation as a hard gate (fail on warnings)
 #   --no-research-gate     Skip research artifact gate (PPT-only debug runs only)
@@ -126,11 +126,22 @@ else
 fi
 
 if [[ -z "$OUTPUT_DIR" ]]; then
-  ATTEMPT_NAME="${ATTEMPT_NAME_ARG:-attempt_$(date +%Y%m%d_%H%M%S)}"
   if [[ "$(basename "$WORK_ROOT")" == attempt_* ]]; then
     OUTPUT_DIR="$WORK_ROOT"
   else
-    OUTPUT_DIR="$WORK_ROOT/runs/${ATTEMPT_NAME}"
+    RUNS_DIR="$WORK_ROOT/runs"
+    ACTIVE_ATTEMPT_FILE="$RUNS_DIR/ACTIVE_ATTEMPT.txt"
+    mkdir -p "$RUNS_DIR"
+    if [[ -n "$ATTEMPT_NAME_ARG" ]]; then
+      ATTEMPT_NAME="$ATTEMPT_NAME_ARG"
+      printf '%s\n' "$ATTEMPT_NAME" > "$ACTIVE_ATTEMPT_FILE"
+    elif [[ -f "$ACTIVE_ATTEMPT_FILE" ]] && [[ -n "$(tr -d '[:space:]' < "$ACTIVE_ATTEMPT_FILE")" ]]; then
+      ATTEMPT_NAME="$(tr -d '[:space:]' < "$ACTIVE_ATTEMPT_FILE")"
+    else
+      ATTEMPT_NAME="attempt_$(date +%Y%m%d_%H%M%S)"
+      printf '%s\n' "$ATTEMPT_NAME" > "$ACTIVE_ATTEMPT_FILE"
+    fi
+    OUTPUT_DIR="$RUNS_DIR/${ATTEMPT_NAME}"
   fi
 fi
 
@@ -187,6 +198,7 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
   require_research_artifact "$INPUT_DIR" "artifacts/research_plan.json"
   require_research_artifact "$INPUT_DIR" "artifacts/research_plan_validation.json"
   require_research_artifact "$INPUT_DIR" "artifacts/search_log.md"
+  require_research_artifact "$INPUT_DIR" "industry_input_memo.md"
 fi
 stage_optional_artifact "$INPUT_DIR" "input_card.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/input_card_validation.json"
@@ -201,12 +213,19 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
     --source-registry "$SCRIPT_DIR/templates/source_registry.json" \
     --stage formal \
     --output "$OUTPUT_DIR/artifacts/research_plan_validation.json"
+
+  echo "[bootstrap] validating research memo..."
+  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_memo.py" \
+    --memo "$INPUT_DIR/industry_input_memo.md" \
+    --run-dir "$INPUT_DIR" \
+    --output "$OUTPUT_DIR/artifacts/memo_validation.json"
 fi
 
 echo "[bootstrap] validating storyboard contract..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_storyboard.py" \
   --storyboard "$STAGED_STORYBOARD" \
   --schema "$SCRIPT_DIR/templates/storyboard_schema.json" \
+  --text-fit-rules "$SCRIPT_DIR/templates/text_fit_rules.json" \
   --output "$OUTPUT_DIR/artifacts/storyboard_validation.json"
 
 # ── Step 0b: Content quality validation ──────────────────────────
@@ -312,6 +331,7 @@ echo "[5/7] Post-processing visuals..."
   --input-ppt "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
   --storyboard "$STAGED_STORYBOARD" \
   --output "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
+  --render-layouts "$SCRIPT_DIR/templates/render_layouts.json" \
   --log "$OUTPUT_DIR/artifacts/postprocess_ppt_visuals.log.json" \
   --fail-on-unrendered
 
@@ -335,6 +355,12 @@ echo "[7/7] Running final delivery gate..."
 
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/generate_run_quality_summary.py" \
   --run-dir "$OUTPUT_DIR"
+
+if [[ "$(basename "$(dirname "$OUTPUT_DIR")")" == "runs" ]]; then
+  printf '%s\n' "$(basename "$OUTPUT_DIR")" > "$(dirname "$OUTPUT_DIR")/ACTIVE_ATTEMPT.txt"
+  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/update_runs_index.py" \
+    --runs-dir "$(dirname "$OUTPUT_DIR")"
+fi
 
 echo "Run directory ready."
 echo "Staged inputs:"

@@ -16,6 +16,10 @@ from typing import Optional
 from json_utils import load_json_file
 
 
+DEFAULT_LAYOUT_BUDGET_PATH = Path(__file__).resolve().parents[1] / "templates" / "layout_budget.json"
+DEFAULT_TERMINAL_PUNCTUATION = "。．.，,、；;：:！!？?"
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 def load_json(path: Path) -> dict:
@@ -71,6 +75,90 @@ def estimate_lines(text: str, max_line_units: float) -> int:
         units = display_units(segment)
         lines += max(1, math.ceil(units / max_line_units))
     return lines
+
+
+def split_table_cells(text: str) -> list[str]:
+    value = str(text or "").strip()
+    if not value:
+        return []
+    if "｜" in value:
+        return [part.strip() for part in value.split("｜")]
+    if "|" in value:
+        return [part.strip() for part in value.split("|")]
+    if " / " in value:
+        return [part.strip() for part in value.split(" / ")]
+    return [value]
+
+
+def check_main_message_terminal_punctuation(
+    text: str,
+    slide_no: int,
+    layout_budget: dict,
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    main_message_rules = layout_budget.get("global", {}).get("main_message", {})
+    if not main_message_rules.get("forbid_terminal_punctuation", True):
+        return
+    terminal_punctuation = main_message_rules.get("terminal_punctuation", DEFAULT_TERMINAL_PUNCTUATION)
+    stripped = str(text or "").strip()
+    if stripped and stripped[-1] in terminal_punctuation:
+        message = f"slide {slide_no}: main_message/subtitle must not end with punctuation"
+        warnings.append(message)
+        blocking_warnings.append(message)
+
+
+def check_layout_budget(
+    body_copy: dict,
+    slide_no: int,
+    page_type: str,
+    layout_budget: dict,
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    if not layout_budget:
+        return
+    global_rules = layout_budget.get("global", {})
+    page_rules = layout_budget.get("page_type_budgets", {}).get(page_type, {})
+    field_limits = page_rules.get("body_fields_max_units", {})
+    default_limit = float(global_rules.get("body_copy", {}).get("max_bullet_units_default", 88))
+    table_cell_limit = float(
+        page_rules.get("table", {}).get(
+            "max_cell_units",
+            global_rules.get("table", {}).get("max_cell_units", 22),
+        )
+    )
+    max_newlines = int(global_rules.get("body_copy", {}).get("max_newlines_per_field", 1))
+    for field_name, field_value in body_copy.items():
+        if not isinstance(field_value, str) or not field_value.strip():
+            continue
+        text = field_value.strip()
+        if text.count("\n") > max_newlines:
+            message = f"slide {slide_no}: '{field_name}' contains too many line breaks for a PPT body field"
+            warnings.append(message)
+            blocking_warnings.append(message)
+        limit = float(field_limits.get(field_name, default_limit))
+        units = display_units(text)
+        if units > limit:
+            message = (
+                f"slide {slide_no}: '{field_name}' is {units:.1f} layout units; "
+                f"max for {page_type} is {limit:.1f}"
+            )
+            warnings.append(message)
+            blocking_warnings.append(message)
+        if field_name.lower().startswith("table_") and "row" in field_name.lower():
+            cells = split_table_cells(text)
+            if len(cells) <= 1:
+                warnings.append(f"slide {slide_no}: '{field_name}' should use table cell separator '｜'")
+            for idx, cell in enumerate(cells, start=1):
+                cell_units = display_units(cell)
+                if cell_units > table_cell_limit:
+                    message = (
+                        f"slide {slide_no}: '{field_name}' cell {idx} is {cell_units:.1f} layout units; "
+                        f"max table cell budget is {table_cell_limit:.1f}"
+                    )
+                    warnings.append(message)
+                    blocking_warnings.append(message)
 
 
 # ── Density checks ───────────────────────────────────────────────
@@ -190,12 +278,14 @@ def check_body_length(
     slide_no: int,
     field_name: str,
     warnings: list[str],
+    blocking_warnings: Optional[list[str]] = None,
     max_units: float = 95.0,
 ) -> None:
     if display_units(text) > max_units:
-        warnings.append(
-            f"slide {slide_no}: '{field_name}' is paragraph-like; split/compress into shorter bullet text"
-        )
+        message = f"slide {slide_no}: '{field_name}' is paragraph-like; split/compress into shorter bullet text"
+        warnings.append(message)
+        if blocking_warnings is not None:
+            blocking_warnings.append(message)
 
 
 # ── Source note specificity ──────────────────────────────────────
@@ -231,6 +321,7 @@ def check_chart_data(
     rules: dict,
     warnings: list[str],
     blocking_warnings: list[str],
+    layout_budget: Optional[dict] = None,
 ) -> None:
     """Check chart_data completeness for quantitative slides."""
     slide_no = slide.get("slide_no")
@@ -261,8 +352,16 @@ def check_chart_data(
             return
         if chart_type in {"metric_cards", "metric_card", "metrics", ""}:
             rows = chart_data.get("source_rows") or []
-            if len(rows) < 2:
-                message = "slide 1: metric_cards visual requires at least two source_rows"
+            min_rows = 3
+            if layout_budget:
+                min_rows = int(
+                    layout_budget.get("page_type_budgets", {})
+                    .get("summary_page", {})
+                    .get("slide_1_visual", {})
+                    .get("min_metric_cards", min_rows)
+                )
+            if len(rows) < min_rows:
+                message = f"slide 1: metric_cards visual requires at least {min_rows} source_rows"
                 warnings.append(message)
                 blocking_warnings.append(message)
             return
@@ -410,6 +509,7 @@ def validate(
     rules_path: Path,
     block_source_warnings: bool = True,
     text_fit_rules_path: Optional[Path] = None,
+    layout_budget_path: Optional[Path] = DEFAULT_LAYOUT_BUDGET_PATH,
 ) -> dict:
     errors: list[str] = []
     density_warnings: list[str] = []
@@ -460,6 +560,12 @@ def validate(
             text_fit_rules = load_json(text_fit_rules_path)
         except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f"cannot load text fit rules: {exc}")
+    layout_budget = {}
+    if layout_budget_path and layout_budget_path.exists():
+        try:
+            layout_budget = load_json(layout_budget_path)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"cannot load layout budget: {exc}")
 
     memo_text = ""
     if memo_path:
@@ -503,6 +609,14 @@ def validate(
         main_message = slide.get("main_message", "")
         if main_message:
             check_field_density("main_message", main_message, rules, slide_no, density_warnings)
+            if layout_budget:
+                check_main_message_terminal_punctuation(
+                    main_message,
+                    slide_no,
+                    layout_budget,
+                    layout_warnings,
+                    layout_blocking_warnings,
+                )
             if text_fit_rules:
                 check_text_fit(
                     main_message,
@@ -517,11 +631,20 @@ def validate(
         # 3. Body copy density + generic phrases
         body_copy = slide.get("body_copy", {})
         if isinstance(body_copy, dict):
+            if layout_budget:
+                check_layout_budget(
+                    body_copy,
+                    slide_no,
+                    page_type,
+                    layout_budget,
+                    layout_warnings,
+                    layout_blocking_warnings,
+                )
             for field_name, field_value in body_copy.items():
                 if isinstance(field_value, str) and field_value.strip():
                     check_field_density(field_name, field_value, rules, slide_no, density_warnings)
                     if not field_name.lower().startswith(("table_", "matrix_")):
-                        check_body_length(field_value, slide_no, field_name, density_warnings)
+                        check_body_length(field_value, slide_no, field_name, density_warnings, layout_blocking_warnings)
                     check_inline_source_references(field_value, slide_no, field_name, source_warnings)
                     check_generic_phrases(
                         field_value, generic_copy, slide_no, field_name,
@@ -545,7 +668,7 @@ def validate(
             )
 
         # 5. Chart data completeness
-        check_chart_data(slide, rules, chart_data_warnings, layout_blocking_warnings)
+        check_chart_data(slide, rules, chart_data_warnings, layout_blocking_warnings, layout_budget)
 
         # 6. Training data usage
         if memo_text:
@@ -582,6 +705,7 @@ def validate(
         "memo": str(memo_path) if memo_path else "",
         "rules": str(rules_path),
         "text_fit_rules": str(text_fit_rules_path) if text_fit_rules_path else "",
+        "layout_budget": str(layout_budget_path) if layout_budget_path else "",
         "error_count": len(errors),
         "warning_count": len(all_warnings),
         "errors": errors,
@@ -619,6 +743,11 @@ def main() -> None:
         help="Optional path to templates/text_fit_rules.json. Defaults to sibling file next to --rules when present."
     )
     parser.add_argument(
+        "--layout-budget",
+        default=str(DEFAULT_LAYOUT_BUDGET_PATH),
+        help="Optional path to templates/layout_budget.json."
+    )
+    parser.add_argument(
         "--output",
         help="Optional path to write validation report JSON."
     )
@@ -642,6 +771,7 @@ def main() -> None:
         rules_path=Path(args.rules),
         block_source_warnings=not args.allow_source_warnings,
         text_fit_rules_path=Path(args.text_fit_rules) if args.text_fit_rules else None,
+        layout_budget_path=Path(args.layout_budget) if args.layout_budget else None,
     )
 
     gate = args.quality_gate or args.warnings_as_errors

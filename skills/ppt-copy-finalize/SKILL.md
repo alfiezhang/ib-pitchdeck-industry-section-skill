@@ -34,7 +34,7 @@ Must include:
 
 1. **No new facts.** The storyboard is the sole source of truth. Do not add data, claims, or interpretations that were not in the storyboard.
 2. **No page type changes.** The `selected_page_type` for each slide must exactly match the storyboard's `template_binding` decisions.
-3. **Compress for PPT.** Headlines and bullets should be concise, scannable, and fit within PPT placeholder limits. Headlines must fit one line under `templates/text_fit_rules.json`; main takeaways target one line and must not exceed two estimated lines.
+3. **Compress for PPT.** Headlines and bullets should be concise, scannable, and fit within PPT placeholder limits. Headlines must fit one line under `templates/text_fit_rules.json`; main takeaways target one line, must not exceed two estimated lines, and must not end with terminal punctuation.
 4. **Preserve source notes.** Every slide's `source_footer` must carry forward the storyboard's `source_note`.
 5. **Preserve target linkage.** Every slide's `main_takeaway` should reflect the storyboard's `target_link` intent.
 6. **Field alignment.** Map storyboard `body_copy` fields to the exact field names expected by `ppt_copy_schema.json` for each slide role. Use `templates/ppt_copy_mapping.json` for guidance.
@@ -46,6 +46,7 @@ Must include:
 9. **Follow formatting discipline.** Use `references/formatting_rules.md` to decide where emphasis should and should not appear.
 10. **Keep `chart_title` client-facing.** If a slide has `chart_data.title`, use that as the default `chart_title`. Do not copy procedural instructions such as “show a bar chart...” into the on-slide chart title field.
 11. **Keep build notes upstream.** Execution notes belong in `visual_direction`, `chart_data.notes`, or speaker notes, not in visible PPT placeholders.
+12. **Respect layout budget.** Use `templates/layout_budget.json`; keep table cells compact and move longer explanations into commentary/panel fields.
 
 ## When to Skip
 

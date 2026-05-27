@@ -107,12 +107,14 @@ Apply object-level visual cleanup after token fill. This step is where real char
   --input-ppt industry_section_filled_clean.pptx \
   --storyboard industry_storyboard.json \
   --output industry_section_filled_clean.pptx \
+  --render-layouts templates/render_layouts.json \
   --log artifacts/postprocess_ppt_visuals.log.json
 ```
 
 Current scope:
 - removes template scaffold labels such as `PRIMARY CHART`, `POINT 1`, `STANDARD`
-- renders real visual objects on Slide 1 and Slide 2 when executable `chart_data` is present
+- renders real visual objects on Slide 1, Slide 2, and selected Slide 6 variants when executable data is present
+- reads deterministic render coordinates from `templates/render_layouts.json`
 
 ### 7. Validate Filled PPT
 

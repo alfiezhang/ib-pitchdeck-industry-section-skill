@@ -113,7 +113,7 @@ If formal validation fails, fix `research_plan.json` before writing the memo. Do
 ### 2. Storyboard Section
 Use `skills/storyboard-section/SKILL.md`.
 
-Input: `industry_input_memo.md` + target brief + page type rules + slide layout library + content quality rules
+Input: `industry_input_memo.md` + target brief + page type rules + slide layout library + content quality rules + layout budget
 
 Output: `industry_storyboard.json`
 
@@ -125,6 +125,7 @@ This is the **main LLM reasoning step**. It generates, in one pass: storyline st
 - No banned generic phrases in body_copy or source_note
 - At least 2 Evidence IDs or memo section references per slide
 - Headline and main_message fit rules are enforced by `templates/text_fit_rules.json`: title must fit one line; subtitle/main_message targets one line and must not exceed two lines.
+- Page-level copy and visual budgets are defined in `templates/layout_budget.json`: body fields must be short bullet-style points, table cells must stay compact, and `main_message` must not end with punctuation.
 - Slide 1 right-side visual area is executable: storyboard must set `chart_data.chart_type` to `bar`, `stacked_bar`, `line`, `metric_cards`, or `none`; non-`none` choices need data that `scripts/postprocess_ppt_visuals.py` can render.
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
@@ -205,6 +206,9 @@ Do **not** require separate manual review for intermediate debug files; the work
 - `filled_ppt_validation.json`
 - `artifacts/final_delivery_validation.json`
 - `artifacts/run_quality_summary.md`
+- `<work_root>/runs/RUNS_INDEX.md`
+- `<work_root>/runs/LATEST_FINAL_RUN.txt`
+- `<work_root>/runs/LATEST_FINAL_PPT.txt`
 
 For final delivery, run:
 
@@ -221,7 +225,22 @@ Then generate a short quality report:
   --run-dir <work_root>/runs/attempt_<timestamp>
 ```
 
+If multiple `attempt_*` directories exist, update the runs index before reporting the final answer:
+
+```bash
+./.venv/bin/python scripts/update_runs_index.py \
+  --runs-dir <work_root>/runs
+```
+
+Report the path from `LATEST_FINAL_PPT.txt` as the final PPT. Do not ask the user to infer the final deliverable from multiple attempt folders.
+
 Do not deliver if final delivery validation fails.
+
+Attempt management:
+- For one user task, keep repairing the same active attempt directory.
+- `run_pipeline.sh` writes `<work_root>/runs/ACTIVE_ATTEMPT.txt` and reuses it by default.
+- Use `--attempt-name` only when intentionally starting or switching to a new attempt.
+- Do not say a deck is complete until `artifacts/final_delivery_validation.json` reports `is_valid=true` for that same attempt and `LATEST_FINAL_PPT.txt` points to that deck.
 
 ## Input Resolution
 
@@ -261,6 +280,8 @@ Only static skill assets should be resolved relative to the skill package itself
 - `industry_storyboard.json` is the main LLM reasoning artifact.
 - `industry_section_ppt_copy.json` remains the canonical input to deterministic PPT filling.
 - JSON artifacts must use ASCII double quotes (`"`) for all keys and string delimiters. Never use Chinese/smart quotes (`“”‘’`) in JSON syntax.
+- Create JSON from structured objects whenever possible. Do not repair malformed storyboard JSON with global string replacements; if parsing fails, rebuild the object and serialize it with a JSON library.
+- Validation artifacts must reference files inside the same attempt directory and must be newer than the source files they validate. Cross-attempt validation reuse is invalid.
 - Web research is mandatory when starting from a brief or attachments.
 - Source attribution must reference specific sources or Evidence IDs, not "industry reports" or "public sources."
 - Weak sources such as Q&A sites, low-quality reposts, document-sharing pages, generic company-info pages, or SEO research portals may be used only as lead-finding aids. Put them in Rejected Sources or Lead-only Sources unless no stronger source exists, and label any retained claim as low confidence.

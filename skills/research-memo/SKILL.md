@@ -151,6 +151,17 @@ Required sections:
 - `Presentation Hint`, `Visual Candidate`
 - For every `Key Data Points` entry: `Definition`, `Source Name`, `Source Date`, `Confidence`, and `chart_ready` (true/false)
 
+After writing the memo, validate it before storyboard generation:
+
+```bash
+./.venv/bin/python scripts/validate_memo.py \
+  --memo industry_input_memo.md \
+  --run-dir . \
+  --output artifacts/memo_validation.json
+```
+
+If validation fails, fix the memo first. Do not proceed to storyboard with an incomplete memo, missing page-by-page notes, missing Evidence Ledger rows, missing research artifacts, or weak sources promoted into formal evidence.
+
 ### Evidence Ledger
 
 Every important claim or metric must have an Evidence ID (EV-001, EV-002, ...). These IDs are the anchor points for downstream:
@@ -178,6 +189,8 @@ Key principles:
 - **Discovery plan is intentionally lightweight**: before broad discovery, avoid filling unknown peer sets, source packs, and industry boundaries from model prior knowledge. Let broad discovery inform the formal plan.
 - **Dependency check is mandatory before fallback search**: run `bash ./setup.sh` and `./.venv/bin/python scripts/check_runtime_dependencies.py` before relying on `scripts/web_search.py`.
 - **Fail closed on mandatory research failure**: if built-in WebSearch/WebFetch and fallback search cannot return verified online sources, stop the workflow. Do not generate storyboard or PPT from `training_data` unless the operator explicitly chooses degraded mode.
+- **Weak sources stay outside formal evidence**: Zhihu, Baijiahao, repost/content-farm pages, document-sharing sites, SEO research pages, and generic company-info pages may be used only as leads or rejected-source notes. Do not place them in `Evidence Ledger`, `Selected Sources`, `Online Research Sources`, or slide `source_note` unless no stronger source exists and the limitation is explicitly disclosed.
+- **Do not overstate source confidence**: data aggregators, reposted report summaries, SEO research pages, and generic company-info pages are not `verified` evidence by themselves. Mark them `inferred` or `secondary` unless independently validated by an official source, filing, primary report, or reputable media/source owner.
 - **Record user-provided materials separately** from online research in `Source Materials`.
 - **Use the source hierarchy**: primary (government/regulatory filings) > secondary (industry association reports) > tertiary (consulting firm summaries) > lowest (news articles).
 - **Keep weak sources out of core evidence**: Q&A sites, repost platforms, document-sharing sites, generic company-info pages, SEO research portals, and unsourced media roundups can suggest search terms but should be recorded as `Rejected Sources` or lead-only sources unless no stronger source exists.

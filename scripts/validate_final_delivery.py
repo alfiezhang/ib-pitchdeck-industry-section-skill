@@ -14,6 +14,7 @@ from json_utils import load_json_file
 from validate_content_quality import validate as validate_content_quality
 from validate_filled_ppt import build_report
 from validate_input_card import validate as validate_input_card_data
+from validate_memo import validate as validate_memo_data
 from validate_research_plan import validate as validate_research_plan_data
 from validate_run_artifacts import validate as validate_run_artifacts
 
@@ -34,6 +35,61 @@ def validate_content_quality_artifact(path: Path) -> tuple[list[str], list[str]]
     data = load_json_file(path)
     if data.get("is_valid") is False:
         errors.append("content_quality_validation.json is_valid=false")
+    return errors, warnings
+
+
+def is_within_run(path_text: str, run_dir: Path) -> bool:
+    if not path_text:
+        return True
+    try:
+        candidate = Path(path_text).expanduser()
+        if not candidate.is_absolute():
+            return True
+        candidate.resolve().relative_to(run_dir.resolve())
+        return True
+    except Exception:
+        return False
+
+
+def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    checks = {
+        "artifacts/content_quality_validation.json": ["storyboard", "memo"],
+        "artifacts/storyboard_validation.json": ["storyboard"],
+        "artifacts/memo_validation.json": ["memo", "run_dir"],
+        "artifacts/research_plan_validation.json": ["plan"],
+        "filled_ppt_validation.json": ["summary.filled_ppt", "summary.clean_ppt", "summary.control_file", "summary.replacement_dict"],
+    }
+    source_files = [
+        run_dir / "industry_input_memo.md",
+        run_dir / "industry_storyboard.json",
+        run_dir / "industry_section_ppt_copy.json",
+        run_dir / "replacement_dict.json",
+    ]
+
+    for rel, fields in checks.items():
+        artifact_path = run_dir / rel
+        if not artifact_path.exists():
+            continue
+        try:
+            data = load_json_file(artifact_path)
+        except Exception as exc:
+            errors.append(f"cannot check artifact provenance for {rel}: {exc}")
+            continue
+        for field in fields:
+            cursor: Any = data
+            for part in field.split("."):
+                cursor = cursor.get(part, {}) if isinstance(cursor, dict) else {}
+            if isinstance(cursor, str) and not is_within_run(cursor, run_dir):
+                errors.append(f"{rel} field '{field}' points outside current run: {cursor}")
+        try:
+            artifact_mtime = artifact_path.stat().st_mtime
+        except OSError:
+            continue
+        newer_sources = [path.name for path in source_files if path.exists() and path.stat().st_mtime > artifact_mtime + 1.0]
+        if newer_sources:
+            errors.append(f"{rel} is older than source file(s): {', '.join(newer_sources)}; rerun validation")
     return errors, warnings
 
 
@@ -117,6 +173,33 @@ def validate_current_content_quality(run_dir: Path, rules_path: Path) -> tuple[l
     return errors, warnings
 
 
+def validate_memo_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    memo_path = run_dir / "industry_input_memo.md"
+    if not memo_path.exists():
+        return ["missing industry_input_memo.md"], warnings
+
+    result = validate_memo_data(memo_path, run_dir)
+    if result.get("is_valid") is False:
+        errors.append("current memo validation failed")
+        errors.extend(str(item) for item in result.get("errors", []))
+    warnings.extend(str(item) for item in result.get("warnings", []))
+
+    artifact_path = run_dir / "artifacts/memo_validation.json"
+    if artifact_path.exists():
+        try:
+            artifact = load_json_file(artifact_path)
+        except Exception as exc:
+            errors.append(f"cannot read memo_validation.json: {exc}")
+        else:
+            if artifact.get("is_valid") is False:
+                errors.append("memo_validation.json is_valid=false")
+    else:
+        errors.append("missing memo_validation.json")
+    return errors, warnings
+
+
 def validate(run_dir: Path, source_registry: Path | None = None) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -124,6 +207,10 @@ def validate(run_dir: Path, source_registry: Path | None = None) -> dict[str, An
     artifact_result = validate_run_artifacts(run_dir, require_research=True)
     errors.extend(artifact_result["errors"])
     warnings.extend(artifact_result["warnings"])
+
+    provenance_errors, provenance_warnings = validate_artifact_provenance(run_dir)
+    errors.extend(provenance_errors)
+    warnings.extend(provenance_warnings)
 
     for path in json_files_under(run_dir):
         result = check_file(path)
@@ -149,6 +236,10 @@ def validate(run_dir: Path, source_registry: Path | None = None) -> dict[str, An
     research_errors, research_warnings = validate_research_plan_artifact(run_dir, source_registry)
     errors.extend(research_errors)
     warnings.extend(research_warnings)
+
+    memo_errors, memo_warnings = validate_memo_artifact(run_dir)
+    errors.extend(memo_errors)
+    warnings.extend(memo_warnings)
 
     current_content_errors, current_content_warnings = validate_current_content_quality(
         run_dir,

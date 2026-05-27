@@ -14,6 +14,9 @@
 3. 页面类型规则 (`templates/page_type_rules.json`)
 4. 幻灯片布局库 (`templates/slide_layout_library.json`)
 5. PPT 文案 schema (`templates/ppt_copy_schema.json`) —— 用于字段级别对齐
+6. PPT 文案映射 (`templates/ppt_copy_mapping.json`) —— 每种页面类型的 active 字段契约
+7. 文本适配规则 (`templates/text_fit_rules.json`) —— 标题和核心信息的行数限制
+8. 页面版式预算 (`templates/layout_budget.json`) —— 每种页面类型的正文、表格和视觉容量限制
 
 ## 输出要求
 
@@ -34,6 +37,8 @@
 3. 备忘录中有哪些行业事实是**有可靠来源支撑**的？
 4. 哪些判断是合理推断但**并非确凿事实**？
 5. 在固定模板约束下，哪种页面类型最能传达每页的核心信息？
+6. 所选页面类型对应的 active `body_copy` 字段到底有哪些？
+7. 什么样的标题和核心信息可以在生成前就满足模板行数限制？
 
 不要直接跳到填字段。先推理，再落笔。
 
@@ -67,17 +72,22 @@
 每页必须包含：
 
 - **headline（标题）**：结论导向的投资洞察，而非主题标签。必须按 `templates/text_fit_rules.json` 在标题框中单行显示；标题只放短判断，证据和细节放到 `main_message` 或正文。
-- **main_message（核心信息）**：一句话概括本页的核心论点。目标 1 行；必要时可以 2 行；不得变成 3 行。
+- **main_message（核心信息 / 副标题）**：一句话概括本页的核心论点。目标 1 行；必要时可以 2 行；不得变成 3 行；结尾不要使用句号、逗号、顿号、分号、冒号、感叹号、问号等标点符号。
+- **生成前适配**：先写最短可用的标题和核心信息，不要依赖 validator 事后反复压缩。
 - **body_copy（正文）**：适配 PPT 占位符的结构化内容。使用 schema 为该页角色定义的字段名。面向 PowerPoint 写作——有力、可扫读、非段落式的。
 - **正文 bullet 化**：正文框内的内容必须像 bullet point 一样短、可扫读；每个 active body_copy 字段写成一个短 bullet 观点，不要写成 memo 段落。不要在正文中写括号来源，如 `（EV-001）`、`（某报告）`；所有来源只放在 `source_note`。
+- **版式预算优先**：写正文前读取 `templates/layout_budget.json`。每个 active body_copy 字段必须落在对应 page type 的 `body_fields_max_units` 内；表格单元格要更短，避免后处理被迫用过小字体。
+- **Active 页面契约**：选定 `selected_page_type` 后，只填写该页面类型在 `ppt_copy_schema`/`ppt_copy_mapping` 中定义的 active `body_copy` 字段；不要把未选中的变体字段带入最终 storyboard。
 - **visual_direction（视觉方向）**：图表/图示应展示什么、应基于什么数据。
 - **chart_data（图表数据）**：如果页面依赖定量图表，必须尽量提供结构化图表数据，包括图表类型、分类、序列、单位和来源行注释。
+- **chart_data schema**：`bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` 必须包含 `categories`、数值型 `series[].values`、`unit` 和 `source_rows`；`metric_cards` 在第 1 页至少需要 3 个 `source_rows`，其他页至少 2 个；`none` 只允许用于没有可验证视觉数据的非定量页面。
 - **图例标签**：每个 `series.name` 必须足够短，可以直接作为图表图例；中文建议 2-8 个字，英文建议 1-3 个词。不要把完整句子写成 series name。
-- **第 1 页视觉契约**：第 1 页右侧是一个大的 `CHART / VISUAL` 锚点，必须提供可执行的 `chart_data.chart_type`。如选择 `bar`、`stacked_bar` 或 `line`，必须提供 `categories`、`series`、`unit` 和 `source_rows`；如选择 `metric_cards`，至少提供两个 `source_rows`；只有在没有可验证视觉数据时才使用 `none`。不要把执行说明写进 `chart_data.title`。
+- **第 1 页视觉契约**：第 1 页右侧是一个大的 `CHART / VISUAL` 锚点，必须提供可执行的 `chart_data.chart_type`。优先使用 `metric_cards`、`bar` 或 `line`；如选择 `bar`、`stacked_bar` 或 `line`，必须提供 `categories`、`series`、`unit` 和 `source_rows`；如选择 `metric_cards`，必须提供三个 `source_rows`；只有在没有可验证视觉数据时才使用 `none`。不要把执行说明写进 `chart_data.title`。如果第 1 页使用 `metric_cards`，`visual_direction` 必须描述 KPI 卡片，而不是漏斗图等当前渲染器不会创建的图形。
 - 对 `matrix_page`，请在 `source_rows` 中为每个被绘制对象提供数值型 `x` 和 `y` 坐标，或提供两个数值序列分别对应矩阵横轴和纵轴。
 - 对定量页面，`chart_data.title` 应写成可直接展示在 PPT 上的短图表标题；执行说明请放在 `visual_direction` 或 `chart_data.notes`，不要写进可见标题。
 - **target_link（标的关联）**：与标的公司的明确关联。每页都必须回答：这对**这个**标的意味着什么？
 - **source_note（来源注释）**：来源归属。引用备忘录的 Evidence ID（如 EV-001）、备忘录章节或具体来源名称。不要写"行业报告""公开资料"等模糊表述。
+- **弱来源规则**：不要把知乎、百家号、转载/内容农场、文档分享站、SEO 行研页、泛企业信息页写入 `source_note` 或作为硬证据；它们只能在 search log 中作为 lead-only/rejected sources 出现。
 - **data_gaps（数据缺口）**：标注本页中的未验证声明或缺失数据。
 
 ## 内容密度契约
@@ -94,7 +104,7 @@
 | main_takeaway | 模板 1 行目标、2 行上限 | 一句话：观点 + 证据/含义 |
 | bullet / card | 45–95 chars | 结构化：标签 + 观点 + 数据点 或 含义；最终会以 bullet 显示 |
 | panel | 55–105 chars | 短 bullet：背景 + 判断 + 标的关联，不写成长段落 |
-| table_row | 60–100 chars | 以指标为主导，标签加粗 |
+| table_row | 30–70 chars | 短格化：每格只放标签、数字或短判断 |
 | timeline_stage | 60–100 chars | 事件 + 时间范围 + 意义 |
 | source_footer | 30+ chars | 具体来源名称或 Evidence ID，禁止模糊表述 |
 
@@ -141,6 +151,7 @@
 - 不要把模板脚手架词写进正式文案，如 `PRIMARY CHART`、`POINT 1`、页面类型名等。
 - 正文不要内嵌来源括号。`EV-001`、报告名、年报名、公告名等来源信息只写在 `source_note`，正文保留结论和数据本身。
 - 第 2 页和第 6 页的表格字段会被后处理渲染为真正的 PPT 表格对象；表格行请用 `｜` 分隔单元格，不要把整行写成自然语言段落。
+- 第 2 页和第 6 页表格必须短格化：每个单元格只写标签、数字或短判断，不写完整段落；如果某个解释超过一格容量，把解释放到右侧 commentary/panel，而不是塞入表格。
 
 ## 来源纪律
 
@@ -161,7 +172,7 @@
 3. **来源支撑**：所有关键数字是否有来源？是否有编造的事实？
 4. **页面重复**：是否有内容在页面间重复？
 5. **模板适配**：文案是否能实际放入 PPT 占位符中？
-6. **标题/副标题行数**：每页标题是否单行显示？每页 main_message 是否最多两行？
+6. **标题/副标题行数**：每页标题是否单行显示？每页 main_message 是否最多两行且结尾无标点？
 7. **内容密度**：是否有 body_copy 字段过薄（低于密度目标）？是否有模糊表述未跟具体证据？
 
 在 one-shot 模式下，只有当弱来源、数据缺口和页型取舍已在故事板中显式说明时，才适合继续进入 PPT 输出。

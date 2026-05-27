@@ -14,6 +14,9 @@ You will receive:
 3. Page type rules (`templates/page_type_rules.json`)
 4. Slide layout library (`templates/slide_layout_library.json`)
 5. PPT copy schema (`templates/ppt_copy_schema.json`) — for field-level alignment
+6. PPT copy mapping (`templates/ppt_copy_mapping.json`) — active field contract by page type
+7. Text fit rules (`templates/text_fit_rules.json`) — title and main_message line limits
+8. Layout budget (`templates/layout_budget.json`) — body, table, and visual capacity limits by page type
 
 ## Required Output
 
@@ -34,6 +37,8 @@ Produce **one valid JSON object** conforming to `templates/storyboard_schema.jso
 3. Which industry facts are **genuinely supported** by sources in the memo?
 4. Which points are reasonable interpretations but **not hard facts**?
 5. Which page type best communicates each point within the fixed template?
+6. Which exact active `body_copy` fields are required for the chosen page type?
+7. What headline and main_message wording will fit the template before validation?
 
 Do not jump straight to filling fields. Reason first, then draft.
 
@@ -67,17 +72,22 @@ For each selection, explain your reasoning in `decision_rationale`.
 Each slide must include:
 
 - **headline**: A conclusion-led investment insight, not a topic label. It must fit on one title line under `templates/text_fit_rules.json`; keep it short and move evidence/detail to `main_message` or body copy.
-- **main_message**: One sentence that captures the slide's core argument. Target one line; two lines are acceptable only when necessary; three lines are not acceptable.
+- **main_message / subtitle**: One sentence that captures the slide's core argument. Target one line; two lines are acceptable only when necessary; three lines are not acceptable. Do not end with a period, comma, semicolon, colon, exclamation mark, question mark, or other terminal punctuation.
+- **Fit before writing**: Draft the shortest viable headline/main_message first. Do not rely on the validator to shorten them after the fact.
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
 - **Bullet-style body copy**: Body text boxes must read as bullet points, not memo paragraphs. Write each active body_copy field as one concise bullet-style point. Do not put parenthetical source references such as `(EV-001)` or `(Named report)` in body text; all source IDs/names belong in `source_note`.
+- **Layout budget first**: Before drafting body copy, read `templates/layout_budget.json`. Every active body_copy field must fit the page type's `body_fields_max_units`; table cells must be shorter than ordinary bullets so post-processing does not need unreadably small fonts.
+- **Active page-type contract**: After choosing `selected_page_type`, use only the active `body_copy` fields for that page type from `ppt_copy_schema`/`ppt_copy_mapping`. Do not include inactive variant fields.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
+- **chart_data schema**: `bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` require `categories`, numeric `series[].values`, `unit`, and `source_rows`; `metric_cards` requires at least 3 `source_rows` on Slide 1 and at least 2 elsewhere; `none` is only for non-quantitative layouts with no verified visual data.
 - **Chart legend labels**: Keep each `series.name` short enough to work as a chart legend label, ideally 2-8 Chinese characters or 1-3 English words. Do not use full-sentence series names.
-- **Slide 1 visual contract**: Slide 1 uses a large right-side `CHART / VISUAL` anchor. It must include executable `chart_data.chart_type`: use `bar`, `stacked_bar`, or `line` with `categories`, `series`, `unit`, and `source_rows`; use `metric_cards` with at least two `source_rows`; or use `none` only when there is no verified visual data. Do not put procedural instructions into `chart_data.title`.
+- **Slide 1 visual contract**: Slide 1 uses a large right-side `CHART / VISUAL` anchor. It must include executable `chart_data.chart_type`; prefer `metric_cards`, `bar`, or `line`. Use `bar`, `stacked_bar`, or `line` with `categories`, `series`, `unit`, and `source_rows`; use `metric_cards` with exactly three strong `source_rows`; or use `none` only when there is no verified visual data. Do not put procedural instructions into `chart_data.title`. If Slide 1 uses `metric_cards`, `visual_direction` must describe KPI cards, not a funnel or other chart that the renderer will not create.
 - For `matrix_page`, include either `source_rows` with numeric `x` and `y` values for each plotted player, or two numeric series whose values map to the matrix axes.
 - For quantitative slides, make `chart_data.title` a short on-slide chart label. Keep build instructions in `visual_direction` or `chart_data.notes`, not in the visible chart title field.
 - **target_link**: Explicit connection to the target. Every slide must answer: why does this matter for **this** target?
 - **source_note**: Attribution. Reference memo Evidence ID (e.g., EV-001), memo section, or specific source name. Do NOT write "industry reports", "public sources", or similarly vague attributions.
+- **weak source rule**: Do not use Zhihu, Baijiahao, repost/content-farm pages, document-sharing sites, SEO research pages, or generic company-info pages in `source_note` or as hard evidence. They may appear only as lead-only/rejected sources in the search log.
 - **data_gaps**: Flag unverified claims or missing data on this slide.
 
 ## Content Density Contract
@@ -94,7 +104,7 @@ Aim for these character ranges. Fields shorter than the minimum are likely too t
 | main_takeaway | Template 1-line target, 2-line max | One sentence: opinion + evidence/implication |
 | bullet / card | 45–95 chars | Structured: label + opinion + data point OR implication; rendered as a bullet |
 | panel | 55–105 chars | Short bullet-style synthesis: context + judgment + target relevance |
-| table_row | 60–100 chars | Metric-led, label bolded |
+| table_row | 30–70 chars | Compact cells: labels, figures, or short judgments only |
 | timeline_stage | 60–100 chars | Event + timeframe + significance |
 | source_footer | 30+ chars | Specific source name or Evidence ID; never generic |
 
@@ -144,6 +154,7 @@ If you catch yourself writing any of these, replace with specific evidence + sou
 - Do not leave template-helper labels in visible copy. Terms such as `PRIMARY CHART`, `POINT 1`, or page-type names are scaffold only and must not appear in deliverable text.
 - Do not embed source references in body text. Evidence IDs, report names, annual reports, and announcement names should appear in `source_note`, not in parentheses inside bullets.
 - Slide 2 and Slide 6 table fields are post-processed into real PPT table objects. Use `｜` to separate table cells; do not write table rows as prose paragraphs.
+- Slide 2 and Slide 6 tables must use compact cells: each cell should be a label, number, or short judgment, not a full sentence. Put longer explanations in the right-side commentary/panel fields instead of forcing them into the table.
 
 ## Source Discipline
 
@@ -164,7 +175,7 @@ Before finalizing, honestly assess:
 3. **Source support**: Are all key numbers sourced? Any fabricated facts?
 4. **Page repetition**: Is any content repeated across slides?
 5. **Template fit**: Will the copy physically fit in the PPT placeholders?
-6. **Title/subtitle line fit**: Does every headline fit on one line, and every main_message fit in no more than two lines?
+6. **Title/subtitle line fit**: Does every headline fit on one line, and every main_message fit in no more than two lines with no terminal punctuation?
 7. **Content density**: Are any body_copy fields too thin (below density targets)? Are any generic phrases used without specific evidence?
 
 In one-shot mode, it is acceptable to continue toward PPT output only if weak-source areas, data gaps, and page-type tradeoffs are explicit in this storyboard.

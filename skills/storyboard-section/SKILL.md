@@ -21,6 +21,7 @@ The storyboard is a **planning + drafting** artifact, not a mechanical schema fi
 | `templates/ppt_copy_schema.json` | Yes | Field-level schema for body_copy structure |
 | `templates/storyboard_schema.json` | Yes | Output schema — the contract this skill must fulfill |
 | `templates/content_quality_rules.json` | Yes | Density targets, banned phrases, and quality thresholds |
+| `templates/layout_budget.json` | Yes | Page-type capacity limits for body copy, tables, subtitles, and visuals |
 
 ## Output
 
@@ -35,6 +36,15 @@ The storyboard is a **planning + drafting** artifact, not a mechanical schema fi
 ## Page Type Selection
 
 This skill owns the final page type decision. The upstream memo may suggest presentation direction (`Presentation Hint`, `Visual Candidate`), but those are **soft inputs only**.
+
+Before writing JSON, read the active page-type contract from:
+- `templates/page_type_rules.json`
+- `templates/ppt_copy_schema.json`
+- `templates/ppt_copy_mapping.json`
+- `templates/text_fit_rules.json`
+- `templates/layout_budget.json`
+
+For each slide, choose `selected_page_type` first, then fill only the active `body_copy` fields for that page type. Do not carry inactive fields from another variant into the final storyboard.
 
 ### Fixed Slides (no choice)
 
@@ -72,13 +82,21 @@ The `storyline_strategy` section captures this reasoning explicitly.
 
 - **Headlines must be conclusion-led**: "The addressable market is a ¥XXX bn structural growth opportunity" — not "Market Size Overview."
 - **Main messages must be one sentence**: The slide's thesis in a single investment-grade sentence.
+- **Main messages are subtitles**: They must target one line, never exceed two lines, and must not end with terminal punctuation.
 - **Body copy must be PPT-ready**: Bullets, cards, or panels — scannable, not paragraph-length. Use the field names from `ppt_copy_schema.json` for each slide role.
+- **Body copy must fit the layout budget**: Apply `templates/layout_budget.json` before drafting; table cells must be compact labels, figures, or short judgments, not prose.
 - **Chart-ready slides should carry data, not only chart ideas**: when a slide depends on a quantitative visual, include `chart_data` with chart type, categories, series, unit, and source-row notes.
-- **Slide 1 visual anchor is executable**: Slide 1's right-side `CHART / VISUAL` area is rendered from `chart_data`. Use `bar`, `stacked_bar`, or `line` with categories/series/source_rows; use `metric_cards` with at least two source_rows; use `none` only when there is no verified visual data.
+- **Executable chart_data is mandatory for quantitative layouts**: `chart_page`, `chart_plus_mini_table_page`, and Slide 1 must include a `chart_data.chart_type` supported by the deterministic renderer.
+- **Chart schema by type**:
+  - `bar`, `clustered_column`, `stacked_bar`, `stacked_column`, `line`: require `categories`, `series[].name`, numeric `series[].values`, `unit`, and `source_rows`.
+  - `metric_cards`: require at least 3 `source_rows` for Slide 1 and at least 2 for any other slide; every row needs `label`, `value`, `period`, and `source`.
+  - `none` is allowed only for non-quantitative layouts with no verified visual data.
+- **Slide 1 visual anchor is executable**: Slide 1's right-side `CHART / VISUAL` area is rendered from `chart_data`. Use a clean `metric_cards` payload when the best visual is KPI cards; do not describe a funnel if the actual `chart_data.chart_type` is `metric_cards`.
 - **Matrix slides need coordinates**: for `matrix_page`, include numeric x/y coordinates per plotted player in `chart_data.source_rows`, or provide two numeric series that map to the x and y axes.
 - **`chart_title` must stay client-facing downstream**: quantitative slides should make `chart_data.title` usable as the on-slide chart label; execution notes belong in `visual_direction` or `chart_data.notes`.
 - **Target link is mandatory on every slide**: If a slide doesn't connect to the target, it's a generic industry slide — fix it or flag it.
 - **Source notes are mandatory**: Reference memo Evidence IDs (e.g., EV-001), memo sections, or named sources. Never write "industry reports" or similarly vague attributions.
+- **Weak sources are not formal evidence**: Do not use Zhihu, Baijiahao, repost/content-farm pages, document-sharing sites, SEO research pages, or generic company-info pages in slide `source_note` or as direct evidence. If they informed discovery, leave them in the search log as lead-only/rejected sources.
 
 ## Content Density
 
@@ -90,9 +108,9 @@ Target ranges (from `templates/content_quality_rules.json`):
 |---|---|
 | title / headline | Must fit one title line under `templates/text_fit_rules.json` |
 | main_takeaway | Target one line; hard max two lines under `templates/text_fit_rules.json` |
-| bullet / card | 70–130 chars |
-| panel | 100–160 chars |
-| table_row | 60–100 chars |
+| bullet / card | 45–95 chars, subject to `layout_budget.json` |
+| panel | 55–105 chars, subject to `layout_budget.json` |
+| table_row | 30–70 chars; cells must stay compact |
 | timeline_stage | 60–100 chars |
 | source_footer | 30+ chars |
 
@@ -115,6 +133,12 @@ Fields that fall below the minimum will be flagged by `validate_content_quality.
 After producing `industry_storyboard.json`, run the content quality validator before human review:
 
 ```bash
+./.venv/bin/python scripts/validate_storyboard.py \
+  --storyboard industry_storyboard.json \
+  --schema templates/storyboard_schema.json \
+  --text-fit-rules templates/text_fit_rules.json \
+  --output artifacts/storyboard_validation.json
+
 ./.venv/bin/python scripts/validate_content_quality.py \
   --storyboard industry_storyboard.json \
   --memo industry_input_memo.md \

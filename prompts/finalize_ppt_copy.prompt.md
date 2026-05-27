@@ -16,7 +16,7 @@ Convert the reasoning-rich `industry_storyboard.json` into the canonical `indust
    - Slide 6: `{slide_6_variant}`
    - Slide 7: `{slide_7_variant}`
    Unless the storyboard is internally inconsistent (e.g., a slide's `selected_page_type` conflicts with `template_binding`), in which case flag the inconsistency and use the `template_binding` value as authoritative.
-3. **Compress text to fit PPT placeholders.** Bullets should be scannable, not paragraph-length. Headlines must be conclusion-led one-liners under `templates/text_fit_rules.json`. Main takeaways should target one line and must not exceed two estimated lines.
+3. **Compress text to fit PPT placeholders.** Bullets should be scannable, not paragraph-length. Headlines must be conclusion-led one-liners under `templates/text_fit_rules.json`. Main takeaways should target one line, must not exceed two estimated lines, and must not end with a period, comma, semicolon, colon, exclamation mark, question mark, or other terminal punctuation.
 4. **Preserve source notes.** Every slide's `source_footer` must carry forward the storyboard's `source_note`.
 5. **Preserve target linkage.** Every slide's `main_takeaway` should reflect the storyboard's `target_link` intent.
 6. **Ensure the output conforms to `templates/ppt_copy_schema.json`.** All required fields must be present. Use `ppt_copy_mapping.json` for field-level role-to-field mapping.
@@ -24,6 +24,7 @@ Convert the reasoning-rich `industry_storyboard.json` into the canonical `indust
 8. **Preserve uncertainty.** If the storyboard flags weak sourcing or data gaps, carry those caveats into source footers, speaker notes, or concise wording rather than making claims sound more certain.
 9. **Keep sources out of body copy.** Remove parenthetical source references such as `(EV-001)` or `(Named report)` from `content` fields. Source IDs and source names belong in `source_footer`.
 10. **Use bullet-style body copy.** Each `content` field should be one concise bullet-style point, not a long paragraph. For Slide 2/6 table rows, use `｜` to separate table cells so post-processing can render real PPT tables.
+11. **Respect layout budget.** Use `templates/layout_budget.json` to compress body copy and table cells; table cells should contain labels, figures, or short judgments, with longer explanations moved to commentary/panel fields.
 
 ## Content Field Mapping
 

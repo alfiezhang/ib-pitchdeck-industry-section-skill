@@ -1,0 +1,148 @@
+{
+  "_description": "Page-level PPT layout budgets used by storyboard prompts and validators. Budgets are intentionally conservative so generated copy fits the fixed template without post-hoc shrinking.",
+  "global": {
+    "main_message": {
+      "forbid_terminal_punctuation": true,
+      "terminal_punctuation": "。．.，,、；;：:！!？?",
+      "max_lines": 2,
+      "target_lines": 1
+    },
+    "body_copy": {
+      "no_inline_sources": true,
+      "max_bullet_units_default": 88,
+      "max_bullet_units_table": 34,
+      "max_bullet_units_compact": 72,
+      "max_newlines_per_field": 1,
+      "forbid_paragraphs": true
+    },
+    "visual": {
+      "renderable_chart_types": ["bar", "column", "clustered_bar", "clustered_column", "stacked_bar", "stacked_column", "line", "line_chart", "metric_cards", "matrix", "none"],
+      "forbid_instructional_chart_titles": true
+    },
+    "table": {
+      "preferred_separator": "｜",
+      "min_body_font_pt": 10.0,
+      "min_header_font_pt": 10.0,
+      "max_cell_units": 22
+    }
+  },
+  "page_type_budgets": {
+    "summary_page": {
+      "body_fields_max_units": {
+        "bullet_1": 74,
+        "bullet_2": 74,
+        "bullet_3": 74,
+        "bullet_4": 74,
+        "left_panel": 78,
+        "right_top": 78,
+        "right_mid": 78,
+        "right_bottom": 78
+      },
+      "slide_1_visual": {
+        "preferred_chart_types": ["metric_cards", "bar", "line"],
+        "min_metric_cards": 3,
+        "max_metric_cards": 3,
+        "forbid_none_unless_no_verified_metrics": true
+      },
+      "slide_8_body": {
+        "must_be_investment_thesis": true,
+        "avoid_memo_summary": true
+      }
+    },
+    "chart_page": {
+      "body_fields_max_units": {
+        "bullet_1": 78,
+        "bullet_2": 78,
+        "bullet_3": 78
+      },
+      "required_visual": true
+    },
+    "chart_plus_mini_table_page": {
+      "body_fields_max_units": {
+        "bullet_1": 72,
+        "bullet_2": 72,
+        "bullet_3": 72,
+        "table_header_1": 12,
+        "table_header_2": 14,
+        "table_row_1": 44,
+        "table_row_2": 44,
+        "table_row_3": 44
+      },
+      "table": {
+        "rows": 4,
+        "columns": 2,
+        "max_cell_units": 22
+      }
+    },
+    "driver_card_page": {
+      "body_fields_max_units": {
+        "card_1": 76,
+        "card_2": 76,
+        "card_3": 76,
+        "card_4": 76
+      },
+      "avoid_large_empty_cards": true
+    },
+    "value_chain_page": {
+      "body_fields_max_units": {
+        "upstream": 74,
+        "midstream": 74,
+        "downstream": 74,
+        "channel": 74,
+        "target_positioning": 82,
+        "profit_pool": 74
+      }
+    },
+    "moat_page": {
+      "body_fields_max_units": {
+        "barrier_1": 78,
+        "barrier_2": 78,
+        "barrier_3": 78
+      }
+    },
+    "compare_table_page": {
+      "body_fields_max_units": {
+        "table_header": 72,
+        "table_row_1": 112,
+        "table_row_2": 112,
+        "table_row_3": 112,
+        "table_row_4": 112,
+        "table_row_5": 112,
+        "table_row_6": 112,
+        "right_top": 82,
+        "right_mid": 82,
+        "right_bottom": 82
+      },
+      "table": {
+        "max_columns": 6,
+        "max_rows": 7,
+        "max_cell_units": 22
+      }
+    },
+    "matrix_page": {
+      "body_fields_max_units": {
+        "matrix_title": 28,
+        "matrix_label_x": 14,
+        "matrix_label_y": 14,
+        "right_top": 82,
+        "right_mid": 82,
+        "right_bottom": 82
+      },
+      "required_numeric_xy": true
+    },
+    "trend_page": {
+      "body_fields_max_units": {
+        "trend_1": 78,
+        "trend_2": 78,
+        "trend_3": 78
+      }
+    },
+    "timeline_page": {
+      "body_fields_max_units": {
+        "stage_1": 78,
+        "stage_2": 78,
+        "stage_3": 78
+      }
+    }
+  }
+}

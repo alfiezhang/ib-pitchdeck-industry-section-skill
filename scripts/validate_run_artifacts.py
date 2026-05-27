@@ -27,6 +27,7 @@ REQUIRED_CORE_FILES = [
 REQUIRED_RESEARCH_FILES = [
     "artifacts/research_plan.json",
     "artifacts/research_plan_validation.json",
+    "artifacts/memo_validation.json",
     "artifacts/search_log.md",
 ]
 
@@ -76,7 +77,8 @@ def memo_claimed_artifacts(memo_text: str) -> list[str]:
     return claimed
 
 
-def validate_search_log(path: Path) -> list[str]:
+def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
+    errors = []
     warnings = []
     text = read_text(path)
     attempt_count = len(re.findall(r"^###\s+Search\s+#?\d+", text, flags=re.MULTILINE))
@@ -96,12 +98,12 @@ def validate_search_log(path: Path) -> list[str]:
             continue
         for marker in WEAK_SOURCE_MARKERS:
             if marker.lower() in lowered:
-                warnings.append(
+                errors.append(
                     f"search_log.md line {line_no}: weak source marker '{marker}' appears in Selected Sources; "
                     "use weak sources as lead-only/rejected sources unless no stronger source exists"
                 )
                 break
-    return warnings
+    return errors, warnings
 
 
 def validate(run_dir: Path, require_research: bool = True) -> dict[str, Any]:
@@ -144,6 +146,7 @@ def validate(run_dir: Path, require_research: bool = True) -> dict[str, Any]:
         "artifacts/input_card_validation.json",
         "artifacts/storyboard_validation.json",
         "artifacts/research_plan_validation.json",
+        "artifacts/memo_validation.json",
         "filled_ppt_validation.json",
     ]:
         path = run_dir / relative
@@ -181,7 +184,9 @@ def validate(run_dir: Path, require_research: bool = True) -> dict[str, Any]:
 
     search_log = run_dir / "artifacts/search_log.md"
     if search_log.exists():
-        warnings.extend(validate_search_log(search_log))
+        search_errors, search_warnings = validate_search_log(search_log)
+        errors.extend(search_errors)
+        warnings.extend(search_warnings)
 
     return {
         "is_valid": not errors,

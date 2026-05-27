@@ -331,7 +331,10 @@ def validate(
         if formal_stage:
             blocking_warnings.append(message)
     if len(resolved_domains) > 20:
-        warnings.append("more than 20 distinct high-priority domains selected; consider narrowing per query")
+        message = "more than 20 distinct high-priority domains selected; narrow per query to 6-15 domains"
+        warnings.append(message)
+        if formal_stage:
+            blocking_warnings.append(message)
 
     return {
         "is_valid": not errors and not blocking_warnings,

@@ -103,6 +103,9 @@ Notes:
 > Every important claim or metric in the memo should have a corresponding Evidence ID.
 > These IDs are the anchor points for downstream storyboard source_note fields and
 > for the Phase 2/3 fact-grounding harness.
+> Weak sources such as Zhihu, Baijiahao, repost/content-farm pages, document-sharing sites,
+> SEO research pages, and generic company-info pages must not appear as formal evidence rows.
+> If used during discovery, keep them in search_log.md as Lead-only or Rejected sources.
 
 | Evidence ID | Claim / Metric | Source Name | Source URL | Source Date | Data Period | Reliability | Confidence |
 |---|---|---|---|---|---|---|---|
@@ -113,6 +116,9 @@ Notes:
 | EV-005 | | | | | | | |
 
 <!-- Add rows as needed. Confidence: verified | inferred | training_data -->
+
+Before using this memo downstream, write and pass:
+`artifacts/memo_validation.json` via `scripts/validate_memo.py`.
 
 ---
 

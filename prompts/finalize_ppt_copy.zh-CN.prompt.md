@@ -16,7 +16,7 @@
    - 第 6 页：`{slide_6_variant}`
    - 第 7 页：`{slide_7_variant}`
    除非故事板内部不一致（如某页的 `selected_page_type` 与 `template_binding` 冲突），此时标注冲突，以 `template_binding` 的值为准。
-3. **压缩文本以适配 PPT 占位符。** 要点应可扫读，而非段落形式。标题必须按 `templates/text_fit_rules.json` 单行显示。核心信息应为单句，目标 1 行，最多不得超过 2 行。
+3. **压缩文本以适配 PPT 占位符。** 要点应可扫读，而非段落形式。标题必须按 `templates/text_fit_rules.json` 单行显示。核心信息应为单句，目标 1 行，最多不得超过 2 行，且结尾不要有句号、逗号、顿号、分号、冒号、感叹号、问号等标点。
 4. **保留来源注释。** 每页的 `source_footer` 必须承接故事板的 `source_note`。
 5. **保留标的关联。** 每页的 `main_takeaway` 应体现故事板 `target_link` 的意图。
 6. **确保输出符合 `templates/ppt_copy_schema.json`。** 所有必填字段必须存在。使用 `ppt_copy_mapping.json` 进行字段级别角色到字段的映射。
@@ -24,6 +24,7 @@
 8. **保留不确定性。** 如果故事板已经标注弱来源或数据缺口，需要在来源脚注、speaker note 或谨慎措辞中保留，不要把结论写得更确定。
 9. **正文不要内嵌来源。** 从 `content` 字段中移除 `（EV-001）`、`(EV-001)`、`（某报告）` 等括号来源；来源统一放在 `source_footer`。
 10. **正文写成 bullet 风格。** 每个 `content` 字段应是一条短要点，而不是长段落。第 2/6 页表格行使用 `｜` 分隔单元格，便于后处理生成真正 PPT 表格。
+11. **遵守版式预算。** 根据 `templates/layout_budget.json` 压缩正文和表格单元格；表格格内只写标签、数字或短判断，长解释放到 commentary/panel 字段。
 
 ## 内容字段映射
 

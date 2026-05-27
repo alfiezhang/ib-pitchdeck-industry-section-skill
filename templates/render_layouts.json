@@ -1,0 +1,32 @@
+{
+  "_description": "Deterministic post-processing render coordinates for the bundled PPT template. Values are PowerPoint EMUs [left, top, width, height]. Update this file when template geometry changes.",
+  "slides": {
+    "1": {
+      "summary_page": {
+        "title_box": [3785616, 1655064, 7607808, 360000],
+        "visual_box": [3920000, 2350000, 7300000, 2850000],
+        "chart_box": [3920000, 2350000, 7300000, 2850000]
+      }
+    },
+    "2": {
+      "chart_page": {
+        "title_box": [896112, 1655064, 4764024, 360000],
+        "chart_box": [1000000, 2200000, 4450000, 3000000]
+      },
+      "chart_plus_mini_table_page": {
+        "title_box": [896112, 1655064, 4764024, 360000],
+        "chart_box": [1000000, 2200000, 4450000, 3000000],
+        "table_box": [6010000, 1880000, 5020000, 1780000]
+      }
+    },
+    "6": {
+      "compare_table_page": {
+        "table_box": [960000, 1930000, 6660000, 3370000]
+      },
+      "matrix_page": {
+        "matrix_box": [1220000, 2200000, 6100000, 3000000],
+        "cleanup_box": [868000, 1620000, 6880000, 4480000]
+      }
+    }
+  }
+}
