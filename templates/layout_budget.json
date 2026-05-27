@@ -26,28 +26,36 @@
       "max_cell_units": 22
     }
   },
-  "page_type_budgets": {
-    "summary_page": {
+  "slide_budgets": {
+    "1:summary_page": {
       "body_fields_max_units": {
         "bullet_1": 74,
         "bullet_2": 74,
-        "bullet_3": 74,
-        "bullet_4": 74,
-        "left_panel": 78,
-        "right_top": 78,
-        "right_mid": 78,
-        "right_bottom": 78
+        "bullet_3": 74
       },
       "slide_1_visual": {
         "preferred_chart_types": ["metric_cards", "bar", "line"],
         "min_metric_cards": 3,
         "max_metric_cards": 3,
         "forbid_none_unless_no_verified_metrics": true
+      }
+    },
+    "8:summary_page": {
+      "body_fields_max_units": {
+        "left_panel": 78,
+        "right_top": 78,
+        "right_mid": 78,
+        "right_bottom": 78
       },
       "slide_8_body": {
         "must_be_investment_thesis": true,
         "avoid_memo_summary": true
       }
+    }
+  },
+  "page_type_budgets": {
+    "summary_page": {
+      "body_fields_max_units": {}
     },
     "chart_page": {
       "body_fields_max_units": {
@@ -141,7 +149,9 @@
       "body_fields_max_units": {
         "stage_1": 78,
         "stage_2": 78,
-        "stage_3": 78
+        "stage_3": 78,
+        "stage_4": 78,
+        "timeline_note": 72
       }
     }
   }

@@ -18,7 +18,7 @@ Object-level post-processing for charts / cleanup lives in `scripts/postprocess_
 | Input | Required | Purpose |
 |-------|----------|---------|
 | `industry_storyboard.json` | Yes | Slide control file and chart/post-processing source |
-| `industry_section_ppt_copy.json` | Yes | Canonical PPT copy with 8 slides, each with selected_page_type and content fields |
+| `industry_section_ppt_copy.json` | Yes for direct script invocation; optional when using `run_pipeline.sh` | Canonical PPT copy with 8 slides, each with selected_page_type and content fields. The packaged pipeline can generate it from `industry_storyboard.json` when missing. |
 | `assets/industry_section_template_master.pptx` | Yes | 11-physical-slide PPTX template with `{{...}}` tokens |
 | `templates/ppt_mapping.json` | Yes | Token-to-slide mapping for replacement |
 
@@ -164,7 +164,7 @@ If `filled_ppt_validation.json` has `summary.is_valid=false`, do not deliver the
 
 ## Run Directory Convention
 
-Prefer running the packaged pipeline instead of invoking the six scripts manually:
+Prefer running the packaged pipeline instead of invoking the seven scripts manually:
 
 ```bash
 /path/to/skill/run_pipeline.sh /path/to/work/industry_section_ppt_copy.json /path/to/work/industry_storyboard.json

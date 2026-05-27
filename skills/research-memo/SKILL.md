@@ -24,6 +24,10 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 
 ## Starting Modes
 
+- **Brief-only mode**: create `input_card.json` in transcription mode, then run broad discovery before formal research planning.
+- **Input-card mode**: validate the provided card first; do not add inferred facts to make validation pass.
+- **Existing-memo mode**: treat the memo as canonical if the user asks for refinement or PPT generation from it; refresh research only when requested or when freshness checks require it.
+
 ## Input Card Discipline
 
 Do not enrich or rewrite `input_card.json` with inferred facts before research.

@@ -3,14 +3,18 @@
 
 import argparse
 import json
-import math
-import re
 import sys
 from pathlib import Path
 from typing import Optional
 
 from convert_storyboard_to_ppt_copy import EXPECTED_CONTENT_FIELDS
 from json_utils import load_json_file
+from validation_common import (
+    check_main_message_terminal_punctuation,
+    estimate_lines,
+    is_blank,
+    layout_budget_findings,
+)
 
 
 DEFAULT_LAYOUT_BUDGET_PATH = Path(__file__).resolve().parents[1] / "templates" / "layout_budget.json"
@@ -76,76 +80,16 @@ CHART_TYPES_REQUIRING_SERIES = {
     "line_chart",
 }
 SUPPORTED_CHART_TYPES = CHART_TYPES_REQUIRING_SERIES | {"metric_cards", "none", "no_chart", "text"}
-DEFAULT_TERMINAL_PUNCTUATION = "。．.，,、；;：:！!？?"
 
 
 def load_json(path: Path) -> dict:
     return load_json_file(path)
 
 
-def is_blank(value) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return value.strip() == ""
-    if isinstance(value, (list, dict)):
-        return len(value) == 0
-    return False
-
-
 def add_missing(errors: list[str], prefix: str, obj: dict, required: set[str]) -> None:
     missing = sorted(required - set(obj.keys()))
     if missing:
         errors.append(f"{prefix}: missing required fields: {', '.join(missing)}")
-
-
-def display_units(text: str) -> float:
-    units = 0.0
-    for ch in re.sub(r"\[\[/?(?:b|hl)\]\]", "", text or ""):
-        code = ord(ch)
-        if ch in "\n\r":
-            continue
-        if ch.isspace():
-            units += 0.3
-        elif ch in ",.;:!?()[]{}<>/\\|-_+=~'\"":
-            units += 0.35
-        elif code < 128:
-            units += 0.55
-        elif 0xFF61 <= code <= 0xFF9F:
-            units += 0.55
-        else:
-            units += 1.0
-    return units
-
-
-def split_table_cells(text: str) -> list[str]:
-    value = str(text or "").strip()
-    if not value:
-        return []
-    if "｜" in value:
-        return [part.strip() for part in value.split("｜")]
-    if "|" in value:
-        return [part.strip() for part in value.split("|")]
-    if " / " in value:
-        return [part.strip() for part in value.split(" / ")]
-    return [value]
-
-
-def check_main_message_terminal_punctuation(
-    slide_no: int,
-    text: str,
-    layout_budget: Optional[dict],
-    errors: list[str],
-) -> None:
-    global_rules = (layout_budget or {}).get("global", {})
-    main_message_rules = global_rules.get("main_message", {})
-    if not main_message_rules.get("forbid_terminal_punctuation", True):
-        return
-    terminal_punctuation = main_message_rules.get("terminal_punctuation", DEFAULT_TERMINAL_PUNCTUATION)
-    stripped = str(text or "").strip()
-    if stripped and stripped[-1] in terminal_punctuation:
-        errors.append(f"slide {slide_no}: main_message/subtitle must not end with punctuation")
-
 
 def check_layout_budget(
     slide_no: int,
@@ -155,51 +99,9 @@ def check_layout_budget(
     errors: list[str],
     warnings: list[str],
 ) -> None:
-    if not layout_budget:
-        return
-    global_rules = layout_budget.get("global", {})
-    page_rules = layout_budget.get("page_type_budgets", {}).get(page_type, {})
-    field_limits = page_rules.get("body_fields_max_units", {})
-    default_limit = float(global_rules.get("body_copy", {}).get("max_bullet_units_default", 88))
-    table_cell_limit = float(
-        page_rules.get("table", {}).get(
-            "max_cell_units",
-            global_rules.get("table", {}).get("max_cell_units", 22),
-        )
-    )
-    max_newlines = int(global_rules.get("body_copy", {}).get("max_newlines_per_field", 1))
-    for field_name, value in body_copy.items():
-        if not isinstance(value, str):
-            continue
-        text = value.strip()
-        if not text:
-            continue
-        if text.count("\n") > max_newlines:
-            errors.append(f"slide {slide_no}: {field_name} contains too many line breaks for a PPT body field")
-        limit = float(field_limits.get(field_name, default_limit))
-        units = display_units(text)
-        if units > limit:
-            errors.append(
-                f"slide {slide_no}: {field_name} is {units:.1f} layout units; "
-                f"max for {page_type} is {limit:.1f}"
-            )
-        if field_name.lower().startswith("table_") and "row" in field_name.lower():
-            cells = split_table_cells(text)
-            if len(cells) <= 1:
-                warnings.append(f"slide {slide_no}: {field_name} should use table cell separator '｜'")
-            for idx, cell in enumerate(cells, start=1):
-                cell_units = display_units(cell)
-                if cell_units > table_cell_limit:
-                    errors.append(
-                        f"slide {slide_no}: {field_name} cell {idx} is {cell_units:.1f} layout units; "
-                        f"max table cell budget is {table_cell_limit:.1f}"
-                    )
-
-
-def estimate_lines(text: str, max_line_units: float) -> int:
-    if not text or max_line_units <= 0:
-        return 0
-    return sum(max(1, math.ceil(display_units(segment) / max_line_units)) for segment in re.split(r"\r?\n", text))
+    budget_errors, budget_warnings = layout_budget_findings(body_copy, slide_no, page_type, layout_budget)
+    errors.extend(budget_errors)
+    warnings.extend(budget_warnings)
 
 
 def check_text_fit(
@@ -313,11 +215,7 @@ def validate_chart_data(slide: dict, errors: list[str], warnings: list[str], lay
         source_rows = chart_data.get("source_rows")
         min_rows = 3 if slide_no == 1 else 2
         if slide_no == 1 and layout_budget:
-            slide_1_visual = (
-                layout_budget.get("page_type_budgets", {})
-                .get("summary_page", {})
-                .get("slide_1_visual", {})
-            )
+            slide_1_visual = layout_budget.get("slide_budgets", {}).get("1:summary_page", {}).get("slide_1_visual", {})
             min_rows = int(slide_1_visual.get("min_metric_cards", min_rows))
             max_rows = int(slide_1_visual.get("max_metric_cards", min_rows))
             if isinstance(source_rows, list) and len(source_rows) > max_rows:
@@ -363,7 +261,13 @@ def validate_slides(
         if text_fit_rules and page_type:
             check_text_fit(slide_no, page_type, "headline", str(slide.get("headline") or ""), text_fit_rules, errors, warnings)
             check_text_fit(slide_no, page_type, "main_message", str(slide.get("main_message") or ""), text_fit_rules, errors, warnings)
-        check_main_message_terminal_punctuation(slide_no, str(slide.get("main_message") or ""), layout_budget, errors)
+        punctuation_error = check_main_message_terminal_punctuation(
+            str(slide.get("main_message") or ""),
+            slide_no,
+            layout_budget,
+        )
+        if punctuation_error:
+            errors.append(punctuation_error)
         if slide_no in FIXED_PAGE_TYPES and page_type != FIXED_PAGE_TYPES[slide_no]:
             errors.append(
                 f"slide {slide_no}: selected_page_type must be {FIXED_PAGE_TYPES[slide_no]}, found {page_type}"
@@ -434,6 +338,84 @@ def validate_template_binding(
         )
 
 
+def _schema_type_matches(value, expected_type: str | list[str]) -> bool:
+    if isinstance(expected_type, list):
+        return any(_schema_type_matches(value, item) for item in expected_type)
+    if expected_type == "object":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    return True
+
+
+def validate_schema_subset(value, schema: dict, path: str, errors: list[str]) -> None:
+    """Validate the JSON Schema subset used by templates/storyboard_schema.json."""
+    one_of = schema.get("oneOf")
+    if isinstance(one_of, list):
+        match_count = 0
+        for option in one_of:
+            option_errors: list[str] = []
+            if isinstance(option, dict):
+                validate_schema_subset(value, option, path, option_errors)
+                if not option_errors:
+                    match_count += 1
+        if match_count != 1:
+            errors.append(f"{path}: value does not match exactly one allowed schema option")
+        return
+
+    expected_type = schema.get("type")
+    if expected_type and not _schema_type_matches(value, expected_type):
+        errors.append(f"{path}: expected {expected_type}, found {type(value).__name__}")
+        return
+
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append(f"{path}: value {value!r} is not one of {schema['enum']}")
+        return
+
+    if isinstance(value, dict):
+        required = schema.get("required", [])
+        for key in required:
+            if key not in value:
+                errors.append(f"{path}.{key}: missing required field")
+        properties = schema.get("properties", {})
+        for key, child_schema in properties.items():
+            if key in value and isinstance(child_schema, dict):
+                validate_schema_subset(value[key], child_schema, f"{path}.{key}", errors)
+        if schema.get("additionalProperties") is False:
+            allowed_keys = set(properties)
+            for key in value:
+                if key not in allowed_keys:
+                    errors.append(f"{path}.{key}: additional property is not allowed")
+
+    if isinstance(value, list):
+        min_items = schema.get("minItems")
+        max_items = schema.get("maxItems")
+        if isinstance(min_items, int) and len(value) < min_items:
+            errors.append(f"{path}: expected at least {min_items} items, found {len(value)}")
+        if isinstance(max_items, int) and len(value) > max_items:
+            errors.append(f"{path}: expected at most {max_items} items, found {len(value)}")
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for idx, item in enumerate(value):
+                validate_schema_subset(item, item_schema, f"{path}[{idx}]", errors)
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path}: value {value} is below minimum {minimum}")
+        if isinstance(maximum, (int, float)) and value > maximum:
+            errors.append(f"{path}: value {value} is above maximum {maximum}")
+
+
 def validate(
     storyboard_path: Path,
     schema_path: Optional[Path] = None,
@@ -453,8 +435,15 @@ def validate(
             "warnings": [],
         }
 
-    if schema_path and not schema_path.exists():
-        errors.append(f"schema file not found: {schema_path}")
+    if schema_path:
+        if not schema_path.exists():
+            errors.append(f"schema file not found: {schema_path}")
+        else:
+            try:
+                schema = load_json(schema_path)
+                validate_schema_subset(storyboard, schema, "storyboard", errors)
+            except Exception as exc:
+                errors.append(f"cannot validate schema {schema_path}: {exc}")
 
     text_fit_rules = None
     if text_fit_rules_path:

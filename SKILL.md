@@ -37,7 +37,7 @@ Source priority options:
 3. Default source packs (`source_registry.json` → `default_packs`) only when `--use-default-packs` is requested
 4. Unrestricted web search, which remains the default when no site or source-pack option is passed
 
-Source packs include: `china_official`, `china_capital_markets`, `global_official`, `global_company_filings`, `consulting_reports`, `business_media`.
+Source packs are defined in `templates/source_registry.json`; treat that JSON as authoritative. At the time of writing it includes official, capital-markets, financial-data, filings, market-research, consulting, regional official, and business-media packs. Default packs are a smaller opt-in subset from the same registry.
 
 The enhanced `scripts/web_search.py` supports `--site`, `--sites`, `--site-mode priority|only`, `--source-registry`, `--source-pack`, and `--use-default-packs` flags. Site-constrained search forces DuckDuckGo (Tavily API does not support `site:` syntax). Do not use `--use-default-packs` for every query; reserve it for a deliberate source-discovery pass or targeted validation pass.
 

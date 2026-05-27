@@ -52,11 +52,11 @@ The following are target character ranges for body_copy fields. They are enforce
 
 | Field Type | Target Range | Description |
 |---|---|---|
-| title / headline | 50–100 chars | Complete investment insight, not a topic label |
-| main_takeaway | 80–140 chars | One sentence: opinion + evidence or implication |
-| bullet / card | 70–130 chars | Label + opinion + data point or implication |
-| panel | 100–160 chars | Context synthesis + judgment + target relevance |
-| table_row | 60–100 chars | Metric-led, label prefix bolded |
+| title / headline | Must fit one title line | Complete investment insight, not a topic label |
+| main_takeaway | Target one line; hard max two lines | One sentence: opinion + evidence or implication; no terminal punctuation |
+| bullet / card | 45–95 chars, subject to `layout_budget.json` | Label + opinion + data point or implication |
+| panel | 55–105 chars, subject to `layout_budget.json` | Context synthesis + judgment + target relevance |
+| table_row | 30–70 chars; cells must stay compact | Metric-led, label prefix bolded |
 | timeline_stage | 60–100 chars | Event + timeframe + significance |
 | source_footer | 30+ chars | Specific source name or Evidence ID |
 

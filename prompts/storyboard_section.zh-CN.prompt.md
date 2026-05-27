@@ -48,14 +48,16 @@
 
 | 页码 | 角色 | 固定/可选 |
 |------|------|-----------|
-| 1 | 行业概览 | 固定：`summary_page` |
-| 2 | 市场规模与细分 | **可选**：`chart_page` 或 `chart_plus_mini_table_page` |
-| 3 | 关键行业驱动力 | 固定：`driver_card_page` |
-| 4 | 价值链与利润池 | 固定：`value_chain_page` |
-| 5 | 关键壁垒 / 价值驱动 | 固定：`moat_page` |
-| 6 | 竞争格局 | **可选**：`compare_table_page` 或 `matrix_page` |
-| 7 | 行业趋势 / 未来演变 | **可选**：`trend_page` 或 `timeline_page` |
-| 8 | 对标的关键启示 | 固定：`summary_page` |
+| 1 | `industry_overview` | 固定：`summary_page` |
+| 2 | `market_size_segmentation` | **可选**：`chart_page` 或 `chart_plus_mini_table_page` |
+| 3 | `key_industry_drivers` | 固定：`driver_card_page` |
+| 4 | `value_chain_profit_pool` | 固定：`value_chain_page` |
+| 5 | `key_barriers_value_drivers` | 固定：`moat_page` |
+| 6 | `competitive_landscape` | **可选**：`compare_table_page` 或 `matrix_page` |
+| 7 | `industry_trends_future_evolution` | **可选**：`trend_page` 或 `timeline_page` |
+| 8 | `key_takeaways_for_target` | 固定：`summary_page` |
+
+每页的 `slide_role` 必须逐字使用上表中的 canonical role key。
 
 ## 页面类型选择
 
@@ -76,7 +78,7 @@
 - **生成前适配**：先写最短可用的标题和核心信息，不要依赖 validator 事后反复压缩。
 - **body_copy（正文）**：适配 PPT 占位符的结构化内容。使用 schema 为该页角色定义的字段名。面向 PowerPoint 写作——有力、可扫读、非段落式的。
 - **正文 bullet 化**：正文框内的内容必须像 bullet point 一样短、可扫读；每个 active body_copy 字段写成一个短 bullet 观点，不要写成 memo 段落。不要在正文中写括号来源，如 `（EV-001）`、`（某报告）`；所有来源只放在 `source_note`。
-- **版式预算优先**：写正文前读取 `templates/layout_budget.json`。每个 active body_copy 字段必须落在对应 page type 的 `body_fields_max_units` 内；表格单元格要更短，避免后处理被迫用过小字体。
+- **版式预算优先**：写正文前读取 `templates/layout_budget.json`。优先使用 `1:summary_page`、`8:summary_page` 这类 slide-specific budgets；否则使用对应 page type 的 `body_fields_max_units`。表格单元格要更短，避免后处理被迫用过小字体。
 - **Active 页面契约**：选定 `selected_page_type` 后，只填写该页面类型在 `ppt_copy_schema`/`ppt_copy_mapping` 中定义的 active `body_copy` 字段；不要把未选中的变体字段带入最终 storyboard。
 - **visual_direction（视觉方向）**：图表/图示应展示什么、应基于什么数据。
 - **chart_data（图表数据）**：如果页面依赖定量图表，必须尽量提供结构化图表数据，包括图表类型、分类、序列、单位和来源行注释。

@@ -28,6 +28,7 @@ Usage:
 """
 
 import argparse
+import copy
 import json
 import sys
 from pathlib import Path
@@ -192,9 +193,10 @@ def convert_rules(template_binding: dict) -> dict:
     }
 
 
-def validate_variant_consistency(slides: list, template_binding: dict) -> list[str]:
-    """Check that slide-level page types match template_binding. Returns warnings."""
+def validate_variant_consistency(slides: list, template_binding: dict) -> tuple[list[str], dict[int, str]]:
+    """Check slide-level page types against template_binding without mutating input."""
     warnings = []
+    normalized_page_types = {}
     variant_map = {
         2: ("slide_2_variant", ["chart_page", "chart_plus_mini_table_page"]),
         6: ("slide_6_variant", ["compare_table_page", "matrix_page"]),
@@ -217,8 +219,8 @@ def validate_variant_consistency(slides: list, template_binding: dict) -> list[s
                     f"Slide {slide_no}: selected_page_type '{actual}' does not match "
                     f"template_binding.{binding_key} '{expected}'. Using template_binding value."
                 )
-                slide["selected_page_type"] = expected
-    return warnings
+                normalized_page_types[slide_no] = expected
+    return warnings, normalized_page_types
 
 
 def validate_content_fields(slides: list) -> list[str]:
@@ -266,13 +268,17 @@ def build_ppt_copy(storyboard: dict) -> dict:
     template_binding = storyboard.get("template_binding", {})
     storyboard_slides = storyboard.get("slides", [])
 
-    # Validate and fix variant consistency
-    warnings = validate_variant_consistency(storyboard_slides, template_binding)
-    warnings.extend(validate_content_fields(storyboard_slides))
+    warnings, normalized_page_types = validate_variant_consistency(storyboard_slides, template_binding)
+    normalized_slides = copy.deepcopy(storyboard_slides)
+    for slide in normalized_slides:
+        slide_no = int(slide.get("slide_no", 0) or 0)
+        if slide_no in normalized_page_types:
+            slide["selected_page_type"] = normalized_page_types[slide_no]
+    warnings.extend(validate_content_fields(normalized_slides))
 
     ppt_copy = {
         "meta": convert_meta(storyboard),
-        "ppt_copy_slides": [convert_slide(s) for s in storyboard_slides],
+        "ppt_copy_slides": [convert_slide(s) for s in normalized_slides],
         "rules": convert_rules(template_binding),
     }
 

@@ -55,9 +55,9 @@
             "enum": [
               "industry_overview",
               "market_size_segmentation",
-              "growth_drivers",
+              "key_industry_drivers",
               "value_chain_profit_pool",
-              "barriers_value_drivers",
+              "key_barriers_value_drivers",
               "competitive_landscape",
               "industry_trends_future_evolution",
               "key_takeaways_for_target"

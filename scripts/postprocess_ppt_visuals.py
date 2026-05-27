@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -524,6 +525,7 @@ def render_matrix_slide(slide, slide_data: dict, layout: dict) -> dict:
         "chart_title": chart_data.get("title") or body_copy.get("matrix_title") or "",
         "chart_type": "matrix",
         "points": plotted,
+        "truncated_points": max(0, len(points) - len(plotted)),
         "removed_existing_matrix_shapes": removed_shapes,
     }
 
@@ -583,7 +585,17 @@ def add_supporting_note(slide, left: int, top: int, width: int, height: int, tex
     r.font.color.rgb = TEXT_GRAY
 
 
-def format_metric_value(label: str, value: Union[float, int], unit: str) -> str:
+def format_metric_value(label: str, value: Union[float, int, str], unit: str) -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ""
+        if any(token in text for token in ("%", "亿", "万", "元", "RMB", "USD", "$")):
+            return text
+        try:
+            value = float(text.replace(",", ""))
+        except ValueError:
+            return text
     if "%" in label or "同比" in label or "增速" in label:
         return f"{value:+.1f}%"
     if "份额" in label or "占比" in label or "比例" in label or "渗透率" in label:
@@ -845,8 +857,12 @@ def save_presentation(prs: Presentation, output_path: Path) -> None:
     if output_path.exists():
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
             tmp_path = Path(tmp.name)
-        prs.save(tmp_path)
-        shutil.move(str(tmp_path), output_path)
+        try:
+            prs.save(tmp_path)
+            shutil.move(str(tmp_path), output_path)
+        finally:
+            if tmp_path.exists():
+                os.unlink(tmp_path)
         return
     prs.save(output_path)
 

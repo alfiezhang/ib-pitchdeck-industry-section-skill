@@ -9,17 +9,20 @@ import argparse
 import json
 import re
 import sys
-import math
 from pathlib import Path
 from typing import Optional
 
 from json_utils import load_json_file
+from validation_common import (
+    check_main_message_terminal_punctuation,
+    display_units,
+    estimate_lines,
+    is_blank,
+    layout_budget_findings,
+)
 
 
 DEFAULT_LAYOUT_BUDGET_PATH = Path(__file__).resolve().parents[1] / "templates" / "layout_budget.json"
-DEFAULT_TERMINAL_PUNCTUATION = "。．.，,、；;：:！!？?"
-
-
 # ── Helpers ──────────────────────────────────────────────────────
 
 def load_json(path: Path) -> dict:
@@ -31,82 +34,9 @@ def load_text(path: Path) -> str:
         return f.read()
 
 
-def is_blank(value) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return value.strip() == ""
-    if isinstance(value, (list, dict)):
-        return len(value) == 0
-    return False
-
-
 def normalize(s: str) -> str:
     """Lowercase and strip for phrase matching."""
     return s.strip().lower()
-
-
-def display_units(text: str) -> float:
-    """Approximate rendered line width in CJK-character units."""
-    clean = re.sub(r"\[\[/?(?:b|hl)\]\]", "", text or "")
-    units = 0.0
-    for ch in clean:
-        code = ord(ch)
-        if ch in "\n\r":
-            continue
-        if ch.isspace():
-            units += 0.3
-        elif ch in ",.;:!?()[]{}<>/\\|-_+=~'\"":
-            units += 0.35
-        elif code < 128:
-            units += 0.55
-        elif 0xFF61 <= code <= 0xFF9F:
-            units += 0.55
-        else:
-            units += 1.0
-    return units
-
-
-def estimate_lines(text: str, max_line_units: float) -> int:
-    if not text or max_line_units <= 0:
-        return 0
-    lines = 0
-    for segment in re.split(r"\r?\n", text):
-        units = display_units(segment)
-        lines += max(1, math.ceil(units / max_line_units))
-    return lines
-
-
-def split_table_cells(text: str) -> list[str]:
-    value = str(text or "").strip()
-    if not value:
-        return []
-    if "｜" in value:
-        return [part.strip() for part in value.split("｜")]
-    if "|" in value:
-        return [part.strip() for part in value.split("|")]
-    if " / " in value:
-        return [part.strip() for part in value.split(" / ")]
-    return [value]
-
-
-def check_main_message_terminal_punctuation(
-    text: str,
-    slide_no: int,
-    layout_budget: dict,
-    warnings: list[str],
-    blocking_warnings: list[str],
-) -> None:
-    main_message_rules = layout_budget.get("global", {}).get("main_message", {})
-    if not main_message_rules.get("forbid_terminal_punctuation", True):
-        return
-    terminal_punctuation = main_message_rules.get("terminal_punctuation", DEFAULT_TERMINAL_PUNCTUATION)
-    stripped = str(text or "").strip()
-    if stripped and stripped[-1] in terminal_punctuation:
-        message = f"slide {slide_no}: main_message/subtitle must not end with punctuation"
-        warnings.append(message)
-        blocking_warnings.append(message)
-
 
 def check_layout_budget(
     body_copy: dict,
@@ -116,49 +46,11 @@ def check_layout_budget(
     warnings: list[str],
     blocking_warnings: list[str],
 ) -> None:
-    if not layout_budget:
-        return
-    global_rules = layout_budget.get("global", {})
-    page_rules = layout_budget.get("page_type_budgets", {}).get(page_type, {})
-    field_limits = page_rules.get("body_fields_max_units", {})
-    default_limit = float(global_rules.get("body_copy", {}).get("max_bullet_units_default", 88))
-    table_cell_limit = float(
-        page_rules.get("table", {}).get(
-            "max_cell_units",
-            global_rules.get("table", {}).get("max_cell_units", 22),
-        )
-    )
-    max_newlines = int(global_rules.get("body_copy", {}).get("max_newlines_per_field", 1))
-    for field_name, field_value in body_copy.items():
-        if not isinstance(field_value, str) or not field_value.strip():
-            continue
-        text = field_value.strip()
-        if text.count("\n") > max_newlines:
-            message = f"slide {slide_no}: '{field_name}' contains too many line breaks for a PPT body field"
-            warnings.append(message)
-            blocking_warnings.append(message)
-        limit = float(field_limits.get(field_name, default_limit))
-        units = display_units(text)
-        if units > limit:
-            message = (
-                f"slide {slide_no}: '{field_name}' is {units:.1f} layout units; "
-                f"max for {page_type} is {limit:.1f}"
-            )
-            warnings.append(message)
-            blocking_warnings.append(message)
-        if field_name.lower().startswith("table_") and "row" in field_name.lower():
-            cells = split_table_cells(text)
-            if len(cells) <= 1:
-                warnings.append(f"slide {slide_no}: '{field_name}' should use table cell separator '｜'")
-            for idx, cell in enumerate(cells, start=1):
-                cell_units = display_units(cell)
-                if cell_units > table_cell_limit:
-                    message = (
-                        f"slide {slide_no}: '{field_name}' cell {idx} is {cell_units:.1f} layout units; "
-                        f"max table cell budget is {table_cell_limit:.1f}"
-                    )
-                    warnings.append(message)
-                    blocking_warnings.append(message)
+    budget_errors, budget_warnings = layout_budget_findings(body_copy, slide_no, page_type, layout_budget)
+    for message in budget_errors:
+        warnings.append(message)
+        blocking_warnings.append(message)
+    warnings.extend(budget_warnings)
 
 
 # ── Density checks ───────────────────────────────────────────────
@@ -355,8 +247,8 @@ def check_chart_data(
             min_rows = 3
             if layout_budget:
                 min_rows = int(
-                    layout_budget.get("page_type_budgets", {})
-                    .get("summary_page", {})
+                    layout_budget.get("slide_budgets", {})
+                    .get("1:summary_page", {})
                     .get("slide_1_visual", {})
                     .get("min_metric_cards", min_rows)
                 )
@@ -610,13 +502,14 @@ def validate(
         if main_message:
             check_field_density("main_message", main_message, rules, slide_no, density_warnings)
             if layout_budget:
-                check_main_message_terminal_punctuation(
+                punctuation_warning = check_main_message_terminal_punctuation(
                     main_message,
                     slide_no,
                     layout_budget,
-                    layout_warnings,
-                    layout_blocking_warnings,
                 )
+                if punctuation_warning:
+                    layout_warnings.append(punctuation_warning)
+                    layout_blocking_warnings.append(punctuation_warning)
             if text_fit_rules:
                 check_text_fit(
                     main_message,

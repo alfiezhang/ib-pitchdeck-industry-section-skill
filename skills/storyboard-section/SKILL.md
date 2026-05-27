@@ -48,21 +48,21 @@ For each slide, choose `selected_page_type` first, then fill only the active `bo
 
 ### Fixed Slides (no choice)
 
-| Slide | Page Type |
+| Slide / canonical `slide_role` | Page Type |
 |-------|-----------|
-| 1 — Industry Overview | `summary_page` |
-| 3 — Key Industry Drivers | `driver_card_page` |
-| 4 — Value Chain & Profit Pool | `value_chain_page` |
-| 5 — Key Barriers / Value Drivers | `moat_page` |
-| 8 — Key Takeaways for Target | `summary_page` |
+| 1 — `industry_overview` | `summary_page` |
+| 3 — `key_industry_drivers` | `driver_card_page` |
+| 4 — `value_chain_profit_pool` | `value_chain_page` |
+| 5 — `key_barriers_value_drivers` | `moat_page` |
+| 8 — `key_takeaways_for_target` | `summary_page` |
 
 ### Controlled-Variant Slides (must choose)
 
-| Slide | Options | Selection Priority |
+| Slide / canonical `slide_role` | Options | Selection Priority |
 |-------|---------|-------------------|
-| 2 — Market Size & Segmentation | `chart_page` or `chart_plus_mini_table_page` | Prefer `chart_plus_mini_table_page` when segmentation needs side-by-side quantitative context; prefer `chart_page` when one visual carries the page |
-| 6 — Competitive Landscape | `compare_table_page` or `matrix_page` | Prefer `compare_table_page` when named peer comparison is the clearest story; prefer `matrix_page` when 2D positioning is central |
-| 7 — Industry Trends | `trend_page` or `timeline_page` | Prefer `trend_page` when trends are thematic/parallel; prefer `timeline_page` when sequence/timing is central |
+| 2 — `market_size_segmentation` | `chart_page` or `chart_plus_mini_table_page` | Prefer `chart_plus_mini_table_page` when segmentation needs side-by-side quantitative context; prefer `chart_page` when one visual carries the page |
+| 6 — `competitive_landscape` | `compare_table_page` or `matrix_page` | Prefer `compare_table_page` when named peer comparison is the clearest story; prefer `matrix_page` when 2D positioning is central |
+| 7 — `industry_trends_future_evolution` | `trend_page` or `timeline_page` | Prefer `trend_page` when trends are thematic/parallel; prefer `timeline_page` when sequence/timing is central |
 
 Every variant selection must include a `decision_rationale` explaining why the chosen page type is better for this specific content.
 
@@ -84,7 +84,7 @@ The `storyline_strategy` section captures this reasoning explicitly.
 - **Main messages must be one sentence**: The slide's thesis in a single investment-grade sentence.
 - **Main messages are subtitles**: They must target one line, never exceed two lines, and must not end with terminal punctuation.
 - **Body copy must be PPT-ready**: Bullets, cards, or panels — scannable, not paragraph-length. Use the field names from `ppt_copy_schema.json` for each slide role.
-- **Body copy must fit the layout budget**: Apply `templates/layout_budget.json` before drafting; table cells must be compact labels, figures, or short judgments, not prose.
+- **Body copy must fit the layout budget**: Apply `templates/layout_budget.json` before drafting; use slide-specific budgets when present (`1:summary_page`, `8:summary_page`), and keep table cells as compact labels, figures, or short judgments, not prose.
 - **Chart-ready slides should carry data, not only chart ideas**: when a slide depends on a quantitative visual, include `chart_data` with chart type, categories, series, unit, and source-row notes.
 - **Executable chart_data is mandatory for quantitative layouts**: `chart_page`, `chart_plus_mini_table_page`, and Slide 1 must include a `chart_data.chart_type` supported by the deterministic renderer.
 - **Chart schema by type**:

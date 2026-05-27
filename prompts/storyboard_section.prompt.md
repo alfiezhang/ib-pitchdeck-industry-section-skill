@@ -48,14 +48,16 @@ Use the following standard structure unless the user explicitly asks otherwise:
 
 | Slide | Role | Fixed/Variant |
 |-------|------|---------------|
-| 1 | Industry Overview | Fixed: `summary_page` |
-| 2 | Market Size and Segmentation | **Variant**: `chart_page` or `chart_plus_mini_table_page` |
-| 3 | Key Industry Drivers | Fixed: `driver_card_page` |
-| 4 | Value Chain and Profit Pool | Fixed: `value_chain_page` |
-| 5 | Key Barriers / Value Drivers | Fixed: `moat_page` |
-| 6 | Competitive Landscape | **Variant**: `compare_table_page` or `matrix_page` |
-| 7 | Industry Trends / Future Evolution | **Variant**: `trend_page` or `timeline_page` |
-| 8 | Key Takeaways for the Target | Fixed: `summary_page` |
+| 1 | `industry_overview` | Fixed: `summary_page` |
+| 2 | `market_size_segmentation` | **Variant**: `chart_page` or `chart_plus_mini_table_page` |
+| 3 | `key_industry_drivers` | Fixed: `driver_card_page` |
+| 4 | `value_chain_profit_pool` | Fixed: `value_chain_page` |
+| 5 | `key_barriers_value_drivers` | Fixed: `moat_page` |
+| 6 | `competitive_landscape` | **Variant**: `compare_table_page` or `matrix_page` |
+| 7 | `industry_trends_future_evolution` | **Variant**: `trend_page` or `timeline_page` |
+| 8 | `key_takeaways_for_target` | Fixed: `summary_page` |
+
+Use these canonical role keys exactly in each slide's `slide_role`.
 
 ## Page Type Selection
 
@@ -76,7 +78,7 @@ Each slide must include:
 - **Fit before writing**: Draft the shortest viable headline/main_message first. Do not rely on the validator to shorten them after the fact.
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
 - **Bullet-style body copy**: Body text boxes must read as bullet points, not memo paragraphs. Write each active body_copy field as one concise bullet-style point. Do not put parenthetical source references such as `(EV-001)` or `(Named report)` in body text; all source IDs/names belong in `source_note`.
-- **Layout budget first**: Before drafting body copy, read `templates/layout_budget.json`. Every active body_copy field must fit the page type's `body_fields_max_units`; table cells must be shorter than ordinary bullets so post-processing does not need unreadably small fonts.
+- **Layout budget first**: Before drafting body copy, read `templates/layout_budget.json`. Prefer slide-specific budgets such as `1:summary_page` and `8:summary_page`; otherwise use the page type's `body_fields_max_units`. Table cells must be shorter than ordinary bullets so post-processing does not need unreadably small fonts.
 - **Active page-type contract**: After choosing `selected_page_type`, use only the active `body_copy` fields for that page type from `ppt_copy_schema`/`ppt_copy_mapping`. Do not include inactive variant fields.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
