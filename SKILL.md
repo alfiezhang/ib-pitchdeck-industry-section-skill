@@ -292,7 +292,7 @@ Only static skill assets should be resolved relative to the skill package itself
 - Separate facts from interpretations. Directional judgments must read as inference, not disguised fact.
 - Every important number must have a source note. If a fact cannot be verified, write `Insufficient data`.
 - If source data conflicts, state the conflict — do not average without explanation.
-- The PPT template (8 logical slides, 11 physical slides with controlled variants on Slides 2/6/7) is a **delivery constraint**, not a reasoning constraint.
+- The PPT template (8 logical slides, 16 physical slides with controlled variants on Slides 2/3/6/7) is a **delivery constraint**, not a reasoning constraint.
 - `replacement_dict.json` must be generated **deterministically** from final PPT copy — never hand-written by the LLM.
 - `industry_storyboard.json` is the main LLM reasoning artifact.
 - `industry_section_ppt_copy.json` remains the canonical input to deterministic PPT filling.
