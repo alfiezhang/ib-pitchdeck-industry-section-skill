@@ -48,7 +48,7 @@ The final output should look like a finished investment-banking presentation, no
 
 ## Content Density by Field Type
 
-The following are target character ranges for body_copy fields. They are enforced by `validate_content_quality.py` as advisory warnings. See `templates/content_quality_rules.json` for the canonical thresholds.
+The following are target character ranges for body_copy fields. They are enforced by `validate_content_quality.py`: short/thin fields are advisory quality warnings, while paragraph-like body fields that threaten PPT readability are blocking layout warnings. See `templates/content_quality_rules.json` and `templates/layout_budget.json` for canonical thresholds.
 
 | Field Type | Target Range | Description |
 |---|---|---|

@@ -267,7 +267,7 @@ After producing `industry_storyboard.json`, run the content quality validator be
   --output artifacts/content_quality_validation.json
 ```
 
-Density and generic-copy warnings are advisory by default. Source warnings and title/subtitle line-fit breaches are blocking because they affect diligence quality and final PPT readability. Review the output and address warnings before proceeding to PPT filling.
+Density and generic-copy warnings are advisory by default, except paragraph-like body fields that breach layout readability. Source warnings, title/subtitle line-fit breaches, and blocking layout warnings must be fixed because they affect diligence quality and final PPT readability. Review the output and address warnings before proceeding to PPT filling.
 
 ## Human Review Gate
 

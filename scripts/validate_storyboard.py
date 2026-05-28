@@ -607,6 +607,37 @@ def _schema_type_matches(value, expected_type: Union[str, list[str]]) -> bool:
 
 def validate_schema_subset(value, schema: dict, path: str, errors: list[str]) -> None:
     """Validate the JSON Schema subset used by templates/storyboard_schema.json."""
+    if "$ref" in schema:
+        errors.append(f"{path}: $ref is not supported by this lightweight schema validator")
+        return
+
+    all_of = schema.get("allOf")
+    if isinstance(all_of, list):
+        for idx, option in enumerate(all_of):
+            if isinstance(option, dict):
+                validate_schema_subset(value, option, f"{path}.allOf[{idx}]", errors)
+
+    any_of = schema.get("anyOf")
+    if isinstance(any_of, list):
+        match_count = 0
+        for option in any_of:
+            option_errors: list[str] = []
+            if isinstance(option, dict):
+                validate_schema_subset(value, option, path, option_errors)
+                if not option_errors:
+                    match_count += 1
+        if match_count < 1:
+            errors.append(f"{path}: value does not match any allowed schema option")
+        return
+
+    not_schema = schema.get("not")
+    if isinstance(not_schema, dict):
+        option_errors: list[str] = []
+        validate_schema_subset(value, not_schema, path, option_errors)
+        if not option_errors:
+            errors.append(f"{path}: value matches schema forbidden by 'not'")
+            return
+
     one_of = schema.get("oneOf")
     if isinstance(one_of, list):
         match_count = 0
@@ -638,11 +669,34 @@ def validate_schema_subset(value, schema: dict, path: str, errors: list[str]) ->
         for key, child_schema in properties.items():
             if key in value and isinstance(child_schema, dict):
                 validate_schema_subset(value[key], child_schema, f"{path}.{key}", errors)
-        if schema.get("additionalProperties") is False:
+        pattern_properties = schema.get("patternProperties", {})
+        matched_by_pattern: set[str] = set()
+        if isinstance(pattern_properties, dict):
+            for pattern, child_schema in pattern_properties.items():
+                try:
+                    compiled = re.compile(pattern)
+                except re.error as exc:
+                    errors.append(f"{path}: invalid patternProperties regex {pattern!r}: {exc}")
+                    continue
+                for key in value:
+                    if key in properties:
+                        continue
+                    if compiled.search(str(key)):
+                        matched_by_pattern.add(key)
+                        if isinstance(child_schema, dict):
+                            validate_schema_subset(value[key], child_schema, f"{path}.{key}", errors)
+
+        additional_properties = schema.get("additionalProperties")
+        if additional_properties is False:
             allowed_keys = set(properties)
             for key in value:
-                if key not in allowed_keys:
+                if key not in allowed_keys and key not in matched_by_pattern:
                     errors.append(f"{path}.{key}: additional property is not allowed")
+        elif isinstance(additional_properties, dict):
+            allowed_keys = set(properties) | matched_by_pattern
+            for key in value:
+                if key not in allowed_keys:
+                    validate_schema_subset(value[key], additional_properties, f"{path}.{key}", errors)
 
     if isinstance(value, list):
         min_items = schema.get("minItems")

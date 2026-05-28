@@ -101,6 +101,8 @@ Before research, validate any generated input card. If validation fails, rewrite
   --output artifacts/input_card_validation.json
 ```
 
+This gate is strict by design: do not auto-split the user's brief into inferred investment highlights, peer sets, risk lists, preferred sources, or must-cover research topics. Those belong in the research plan or memo only after research or explicit user instruction.
+
 ## Default Workflow
 
 ### 1. Research Memo
@@ -175,7 +177,7 @@ Run `scripts/validate_storyboard.py` before conversion or PPT filling.
 
 Output: `artifacts/storyboard_validation.json`
 
-This is deterministic validation of page type choices, `template_binding`, and active `body_copy` fields. If it fails, fix `industry_storyboard.json` upstream.
+This is deterministic validation of page type choices, `template_binding`, and active `body_copy` fields. If it fails, fix `industry_storyboard.json` upstream. The active layout contract is strict: missing fields, blank fields, or extra `body_copy` fields that the selected page type will ignore are errors, not cleanup suggestions.
 
 ### 3b. Content Quality Validation
 
@@ -190,6 +192,12 @@ Run `scripts/validate_content_quality.py` after storyboard validation. Density w
 ```
 
 Review the output. Address `source_warnings` and blocking `layout_warnings` before proceeding. Address `density_warnings`, non-blocking `layout_warnings`, `chart_data_warnings`, `generic_copy_warnings`, and `evidence_warnings` as quality improvements, or use `--quality-gate` to make every warning a hard gate. Use `--allow-source-warnings` only for explicitly degraded/debug drafts that will not be delivered as diligence-grade output.
+
+Content quality validation also checks that:
+- `latest_query` and research artifacts do not treat user-material years as the current research period;
+- body fields read like concise PPT bullets, not memo paragraphs;
+- each body field has evidence, a metric, or mechanism / implication language rather than a bare topic label;
+- titles, subtitles, source notes, chart data, and repeated metrics remain consistent enough for PPT delivery.
 
 ### 4. PPT Copy Finalize *(optional)*
 Use `skills/ppt-copy-finalize/SKILL.md`.

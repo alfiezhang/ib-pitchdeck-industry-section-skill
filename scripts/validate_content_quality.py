@@ -162,6 +162,12 @@ ARGUMENT_SIGNAL_RE = re.compile(
     r"驱动|支撑|意味着|因此|标的|利润|份额|渗透|增长|提升|降低|带来",
     flags=re.IGNORECASE,
 )
+ARGUMENT_MECHANISM_RE = re.compile(
+    r"driv|support|imply|because|therefore|target|margin|share|penetration|"
+    r"驱动|支撑|意味着|因此|标的|利润|份额|渗透|增长|提升|降低|带来|"
+    r"受益|压力|壁垒|集中|分散|渠道|价格带|复购|转化|估值|并购|买方",
+    flags=re.IGNORECASE,
+)
 
 
 def check_inline_source_references(
@@ -249,11 +255,13 @@ def check_argument_density(
     if not argument_fields:
         return
 
-    strong_fields = [
-        field_name
-        for field_name, value in argument_fields
-        if ARGUMENT_SIGNAL_RE.search(value) and ("：" in value or ":" in value or "→" in value or "；" in value or ";" in value)
-    ]
+    strong_fields = []
+    for field_name, value in argument_fields:
+        # Accept evidence IDs, numeric metrics, or mechanism / implication language.
+        # Do not require colon/arrow punctuation; that made normal Chinese bullets
+        # look weaker than they are and created noisy density warnings.
+        if EV_ID_RE.search(value) or METRIC_RE.search(value) or ARGUMENT_MECHANISM_RE.search(value):
+            strong_fields.append(field_name)
     min_fields = int(checks.get("min_argument_fields_per_slide", 3))
     if len(strong_fields) < min(min_fields, len(argument_fields)):
         warnings.append(
@@ -359,6 +367,17 @@ def check_source_note_specificity(
             f"slide {slide_no}: source_note too short ({len(source_note.strip())} chars); "
             "reference a specific memo section, source name, or URL"
         )
+
+
+def unique_preserve_order(values: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 # ── Chart data checks ────────────────────────────────────────────
@@ -757,7 +776,27 @@ def validate(
                 "verify same value/unit/scope/period and label any intentional definition differences"
             )
 
-    all_warnings = (
+    blocking_warnings = []
+    if block_source_warnings:
+        blocking_warnings.extend(source_warnings)
+    blocking_warnings.extend(layout_blocking_warnings)
+    blocking_warnings.extend(claim_strength_blocking_warnings)
+    blocking_warnings = unique_preserve_order(blocking_warnings)
+
+    layout_warnings = unique_preserve_order(
+        [warning for warning in layout_warnings if warning not in set(blocking_warnings)]
+    )
+    source_warnings = unique_preserve_order(source_warnings)
+    density_warnings = unique_preserve_order(density_warnings)
+    chart_data_warnings = unique_preserve_order(chart_data_warnings)
+    generic_copy_warnings = unique_preserve_order(generic_copy_warnings)
+    evidence_warnings = unique_preserve_order(evidence_warnings)
+    claim_strength_warnings = unique_preserve_order(
+        [warning for warning in claim_strength_warnings if warning not in set(blocking_warnings)]
+    )
+    consistency_warnings = unique_preserve_order(consistency_warnings)
+
+    all_warnings = unique_preserve_order(
         density_warnings
         + source_warnings
         + chart_data_warnings
@@ -766,13 +805,9 @@ def validate(
         + layout_warnings
         + claim_strength_warnings
         + consistency_warnings
+        + blocking_warnings
     )
 
-    blocking_warnings = []
-    if block_source_warnings:
-        blocking_warnings.extend(source_warnings)
-    blocking_warnings.extend(layout_blocking_warnings)
-    blocking_warnings.extend(claim_strength_blocking_warnings)
     if blocking_warnings:
         errors.append(
             "content quality gate failed: resolve blocking source/layout warnings before PPT delivery"

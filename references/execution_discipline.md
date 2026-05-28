@@ -60,6 +60,16 @@ Maintain this internally for one-shot runs:
 - [ ] PPT fill, clean, and visual postprocess
 - [ ] Final delivery validation and runs index update
 
+## Early Validation Gates
+
+Run these checks before the artifact is used downstream:
+
+- **Input card gate**: `input_card.json` is a transcription layer. It must not auto-create investment highlights, peers, risks, preferred sources, or research topics unless the user explicitly provided them.
+- **Research freshness gate**: formal research plans need latest/current queries. Do not treat years found in user materials as the current market period.
+- **Storyboard active-layout gate**: after a page type is selected, only fill the `body_copy` fields used by that active layout. Missing, blank, or inactive extra fields must be fixed upstream.
+- **Content density gate**: body copy should be concise PPT bullets with evidence, metrics, or mechanism / implication language. Long memo-style bullets should be compressed or split.
+- **Metric and visual consistency gate**: repeated metrics, source notes, chart data, and selected page variants must remain internally consistent before PPT filling.
+
 ## Validation Fix-Cycle Limit
 
 Use validation as a repair loop, but do not loop indefinitely.

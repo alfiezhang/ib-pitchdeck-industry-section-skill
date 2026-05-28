@@ -201,6 +201,15 @@ Storyboard 是最核心的 LLM 推理产物。
   --output artifacts/content_quality_validation.json
 ```
 
+这些校验不是形式检查，核心会拦住几类高风险问题：
+
+- `input_card.json` 只能忠实转录用户提供的信息，不能自动拆出投资亮点、peer set、风险点或研究方向
+- research plan 必须包含面向当前时间点的 `latest_query`，不能把用户材料里的历史年份当成最新行业口径
+- storyboard 的 `body_copy` 只能包含当前 active layout 会实际使用的字段，多余字段会报错
+- 正文需要像 PPT bullet，而不是 memo 段落；过长 bullet 会要求压缩或拆分
+- 每页正文需要有证据、指标或机制论证支撑，避免只有空泛标签
+- 标题、副标题、来源、图表数据、跨页指标一致性会进入质量检查
+
 ### 6. PPT 生成
 
 最终 PPT 由脚本确定性生成。不要手写 `replacement_dict.json`。
