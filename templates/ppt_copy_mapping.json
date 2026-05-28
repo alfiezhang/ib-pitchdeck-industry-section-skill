@@ -210,17 +210,49 @@
     {
       "slide_no": 3,
       "slide_key": "key_industry_drivers",
-      "selected_page_type": "driver_card_page",
-      "ppt_copy_fields": {
-        "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
-        "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
-        "cards": [
-          { "target_field": "card_1", "source_priority": ["drivers[0]"], "role": "demand_side_driver" },
-          { "target_field": "card_2", "source_priority": ["drivers[1]"], "role": "supply_side_driver" },
-          { "target_field": "card_3", "source_priority": ["drivers[2]"], "role": "technology_or_channel_driver" },
-          { "target_field": "card_4", "source_priority": ["drivers[3]"], "role": "policy_or_institutional_driver" }
-        ],
-        "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+      "controlled_variants": {
+        "driver_card_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "cards": [
+              { "target_field": "card_1", "source_priority": ["drivers[0]"], "role": "driver_1" },
+              { "target_field": "card_2", "source_priority": ["drivers[1]"], "role": "driver_2" },
+              { "target_field": "card_3", "source_priority": ["drivers[2]"], "role": "driver_3" },
+              { "target_field": "card_4", "source_priority": ["drivers[3]"], "role": "driver_4" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        },
+        "driver_card_5_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "cards": [
+              { "target_field": "card_1", "source_priority": ["drivers[0]"], "role": "driver_1" },
+              { "target_field": "card_2", "source_priority": ["drivers[1]"], "role": "driver_2" },
+              { "target_field": "card_3", "source_priority": ["drivers[2]"], "role": "driver_3" },
+              { "target_field": "card_4", "source_priority": ["drivers[3]"], "role": "driver_4" },
+              { "target_field": "card_5", "source_priority": ["drivers[4]"], "role": "driver_5" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        },
+        "driver_card_6_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "cards": [
+              { "target_field": "card_1", "source_priority": ["drivers[0]"], "role": "driver_1" },
+              { "target_field": "card_2", "source_priority": ["drivers[1]"], "role": "driver_2" },
+              { "target_field": "card_3", "source_priority": ["drivers[2]"], "role": "driver_3" },
+              { "target_field": "card_4", "source_priority": ["drivers[3]"], "role": "driver_4" },
+              { "target_field": "card_5", "source_priority": ["drivers[4]"], "role": "driver_5" },
+              { "target_field": "card_6", "source_priority": ["drivers[5]"], "role": "driver_6" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        }
       }
     },
     {
@@ -327,6 +359,48 @@
               { "target_field": "stage_3", "source_priority": ["trends[2]"], "role": "timeline_stage_3" },
               { "target_field": "stage_4", "source_priority": ["implication_for_target"], "role": "timeline_stage_4" },
               { "target_field": "timeline_note", "source_priority": ["chart_suggestion.note", "implication_for_target"], "role": "timeline_note" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        },
+        "trend_4_card_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title", "main_takeaway"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "cards": [
+              { "target_field": "card_1", "source_priority": ["trends[0]"], "role": "trend_1" },
+              { "target_field": "card_2", "source_priority": ["trends[1]"], "role": "trend_2" },
+              { "target_field": "card_3", "source_priority": ["trends[2]"], "role": "trend_3" },
+              { "target_field": "card_4", "source_priority": ["trends[3]"], "role": "trend_4" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        },
+        "trend_5_card_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title", "main_takeaway"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "cards": [
+              { "target_field": "card_1", "source_priority": ["trends[0]"], "role": "trend_1" },
+              { "target_field": "card_2", "source_priority": ["trends[1]"], "role": "trend_2" },
+              { "target_field": "card_3", "source_priority": ["trends[2]"], "role": "trend_3" },
+              { "target_field": "card_4", "source_priority": ["trends[3]"], "role": "trend_4" },
+              { "target_field": "card_5", "source_priority": ["trends[4]"], "role": "trend_5" }
+            ],
+            "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
+          }
+        },
+        "trend_6_card_page": {
+          "ppt_copy_fields": {
+            "slide_title": { "source_priority": ["slide_title", "main_takeaway"], "role": "conclusion_led_page_title" },
+            "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },
+            "cards": [
+              { "target_field": "card_1", "source_priority": ["trends[0]"], "role": "trend_1" },
+              { "target_field": "card_2", "source_priority": ["trends[1]"], "role": "trend_2" },
+              { "target_field": "card_3", "source_priority": ["trends[2]"], "role": "trend_3" },
+              { "target_field": "card_4", "source_priority": ["trends[3]"], "role": "trend_4" },
+              { "target_field": "card_5", "source_priority": ["trends[4]"], "role": "trend_5" },
+              { "target_field": "card_6", "source_priority": ["trends[5]"], "role": "trend_6" }
             ],
             "source_footer": { "source_priority": ["sources"], "role": "page_source_footer" }
           }

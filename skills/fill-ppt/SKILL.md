@@ -4,7 +4,15 @@ Convert finalized PPT copy into a populated PowerPoint deck using deterministic 
 
 This is a **deterministic script-driven step**. The LLM does not hand-write `replacement_dict.json`. It orchestrates the existing script pipeline and reports results.
 
-Default interpreter: `./.venv/bin/python` after running `bash ./setup.sh`. If the virtualenv is missing, pass `--python /path/to/python` explicitly or fix the environment before continuing.
+Default interpreter: the single Python selected by `scripts/bootstrap_runtime.py`. `run_pipeline.sh` calls bootstrap automatically; do not manually run different pipeline steps with different Python interpreters.
+
+Before running direct scripts, select the runtime once:
+
+```bash
+PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+```
+
+If `pptx` or `lxml.etree` fails to import on macOS with Python 3.13/3.14, rerun bootstrap with Python 3.9-3.11, for example `python3 scripts/bootstrap_runtime.py --python python3.11 --force`. Do not work around this by ad-hoc installing packages into unrelated system or Node environments, and do not edit deterministic scripts to bypass runtime errors.
 
 All user-facing inputs and outputs should be resolved relative to the user's working materials, not the skill package directory. Only the bundled scripts, templates, assets, and references should be resolved relative to the skill itself.
 
@@ -35,12 +43,18 @@ Use these markers sparingly for key numbers, one short takeaway phrase, or a sin
 
 Run these scripts in order. Do not skip steps.
 
+If running scripts manually instead of `run_pipeline.sh`, first select one runtime and reuse it for every command:
+
+```bash
+PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+```
+
 ### 1. Validate Storyboard Contract
 
 Check that `industry_storyboard.json` is executable before converting or filling the deck.
 
 ```bash
-./.venv/bin/python scripts/validate_storyboard.py \
+"$PYTHON_CMD" scripts/validate_storyboard.py \
   --storyboard industry_storyboard.json \
   --schema templates/storyboard_schema.json \
   --output artifacts/storyboard_validation.json
@@ -53,7 +67,7 @@ If this step fails, fix the storyboard contract before proceeding.
 Verify the PPT template's placeholder tokens are consistent with `ppt_mapping.json`.
 
 ```bash
-./.venv/bin/python scripts/check_template_tokens.py \
+"$PYTHON_CMD" scripts/check_template_tokens.py \
   --template assets/industry_section_template_master.pptx \
   --ppt-mapping templates/ppt_mapping.json \
   --output artifacts/template_token_check.json
@@ -66,7 +80,7 @@ If this step fails, fix the template or mapping before proceeding.
 Convert `industry_section_ppt_copy.json` into a `replacement_dict.json` mapping tokens to values.
 
 ```bash
-./.venv/bin/python scripts/generate_replacement_dict.py \
+"$PYTHON_CMD" scripts/generate_replacement_dict.py \
   --ppt-copy industry_section_ppt_copy.json \
   --ppt-mapping templates/ppt_mapping.json \
   --output replacement_dict.json
@@ -77,7 +91,7 @@ Convert `industry_section_ppt_copy.json` into a `replacement_dict.json` mapping 
 Replace `{{...}}` tokens in the PPTX template with values from `replacement_dict.json`.
 
 ```bash
-./.venv/bin/python scripts/fill_ppt_tokens.py \
+"$PYTHON_CMD" scripts/fill_ppt_tokens.py \
   --template assets/industry_section_template_master.pptx \
   --replacement-dict replacement_dict.json \
   --output industry_section_filled.pptx \
@@ -89,7 +103,7 @@ Replace `{{...}}` tokens in the PPTX template with values from `replacement_dict
 Remove physical slides for unselected page type variants (e.g., if Slide 2 chose `chart_page`, remove the `chart_plus_mini_table_page` slide).
 
 ```bash
-./.venv/bin/python scripts/clean_filled_ppt.py \
+"$PYTHON_CMD" scripts/clean_filled_ppt.py \
   --input industry_section_filled.pptx \
   --control-file industry_storyboard.json \
   --output industry_section_filled_clean.pptx \
@@ -103,7 +117,7 @@ Note: `--control-file` accepts `industry_storyboard.json` (`slides` key) or `ind
 Apply object-level visual cleanup after token fill. This step is where real chart objects, scaffold-label removal, or similar slide-object fixes should happen.
 
 ```bash
-./.venv/bin/python scripts/postprocess_ppt_visuals.py \
+"$PYTHON_CMD" scripts/postprocess_ppt_visuals.py \
   --input-ppt industry_section_filled_clean.pptx \
   --storyboard industry_storyboard.json \
   --output industry_section_filled_clean.pptx \
@@ -121,7 +135,7 @@ Current scope:
 Run the final validation gate.
 
 ```bash
-./.venv/bin/python scripts/validate_filled_ppt.py \
+"$PYTHON_CMD" scripts/validate_filled_ppt.py \
   --filled-ppt industry_section_filled.pptx \
   --clean-ppt industry_section_filled_clean.pptx \
   --control-file industry_storyboard.json \

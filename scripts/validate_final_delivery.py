@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from check_json_files import check_file
 from json_utils import load_json_file
@@ -93,7 +93,7 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def validate_research_plan_artifact(run_dir: Path, source_registry: Path | None) -> tuple[list[str], list[str]]:
+def validate_research_plan_artifact(run_dir: Path, source_registry: Optional[Path]) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -200,7 +200,7 @@ def validate_memo_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def validate(run_dir: Path, source_registry: Path | None = None) -> dict[str, Any]:
+def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
 

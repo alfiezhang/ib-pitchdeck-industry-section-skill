@@ -56,18 +56,35 @@ Research source planning rule:
 Before starting from a brief or running PPT scripts, ensure the runtime is ready:
 
 ```bash
-bash ./setup.sh
-./.venv/bin/python scripts/check_runtime_dependencies.py
+python3 scripts/bootstrap_runtime.py
 ```
 
-If `.venv` creation fails because Python lacks `ensurepip` / `venv`, stop and install the matching system package (for example `python3-venv` or `python3.14-venv` on Debian/Ubuntu) or rerun with `PYTHON_BIN` pointing to a Python installation that supports `venv`.
+`scripts/bootstrap_runtime.py` is the only supported runtime decision point. It checks existing Python interpreters first; if one can import `pptx`, `lxml.etree`, and at least one fallback-search provider, use it directly. Only if no existing interpreter is complete should it create/update `.venv` and install `requirements.txt`.
+
+Do not manually split the PPT pipeline across multiple Python interpreters. Do not install packages into unrelated system or Node environments. Do not edit scripts to work around dependency issues. If bootstrap fails, stop and report the bootstrap error.
+
+For shell use, get the selected interpreter with:
+
+```bash
+PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+```
+
+If `.venv` creation fails because Python lacks `ensurepip` / `venv`, stop and install the matching system package (for example `python3-venv` or `python3.14-venv` on Debian/Ubuntu) or rerun bootstrap with `--python` / `PYTHON_BIN` pointing to a Python installation that supports `venv`.
+
+On macOS, prefer Python 3.9-3.11 for this skill. If `python-pptx` installs but `lxml.etree` fails to import because of binary/code-signing issues, recreate the environment with a stable interpreter:
+
+```bash
+python3 scripts/bootstrap_runtime.py --python python3.11 --force
+# or: python3 scripts/bootstrap_runtime.py --python python3.10 --force
+# or: python3 scripts/bootstrap_runtime.py --python python3.9  --force
+```
 
 Do not proceed to research, storyboard, or PPT generation if mandatory runtime dependencies are missing.
 
 Before research, validate any generated input card. If validation fails, rewrite the input card from the original user brief in transcription mode instead of patching it with inferred content:
 
 ```bash
-./.venv/bin/python scripts/validate_input_card.py \
+"$PYTHON_CMD" scripts/validate_input_card.py \
   --input-card input_card.json \
   --output artifacts/input_card_validation.json
 ```
@@ -101,7 +118,7 @@ Research plan audit rule:
 - Run formal validation before memo synthesis:
 
 ```bash
-./.venv/bin/python scripts/validate_research_plan.py \
+"$PYTHON_CMD" scripts/validate_research_plan.py \
   --plan artifacts/research_plan.json \
   --source-registry templates/source_registry.json \
   --stage formal \
@@ -143,7 +160,7 @@ This is deterministic validation of page type choices, `template_binding`, and a
 Run `scripts/validate_content_quality.py` after storyboard validation. Density warnings remain advisory by default, but `source_warnings` and title/subtitle line-fit breaches are hard gates because weak sourcing and unreadable titles can make output non-deliverable.
 
 ```bash
-./.venv/bin/python scripts/validate_content_quality.py \
+"$PYTHON_CMD" scripts/validate_content_quality.py \
   --storyboard industry_storyboard.json \
   --memo industry_input_memo.md \
   --rules templates/content_quality_rules.json \
@@ -173,7 +190,7 @@ Outputs: `replacement_dict.json` → `industry_section_filled.pptx` → `industr
 Final PPT validation is a hard gate. If `filled_ppt_validation.json` has `summary.is_valid=false`, do not deliver the PPT. Fix the underlying issue instead of explaining it away.
 
 Operational note:
-- Recommended dependency install command: `bash ./setup.sh`
+- Required runtime command: `python3 scripts/bootstrap_runtime.py --print-python`
 - `run_pipeline.sh` can now start from `industry_storyboard.json` alone and auto-generate `industry_section_ppt_copy.json` when it is missing.
 
 ## Human Review Gates
@@ -213,7 +230,7 @@ Do **not** require separate manual review for intermediate debug files; the work
 For final delivery, run:
 
 ```bash
-./.venv/bin/python scripts/validate_final_delivery.py \
+"$PYTHON_CMD" scripts/validate_final_delivery.py \
   --run-dir <work_root>/runs/attempt_<timestamp> \
   --output <work_root>/runs/attempt_<timestamp>/artifacts/final_delivery_validation.json
 ```
@@ -221,14 +238,14 @@ For final delivery, run:
 Then generate a short quality report:
 
 ```bash
-./.venv/bin/python scripts/generate_run_quality_summary.py \
+"$PYTHON_CMD" scripts/generate_run_quality_summary.py \
   --run-dir <work_root>/runs/attempt_<timestamp>
 ```
 
 If multiple `attempt_*` directories exist, update the runs index before reporting the final answer:
 
 ```bash
-./.venv/bin/python scripts/update_runs_index.py \
+"$PYTHON_CMD" scripts/update_runs_index.py \
   --runs-dir <work_root>/runs
 ```
 

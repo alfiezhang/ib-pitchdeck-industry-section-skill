@@ -12,7 +12,7 @@ import re
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from json_utils import load_json_file
 
@@ -136,8 +136,8 @@ def check_query_freshness(
 
 def validate(
     plan: dict[str, Any],
-    registry: dict[str, Any] | None = None,
-    current_year: int | None = None,
+    registry: Optional[dict[str, Any]] = None,
+    current_year: Optional[int] = None,
     stage: str = "formal",
 ) -> dict[str, Any]:
     errors: list[str] = []

@@ -55,16 +55,55 @@
       }
     },
     "3": {
-      "selected_page_type": "driver_card_page",
-      "structure_summary": "Driver-card page with distinct modules rather than blended bullets.",
-      "field_roles": {
-        "slide_title": "conclusion_led_page_title",
-        "main_takeaway": "page_conclusion",
-        "card_1": "demand_side_driver",
-        "card_2": "supply_side_driver",
-        "card_3": "technology_or_channel_driver",
-        "card_4": "policy_or_institutional_driver",
-        "source_footer": "page_source_footer"
+      "selection_mode": "controlled_choice",
+      "page_type_to_variant_key": {
+        "driver_card_page": "03a",
+        "driver_card_5_page": "03b",
+        "driver_card_6_page": "03c"
+      },
+      "variants": {
+        "driver_card_page": {
+          "variant_key": "03a",
+          "structure_summary": "Four MECE driver cards with distinct evidence-backed modules.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "card_1": "driver_1",
+            "card_2": "driver_2",
+            "card_3": "driver_3",
+            "card_4": "driver_4",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "driver_card_5_page": {
+          "variant_key": "03b",
+          "structure_summary": "Five MECE driver cards when research supports five distinct drivers without filler.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "card_1": "driver_1",
+            "card_2": "driver_2",
+            "card_3": "driver_3",
+            "card_4": "driver_4",
+            "card_5": "driver_5",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "driver_card_6_page": {
+          "variant_key": "03c",
+          "structure_summary": "Six compact MECE driver cards when six strong drivers are supported by the memo.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "card_1": "driver_1",
+            "card_2": "driver_2",
+            "card_3": "driver_3",
+            "card_4": "driver_4",
+            "card_5": "driver_5",
+            "card_6": "driver_6",
+            "source_footer": "page_source_footer"
+          }
+        }
       }
     },
     "4": {
@@ -142,7 +181,10 @@
       "selection_mode": "controlled_choice",
       "page_type_to_variant_key": {
         "trend_page": "07a",
-        "timeline_page": "07b"
+        "timeline_page": "07b",
+        "trend_4_card_page": "07c",
+        "trend_5_card_page": "07d",
+        "trend_6_card_page": "07e"
       },
       "variants": {
         "trend_page": {
@@ -168,6 +210,48 @@
             "stage_3": "timeline_stage_3",
             "stage_4": "timeline_stage_4",
             "timeline_note": "timeline_note",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "trend_4_card_page": {
+          "variant_key": "07c",
+          "structure_summary": "Four parallel trend cards when the memo supports four distinct trends.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "card_1": "trend_1",
+            "card_2": "trend_2",
+            "card_3": "trend_3",
+            "card_4": "trend_4",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "trend_5_card_page": {
+          "variant_key": "07d",
+          "structure_summary": "Five compact parallel trend cards when five trends are all material and non-overlapping.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "card_1": "trend_1",
+            "card_2": "trend_2",
+            "card_3": "trend_3",
+            "card_4": "trend_4",
+            "card_5": "trend_5",
+            "source_footer": "page_source_footer"
+          }
+        },
+        "trend_6_card_page": {
+          "variant_key": "07e",
+          "structure_summary": "Six concise parallel trend cards when six trends are genuinely distinct and each can fit.",
+          "field_roles": {
+            "slide_title": "conclusion_led_page_title",
+            "main_takeaway": "page_conclusion",
+            "card_1": "trend_1",
+            "card_2": "trend_2",
+            "card_3": "trend_3",
+            "card_4": "trend_4",
+            "card_5": "trend_5",
+            "card_6": "trend_6",
             "source_footer": "page_source_footer"
           }
         }
@@ -239,16 +323,47 @@
     {
       "slide_no": 3,
       "slide_key": "key_industry_drivers",
-      "selected_page_type": "driver_card_page",
-      "tokens": [
-        { "placeholder": "{{slide_03_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
-        { "placeholder": "{{slide_03_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
-        { "placeholder": "{{slide_03_card_1}}", "field_name": "card_1", "max_chars": 160, "notes": "" },
-        { "placeholder": "{{slide_03_card_2}}", "field_name": "card_2", "max_chars": 160, "notes": "" },
-        { "placeholder": "{{slide_03_card_3}}", "field_name": "card_3", "max_chars": 160, "notes": "" },
-        { "placeholder": "{{slide_03_card_4}}", "field_name": "card_4", "max_chars": 160, "notes": "" },
-        { "placeholder": "{{slide_03_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
-      ]
+      "controlled_variants": {
+        "driver_card_page": {
+          "variant_key": "03a",
+          "tokens": [
+            { "placeholder": "{{slide_03a_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_03a_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_03a_card_1}}", "field_name": "card_1", "max_chars": 140, "notes": "" },
+            { "placeholder": "{{slide_03a_card_2}}", "field_name": "card_2", "max_chars": 140, "notes": "" },
+            { "placeholder": "{{slide_03a_card_3}}", "field_name": "card_3", "max_chars": 140, "notes": "" },
+            { "placeholder": "{{slide_03a_card_4}}", "field_name": "card_4", "max_chars": 140, "notes": "" },
+            { "placeholder": "{{slide_03a_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "driver_card_5_page": {
+          "variant_key": "03b",
+          "tokens": [
+            { "placeholder": "{{slide_03b_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_03b_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_03b_card_1}}", "field_name": "card_1", "max_chars": 115, "notes": "" },
+            { "placeholder": "{{slide_03b_card_2}}", "field_name": "card_2", "max_chars": 115, "notes": "" },
+            { "placeholder": "{{slide_03b_card_3}}", "field_name": "card_3", "max_chars": 115, "notes": "" },
+            { "placeholder": "{{slide_03b_card_4}}", "field_name": "card_4", "max_chars": 115, "notes": "" },
+            { "placeholder": "{{slide_03b_card_5}}", "field_name": "card_5", "max_chars": 115, "notes": "" },
+            { "placeholder": "{{slide_03b_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "driver_card_6_page": {
+          "variant_key": "03c",
+          "tokens": [
+            { "placeholder": "{{slide_03c_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_03c_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_03c_card_1}}", "field_name": "card_1", "max_chars": 100, "notes": "" },
+            { "placeholder": "{{slide_03c_card_2}}", "field_name": "card_2", "max_chars": 100, "notes": "" },
+            { "placeholder": "{{slide_03c_card_3}}", "field_name": "card_3", "max_chars": 100, "notes": "" },
+            { "placeholder": "{{slide_03c_card_4}}", "field_name": "card_4", "max_chars": 100, "notes": "" },
+            { "placeholder": "{{slide_03c_card_5}}", "field_name": "card_5", "max_chars": 100, "notes": "" },
+            { "placeholder": "{{slide_03c_card_6}}", "field_name": "card_6", "max_chars": 100, "notes": "" },
+            { "placeholder": "{{slide_03c_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        }
+      }
     },
     {
       "slide_no": 4,
@@ -344,6 +459,45 @@
             { "placeholder": "{{slide_07b_stage_4}}", "field_name": "stage_4", "max_chars": 95, "notes": "" },
             { "placeholder": "{{slide_07b_timeline_note}}", "field_name": "timeline_note", "max_chars": 120, "notes": "" },
             { "placeholder": "{{slide_07b_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "trend_4_card_page": {
+          "variant_key": "07c",
+          "tokens": [
+            { "placeholder": "{{slide_07c_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07c_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_07c_card_1}}", "field_name": "card_1", "max_chars": 130, "notes": "" },
+            { "placeholder": "{{slide_07c_card_2}}", "field_name": "card_2", "max_chars": 130, "notes": "" },
+            { "placeholder": "{{slide_07c_card_3}}", "field_name": "card_3", "max_chars": 130, "notes": "" },
+            { "placeholder": "{{slide_07c_card_4}}", "field_name": "card_4", "max_chars": 130, "notes": "" },
+            { "placeholder": "{{slide_07c_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "trend_5_card_page": {
+          "variant_key": "07d",
+          "tokens": [
+            { "placeholder": "{{slide_07d_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07d_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_07d_card_1}}", "field_name": "card_1", "max_chars": 112, "notes": "" },
+            { "placeholder": "{{slide_07d_card_2}}", "field_name": "card_2", "max_chars": 112, "notes": "" },
+            { "placeholder": "{{slide_07d_card_3}}", "field_name": "card_3", "max_chars": 112, "notes": "" },
+            { "placeholder": "{{slide_07d_card_4}}", "field_name": "card_4", "max_chars": 112, "notes": "" },
+            { "placeholder": "{{slide_07d_card_5}}", "field_name": "card_5", "max_chars": 112, "notes": "" },
+            { "placeholder": "{{slide_07d_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
+          ]
+        },
+        "trend_6_card_page": {
+          "variant_key": "07e",
+          "tokens": [
+            { "placeholder": "{{slide_07e_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },
+            { "placeholder": "{{slide_07e_takeaway}}", "field_name": "main_takeaway", "max_chars": 150, "notes": "" },
+            { "placeholder": "{{slide_07e_card_1}}", "field_name": "card_1", "max_chars": 96, "notes": "" },
+            { "placeholder": "{{slide_07e_card_2}}", "field_name": "card_2", "max_chars": 96, "notes": "" },
+            { "placeholder": "{{slide_07e_card_3}}", "field_name": "card_3", "max_chars": 96, "notes": "" },
+            { "placeholder": "{{slide_07e_card_4}}", "field_name": "card_4", "max_chars": 96, "notes": "" },
+            { "placeholder": "{{slide_07e_card_5}}", "field_name": "card_5", "max_chars": 96, "notes": "" },
+            { "placeholder": "{{slide_07e_card_6}}", "field_name": "card_6", "max_chars": 96, "notes": "" },
+            { "placeholder": "{{slide_07e_source_footer}}", "field_name": "source_footer", "max_chars": 220, "notes": "" }
           ]
         }
       }

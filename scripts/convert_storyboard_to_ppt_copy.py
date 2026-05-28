@@ -68,6 +68,8 @@ EXPECTED_CONTENT_FIELDS = {
     },
     3: {
         "driver_card_page": ["card_1", "card_2", "card_3", "card_4"],
+        "driver_card_5_page": ["card_1", "card_2", "card_3", "card_4", "card_5"],
+        "driver_card_6_page": ["card_1", "card_2", "card_3", "card_4", "card_5", "card_6"],
     },
     4: {
         "value_chain_page": [
@@ -108,6 +110,9 @@ EXPECTED_CONTENT_FIELDS = {
     7: {
         "trend_page": ["card_1", "card_2", "card_3"],
         "timeline_page": ["stage_1", "stage_2", "stage_3", "stage_4", "timeline_note"],
+        "trend_4_card_page": ["card_1", "card_2", "card_3", "card_4"],
+        "trend_5_card_page": ["card_1", "card_2", "card_3", "card_4", "card_5"],
+        "trend_6_card_page": ["card_1", "card_2", "card_3", "card_4", "card_5", "card_6"],
     },
     8: {
         "summary_page": ["left_panel", "right_top", "right_mid", "right_bottom"],
@@ -179,8 +184,15 @@ def convert_rules(template_binding: dict) -> dict:
         "active_slide_keys_only": True,
         "controlled_layout_variants": {
             "market_size_segmentation": ["chart_page", "chart_plus_mini_table_page"],
+            "key_industry_drivers": ["driver_card_page", "driver_card_5_page", "driver_card_6_page"],
             "competitive_landscape": ["compare_table_page", "matrix_page"],
-            "industry_trends_future_evolution": ["trend_page", "timeline_page"],
+            "industry_trends_future_evolution": [
+                "trend_page",
+                "timeline_page",
+                "trend_4_card_page",
+                "trend_5_card_page",
+                "trend_6_card_page",
+            ],
         },
         "slide_02_table_fields_only_active_for_chart_plus_mini_table_page": True,
         "inactive_variant_fields_may_remain_blank": True,
@@ -199,8 +211,12 @@ def validate_variant_consistency(slides: list, template_binding: dict) -> tuple[
     normalized_page_types = {}
     variant_map = {
         2: ("slide_2_variant", ["chart_page", "chart_plus_mini_table_page"]),
+        3: ("slide_3_variant", ["driver_card_page", "driver_card_5_page", "driver_card_6_page"]),
         6: ("slide_6_variant", ["compare_table_page", "matrix_page"]),
-        7: ("slide_7_variant", ["trend_page", "timeline_page"]),
+        7: (
+            "slide_7_variant",
+            ["trend_page", "timeline_page", "trend_4_card_page", "trend_5_card_page", "trend_6_card_page"],
+        ),
     }
 
     for slide in slides:

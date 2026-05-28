@@ -3,9 +3,10 @@
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from convert_storyboard_to_ppt_copy import EXPECTED_CONTENT_FIELDS
 from json_utils import load_json_file
@@ -14,6 +15,7 @@ from validation_common import (
     estimate_lines,
     is_blank,
     layout_budget_findings,
+    split_table_cells,
 )
 
 
@@ -22,7 +24,6 @@ DEFAULT_LAYOUT_BUDGET_PATH = Path(__file__).resolve().parents[1] / "templates" /
 
 FIXED_PAGE_TYPES = {
     1: "summary_page",
-    3: "driver_card_page",
     4: "value_chain_page",
     5: "moat_page",
     8: "summary_page",
@@ -30,8 +31,12 @@ FIXED_PAGE_TYPES = {
 
 VARIANT_PAGE_TYPES = {
     2: ("slide_2_variant", {"chart_page", "chart_plus_mini_table_page"}),
+    3: ("slide_3_variant", {"driver_card_page", "driver_card_5_page", "driver_card_6_page"}),
     6: ("slide_6_variant", {"compare_table_page", "matrix_page"}),
-    7: ("slide_7_variant", {"trend_page", "timeline_page"}),
+    7: (
+        "slide_7_variant",
+        {"trend_page", "timeline_page", "trend_4_card_page", "trend_5_card_page", "trend_6_card_page"},
+    ),
 }
 
 REQUIRED_TOP_LEVEL = {
@@ -47,6 +52,7 @@ REQUIRED_SLIDE_FIELDS = {
     "slide_role",
     "selected_page_type",
     "decision_rationale",
+    "slide_story_contract",
     "headline",
     "main_message",
     "body_copy",
@@ -80,6 +86,17 @@ CHART_TYPES_REQUIRING_SERIES = {
     "line_chart",
 }
 SUPPORTED_CHART_TYPES = CHART_TYPES_REQUIRING_SERIES | {"metric_cards", "none", "no_chart", "text"}
+
+EXPECTED_ROLES = {
+    1: "industry_overview",
+    2: "market_size_segmentation",
+    3: "key_industry_drivers",
+    4: "value_chain_profit_pool",
+    5: "key_barriers_value_drivers",
+    6: "competitive_landscape",
+    7: "industry_trends_future_evolution",
+    8: "key_takeaways_for_target",
+}
 
 
 def load_json(path: Path) -> dict:
@@ -228,6 +245,162 @@ def validate_chart_data(slide: dict, errors: list[str], warnings: list[str], lay
         errors.append(f"slide {slide_no}: chart_data.source_rows is required")
 
 
+def check_storyline_contract(
+    slide: dict,
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Validate slide_story_contract: structure, forbidden_topics enforcement, title consistency."""
+    slide_no = slide.get("slide_no")
+    contract = slide.get("slide_story_contract")
+    if not isinstance(contract, dict):
+        errors.append(f"slide {slide_no}: slide_story_contract is required and must be an object")
+        return
+
+    # 1. Check required contract fields
+    for field in ("question", "answer", "evidence_ids", "forbidden_topics", "visual_role"):
+        if field not in contract:
+            errors.append(f"slide {slide_no}: slide_story_contract.{field} is required")
+
+    question = contract.get("question", "")
+    if isinstance(question, str) and question.count("?") > 1:
+        warnings.append(
+            f"slide {slide_no}: slide_story_contract.question contains multiple '?'; "
+            f"each slide should answer exactly one question"
+        )
+
+    evidence_ids = contract.get("evidence_ids", [])
+    if isinstance(evidence_ids, list) and len(set(str(item) for item in evidence_ids if item)) < 2:
+        errors.append(f"slide {slide_no}: slide_story_contract.evidence_ids must have at least 2 distinct items")
+
+    # 2. Forbidden_topics enforcement — check if body_copy contains forbidden content
+    forbidden = contract.get("forbidden_topics", [])
+    body_copy = slide.get("body_copy", {})
+    if isinstance(forbidden, list) and isinstance(body_copy, dict):
+        body_text = " ".join(str(v) for v in body_copy.values() if isinstance(v, str)).lower()
+        for topic in forbidden:
+            if isinstance(topic, str) and topic.lower() in body_text:
+                warnings.append(
+                    f"slide {slide_no}: body_copy contains forbidden topic '{topic}' "
+                    f"from slide_story_contract; this violates MECE boundaries"
+                )
+
+    # 3. Title number consistency — check if headline/main_message promises N items
+    #    but body_copy has fewer items
+    headline = str(slide.get("headline", ""))
+    main_message = str(slide.get("main_message", ""))
+    # Detect number promises in Chinese/English: "五大", "5个", "five key", "3 major", etc.
+    en_nums = {"three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+    number_pattern = re.compile(
+        r'(?:([一二三四五六七八九十])大|(\d+)\s*[个大项条]|(three|four|five|six|seven)\s+(?:key|major|critical))',
+        re.IGNORECASE,
+    )
+    for text_field, text_value in [("headline", headline), ("main_message", main_message)]:
+        match = number_pattern.search(text_value)
+        if match:
+            # Extract promised count
+            if match.group(1):
+                cn_nums = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+                promised = cn_nums.get(match.group(1), 0)
+            else:
+                try:
+                    promised = int(match.group(2)) if match.group(2) else en_nums.get(match.group(3).lower(), 0)
+                except (TypeError, ValueError):
+                    promised = 0
+
+            if promised > 0:
+                # Count body_copy items that look like content slots (card_*, bullet_*, stage_*, table_row_*)
+                content_fields = [
+                    k for k in (body_copy.keys() if isinstance(body_copy, dict) else [])
+                    if any(k.startswith(prefix) for prefix in ("card_", "bullet_", "stage_", "point_", "table_row_"))
+                ]
+                # For trend_page/timeline_page, count non-empty content fields
+                filled_count = sum(
+                    1 for k in content_fields
+                    if isinstance(body_copy.get(k), str) and body_copy.get(k, "").strip()
+                )
+                if filled_count > 0 and promised > filled_count:
+                    warnings.append(
+                        f"slide {slide_no}: {text_field} promises {promised} items "
+                        f"but body_copy has only {filled_count} filled content slots; "
+                        f"title must not over-promise what the page can carry"
+                    )
+
+
+def check_compare_table_structure(
+    slide: dict,
+    warnings: list[str],
+) -> None:
+    """Check that compare_table rows are structurally consistent with the header."""
+    slide_no = slide.get("slide_no")
+    page_type = slide.get("selected_page_type", "")
+    if page_type != "compare_table_page":
+        return
+
+    body_copy = slide.get("body_copy", {})
+    if not isinstance(body_copy, dict):
+        return
+
+    header = body_copy.get("table_header", "")
+    header_cells = split_table_cells(header) if isinstance(header, str) else []
+    expected_columns = len(header_cells)
+    if expected_columns < 2:
+        return
+
+    rows: list[tuple[str, list[str]]] = []
+    for key in sorted(body_copy.keys()):
+        if key.startswith("table_row_") and isinstance(body_copy.get(key), str) and body_copy[key].strip():
+            rows.append((key, split_table_cells(body_copy[key])))
+
+    if len(rows) < 2:
+        return
+
+    inconsistent = [
+        f"{key}({len(cells)}/{expected_columns})"
+        for key, cells in rows
+        if len(cells) != expected_columns or any(not str(cell).strip() for cell in cells)
+    ]
+    if inconsistent:
+        warnings.append(
+            f"slide {slide_no}: compare_table rows must match the table_header structure; "
+            f"inconsistent rows: {', '.join(inconsistent[:4])}. "
+            f"Move summary conclusions or CRx commentary to the right-side insight panel instead of partial table rows."
+        )
+
+
+def check_storyline_coverage(
+    slides: list[dict],
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Check storyline coverage: role completeness, contract validation, structural checks."""
+    # 1. Role completeness and mapping
+    seen_roles: dict[str, int] = {}
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        slide_no = slide.get("slide_no")
+        role = slide.get("slide_role", "")
+        seen_roles[role] = slide_no
+
+        expected_role = EXPECTED_ROLES.get(slide_no)
+        if expected_role and role != expected_role:
+            errors.append(
+                f"slide {slide_no}: slide_role must be '{expected_role}', found '{role}'"
+            )
+
+    missing_roles = set(EXPECTED_ROLES.values()) - set(seen_roles.keys())
+    if missing_roles:
+        errors.append(f"missing slide roles: {', '.join(sorted(missing_roles))}")
+
+    # 2. Per-slide structural checks
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        check_storyline_contract(slide, errors, warnings)
+        check_compare_table_structure(slide, warnings)
+
+
 def validate_slides(
     storyboard: dict,
     errors: list[str],
@@ -304,6 +477,9 @@ def validate_slides(
     if sorted(seen) != expected_numbers:
         errors.append(f"slides must be numbered 1-8 exactly; found {seen}")
 
+    # Storyline coverage: role completeness, role-slide mapping, MECE overlap
+    check_storyline_coverage(slides, errors, warnings)
+
     validate_template_binding(storyboard.get("template_binding", {}), slide_by_no, errors, warnings)
 
 
@@ -338,7 +514,7 @@ def validate_template_binding(
         )
 
 
-def _schema_type_matches(value, expected_type: str | list[str]) -> bool:
+def _schema_type_matches(value, expected_type: Union[str, list[str]]) -> bool:
     if isinstance(expected_type, list):
         return any(_schema_type_matches(value, item) for item in expected_type)
     if expected_type == "object":

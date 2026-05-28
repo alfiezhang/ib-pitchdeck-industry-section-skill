@@ -27,9 +27,14 @@
     {
       "slide_no": 3,
       "slide_key": "key_industry_drivers",
-      "selection_mode": "fixed",
-      "page_types": ["driver_card_page"],
-      "default_dominant_element": "text"
+      "selection_mode": "controlled_choice",
+      "page_types": ["driver_card_page", "driver_card_5_page", "driver_card_6_page"],
+      "default_dominant_element": "text",
+      "selection_priority": [
+        "prefer_driver_card_page when the slide has exactly 4 MECE drivers or when the fifth/sixth point is weak",
+        "prefer_driver_card_5_page when the research supports 5 distinct drivers with no forced filler",
+        "prefer_driver_card_6_page when the research supports 6 distinct drivers and each can be stated concisely"
+      ]
     },
     {
       "slide_no": 4,
@@ -60,10 +65,13 @@
       "slide_no": 7,
       "slide_key": "industry_trends_future_evolution",
       "selection_mode": "controlled_choice",
-      "page_types": ["trend_page", "timeline_page"],
+      "page_types": ["trend_page", "timeline_page", "trend_4_card_page", "trend_5_card_page", "trend_6_card_page"],
       "default_dominant_element": "text",
       "selection_priority": [
-        "prefer_trend_page when trends are thematic and parallel",
+        "prefer_trend_page when the slide has exactly 3 parallel trends or when additional trend candidates are weak",
+        "prefer_trend_4_card_page when the research supports 4 distinct parallel trends",
+        "prefer_trend_5_card_page when the research supports 5 distinct parallel trends that can fit as concise cards",
+        "prefer_trend_6_card_page when the research supports 6 distinct parallel trends and each card can remain compact",
         "prefer_timeline_page when sequence and timing are central to the story"
       ]
     },

@@ -11,8 +11,10 @@ Convert the reasoning-rich `industry_storyboard.json` into the canonical `indust
 ## Rules
 
 1. **Do not introduce new facts.** The storyboard is the sole source of truth. No new data, claims, or interpretations beyond what is already in the storyboard.
+   - Do not perform second-pass research or "enrich" thin slides at this stage. If copy feels thin, preserve the storyboard and flag the issue upstream in the memo/storyboard rather than adding facts here.
 2. **Do not change the selected page types.** Use exactly the variants specified in the storyboard's `template_binding`:
    - Slide 2: `{slide_2_variant}`
+   - Slide 3: `{slide_3_variant}`
    - Slide 6: `{slide_6_variant}`
    - Slide 7: `{slide_7_variant}`
    Unless the storyboard is internally inconsistent (e.g., a slide's `selected_page_type` conflicts with `template_binding`), in which case flag the inconsistency and use the `template_binding` value as authoritative.
@@ -32,11 +34,11 @@ For each slide, map storyboard `body_copy` fields to `ppt_copy_schema.json` cont
 
 - **Slide 1** (industry_overview): `bullet_1`, `bullet_2`, `bullet_3`
 - **Slide 2** (market_size_segmentation): `bullet_1`–`bullet_3` + optional `table_header_1`–`table_row_3` (chart_plus_mini_table_page only)
-- **Slide 3** (key_industry_drivers): `card_1`–`card_4`
+- **Slide 3** (key_industry_drivers): variant-dependent cards (`card_1`–`card_4`, `card_5`, or `card_6`)
 - **Slide 4** (value_chain_profit_pool): `top_left`–`bottom_right` (6 panels)
 - **Slide 5** (key_barriers_value_drivers): `card_1`–`card_3`
 - **Slide 6** (competitive_landscape): variant-dependent (table + panels for compare_table_page; matrix + panels for matrix_page)
-- **Slide 7** (industry_trends): variant-dependent (cards for trend_page; stages for timeline_page)
+- **Slide 7** (industry_trends): variant-dependent (cards for trend card pages; stages for timeline_page)
 - **Slide 8** (key_takeaways): `left_panel`, `right_top`, `right_mid`, `right_bottom`
 
 ## Output Format

@@ -169,6 +169,23 @@ Evidence Rows (at least 2-3):
   Source:
   Confidence:
 
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+
 Key Data Points:
 - Metric:
   Value:
@@ -204,6 +221,23 @@ Evidence Rows (at least 2-3):
   Value:
   Source:
   Confidence:
+
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
 
 Key Data Points:
 - Metric:
@@ -251,6 +285,23 @@ Evidence Rows (at least 2-3):
   Source:
   Confidence:
 
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+
 Presentation Hint:
 Visual Candidate:
 
@@ -283,6 +334,23 @@ Evidence Rows (at least 2-3):
   Source:
   Confidence:
 
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+
 Presentation Hint:
 Visual Candidate:
 
@@ -314,6 +382,23 @@ Evidence Rows (at least 2-3):
   Source:
   Confidence:
 
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+
 Presentation Hint:
 Visual Candidate:
 
@@ -344,6 +429,23 @@ Evidence Rows (at least 2-3):
   Value:
   Source:
   Confidence:
+
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
 
 Chart-ready Data (if applicable):
 - Player:
@@ -384,6 +486,23 @@ Evidence Rows (at least 2-3):
   Source:
   Confidence:
 
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+
 Presentation Hint:
 Visual Candidate:
 
@@ -420,6 +539,23 @@ Evidence Rows (at least 2-3):
   Value:
   Source:
   Confidence:
+
+Page Evidence Pack (use downstream in storyboard; do not skip):
+- Argument 1:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 2:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
+- Argument 3:
+  Evidence IDs:
+  Fact / data:
+  So what:
+  Target relevance:
 
 Presentation Hint:
 Visual Candidate:

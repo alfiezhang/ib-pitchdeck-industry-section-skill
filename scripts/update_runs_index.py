@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 CORE_FILES = [
@@ -59,7 +59,7 @@ def attempt_summary(attempt_dir: Path) -> dict[str, Any]:
     }
 
 
-def choose_latest(summaries: list[dict[str, Any]]) -> dict[str, Any] | None:
+def choose_latest(summaries: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
     if not summaries:
         return None
     valid = [item for item in summaries if item["final_gate_valid"]]
@@ -68,7 +68,7 @@ def choose_latest(summaries: list[dict[str, Any]]) -> dict[str, Any] | None:
     return None
 
 
-def choose_latest_candidate(summaries: list[dict[str, Any]]) -> dict[str, Any] | None:
+def choose_latest_candidate(summaries: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
     if not summaries:
         return None
     complete = [item for item in summaries if item["is_complete"]]
@@ -83,8 +83,8 @@ def choose_latest_candidate(summaries: list[dict[str, Any]]) -> dict[str, Any] |
 def write_index(
     runs_dir: Path,
     summaries: list[dict[str, Any]],
-    latest: dict[str, Any] | None,
-    latest_candidate: dict[str, Any] | None,
+    latest: Optional[dict[str, Any]],
+    latest_candidate: Optional[dict[str, Any]],
 ) -> None:
     lines = ["# Runs Index", ""]
     if latest:

@@ -35,12 +35,36 @@ Produce **one valid JSON object** conforming to `templates/storyboard_schema.jso
 1. What industry thesis best supports this transaction?
 2. What investor questions must the industry section answer?
 3. Which industry facts are **genuinely supported** by sources in the memo?
-4. Which points are reasonable interpretations but **not hard facts**?
-5. Which page type best communicates each point within the fixed template?
-6. Which exact active `body_copy` fields are required for the chosen page type?
-7. What headline and main_message wording will fit the template before validation?
+4. Which page-level arguments from the memo `Page Evidence Pack` best support each slide?
+5. Which points are reasonable interpretations but **not hard facts**?
+6. Which page type best communicates each point within the fixed template?
+7. Which exact active `body_copy` fields are required for the chosen page type?
+8. What headline and main_message wording will fit the template before validation?
 
 Do not jump straight to filling fields. Reason first, then draft.
+
+### Slide Story Contract
+
+For each slide, fill a `slide_story_contract` object **before** writing `headline`, `main_message`, or `body_copy`. This contract is the planning anchor that enforces one-story-per-slide and MECE boundaries.
+
+Each contract requires:
+
+- **question**: The single investor question this slide answers. One question only — not a list.
+- **answer**: One-sentence conclusion that directly answers the question. This should align with the `headline`.
+- **evidence_ids**: Which Evidence IDs (e.g., EV-001) from the memo support this answer. At least 2 distinct IDs.
+- **forbidden_topics**: Content types that must NOT appear on this slide. This is the MECE enforcement mechanism. Be explicit — e.g., for Slide 3 (drivers), forbid "CR5/CR10", "channel structure", "value chain margin".
+- **visual_role**: What the visual area should communicate, in one sentence.
+
+Example for Slide 3:
+```json
+{
+  "question": "What structural factors drive long-term demand growth in this industry?",
+  "answer": "Three converging drivers — skincare-ification, channel DTC shift, and premiumization — support sustained double-digit growth.",
+  "evidence_ids": ["EV-003", "EV-005", "EV-008"],
+  "forbidden_topics": ["CR5/CR10 concentration", "channel migration data", "value chain margins", "competitor names"],
+  "visual_role": "Show three driver cards, each with a label, 1-line mechanism, and one supporting data point."
+}
+```
 
 ## Fixed 8-Slide Structure
 
@@ -50,22 +74,89 @@ Use the following standard structure unless the user explicitly asks otherwise:
 |-------|------|---------------|
 | 1 | `industry_overview` | Fixed: `summary_page` |
 | 2 | `market_size_segmentation` | **Variant**: `chart_page` or `chart_plus_mini_table_page` |
-| 3 | `key_industry_drivers` | Fixed: `driver_card_page` |
+| 3 | `key_industry_drivers` | **Variant**: `driver_card_page`, `driver_card_5_page`, or `driver_card_6_page` |
 | 4 | `value_chain_profit_pool` | Fixed: `value_chain_page` |
 | 5 | `key_barriers_value_drivers` | Fixed: `moat_page` |
 | 6 | `competitive_landscape` | **Variant**: `compare_table_page` or `matrix_page` |
-| 7 | `industry_trends_future_evolution` | **Variant**: `trend_page` or `timeline_page` |
+| 7 | `industry_trends_future_evolution` | **Variant**: `trend_page`, `timeline_page`, `trend_4_card_page`, `trend_5_card_page`, or `trend_6_card_page` |
 | 8 | `key_takeaways_for_target` | Fixed: `summary_page` |
 
 Use these canonical role keys exactly in each slide's `slide_role`.
+
+## Storyline Discipline
+
+### One Story Per Slide
+
+Each slide must cover **one core story dimension**. Do not mix unrelated topics on the same slide. If a fact does not fit the slide's role, it belongs on a different slide or should be dropped.
+
+Bad: Slide 2 mixing channel trends, sub-segment growth, AND CR5 concentration changes — three different stories competing for space.
+Good: Slide 2 focusing on market size + one clear segmentation angle (channel OR sub-segments, not both).
+
+### MECE Content Allocation
+
+Allocate content to slides so that the 8 slides together form a **complete, non-overlapping** story. Before drafting copy, map each major insight from the memo to exactly one slide:
+
+| Content Type | Belongs On | Do NOT Put On |
+|---|---|---|
+| Overall market size, growth, TAM | Slide 1 or 2 (not both) | — |
+| Channel structure / distribution shifts | Slide 2 (if chosen focus) | Slide 1, 3 |
+| Sub-segment breakdown / category trends | Slide 2 (if chosen focus) | Slide 1, 3 |
+| Industry concentration (CR5/CR10) | Slide 6 (competitive landscape) | Slide 2 |
+| Growth drivers / demand factors | Slide 3 | Slide 1, 2 |
+| Value chain / margin structure | Slide 4 | Slide 5 |
+| Entry barriers / moats | Slide 5 | Slide 4 |
+| Competitor positioning / peer comparison | Slide 6 | Slide 3 |
+| Regulatory / tech / ESG trends | Slide 7 | Slide 1–6 |
+| Target-specific implications / recommendations | Slide 8 | Slide 1–7 |
+
+### Slide 1: Three-Layer Funnel
+
+Slide 1 is the industry overview. It must follow a **top-down funnel** — never skip layers:
+
+1. **Layer 1 — Parent category scope**: Set the scene with the broadest relevant category (e.g., 整体化妆品市场)
+2. **Layer 2 — Target category**: Narrow to the specific industry (e.g., 底妆市场)
+3. **Layer 3 — Focused segment**: Zoom into the actionable segment (e.g., 线上底妆)
+
+Bad: Jumping directly from "化妆品市场 ¥X bn" to "线上底妆规模增长 X%" — skipping the 底妆 layer.
+Good: "化妆品市场 ¥X bn → 底妆占比 X%，规模 ¥Y bn → 线上底妆渗透率 Z%，规模 ¥W bn"
+
+Each layer should be one bullet or one panel point. The funnel should feel natural, not forced.
+
+### Slide 2: Single Focus Axis
+
+Slide 2 covers market size AND segmentation. The segmentation angle must be **one clear axis**, not a grab-bag:
+
+- Choose **channel structure** (online/offline, DTC/retail) OR **sub-segments** (by category, price tier, consumer segment) — not both.
+- If the memo has strong data on both, pick the one that best serves the transaction thesis.
+- CR5 / concentration data does NOT belong on Slide 2 — it belongs on Slide 6 (competitive landscape).
+
+### Pyramid Writing Rule
+
+Every `body_copy` field must follow the **conclusion → data → implication** pyramid:
+
+```
+[Conclusion/judgment]: [supporting data point] → [implication/target relevance]
+```
+
+Not: label-only text that states a topic without an opinion.
+Not: data dumps without a takeaway.
+Not: source references in body text — all Evidence IDs and source names belong in `source_note`.
+
+| Pattern | Example |
+|---|---|
+| ❌ Label only | "渠道结构：线上占比提升" |
+| ❌ Data dump | "2023年线上占比62%，2024年预计65%，2025年预计68%" |
+| ❌ Source in body | "线上渠道占比达65%（EV-005），增长迅速" |
+| ✅ Pyramid | "线上渠道主导增长：占比从62%→65%→68%（2023-25E），驱动底妆品牌加速DTC转型" |
 
 ## Page Type Selection
 
 For variants, choose based on content fit, not default:
 
 - **Slide 2**: Prefer `chart_plus_mini_table_page` when segmentation needs side-by-side quantitative context. Prefer `chart_page` when one visual can carry the page clearly.
+- **Slide 3**: Use `driver_card_page` for 4 strong MECE drivers. Use `driver_card_5_page` or `driver_card_6_page` only when the memo supports 5 or 6 distinct, non-overlapping drivers; do not create filler drivers just to use a larger template.
 - **Slide 6**: Prefer `compare_table_page` when named peer comparison is the clearest story. Prefer `matrix_page` when positioning against two dimensions is the clearest story.
-- **Slide 7**: Prefer `trend_page` when trends are thematic and parallel. Prefer `timeline_page` when sequence and timing are central to the story.
+- **Slide 7**: Use `trend_page` for 3 strong parallel trends. Use `trend_4_card_page`, `trend_5_card_page`, or `trend_6_card_page` only when the memo supports that many distinct trends; prefer `timeline_page` when sequence and timing are central to the story.
 
 For each selection, explain your reasoning in `decision_rationale`.
 
@@ -110,12 +201,24 @@ Aim for these character ranges. Fields shorter than the minimum are likely too t
 | timeline_stage | 60–100 chars | Event + timeframe + significance |
 | source_footer | 30+ chars | Specific source name or Evidence ID; never generic |
 
+### Memo Evidence Pack Contract
+
+Before writing each slide, read that page's `Page Evidence Pack` in `industry_input_memo.md`.
+
+Use it as follows:
+- Select the strongest 2-4 arguments for the slide; do not invent new arguments in storyboard.
+- Convert each selected argument into one active `body_copy` field where possible.
+- Preserve the chain: `Fact / data` -> `So what` -> `Target relevance`.
+- If a page evidence pack is thin, flag it in `data_gaps` and keep the slide cautious rather than filling with generic language.
+
+The PPT copy/fill stage should only compress and format these arguments. It must not conduct second-pass research or add new facts.
+
 ### Copy Structure Contract
 
 Every active body_copy field must contain:
 1. **A label or topic prefix** (what is this about)
 2. **An opinion or judgment** (why it matters)
-3. **Evidence, data, source implication, or target implication** (what backs it up)
+3. **Evidence, data, mechanism, or target implication** selected from the memo Page Evidence Pack
 
 Recommended pattern:
 ```

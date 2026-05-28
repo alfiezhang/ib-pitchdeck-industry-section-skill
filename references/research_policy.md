@@ -2,6 +2,12 @@
 
 Use this file when the workflow starts from a brief, attachments, or an existing memo that the user wants to expand.
 
+Before running any local research script, select one runtime and reuse it:
+
+```bash
+PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+```
+
 ## Research Baseline
 - Web research is mandatory unless the user already provided `industry_input_memo.md` and explicitly said not to expand it.
 - Provided materials are high-priority inputs, but they do not replace Web research.
@@ -43,7 +49,7 @@ Follow this sequence:
 Validate the formal plan before memo synthesis:
 
 ```bash
-./.venv/bin/python scripts/validate_research_plan.py \
+"$PYTHON_CMD" scripts/validate_research_plan.py \
   --plan artifacts/research_plan.json \
   --source-registry templates/source_registry.json \
   --stage formal \
@@ -83,14 +89,14 @@ When running site-constrained search with `scripts/web_search.py`:
 
 ```bash
 # Single domain, priority mode
-./.venv/bin/python scripts/web_search.py \
+"$PYTHON_CMD" scripts/web_search.py \
   --query "target industry market size" \
   --site cninfo.com.cn \
   --site-mode priority \
   --output tmp/search_results.json
 
 # Source pack with registry
-./.venv/bin/python scripts/web_search.py \
+"$PYTHON_CMD" scripts/web_search.py \
   --query "industry regulation policy" \
   --source-pack china_official \
   --source-registry templates/source_registry.json \
@@ -103,7 +109,7 @@ Note: `--site` / `--sites` forces DuckDuckGo provider because Tavily API does no
 Use `--use-default-packs` only after the research plan calls for an explicit default-pack validation pass:
 
 ```bash
-./.venv/bin/python scripts/web_search.py \
+"$PYTHON_CMD" scripts/web_search.py \
   --query "target industry market size latest official data" \
   --use-default-packs \
   --source-registry templates/source_registry.json \
@@ -130,7 +136,7 @@ Write `artifacts/search_log.md` incrementally during the research phase. Use `re
 5. **Auto mode**: `python scripts/web_search.py --query "..." --output tmp/search_results.json` (Tavily → DuckDuckGo)
 6. Read the JSON results file and continue research
 
-The fallback script is at `scripts/web_search.py`. Install deps with `bash ./setup.sh` or `python -m pip install -r requirements.txt`.
+The fallback script is at `scripts/web_search.py`. Select the runtime first with `PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"`, then use `"$PYTHON_CMD"` for fallback commands. Bootstrap will use an existing compatible Python when available, or create `.venv` and install `requirements.txt` when needed.
 
 ## Source Hierarchy
 Prefer sources in this order when facts conflict:

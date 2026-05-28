@@ -92,7 +92,10 @@ def build_rules(template_path: Path, ppt_mapping_path: Path, title_font_size: fl
         font_size = metric["font_size_pt"] or title_font_size
         max_lines = 1 if field_name == "slide_title" else 2
         target_lines = 1
-        width_factor = 1.0 if field_name == "slide_title" else 0.95
+        # Subtitle boxes wrap earlier in PowerPoint than the simple width model
+        # predicts, especially with mixed CJK/ASCII text. Keep the generated
+        # rule conservative so validators catch 3-line subtitles before render.
+        width_factor = 1.0 if field_name == "slide_title" else 1.17
         field_rule = {
             "placeholder": placeholder,
             "field_name": field_name,
@@ -110,7 +113,9 @@ def build_rules(template_path: Path, ppt_mapping_path: Path, title_font_size: fl
     return {
         "_description": (
             "Template-derived line-fit rules for storyboard headline/main_message and "
-            "PPT copy slide_title/main_takeaway. Regenerate after changing the PPT template."
+            "PPT copy slide_title/main_takeaway. Main takeaway width is intentionally "
+            "conservative because rendered PPT subtitles can wrap more than the "
+            "estimator predicts. Regenerate after changing the PPT template."
         ),
         "template_file": str(template_path),
         "ppt_mapping": str(ppt_mapping_path),

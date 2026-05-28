@@ -19,44 +19,49 @@
       "slide_no": 3,
       "slide_key": "key_industry_drivers",
       "page_type_to_slide": {
-        "driver_card_page": "slide4.xml"
+        "driver_card_page": "slide4.xml",
+        "driver_card_5_page": "slide5.xml",
+        "driver_card_6_page": "slide6.xml"
       }
     },
     {
       "slide_no": 4,
       "slide_key": "value_chain_profit_pool",
       "page_type_to_slide": {
-        "value_chain_page": "slide5.xml"
+        "value_chain_page": "slide7.xml"
       }
     },
     {
       "slide_no": 5,
       "slide_key": "key_barriers_value_drivers",
       "page_type_to_slide": {
-        "moat_page": "slide6.xml"
+        "moat_page": "slide8.xml"
       }
     },
     {
       "slide_no": 6,
       "slide_key": "competitive_landscape",
       "page_type_to_slide": {
-        "compare_table_page": "slide7.xml",
-        "matrix_page": "slide8.xml"
+        "compare_table_page": "slide9.xml",
+        "matrix_page": "slide10.xml"
       }
     },
     {
       "slide_no": 7,
       "slide_key": "industry_trends_future_evolution",
       "page_type_to_slide": {
-        "trend_page": "slide9.xml",
-        "timeline_page": "slide10.xml"
+        "trend_page": "slide11.xml",
+        "timeline_page": "slide12.xml",
+        "trend_4_card_page": "slide13.xml",
+        "trend_5_card_page": "slide14.xml",
+        "trend_6_card_page": "slide15.xml"
       }
     },
     {
       "slide_no": 8,
       "slide_key": "key_takeaways_for_target",
       "page_type_to_slide": {
-        "summary_page": "slide11.xml"
+        "summary_page": "slide16.xml"
       }
     }
   ]

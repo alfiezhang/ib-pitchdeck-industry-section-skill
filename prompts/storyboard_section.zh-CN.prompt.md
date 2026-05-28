@@ -35,12 +35,36 @@
 1. 什么样的行业论点最能支撑本次交易？
 2. 投资者对本章节必须回答哪些核心问题？
 3. 备忘录中有哪些行业事实是**有可靠来源支撑**的？
-4. 哪些判断是合理推断但**并非确凿事实**？
-5. 在固定模板约束下，哪种页面类型最能传达每页的核心信息？
-6. 所选页面类型对应的 active `body_copy` 字段到底有哪些？
-7. 什么样的标题和核心信息可以在生成前就满足模板行数限制？
+4. 备忘录每页 `Page Evidence Pack` 中哪些论据最能支撑本页故事？
+5. 哪些判断是合理推断但**并非确凿事实**？
+6. 在固定模板约束下，哪种页面类型最能传达每页的核心信息？
+7. 所选页面类型对应的 active `body_copy` 字段到底有哪些？
+8. 什么样的标题和核心信息可以在生成前就满足模板行数限制？
 
 不要直接跳到填字段。先推理，再落笔。
+
+### 单页故事契约
+
+每一页在写 `headline`、`main_message` 或 `body_copy` 之前，必须先填写 `slide_story_contract`。它不是额外文案，而是本页的规划锚点，用来约束一页只讲一个故事，并明确 MECE 边界。
+
+每个 `slide_story_contract` 必须包含：
+
+- **question**：本页回答的单一投资者问题。只能是一个问题，不要写问题列表。
+- **answer**：直接回答该问题的一句话结论，应与 `headline` 保持一致。
+- **evidence_ids**：支撑本页结论的备忘录 Evidence ID（如 EV-001），至少 2 个不同 ID。
+- **forbidden_topics**：本页不得出现的内容类型，用于维护 MECE 边界。由你根据本页角色、备忘录和相邻页面自行判断，不要机械套模板。
+- **visual_role**：本页视觉区域应传达什么，一句话说明。
+
+示例（第 3 页驱动因素）：
+```json
+{
+  "question": "哪些结构性因素支撑该行业的长期需求增长？",
+  "answer": "功效化、内容电商和国货认同三类驱动共同支撑行业持续扩容。",
+  "evidence_ids": ["EV-003", "EV-005", "EV-008"],
+  "forbidden_topics": ["CR5/CR10集中度", "渠道份额迁移明细", "价值链利润率", "具名竞品对比"],
+  "visual_role": "用三个驱动卡片展示驱动因素、作用机制和一个支撑数据点。"
+}
+```
 
 ## 固定 8 页结构
 
@@ -50,22 +74,78 @@
 |------|------|-----------|
 | 1 | `industry_overview` | 固定：`summary_page` |
 | 2 | `market_size_segmentation` | **可选**：`chart_page` 或 `chart_plus_mini_table_page` |
-| 3 | `key_industry_drivers` | 固定：`driver_card_page` |
+| 3 | `key_industry_drivers` | **可选**：`driver_card_page`、`driver_card_5_page` 或 `driver_card_6_page` |
 | 4 | `value_chain_profit_pool` | 固定：`value_chain_page` |
 | 5 | `key_barriers_value_drivers` | 固定：`moat_page` |
 | 6 | `competitive_landscape` | **可选**：`compare_table_page` 或 `matrix_page` |
-| 7 | `industry_trends_future_evolution` | **可选**：`trend_page` 或 `timeline_page` |
+| 7 | `industry_trends_future_evolution` | **可选**：`trend_page`、`timeline_page`、`trend_4_card_page`、`trend_5_card_page` 或 `trend_6_card_page` |
 | 8 | `key_takeaways_for_target` | 固定：`summary_page` |
 
 每页的 `slide_role` 必须逐字使用上表中的 canonical role key。
+
+## 故事线纪律
+
+### 一页只讲一个核心故事
+
+每页只回答一个核心问题，承载一个故事维度。不要把互不从属的主题塞进同一页。如果一个事实不服务于本页问题，应放到其他页，或删除。
+
+反例：第 2 页同时讲渠道迁移、子品类增长和 CR5 集中度变化。
+正例：第 2 页围绕一个清晰细分轴展开，例如渠道结构或子品类结构二选一。
+
+### MECE 内容分配
+
+写正文前，先把备忘录里的关键洞察分配到各页，保证 8 页合起来完整且不重复：
+
+| 内容类型 | 应放在哪页 | 不应放在哪页 |
+|---|---|---|
+| 总体市场规模、增长、TAM | 第 1 或第 2 页，避免两页重复 | — |
+| 渠道结构 / 分销迁移 | 第 2 页，如果该页选择渠道作为细分轴 | 第 1、3 页 |
+| 子品类结构 / 品类趋势 | 第 2 页，如果该页选择子品类作为细分轴 | 第 1、3 页 |
+| 行业集中度、CR5/CR10 | 第 6 页竞争格局 | 第 2 页 |
+| 需求和增长驱动 | 第 3 页 | 第 1、2 页 |
+| 价值链、利润池、毛利结构 | 第 4 页 | 第 5 页 |
+| 进入壁垒、护城河、价值驱动 | 第 5 页 | 第 4 页 |
+| 竞品定位、同业对比 | 第 6 页 | 第 3 页 |
+| 监管、技术、ESG、未来演变 | 第 7 页 | 第 1-6 页 |
+| 标的交易含义、投资结论、DD 问题 | 第 8 页 | 第 1-7 页 |
+
+### 第 1 页：自上而下建立语境
+
+第 1 页是行业概览，应从更大市场逐层收窄到标的所在赛道。不要直接跳到很窄的线上或单品类数据，除非已交代上层市场语境。
+
+推荐层次：
+1. 父级市场范围
+2. 标的所在行业 / 赛道
+3. 与交易最相关的细分机会
+
+### 第 2 页：只选择一个细分轴
+
+第 2 页讲市场规模与细分，但细分维度只能选一个主轴：
+
+- 渠道结构，如线上/线下、抖音/天猫/DTC；或
+- 子品类结构，如妆前乳、遮瑕、粉底液；或
+- 价格带 / 客群 / 应用场景等其他更适合本行业的轴
+
+如果备忘录中多个轴都有数据，选择最能支撑交易论点的一个。CR5、竞品排名、同业对比不属于第 2 页，应放在第 6 页。
+
+### 金字塔写作规则
+
+每个 `body_copy` 字段遵循 **结论 → 数据 → 含义**：
+
+```
+[判断/结论]：[支撑数据点] → [对行业或标的的含义]
+```
+
+不要只写标签；不要堆数据而没有结论；不要在正文中写 Evidence ID 或来源名，来源只写在 `source_note`。
 
 ## 页面类型选择
 
 对于可选变体，根据内容适配度选择，而非使用默认值：
 
 - **第 2 页**：当市场细分需要并列量化背景时，倾向 `chart_plus_mini_table_page`。当一张图表足以清晰承载表达时，倾向 `chart_page`。
+- **第 3 页**：当有 4 个强 MECE 驱动因素时使用 `driver_card_page`。只有当备忘录支持 5 或 6 个真正独立、非重叠的驱动因素时，才使用 `driver_card_5_page` 或 `driver_card_6_page`；不要为了使用更大的模板而编造 filler drivers。
 - **第 6 页**：当具名同业对比是最清晰的故事时，倾向 `compare_table_page`。当在两个维度上的定位是最清晰的故事时，倾向 `matrix_page`。
-- **第 7 页**：当趋势是主题性的、平行的时，倾向 `trend_page`。当时序和节奏是故事核心时，倾向 `timeline_page`。
+- **第 7 页**：当有 3 个强平行趋势时使用 `trend_page`。只有当备忘录支持对应数量的独立趋势时，才使用 `trend_4_card_page`、`trend_5_card_page` 或 `trend_6_card_page`；当时序和节奏是故事核心时，倾向 `timeline_page`。
 
 每次选择都必须在 `decision_rationale` 中说明理由。
 
@@ -110,12 +190,24 @@
 | timeline_stage | 60–100 chars | 事件 + 时间范围 + 意义 |
 | source_footer | 30+ chars | 具体来源名称或 Evidence ID，禁止模糊表述 |
 
+### 备忘录论据包契约
+
+写每页之前，先读取 `industry_input_memo.md` 中该页的 `Page Evidence Pack`。
+
+使用方式：
+- 为本页选择最强的 2-4 条论据；不要在 storyboard 阶段新编事实或新做研究。
+- 尽量把每条被选中的论据压缩成一个 active `body_copy` 字段。
+- 保留逻辑链：`Fact / data` -> `So what` -> `Target relevance`。
+- 如果某页论据包不足，在 `data_gaps` 中标注，并保持谨慎措辞，不要用泛泛表述填充。
+
+PPT copy / fill 阶段只负责压缩和格式化这些论据，不应二次 research 或新增事实。
+
 ### 文案结构契约
 
 每个 active body_copy 字段必须包含：
 1. **标签或主题前缀**（说的是什么）
 2. **观点或判断**（为什么重要）
-3. **证据、数据、来源含义或标的含义**（支撑依据是什么）
+3. **来自 memo Page Evidence Pack 的证据、数据、机制或标的含义**
 
 推荐写法：
 ```

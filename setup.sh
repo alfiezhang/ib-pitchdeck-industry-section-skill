@@ -1,73 +1,24 @@
 #!/usr/bin/env bash
-# setup.sh — Create venv and install all dependencies.
+# setup.sh — Bootstrap/select the Python runtime for this skill.
 #
 # Usage:
-#   bash ./setup.sh          # Create .venv and install dependencies
-#   bash ./setup.sh --force  # Recreate .venv from scratch
+#   bash ./setup.sh          # Use existing compatible Python, or create .venv
+#   bash ./setup.sh --force  # Recreate .venv if no existing Python is ready
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/.venv"
-PYTHON_BIN="${PYTHON_BIN:-}"
 
-detect_python() {
-  if [[ -n "$PYTHON_BIN" ]]; then
-    printf '%s\n' "$PYTHON_BIN"
-    return 0
-  fi
-
+BOOTSTRAP_PYTHON="${PYTHON_BOOTSTRAP_BIN:-}"
+if [[ -z "$BOOTSTRAP_PYTHON" ]]; then
   if command -v python3 >/dev/null 2>&1; then
-    printf '%s\n' "python3"
-    return 0
-  fi
-
-  if command -v python >/dev/null 2>&1; then
-    printf '%s\n' "python"
-    return 0
-  fi
-
-  return 1
-}
-
-if [[ "${1:-}" == "--force" && -d "$VENV_DIR" ]]; then
-  echo "Removing existing .venv..."
-  rm -rf "$VENV_DIR"
-fi
-
-if [[ ! -d "$VENV_DIR" ]]; then
-  PYTHON_BIN="$(detect_python)" || {
-    echo "ERROR: No Python interpreter found. Install Python 3 first." >&2
-    exit 1
-  }
-  "$PYTHON_BIN" -c "import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)" || {
-    echo "ERROR: $PYTHON_BIN must be Python 3.9 or newer." >&2
-    exit 1
-  }
-  echo "Creating .venv with $PYTHON_BIN..."
-  if ! "$PYTHON_BIN" -m venv "$VENV_DIR"; then
-    echo "" >&2
-    echo "ERROR: Failed to create Python virtual environment." >&2
-    echo "This usually means the Python venv/ensurepip package is missing." >&2
-    echo "On Debian/Ubuntu, install the matching package, for example:" >&2
-    echo "  sudo apt install python3-venv" >&2
-    echo "  sudo apt install python3.14-venv   # if your interpreter is Python 3.14" >&2
-    echo "Then rerun: bash ./setup.sh" >&2
-    echo "Alternative: set PYTHON_BIN to a Python installation with venv support." >&2
+    BOOTSTRAP_PYTHON="python3"
+  elif command -v python >/dev/null 2>&1; then
+    BOOTSTRAP_PYTHON="python"
+  else
+    echo "ERROR: No Python interpreter found to run bootstrap_runtime.py." >&2
     exit 1
   fi
 fi
 
-echo "Installing dependencies..."
-"$VENV_DIR/bin/pip" install --quiet --upgrade pip
-"$VENV_DIR/bin/pip" install --quiet -r "$SCRIPT_DIR/requirements.txt"
-
-echo ""
-echo "=== Setup complete ==="
-echo "Python: $("$VENV_DIR/bin/python" --version)"
-echo "Location: $VENV_DIR"
-echo ""
-echo "To activate manually:  source .venv/bin/activate"
-echo "Pipeline default:      ./.venv/bin/python"
-echo "Override if needed:    ./run_pipeline.sh --python /path/to/python ..."
-echo "Recommended setup run: bash ./setup.sh"
+exec "$BOOTSTRAP_PYTHON" "$SCRIPT_DIR/scripts/bootstrap_runtime.py" "$@"

@@ -91,6 +91,27 @@
       },
       "avoid_large_empty_cards": true
     },
+    "driver_card_5_page": {
+      "body_fields_max_units": {
+        "card_1": 64,
+        "card_2": 64,
+        "card_3": 64,
+        "card_4": 64,
+        "card_5": 64
+      },
+      "avoid_large_empty_cards": true
+    },
+    "driver_card_6_page": {
+      "body_fields_max_units": {
+        "card_1": 54,
+        "card_2": 54,
+        "card_3": 54,
+        "card_4": 54,
+        "card_5": 54,
+        "card_6": 54
+      },
+      "avoid_large_empty_cards": true
+    },
     "value_chain_page": {
       "body_fields_max_units": {
         "upstream": 74,
@@ -140,9 +161,36 @@
     },
     "trend_page": {
       "body_fields_max_units": {
-        "trend_1": 78,
-        "trend_2": 78,
-        "trend_3": 78
+        "card_1": 78,
+        "card_2": 78,
+        "card_3": 78
+      }
+    },
+    "trend_4_card_page": {
+      "body_fields_max_units": {
+        "card_1": 68,
+        "card_2": 68,
+        "card_3": 68,
+        "card_4": 68
+      }
+    },
+    "trend_5_card_page": {
+      "body_fields_max_units": {
+        "card_1": 60,
+        "card_2": 60,
+        "card_3": 60,
+        "card_4": 60,
+        "card_5": 60
+      }
+    },
+    "trend_6_card_page": {
+      "body_fields_max_units": {
+        "card_1": 52,
+        "card_2": 52,
+        "card_3": 52,
+        "card_4": 52,
+        "card_5": 52,
+        "card_6": 52
       }
     },
     "timeline_page": {

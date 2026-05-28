@@ -1,5 +1,5 @@
 {
-    "_description": "Template-derived line-fit rules for storyboard headline/main_message and PPT copy slide_title/main_takeaway. Main takeaway width is intentionally conservative because rendered PPT subtitles can wrap more than the estimator predicts. Regenerate after changing the PPT template.",
+  "_description": "Template-derived line-fit rules for storyboard headline/main_message and PPT copy slide_title/main_takeaway. Main takeaway width is intentionally conservative because rendered PPT subtitles can wrap more than the estimator predicts. Regenerate after changing the PPT template.",
   "template_file": "assets/industry_section_template_master.pptx",
   "ppt_mapping": "templates/ppt_mapping.json",
   "estimation": {
@@ -31,7 +31,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "2:chart_page:slide_title": {
@@ -53,7 +53,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "2:chart_plus_mini_table_page:slide_title": {
@@ -75,11 +75,11 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "3:driver_card_page:slide_title": {
-      "placeholder": "{{slide_03_title}}",
+      "placeholder": "{{slide_03a_title}}",
       "field_name": "slide_title",
       "width_in": 10.039,
       "height_in": 0.746,
@@ -90,14 +90,58 @@
       "block_if_exceeds_max_lines": true
     },
     "3:driver_card_page:main_takeaway": {
-      "placeholder": "{{slide_03_takeaway}}",
+      "placeholder": "{{slide_03a_takeaway}}",
       "field_name": "main_takeaway",
       "width_in": 11.35,
       "height_in": 0.2,
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
+      "block_if_exceeds_max_lines": true
+    },
+    "3:driver_card_5_page:slide_title": {
+      "placeholder": "{{slide_03b_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "3:driver_card_5_page:main_takeaway": {
+      "placeholder": "{{slide_03b_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 49.9,
+      "block_if_exceeds_max_lines": true
+    },
+    "3:driver_card_6_page:slide_title": {
+      "placeholder": "{{slide_03c_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "3:driver_card_6_page:main_takeaway": {
+      "placeholder": "{{slide_03c_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "4:value_chain_page:slide_title": {
@@ -119,7 +163,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "5:moat_page:slide_title": {
@@ -141,7 +185,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "6:compare_table_page:slide_title": {
@@ -163,7 +207,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "6:matrix_page:slide_title": {
@@ -185,7 +229,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "7:trend_page:slide_title": {
@@ -207,7 +251,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "7:timeline_page:slide_title": {
@@ -229,7 +273,73 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_4_card_page:slide_title": {
+      "placeholder": "{{slide_07c_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_4_card_page:main_takeaway": {
+      "placeholder": "{{slide_07c_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 49.9,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_5_card_page:slide_title": {
+      "placeholder": "{{slide_07d_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_5_card_page:main_takeaway": {
+      "placeholder": "{{slide_07d_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 49.9,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_6_card_page:slide_title": {
+      "placeholder": "{{slide_07e_title}}",
+      "field_name": "slide_title",
+      "width_in": 10.039,
+      "height_in": 0.746,
+      "font_size_pt": 28.0,
+      "target_lines": 1,
+      "max_lines": 1,
+      "max_line_units": 25.8,
+      "block_if_exceeds_max_lines": true
+    },
+    "7:trend_6_card_page:main_takeaway": {
+      "placeholder": "{{slide_07e_takeaway}}",
+      "field_name": "main_takeaway",
+      "width_in": 11.35,
+      "height_in": 0.2,
+      "font_size_pt": 14.0,
+      "target_lines": 1,
+      "max_lines": 2,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     },
     "8:summary_page:slide_title": {
@@ -251,7 +361,7 @@
       "font_size_pt": 14.0,
       "target_lines": 1,
       "max_lines": 2,
-      "max_line_units": 50.0,
+      "max_line_units": 49.9,
       "block_if_exceeds_max_lines": true
     }
   }

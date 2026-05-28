@@ -74,6 +74,8 @@
     "source_note_specific": true,
     "chart_data_source_rows_for_quant_slides": true,
     "no_training_data_unless_degraded_mode": true,
-    "min_evidence_per_slide": 2
+    "min_evidence_per_slide": 2,
+    "min_argument_fields_per_slide": 3,
+    "argument_fields_should_include_mechanism_or_data": true
   }
 }

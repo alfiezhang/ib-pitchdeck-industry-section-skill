@@ -47,9 +47,22 @@
       "maxItems": 8,
       "items": {
         "type": "object",
-        "required": ["slide_no", "slide_role", "selected_page_type", "decision_rationale", "headline", "main_message", "target_link", "source_note"],
+        "required": ["slide_no", "slide_role", "selected_page_type", "decision_rationale", "slide_story_contract", "headline", "main_message", "target_link", "source_note"],
         "properties": {
           "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+          "slide_story_contract": {
+            "type": "object",
+            "description": "Per-slide planning contract filled BEFORE copy drafting. Ensures each slide has a single clear story and MECE boundaries.",
+            "required": ["question", "answer", "evidence_ids", "forbidden_topics", "visual_role"],
+            "properties": {
+              "question": { "type": "string", "description": "The single investor question this slide answers. One question only." },
+              "answer": { "type": "string", "description": "One-sentence conclusion that directly answers the question. This should align with the headline." },
+              "evidence_ids": { "type": "array", "items": { "type": "string" }, "minItems": 2, "description": "Evidence IDs (e.g., EV-001) from the memo that support this slide's answer." },
+              "forbidden_topics": { "type": "array", "items": { "type": "string" }, "description": "Content types that must NOT appear on this slide to maintain MECE boundaries. E.g., for Slide 3: ['CR5/CR10', 'channel structure', 'value chain']." },
+              "visual_role": { "type": "string", "description": "What the visual area should communicate. E.g., 'Show market size growth over 3 years as a bar chart'." }
+            },
+            "additionalProperties": false
+          },
           "slide_role": {
             "type": "string",
             "enum": [
@@ -69,11 +82,11 @@
             "enum": [
               "summary_page",
               "chart_page", "chart_plus_mini_table_page",
-              "driver_card_page",
+              "driver_card_page", "driver_card_5_page", "driver_card_6_page",
               "value_chain_page",
               "moat_page",
               "compare_table_page", "matrix_page",
-              "trend_page", "timeline_page"
+              "trend_page", "timeline_page", "trend_4_card_page", "trend_5_card_page", "trend_6_card_page"
             ]
           },
           "decision_rationale": { "type": "string", "description": "Why this page type was chosen over alternatives. Required for controlled-variant slides (2, 6, 7); for fixed slides, explain the content-structure fit." },
@@ -163,11 +176,12 @@
     "template_binding": {
       "type": "object",
       "description": "Final decisions on which template variant to use for controlled-variant slides.",
-      "required": ["slide_2_variant", "slide_6_variant", "slide_7_variant"],
+      "required": ["slide_2_variant", "slide_3_variant", "slide_6_variant", "slide_7_variant"],
       "properties": {
         "slide_2_variant": { "type": "string", "enum": ["chart_page", "chart_plus_mini_table_page"], "description": "Selected variant for Slide 2 (market size & segmentation)." },
+        "slide_3_variant": { "type": "string", "enum": ["driver_card_page", "driver_card_5_page", "driver_card_6_page"], "description": "Selected variant for Slide 3 (key industry drivers)." },
         "slide_6_variant": { "type": "string", "enum": ["compare_table_page", "matrix_page"], "description": "Selected variant for Slide 6 (competitive landscape)." },
-        "slide_7_variant": { "type": "string", "enum": ["trend_page", "timeline_page"], "description": "Selected variant for Slide 7 (industry trends)." },
+        "slide_7_variant": { "type": "string", "enum": ["trend_page", "timeline_page", "trend_4_card_page", "trend_5_card_page", "trend_6_card_page"], "description": "Selected variant for Slide 7 (industry trends)." },
         "inactive_variants_to_remove": {
           "type": "array", "items": { "type": "string" },
           "description": "List of page types NOT selected on variant slides. Used by clean_filled_ppt.py to remove physical slides."

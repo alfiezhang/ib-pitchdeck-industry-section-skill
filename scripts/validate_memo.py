@@ -8,7 +8,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 REQUIRED_SECTIONS = [
@@ -85,6 +85,68 @@ def page_note_count(text: str) -> int:
     return max(len(re.findall(pattern, text, flags=re.MULTILINE | re.IGNORECASE)) for pattern in patterns)
 
 
+def page_sections(text: str) -> dict[int, str]:
+    """Return memo text grouped by Page/Slide N headings."""
+    heading_re = re.compile(r"^(#{2,3})\s+(?:Page|Slide)\s+(\d+)\b.*$", flags=re.MULTILINE | re.IGNORECASE)
+    matches = list(heading_re.finditer(text))
+    sections: dict[int, str] = {}
+    for idx, match in enumerate(matches):
+        page_no = int(match.group(2))
+        if page_no < 1 or page_no > 8:
+            continue
+        start = match.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+        sections[page_no] = text[start:end]
+    return sections
+
+
+def page_evidence_pack_issues(text: str) -> tuple[list[str], dict[str, Any]]:
+    """Validate that each page has enough evidence and argument material."""
+    errors: list[str] = []
+    metrics: dict[str, Any] = {}
+    sections = page_sections(text)
+    for page_no in range(1, 9):
+        section = sections.get(page_no, "")
+        page_metric: dict[str, Any] = {}
+        if not section:
+            errors.append(f"page {page_no}: missing page section")
+            metrics[str(page_no)] = page_metric
+            continue
+
+        ids = evidence_ids(section)
+        page_metric["evidence_id_count"] = len(ids)
+        if len(ids) < 2:
+            errors.append(f"page {page_no}: only {len(ids)} distinct Evidence IDs; expected at least 2")
+
+        has_pack = bool(re.search(r"Page Evidence Pack|Evidence Pack|论据包|证据包", section, flags=re.IGNORECASE))
+        page_metric["has_page_evidence_pack"] = has_pack
+        if not has_pack:
+            errors.append(f"page {page_no}: missing Page Evidence Pack")
+
+        argument_count = len(
+            re.findall(
+                r"^\s*-\s*(?:Argument|论据)\s*\d+\s*:",
+                section,
+                flags=re.MULTILINE | re.IGNORECASE,
+            )
+        )
+        if argument_count == 0:
+            # Fallback for free-form memos: count argument-like labels under the pack.
+            argument_count = len(re.findall(r"^\s*(?:Fact / data|So what|Target relevance|事实|含义|标的)", section, flags=re.MULTILINE | re.IGNORECASE))
+            argument_count = argument_count // 3
+        page_metric["argument_count"] = argument_count
+        if argument_count < 3:
+            errors.append(f"page {page_no}: Page Evidence Pack has {argument_count} argument(s); expected at least 3")
+
+        target_relevance_count = len(re.findall(r"Target relevance\s*:|标的", section, flags=re.IGNORECASE))
+        page_metric["target_relevance_count"] = target_relevance_count
+        if target_relevance_count < 1:
+            errors.append(f"page {page_no}: evidence pack lacks target relevance")
+
+        metrics[str(page_no)] = page_metric
+    return errors, metrics
+
+
 def line_has_allowed_weak_context(line: str) -> bool:
     lowered = line.lower()
     return any(marker in lowered for marker in WEAK_SOURCE_ALLOWED_CONTEXT)
@@ -130,7 +192,7 @@ def evidence_strength_issues(text: str) -> list[str]:
     return issues
 
 
-def validate(memo_path: Path, run_dir: Path | None = None) -> dict[str, Any]:
+def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -163,6 +225,9 @@ def validate(memo_path: Path, run_dir: Path | None = None) -> dict[str, Any]:
     pages = page_note_count(text)
     if pages < 8:
         errors.append(f"memo has page/slide notes for only {pages} page(s); expected 8")
+
+    page_pack_errors, page_pack_metrics = page_evidence_pack_issues(text)
+    errors.extend(page_pack_errors)
 
     if "chart_ready" not in text:
         warnings.append("memo has no chart_ready flags; quantitative visuals may be under-specified")
@@ -198,6 +263,7 @@ def validate(memo_path: Path, run_dir: Path | None = None) -> dict[str, Any]:
             "evidence_id_count": len(ids),
             "evidence_ledger_row_count": len(rows),
             "page_note_count": pages,
+            "page_evidence_pack": page_pack_metrics,
         },
     }
 

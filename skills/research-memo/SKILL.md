@@ -28,6 +28,12 @@ The memo is the **single source of truth** for all facts used in the storyboard.
 - **Input-card mode**: validate the provided card first; do not add inferred facts to make validation pass.
 - **Existing-memo mode**: treat the memo as canonical if the user asks for refinement or PPT generation from it; refresh research only when requested or when freshness checks require it.
 
+Before running any script in this skill, select one runtime and reuse it:
+
+```bash
+PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+```
+
 ## Input Card Discipline
 
 Do not enrich or rewrite `input_card.json` with inferred facts before research.
@@ -56,7 +62,7 @@ Planner-generated peers, sources, risks, and research topics belong in `artifact
 Validate before research when an input card is generated:
 
 ```bash
-./.venv/bin/python scripts/validate_input_card.py \
+"$PYTHON_CMD" scripts/validate_input_card.py \
   --input-card input_card.json \
   --output artifacts/input_card_validation.json
 ```
@@ -104,7 +110,7 @@ Execution order:
 Validate the formal plan before memo synthesis:
 
 ```bash
-./.venv/bin/python scripts/validate_research_plan.py \
+"$PYTHON_CMD" scripts/validate_research_plan.py \
   --plan artifacts/research_plan.json \
   --source-registry templates/source_registry.json \
   --stage formal \
@@ -151,14 +157,14 @@ Required sections:
 - Source materials (user-provided vs. web-researched, with attribution)
 - **Evidence Ledger** (table: Evidence ID → claim → source → reliability → confidence)
 - Page-by-page content notes (1–8)
-- Per page: `Evidence Rows` (at least 2-3 items), `Key Data Points` with `chart_ready` flags, `Chart-ready Data` where applicable
+- Per page: `Evidence Rows` (at least 2-3 items), `Page Evidence Pack` (at least 3 arguments), `Key Data Points` with `chart_ready` flags, `Chart-ready Data` where applicable
 - `Presentation Hint`, `Visual Candidate`
 - For every `Key Data Points` entry: `Definition`, `Source Name`, `Source Date`, `Confidence`, and `chart_ready` (true/false)
 
 After writing the memo, validate it before storyboard generation:
 
 ```bash
-./.venv/bin/python scripts/validate_memo.py \
+"$PYTHON_CMD" scripts/validate_memo.py \
   --memo industry_input_memo.md \
   --run-dir . \
   --output artifacts/memo_validation.json
@@ -176,6 +182,18 @@ Every important claim or metric must have an Evidence ID (EV-001, EV-002, ...). 
 
 Each page must have at least 2-3 evidence rows. If a page cannot meet this, flag `HIGH PRIORITY GAP`.
 
+### Page Evidence Pack
+
+Each page must contain a `Page Evidence Pack` before storyboard generation. This is the main fix for thin PPT output.
+
+For every page, write at least 3 arguments. Each argument must include:
+- `Evidence IDs`: one or more EV IDs from the Evidence Ledger
+- `Fact / data`: the concrete fact, metric, named source observation, or sourced qualitative finding
+- `So what`: the investment implication or industry mechanism
+- `Target relevance`: why this supports the target-specific storyline
+
+Do not save expansion for the final PPT stage. The storyboard step should select and compress arguments from this pack; the PPT fill step should not add new facts.
+
 ### Chart-ready Data
 
 For quantitative pages (especially Slide 2), mark chart-ready Key Data Points with `chart_ready: true` and add a `Chart-ready Data` block with categories, values, units, periods, and source Evidence IDs.
@@ -191,7 +209,7 @@ Key principles:
 - **Formal research plan warnings are not harmless** in one-shot delivery. Missing targeted queries, latest/current queries, selected source packs, or selected domains must be fixed before memo synthesis.
 - **Search log is procedural, not post-hoc**: create it before the first search attempt and update it after each search. Do not reconstruct a clean log only after the memo is complete.
 - **Discovery plan is intentionally lightweight**: before broad discovery, avoid filling unknown peer sets, source packs, and industry boundaries from model prior knowledge. Let broad discovery inform the formal plan.
-- **Dependency check is mandatory before fallback search**: run `bash ./setup.sh` and `./.venv/bin/python scripts/check_runtime_dependencies.py` before relying on `scripts/web_search.py`.
+- **Runtime bootstrap is mandatory before fallback search**: run `python3 scripts/bootstrap_runtime.py --print-python` and use the returned interpreter for `scripts/web_search.py`.
 - **Fail closed on mandatory research failure**: if built-in WebSearch/WebFetch and fallback search cannot return verified online sources, stop the workflow. Do not generate storyboard or PPT from `training_data` unless the operator explicitly chooses degraded mode.
 - **Weak sources stay outside formal evidence**: Zhihu, Baijiahao, repost/content-farm pages, document-sharing sites, SEO research pages, and generic company-info pages may be used only as leads or rejected-source notes. Do not place them in `Evidence Ledger`, `Selected Sources`, `Online Research Sources`, or slide `source_note` unless no stronger source exists and the limitation is explicitly disclosed.
 - **Do not overstate source confidence**: data aggregators, reposted report summaries, SEO research pages, and generic company-info pages are not `verified` evidence by themselves. Mark them `inferred` or `secondary` unless independently validated by an official source, filing, primary report, or reputable media/source owner.
@@ -231,7 +249,7 @@ When the AI's built-in `WebSearch` / `WebFetch` tools are unavailable (e.g., thi
 
 For priority site search:
 ```bash
-./.venv/bin/python scripts/web_search.py \
+"$PYTHON_CMD" scripts/web_search.py \
   --query "target industry market size" \
   --site cninfo.com.cn \
   --site-mode priority \
@@ -240,7 +258,7 @@ For priority site search:
 
 For source-pack search:
 ```bash
-./.venv/bin/python scripts/web_search.py \
+"$PYTHON_CMD" scripts/web_search.py \
   --query "industry regulation policy" \
   --source-pack china_official \
   --source-registry templates/source_registry.json \
@@ -249,7 +267,7 @@ For source-pack search:
 
 For an explicit default-pack validation pass after broad discovery:
 ```bash
-./.venv/bin/python scripts/web_search.py \
+"$PYTHON_CMD" scripts/web_search.py \
   --query "industry market size latest official data" \
   --use-default-packs \
   --source-registry templates/source_registry.json \
@@ -258,7 +276,7 @@ For an explicit default-pack validation pass after broad discovery:
 
 Use the default-pack command sparingly. It is useful for source discovery or validation, but it can fan out to many `site:` searches.
 
-Install dependencies first with `bash ./setup.sh` and verify them with `./.venv/bin/python scripts/check_runtime_dependencies.py`. If setup fails because Python lacks venv/ensurepip support, install the matching system package such as `python3-venv` or `python3.14-venv`, then rerun setup.
+Run runtime bootstrap first with `PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"`, then use `"$PYTHON_CMD"` for fallback search scripts. If bootstrap fails because Python lacks venv/ensurepip support, install the matching system package such as `python3-venv` or `python3.14-venv`, then rerun bootstrap. If `python-pptx` installs but `lxml.etree` fails to import on macOS Python 3.13/3.14, rerun with Python 3.9-3.11, for example `python3 scripts/bootstrap_runtime.py --python python3.11 --force`.
 
 If all search providers fail or return zero results in a brief-only run, stop. Do not silently continue with `training_data` estimates.
 

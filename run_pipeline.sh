@@ -12,7 +12,7 @@
 #   --storyboard FILE      Explicit path to industry_storyboard.json
 #   --work-root DIR        Working directory for default outputs (default: infer from inputs, else cwd)
 #   --attempt-name NAME    Attempt name for default output layout; starts/switches active attempt
-#   --python PATH          Python interpreter to use (default: .venv/bin/python, then python3)
+#   --python PATH          Python interpreter to test first; bootstrap selects one runtime for all scripts
 #   --quality-gate         Enable content quality validation as a hard gate (fail on warnings)
 #   --no-research-gate     Skip research artifact gate (PPT-only debug runs only)
 #   -h, --help             Show this help
@@ -85,27 +85,32 @@ fi
 PPT_COPY="${PPT_COPY:-industry_section_ppt_copy.json}"
 STORYBOARD="${STORYBOARD:-industry_storyboard.json}"
 
-# Resolve Python interpreter once for the whole pipeline.
+# Resolve one Python interpreter for the whole pipeline. Do not mix system,
+# managed, and .venv Python across steps.
+BOOTSTRAP_PYTHON="${PYTHON_BOOTSTRAP_BIN:-}"
+if [[ -z "$BOOTSTRAP_PYTHON" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    BOOTSTRAP_PYTHON="python3"
+  elif command -v python >/dev/null 2>&1; then
+    BOOTSTRAP_PYTHON="python"
+  else
+    echo "ERROR: No Python interpreter found to run bootstrap_runtime.py." >&2
+    exit 1
+  fi
+fi
+
+BOOTSTRAP_ARGS=(--print-python)
 if [[ -n "$PYTHON_CMD_ARG" ]]; then
-  PYTHON_CMD="$PYTHON_CMD_ARG"
+  BOOTSTRAP_ARGS+=(--python "$PYTHON_CMD_ARG")
 elif [[ -n "${PYTHON_CMD:-}" ]]; then
-  :
-elif [[ -x "$SCRIPT_DIR/.venv/bin/python" ]]; then
-  PYTHON_CMD="$SCRIPT_DIR/.venv/bin/python"
-else
-  PYTHON_CMD="python3"
+  BOOTSTRAP_ARGS+=(--python "$PYTHON_CMD")
 fi
-
-if ! "$PYTHON_CMD" -c "import sys; print(sys.version)" >/dev/null 2>&1; then
-  echo "ERROR: Python interpreter not usable: $PYTHON_CMD" >&2
+if ! PYTHON_CMD="$("$BOOTSTRAP_PYTHON" "$SCRIPT_DIR/scripts/bootstrap_runtime.py" "${BOOTSTRAP_ARGS[@]}")"; then
+  echo "ERROR: Runtime bootstrap failed." >&2
+  echo "Run 'python3 scripts/bootstrap_runtime.py' for details, or rerun with --python /path/to/python." >&2
   exit 1
 fi
-
-if ! "$PYTHON_CMD" -c "import pptx" >/dev/null 2>&1; then
-  echo "ERROR: python-pptx not installed in $PYTHON_CMD" >&2
-  echo "Run 'bash ./setup.sh' first or pass --python to a configured interpreter." >&2
-  exit 1
-fi
+echo "[bootstrap] using Python: $PYTHON_CMD"
 
 if [[ ! -f "$STORYBOARD" ]]; then
   echo "ERROR: storyboard file not found: $STORYBOARD" >&2
@@ -300,7 +305,8 @@ echo "[1/7] Checking template tokens..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/check_template_tokens.py" \
   --template "$TEMPLATE" \
   --ppt-mapping "$PPT_MAPPING" \
-  --output "$OUTPUT_DIR/artifacts/template_token_check.json"
+  --output "$OUTPUT_DIR/artifacts/template_token_check.json" \
+  --fail-on-diff
 
 # ── Step 2: Generate replacement dictionary ──────────────────────
 echo "[2/7] Generating replacement dictionary..."

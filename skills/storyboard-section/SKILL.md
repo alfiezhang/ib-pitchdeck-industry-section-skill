@@ -6,6 +6,12 @@ This is the **core reasoning step** and the single integrated LLM planning artif
 
 This step is intentionally **LLM-driven**. The purpose is to let the model reason through investor questions, transaction relevance, and slide logic in one pass, while still producing a disciplined downstream contract.
 
+Before running any validator script in this skill, select one runtime and reuse it:
+
+```bash
+PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+```
+
 ## Purpose
 
 The storyboard is a **planning + drafting** artifact, not a mechanical schema fill. The LLM must reason about the industry thesis, investor questions, page sequencing, and copy before writing. The output should read as a coherent narrative plan, not a disconnected JSON dump.
@@ -51,7 +57,6 @@ For each slide, choose `selected_page_type` first, then fill only the active `bo
 | Slide / canonical `slide_role` | Page Type |
 |-------|-----------|
 | 1 — `industry_overview` | `summary_page` |
-| 3 — `key_industry_drivers` | `driver_card_page` |
 | 4 — `value_chain_profit_pool` | `value_chain_page` |
 | 5 — `key_barriers_value_drivers` | `moat_page` |
 | 8 — `key_takeaways_for_target` | `summary_page` |
@@ -61,8 +66,9 @@ For each slide, choose `selected_page_type` first, then fill only the active `bo
 | Slide / canonical `slide_role` | Options | Selection Priority |
 |-------|---------|-------------------|
 | 2 — `market_size_segmentation` | `chart_page` or `chart_plus_mini_table_page` | Prefer `chart_plus_mini_table_page` when segmentation needs side-by-side quantitative context; prefer `chart_page` when one visual carries the page |
+| 3 — `key_industry_drivers` | `driver_card_page`, `driver_card_5_page`, or `driver_card_6_page` | Choose the card count supported by distinct MECE drivers; do not invent filler drivers to use a larger layout |
 | 6 — `competitive_landscape` | `compare_table_page` or `matrix_page` | Prefer `compare_table_page` when named peer comparison is the clearest story; prefer `matrix_page` when 2D positioning is central |
-| 7 — `industry_trends_future_evolution` | `trend_page` or `timeline_page` | Prefer `trend_page` when trends are thematic/parallel; prefer `timeline_page` when sequence/timing is central |
+| 7 — `industry_trends_future_evolution` | `trend_page`, `timeline_page`, `trend_4_card_page`, `trend_5_card_page`, or `trend_6_card_page` | Choose the card count supported by distinct trends; prefer `timeline_page` when sequence/timing is central |
 
 Every variant selection must include a `decision_rationale` explaining why the chosen page type is better for this specific content.
 
@@ -77,6 +83,91 @@ Before writing any JSON, the LLM must reason through these questions internally:
 5. For each variant slide, which page type **best supports** the specific content and message?
 
 The `storyline_strategy` section captures this reasoning explicitly.
+
+### Slide Story Contract
+
+For each slide, fill a `slide_story_contract` object **before** writing `headline`, `main_message`, or `body_copy`. This contract is the planning anchor that enforces one-story-per-slide and MECE boundaries.
+
+Each contract requires:
+- **question**: The single investor question this slide answers. One question only.
+- **answer**: One-sentence conclusion that aligns with the headline.
+- **evidence_ids**: Evidence IDs from the memo that support this answer (at least 2 distinct IDs).
+- **forbidden_topics**: Content types that must NOT appear on this slide (MECE enforcement). Be explicit.
+- **visual_role**: What the visual area should communicate, in one sentence.
+
+This contract is validated by `validate_storyboard.py`. If `forbidden_topics` overlap with body_copy content, the validator will flag a MECE violation.
+
+### Use Page Evidence Packs
+
+Before writing each slide, read that page's `Page Evidence Pack` in `industry_input_memo.md`.
+
+- Select the strongest 2-4 memo arguments for the slide.
+- Convert selected arguments into active `body_copy` fields.
+- Preserve `Fact / data` -> `So what` -> `Target relevance`.
+- Do not add new facts or do second-pass research in storyboard or PPT fill. If the memo evidence pack is thin, flag `data_gaps` instead of filling with generic copy.
+
+## Storyline Discipline
+
+### One Story Per Slide
+
+Each slide must cover **one core story dimension**. Do not mix unrelated topics on the same slide. If a fact does not fit the slide's role, it belongs on a different slide or should be dropped.
+
+Bad: Slide 2 mixing channel trends, sub-segment growth, AND CR5 concentration changes — three different stories competing for space.
+Good: Slide 2 focusing on market size + one clear segmentation angle (channel OR sub-segments, not both).
+
+### MECE Content Allocation
+
+Allocate content to slides so that the 8 slides together form a **complete, non-overlapping** story. Before drafting copy, map each major insight from the memo to exactly one slide:
+
+| Content Type | Belongs On | Do NOT Put On |
+|---|---|---|
+| Overall market size, growth, TAM | Slide 1 or 2 (not both) | — |
+| Channel structure / distribution shifts | Slide 2 (if chosen focus) | Slide 1, 3 |
+| Sub-segment breakdown / category trends | Slide 2 (if chosen focus) | Slide 1, 3 |
+| Industry concentration (CR5/CR10) | Slide 6 (competitive landscape) | Slide 2 |
+| Growth drivers / demand factors | Slide 3 | Slide 1, 2 |
+| Value chain / margin structure | Slide 4 | Slide 5 |
+| Entry barriers / moats | Slide 5 | Slide 4 |
+| Competitor positioning / peer comparison | Slide 6 | Slide 3 |
+| Regulatory / tech / ESG trends | Slide 7 | Slide 1–6 |
+| Target-specific implications / recommendations | Slide 8 | Slide 1–7 |
+
+### Slide 1: Three-Layer Funnel
+
+Slide 1 is the industry overview. It must follow a **top-down funnel** — never skip layers:
+
+1. **Layer 1 — Parent category scope**: Set the scene with the broadest relevant category (e.g., 整体化妆品市场)
+2. **Layer 2 — Target category**: Narrow to the specific industry (e.g., 底妆市场)
+3. **Layer 3 — Focused segment**: Zoom into the actionable segment (e.g., 线上底妆)
+
+Each layer should be one bullet or one panel point. The funnel should feel natural, not forced.
+
+### Slide 2: Single Focus Axis
+
+Slide 2 covers market size AND segmentation. The segmentation angle must be **one clear axis**, not a grab-bag:
+
+- Choose **channel structure** (online/offline, DTC/retail) OR **sub-segments** (by category, price tier, consumer segment) — not both.
+- If the memo has strong data on both, pick the one that best serves the transaction thesis.
+- CR5 / concentration data does NOT belong on Slide 2 — it belongs on Slide 6 (competitive landscape).
+
+### Pyramid Writing Rule
+
+Every `body_copy` field must follow the **conclusion → data → implication** pyramid:
+
+```
+[Conclusion/judgment]: [supporting data point] → [implication/target relevance]
+```
+
+Not: label-only text that states a topic without an opinion.
+Not: data dumps without a takeaway.
+Not: source references in body text — all Evidence IDs and source names belong in `source_note`.
+
+| Pattern | Example |
+|---|---|
+| ❌ Label only | "渠道结构：线上占比提升" |
+| ❌ Data dump | "2023年线上占比62%，2024年预计65%，2025年预计68%" |
+| ❌ Source in body | "线上渠道占比达65%（EV-005），增长迅速" |
+| ✅ Pyramid | "线上渠道主导增长：占比从62%→65%→68%（2023-25E），驱动底妆品牌加速DTC转型" |
 
 ## Copy Rules
 
@@ -114,7 +205,7 @@ Target ranges (from `templates/content_quality_rules.json`):
 | timeline_stage | 60–100 chars |
 | source_footer | 30+ chars |
 
-Every active body_copy field must contain: **label/prefix + opinion/judgment + evidence/data/implication**. See the storyboard prompt (`prompts/storyboard_section.prompt.md`) for examples.
+Every active body_copy field must contain: **label/prefix + opinion/judgment + evidence/data/mechanism/target implication from the memo Page Evidence Pack**. See the storyboard prompt (`prompts/storyboard_section.prompt.md`) for examples.
 
 Fields that fall below the minimum will be flagged by `validate_content_quality.py`.
 
@@ -133,13 +224,13 @@ Fields that fall below the minimum will be flagged by `validate_content_quality.
 After producing `industry_storyboard.json`, run the content quality validator before human review:
 
 ```bash
-./.venv/bin/python scripts/validate_storyboard.py \
+"$PYTHON_CMD" scripts/validate_storyboard.py \
   --storyboard industry_storyboard.json \
   --schema templates/storyboard_schema.json \
   --text-fit-rules templates/text_fit_rules.json \
   --output artifacts/storyboard_validation.json
 
-./.venv/bin/python scripts/validate_content_quality.py \
+"$PYTHON_CMD" scripts/validate_content_quality.py \
   --storyboard industry_storyboard.json \
   --memo industry_input_memo.md \
   --rules templates/content_quality_rules.json \

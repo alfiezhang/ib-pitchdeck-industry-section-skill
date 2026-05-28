@@ -150,6 +150,13 @@ def check_generic_phrases(
 INLINE_SOURCE_RE = re.compile(
     r"[\(（][^()（）\n]*(?:EV-\d+|Source|source|来源|报告|年报|公告|research|Research)[^()（）\n]*[\)）]"
 )
+EV_ID_RE = re.compile(r"\bEV-\d{3}\b")
+ARGUMENT_SIGNAL_RE = re.compile(
+    r"\d|%|％|亿|万|CAGR|bn|mn|RMB|USD|¥|"
+    r"driv|support|imply|because|therefore|target|margin|share|penetration|"
+    r"驱动|支撑|意味着|因此|标的|利润|份额|渗透|增长|提升|降低|带来",
+    flags=re.IGNORECASE,
+)
 
 
 def check_inline_source_references(
@@ -178,6 +185,46 @@ def check_body_length(
         warnings.append(message)
         if blocking_warnings is not None:
             blocking_warnings.append(message)
+
+
+def check_argument_density(
+    slide: dict,
+    rules: dict,
+    warnings: list[str],
+) -> None:
+    """Check that PPT body fields carry actual arguments, not only topic labels."""
+    checks = rules.get("required_storyboard_checks", {})
+    if not checks.get("argument_fields_should_include_mechanism_or_data", True):
+        return
+
+    slide_no = slide.get("slide_no")
+    body_copy = slide.get("body_copy", {})
+    if not isinstance(body_copy, dict):
+        return
+
+    argument_fields = []
+    for field_name, value in body_copy.items():
+        lowered = field_name.lower()
+        if lowered.startswith(("table_", "matrix_label", "matrix_title")):
+            continue
+        if not isinstance(value, str) or not value.strip():
+            continue
+        argument_fields.append((field_name, value))
+
+    if not argument_fields:
+        return
+
+    strong_fields = [
+        field_name
+        for field_name, value in argument_fields
+        if ARGUMENT_SIGNAL_RE.search(value) and ("：" in value or ":" in value or "→" in value or "；" in value or ";" in value)
+    ]
+    min_fields = int(checks.get("min_argument_fields_per_slide", 3))
+    if len(strong_fields) < min(min_fields, len(argument_fields)):
+        warnings.append(
+            f"slide {slide_no}: only {len(strong_fields)} body_copy field(s) read as evidence-backed arguments; "
+            f"expected at least {min(min_fields, len(argument_fields))}. Use memo Page Evidence Pack arguments with label + judgment + data/mechanism/target implication."
+        )
 
 
 # ── Source note specificity ──────────────────────────────────────
@@ -368,29 +415,25 @@ def check_evidence_linkage(
     slide_no = slide.get("slide_no")
     source_note = slide.get("source_note", "")
     body_copy = slide.get("body_copy", {})
-    target_link = slide.get("target_link", "")
+    contract = slide.get("slide_story_contract", {})
+    evidence_tokens = set(EV_ID_RE.findall(source_note or ""))
+    if isinstance(contract, dict):
+        for item in contract.get("evidence_ids", []) or []:
+            if isinstance(item, str) and EV_ID_RE.fullmatch(item.strip()):
+                evidence_tokens.add(item.strip())
 
-    # Count distinct evidence mentions across source_note + body fields
-    evidence_count = 0
-
-    # Check source_note for references
-    # Look for patterns like "Memo Section X", "Source 1", URLs, specific names
-    if source_note and len(source_note.strip()) > 15:
-        evidence_count += 1
-
-    # Check body_copy fields for inline source references
-    if isinstance(body_copy, dict):
-        for val in body_copy.values():
-            if isinstance(val, str) and len(val.strip()) > 15:
-                # Heuristic: field that reads like "evidence + data" counts
-                if re.search(r'\d+', val) and re.search(r'[%％亿万亿]|RMB|USD|CAGR|bn|mn', val):
-                    evidence_count += 1
-
-    if evidence_count < min_evidence:
+    if len(evidence_tokens) < min_evidence:
         warnings.append(
-            f"slide {slide_no}: only ~{evidence_count} evidence-carrying field(s) — "
-            f"recommend at least {min_evidence} per slide"
+            f"slide {slide_no}: references only {len(evidence_tokens)} distinct Evidence ID(s); "
+            f"expected at least {min_evidence}. Cite memo EV IDs in slide_story_contract.evidence_ids and source_note."
         )
+
+    if evidence_tokens and memo_text:
+        missing = sorted(token for token in evidence_tokens if token not in memo_text)
+        if missing:
+            warnings.append(
+                f"slide {slide_no}: Evidence ID(s) not found in memo: {', '.join(missing)}"
+            )
 
 
 # ── Main validation ──────────────────────────────────────────────
@@ -543,6 +586,7 @@ def validate(
                         field_value, generic_copy, slide_no, field_name,
                         generic_copy_warnings, "generic copy phrase",
                     )
+            check_argument_density(slide, rules, evidence_warnings)
 
         # 4. Source note specificity
         source_note = slide.get("source_note", "")

@@ -11,8 +11,10 @@
 ## 规则
 
 1. **不要引入新事实。** 故事板是唯一的事实来源。不得添加故事板之外的新数据、声明或解读。
+   - 不要在本阶段二次 research 或“扩写”单薄页面。如果文案显得单薄，应保留 storyboard 事实边界，并把问题前置回 memo/storyboard 修复，而不是在这里添加事实。
 2. **不要更改已选的页面类型。** 严格使用故事板 `template_binding` 中指定的变体：
    - 第 2 页：`{slide_2_variant}`
+   - 第 3 页：`{slide_3_variant}`
    - 第 6 页：`{slide_6_variant}`
    - 第 7 页：`{slide_7_variant}`
    除非故事板内部不一致（如某页的 `selected_page_type` 与 `template_binding` 冲突），此时标注冲突，以 `template_binding` 的值为准。
@@ -32,11 +34,11 @@
 
 - **第 1 页**（行业概览）：`bullet_1`、`bullet_2`、`bullet_3`
 - **第 2 页**（市场规模与细分）：`bullet_1`–`bullet_3` + 可选 `table_header_1`–`table_row_3`（仅 chart_plus_mini_table_page）
-- **第 3 页**（关键行业驱动力）：`card_1`–`card_4`
+- **第 3 页**（关键行业驱动力）：取决于变体，使用 `card_1`–`card_4`、`card_5` 或 `card_6`
 - **第 4 页**（价值链与利润池）：`top_left`–`bottom_right`（6 个面板）
 - **第 5 页**（关键壁垒）：`card_1`–`card_3`
 - **第 6 页**（竞争格局）：取决于变体（compare_table_page 用表格+面板；matrix_page 用矩阵+面板）
-- **第 7 页**（行业趋势）：取决于变体（trend_page 用卡片；timeline_page 用阶段）
+- **第 7 页**（行业趋势）：取决于变体（趋势卡片页用 card 字段；timeline_page 用阶段）
 - **第 8 页**（关键启示）：`left_panel`、`right_top`、`right_mid`、`right_bottom`
 
 ## 输出格式
