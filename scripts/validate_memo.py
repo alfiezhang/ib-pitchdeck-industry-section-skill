@@ -14,11 +14,14 @@ from typing import Any, Optional
 REQUIRED_SECTIONS = [
     "Project Meta",
     "Research Plan",
+    "Scope Boundary",
+    "Research Emphasis / Hypothesis Plan",
     "Deal Context",
     "Target Business Summary",
     "Industry Definition",
     "Source Materials",
     "Evidence Ledger",
+    "Research Gap Audit",
 ]
 
 WEAK_SOURCE_MARKERS = (
@@ -100,6 +103,45 @@ def page_sections(text: str) -> dict[int, str]:
     return sections
 
 
+def section_text(text: str, heading: str, level: int = 2) -> str:
+    heading_re = re.compile(
+        rf"^#{{{level}}}\s+{re.escape(heading)}\b.*$",
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+    match = heading_re.search(text)
+    if not match:
+        return ""
+    next_re = re.compile(rf"^#{{1,{level}}}\s+", flags=re.MULTILINE)
+    next_match = next_re.search(text, match.end())
+    return text[match.end() : next_match.start() if next_match else len(text)]
+
+
+def subsection_text(parent_text: str, heading: str, level: int = 3) -> str:
+    heading_re = re.compile(
+        rf"^#{{{level}}}\s+{re.escape(heading)}\b.*$",
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+    match = heading_re.search(parent_text)
+    if not match:
+        return ""
+    next_re = re.compile(rf"^#{{1,{level}}}\s+", flags=re.MULTILINE)
+    next_match = next_re.search(parent_text, match.end())
+    return parent_text[match.end() : next_match.start() if next_match else len(parent_text)]
+
+
+def meaningful_gap_lines(text: str) -> list[str]:
+    lines: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line in {"-", "—"} or line.startswith(">"):
+            continue
+        lowered = line.lower().strip("-: ")
+        if lowered in {"none", "no critical gaps", "n/a", "not applicable", "无", "无重大缺口", "不适用"}:
+            continue
+        lines.append(line)
+    return lines
+
+
 def page_evidence_pack_issues(text: str) -> tuple[list[str], dict[str, Any]]:
     """Validate that each page has enough evidence and argument material."""
     errors: list[str] = []
@@ -142,6 +184,16 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], dict[str, Any]]:
         page_metric["target_relevance_count"] = target_relevance_count
         if target_relevance_count < 1:
             errors.append(f"page {page_no}: evidence pack lacks target relevance")
+
+        relevance_count = len(re.findall(r"Relevance level\s*:|相关性层级\s*:", section, flags=re.IGNORECASE))
+        page_metric["relevance_level_count"] = relevance_count
+        if relevance_count < 3:
+            errors.append(f"page {page_no}: Page Evidence Pack has {relevance_count} relevance level field(s); expected at least 3")
+
+        claim_strength_count = len(re.findall(r"Claim strength\s*:|证据强度\s*:|判断强度\s*:", section, flags=re.IGNORECASE))
+        page_metric["claim_strength_count"] = claim_strength_count
+        if claim_strength_count < 3:
+            errors.append(f"page {page_no}: Page Evidence Pack has {claim_strength_count} claim strength field(s); expected at least 3")
 
         metrics[str(page_no)] = page_metric
     return errors, metrics
@@ -222,6 +274,10 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
     if len(ids) < 8:
         warnings.append(f"memo references only {len(ids)} distinct Evidence IDs; richer runs should use more")
 
+    emphasis = section_text(text, "Research Emphasis / Hypothesis Plan")
+    if emphasis and len(re.findall(r"^\s*\d+\.", emphasis, flags=re.MULTILINE)) < 3:
+        errors.append("Research Emphasis / Hypothesis Plan appears incomplete: expected at least 3 numbered priority research angles")
+
     pages = page_note_count(text)
     if pages < 8:
         errors.append(f"memo has page/slide notes for only {pages} page(s); expected 8")
@@ -234,6 +290,35 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
 
     if "HIGH PRIORITY GAP: online research not completed" in text:
         errors.append("memo records mandatory online research failure")
+
+    gap_audit = section_text(text, "Research Gap Audit")
+    if gap_audit:
+        critical_gaps = meaningful_gap_lines(subsection_text(gap_audit, "Critical Gaps"))
+        if critical_gaps:
+            errors.append(
+                "Research Gap Audit has unresolved Critical Gaps; run focused supplemental research before storyboard: "
+                + "; ".join(critical_gaps[:3])
+            )
+        metric_check = subsection_text(gap_audit, "Metric Consistency Check")
+        if not metric_check or len(meaningful_gap_lines(metric_check)) < 4:
+            errors.append("Research Gap Audit missing a populated Metric Consistency Check")
+        else:
+            required_metric_labels = [
+                "GMV vs revenue",
+                "Cross-slide repeated metric consistency",
+                "Target financials consistency",
+                "User-provided vs external-source discrepancy",
+                "Chart number consistency",
+            ]
+            missing_metric_labels = [
+                label for label in required_metric_labels
+                if label.lower() not in metric_check.lower()
+            ]
+            if missing_metric_labels:
+                errors.append(
+                    "Research Gap Audit Metric Consistency Check missing required item(s): "
+                    + ", ".join(missing_metric_labels)
+                )
 
     for issue in weak_source_issues(text):
         errors.append(issue)

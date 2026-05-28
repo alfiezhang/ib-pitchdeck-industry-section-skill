@@ -86,6 +86,14 @@ CHART_TYPES_REQUIRING_SERIES = {
     "line_chart",
 }
 SUPPORTED_CHART_TYPES = CHART_TYPES_REQUIRING_SERIES | {"metric_cards", "none", "no_chart", "text"}
+RELEVANCE_LEVELS = {"sector_credibility", "transaction_relevance", "target_implication", "mixed"}
+TARGET_LINK_TYPES = {"none", "light", "selective", "central"}
+CLAIM_STRENGTHS = {"hard_fact", "supported_inference", "management_claim", "hypothesis"}
+METRIC_RE = re.compile(
+    r"(?P<value>(?:(?:¥|RMB|USD)\s*\d+(?:\.\d+)?\s*(?:亿|万|bn|mn|billion|million)?)|"
+    r"(?:\d+(?:\.\d+)?\s*(?:%|％|亿|万|bn|mn|billion|million)))",
+    flags=re.IGNORECASE,
+)
 
 EXPECTED_ROLES = {
     1: "industry_overview",
@@ -258,9 +266,37 @@ def check_storyline_contract(
         return
 
     # 1. Check required contract fields
-    for field in ("question", "answer", "evidence_ids", "forbidden_topics", "visual_role"):
+    for field in (
+        "question",
+        "answer",
+        "primary_relevance_level",
+        "target_link_type",
+        "claim_strength",
+        "evidence_ids",
+        "forbidden_topics",
+        "visual_role",
+    ):
         if field not in contract:
             errors.append(f"slide {slide_no}: slide_story_contract.{field} is required")
+
+    relevance_level = contract.get("primary_relevance_level")
+    if relevance_level and relevance_level not in RELEVANCE_LEVELS:
+        errors.append(
+            f"slide {slide_no}: slide_story_contract.primary_relevance_level must be one of "
+            f"{sorted(RELEVANCE_LEVELS)}, found {relevance_level!r}"
+        )
+    target_link_type = contract.get("target_link_type")
+    if target_link_type and target_link_type not in TARGET_LINK_TYPES:
+        errors.append(
+            f"slide {slide_no}: slide_story_contract.target_link_type must be one of "
+            f"{sorted(TARGET_LINK_TYPES)}, found {target_link_type!r}"
+        )
+    claim_strength = contract.get("claim_strength")
+    if claim_strength and claim_strength not in CLAIM_STRENGTHS:
+        errors.append(
+            f"slide {slide_no}: slide_story_contract.claim_strength must be one of "
+            f"{sorted(CLAIM_STRENGTHS)}, found {claim_strength!r}"
+        )
 
     question = contract.get("question", "")
     if isinstance(question, str) and question.count("?") > 1:
@@ -368,6 +404,15 @@ def check_compare_table_structure(
         )
 
 
+def metric_signatures(text: str) -> list[str]:
+    signatures: list[str] = []
+    for match in METRIC_RE.finditer(text):
+        value = re.sub(r"\s+", "", match.group("value"))
+        if value:
+            signatures.append(value)
+    return signatures
+
+
 def check_storyline_coverage(
     slides: list[dict],
     errors: list[str],
@@ -392,6 +437,75 @@ def check_storyline_coverage(
     missing_roles = set(EXPECTED_ROLES.values()) - set(seen_roles.keys())
     if missing_roles:
         errors.append(f"missing slide roles: {', '.join(sorted(missing_roles))}")
+
+    sector_count = 0
+    transaction_count = 0
+    target_count = 0
+    target_central_count = 0
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        contract = slide.get("slide_story_contract", {})
+        if not isinstance(contract, dict):
+            continue
+        level = contract.get("primary_relevance_level")
+        target_link_type = contract.get("target_link_type")
+        if level in {"sector_credibility", "mixed"}:
+            sector_count += 1
+        if level in {"transaction_relevance", "mixed"}:
+            transaction_count += 1
+        if level in {"target_implication", "mixed"} or target_link_type in {"selective", "central"}:
+            target_count += 1
+        if target_link_type == "central":
+            target_central_count += 1
+
+    if sector_count < 3:
+        errors.append(
+            f"pre-mandate relevance coverage: only {sector_count} slide(s) build sector credibility; expected at least 3"
+        )
+    if transaction_count < 2:
+        errors.append(
+            f"pre-mandate relevance coverage: only {transaction_count} slide(s) explain transaction relevance; expected at least 2"
+        )
+    if target_count < 2:
+        errors.append(
+            f"pre-mandate relevance coverage: only {target_count} slide(s) include target implication; expected at least 2"
+        )
+    if target_central_count > 4:
+        errors.append(
+            f"pre-mandate relevance balance: {target_central_count} slide(s) are target-central; no more than 4 should make the target the central claim"
+        )
+
+    metric_locations: dict[str, list[int]] = {}
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        slide_no = slide.get("slide_no")
+        fields = [
+            str(slide.get("headline") or ""),
+            str(slide.get("main_message") or ""),
+            str(slide.get("target_link") or ""),
+        ]
+        body_copy = slide.get("body_copy", {})
+        if isinstance(body_copy, dict):
+            fields.extend(str(value) for value in body_copy.values() if isinstance(value, str))
+        chart_data = slide.get("chart_data", {})
+        if isinstance(chart_data, dict):
+            fields.append(str(chart_data.get("title") or ""))
+            fields.append(str(chart_data.get("notes") or ""))
+        for signature in set(metric_signatures(" ".join(fields))):
+            metric_locations.setdefault(signature, []).append(slide_no)
+
+    repeated_metrics = {
+        metric: sorted(set(locations))
+        for metric, locations in metric_locations.items()
+        if len(set(locations)) >= 3
+    }
+    if repeated_metrics:
+        warnings.append(
+            "cross-slide metric consistency: repeated metrics appear on 3+ slides; verify same value/unit/scope/period: "
+            + "; ".join(f"{metric} on slides {locations}" for metric, locations in list(repeated_metrics.items())[:5])
+        )
 
     # 2. Per-slide structural checks
     for slide in slides:
@@ -468,7 +582,7 @@ def validate_slides(
                 if blank:
                     errors.append(f"slide {slide_no}: blank active body_copy fields: {', '.join(blank)}")
                 if extra:
-                    warnings.append(f"slide {slide_no}: extra body_copy fields ignored by active layout: {', '.join(extra)}")
+                    errors.append(f"slide {slide_no}: extra body_copy fields ignored by active layout: {', '.join(extra)}")
                 check_layout_budget(slide_no, page_type, body_copy, layout_budget, errors, warnings)
 
         validate_chart_data(slide, errors, warnings, layout_budget)

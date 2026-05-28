@@ -128,6 +128,7 @@ Apply object-level visual cleanup after token fill. This step is where real char
 Current scope:
 - removes template scaffold labels such as `PRIMARY CHART`, `POINT 1`, `STANDARD`
 - renders real visual objects on Slide 1, Slide 2, and selected Slide 6 variants when executable data is present
+- renders Slide 2 mini-table and Slide 6 compare table as real PPT table objects when those page types are selected; do not deliver fake tables made from plain text separators
 - reads deterministic render coordinates from `templates/render_layouts.json`
 
 ### 7. Validate Filled PPT
@@ -146,6 +147,8 @@ Run the final validation gate.
 ```
 
 If `filled_ppt_validation.json` has `summary.is_valid=false`, do not deliver the PPT. Fix the underlying issue. Do not reinterpret failed validation as a harmless warning.
+
+Try at most 3 validation/fix cycles for the same failed gate. After 3 failed cycles, stop and report the remaining errors, likely root cause, and smallest next action.
 
 ## Outputs
 

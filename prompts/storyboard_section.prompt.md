@@ -6,6 +6,8 @@ Your task is **not** to mechanically fill a fixed JSON schema. Your task is to *
 
 This workflow is intentionally LLM-driven. Use judgment to synthesize the transaction story, but keep the output disciplined enough to become a downstream execution contract for PPT filling.
 
+Default engagement context: `pre_mandate_transaction_pitch`. This is a transaction-oriented industry section for a potential pitch before a formal mandate is won. It must demonstrate sector understanding, transaction relevance, and selective target implications. It is not a generic industry report, full consulting study, company deep dive, valuation report, or retained-client sell-side marketing book.
+
 ## Inputs
 
 You will receive:
@@ -17,6 +19,8 @@ You will receive:
 6. PPT copy mapping (`templates/ppt_copy_mapping.json`) — active field contract by page type
 7. Text fit rules (`templates/text_fit_rules.json`) — title and main_message line limits
 8. Layout budget (`templates/layout_budget.json`) — body, table, and visual capacity limits by page type
+9. Scope boundary (`references/scope_boundary.md`) — pre-mandate relevance levels and claim-strength discipline
+10. Execution discipline (`references/execution_discipline.md`) — workflow discipline, metric consistency, data conflict handling, and anti-patterns
 
 ## Required Output
 
@@ -25,7 +29,7 @@ Produce **one valid JSON object** conforming to `templates/storyboard_schema.jso
 1. `section_meta` — target, industry, geography, language, source memo
 2. `storyline_strategy` — thesis, transaction relevance, investor questions, key messages, data gaps, tone
 3. `slides` — 8 slides, each with role, page type, rationale, headline, main message, body copy, visual direction, target link, source note, data gaps
-4. `template_binding` — final variant selections for slides 2, 6, 7
+4. `template_binding` — final variant selections for slides 2, 3, 6, 7
 5. `qc_self_check` — honest self-assessment before human review
 
 ## Reasoning Requirements
@@ -51,6 +55,9 @@ Each contract requires:
 
 - **question**: The single investor question this slide answers. One question only — not a list.
 - **answer**: One-sentence conclusion that directly answers the question. This should align with the `headline`.
+- **primary_relevance_level**: One of `sector_credibility`, `transaction_relevance`, `target_implication`, or `mixed`.
+- **target_link_type**: One of `none`, `light`, `selective`, or `central`. Not every slide should be target-central.
+- **claim_strength**: One of `hard_fact`, `supported_inference`, `management_claim`, or `hypothesis`.
 - **evidence_ids**: Which Evidence IDs (e.g., EV-001) from the memo support this answer. At least 2 distinct IDs.
 - **forbidden_topics**: Content types that must NOT appear on this slide. This is the MECE enforcement mechanism. Be explicit — e.g., for Slide 3 (drivers), forbid "CR5/CR10", "channel structure", "value chain margin".
 - **visual_role**: What the visual area should communicate, in one sentence.
@@ -60,6 +67,9 @@ Example for Slide 3:
 {
   "question": "What structural factors drive long-term demand growth in this industry?",
   "answer": "Three converging drivers — skincare-ification, channel DTC shift, and premiumization — support sustained double-digit growth.",
+  "primary_relevance_level": "transaction_relevance",
+  "target_link_type": "selective",
+  "claim_strength": "supported_inference",
   "evidence_ids": ["EV-003", "EV-005", "EV-008"],
   "forbidden_topics": ["CR5/CR10 concentration", "channel migration data", "value chain margins", "competitor names"],
   "visual_role": "Show three driver cards, each with a label, 1-line mechanism, and one supporting data point."
@@ -84,6 +94,23 @@ Use the following standard structure unless the user explicitly asks otherwise:
 Use these canonical role keys exactly in each slide's `slide_role`.
 
 ## Storyline Discipline
+
+### Pre-Mandate Relevance Balance
+
+Each slide should primarily serve at least one purpose:
+
+- `sector_credibility`: show that we understand industry structure, growth, segmentation, value chain, competition, or trends.
+- `transaction_relevance`: explain why the sector setup matters for valuation, buyer interest, consolidation, financing, or timing.
+- `target_implication`: selectively explain how the target is positioned, advantaged, exposed, or worth further diligence.
+- `mixed`: intentionally combines more than one purpose.
+
+Across the section:
+- At least 3 slides should build sector credibility.
+- At least 2 slides should explain transaction relevance.
+- At least 2 slides should include target implication.
+- No more than 4 slides should make the target the central claim.
+
+Do not force target mentions on every slide. Do not turn every slide into "industry tailwind benefits the target." Use the target as a case anchor when evidence supports it.
 
 ### One Story Per Slide
 
@@ -207,6 +234,7 @@ Before writing each slide, read that page's `Page Evidence Pack` in `industry_in
 
 Use it as follows:
 - Select the strongest 2-4 arguments for the slide; do not invent new arguments in storyboard.
+- Prefer arguments with relevance level and claim strength that match the slide story contract.
 - Convert each selected argument into one active `body_copy` field where possible.
 - Preserve the chain: `Fact / data` -> `So what` -> `Target relevance`.
 - If a page evidence pack is thin, flag it in `data_gaps` and keep the slide cautious rather than filling with generic language.
@@ -258,7 +286,29 @@ If you catch yourself writing any of these, replace with specific evidence + sou
 - For colon-led labels such as `Industry structure:` or `Target position:`, prefer bolding the label prefix rather than highlighting the whole sentence.
 - Do not leave template-helper labels in visible copy. Terms such as `PRIMARY CHART`, `POINT 1`, or page-type names are scaffold only and must not appear in deliverable text.
 - Do not embed source references in body text. Evidence IDs, report names, annual reports, and announcement names should appear in `source_note`, not in parentheses inside bullets.
+
+## Cross-Slide Metric and Footnote Discipline
+
+Before final JSON:
+- Verify repeated metrics use the same value, unit, market definition, period, and ranking basis across slides.
+- Keep target financials identical across slides unless the memo explicitly documents a discrepancy.
+- If different market definitions are intentionally used, label the scope clearly.
+- Use `source_note` for sources and Evidence IDs.
+- Use `chart_data.notes` and `data_gaps` for scope, calculations, assumptions, exclusions, caveats, and unresolved discrepancies.
+- Every calculated metric should have a note explaining its formula or basis.
+
+## Claim Strength Discipline
+
+Match wording to `slide_story_contract.claim_strength`:
+
+- `hard_fact`: direct wording is acceptable, but preserve scope, period, geography, unit, and source basis.
+- `supported_inference`: use cautious language such as "suggests", "supports", "indicates", "可能意味着", "表明".
+- `management_claim`: label it as company/user-provided unless independently verified.
+- `hypothesis`: write it as a diligence question, open point, or working hypothesis, not a fact.
+
+Do not use absolute language for non-hard-fact claims, including: "certain", "irreversible", "no slowdown", "impossible to replicate", "must", "确定性", "不可逆", "无放缓迹象", "不可复制", "必然", "绝对领先".
 - Slide 2 and Slide 6 table fields are post-processed into real PPT table objects. Use `｜` to separate table cells; do not write table rows as prose paragraphs.
+- The `｜` separator is an upstream JSON convention only. Final PPT tables must be real table objects after post-processing, not plain text rows with visible separators.
 - Slide 2 and Slide 6 tables must use compact cells: each cell should be a label, number, or short judgment, not a full sentence. Put longer explanations in the right-side commentary/panel fields instead of forcing them into the table.
 
 ## Source Discipline

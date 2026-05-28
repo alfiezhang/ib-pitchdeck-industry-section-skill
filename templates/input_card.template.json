@@ -3,7 +3,12 @@
     "_description": "Input card is transcription-only. Copy user-provided facts faithfully; do not enrich, infer, rewrite into highlights, or add planner-generated peers/sources/topics. Mark every populated field source.",
     "request_language": "",
     "user_provided_paths": [],
-    "normalized_metadata_paths": []
+    "normalized_metadata_paths": [
+      "engagement_context.stage",
+      "engagement_context.audience",
+      "engagement_context.objective",
+      "engagement_context.tone"
+    ]
   },
   "target_company": "",
   "transaction_type": "",
@@ -12,6 +17,13 @@
   "geography": "",
   "language": "",
   "deal_context": "",
+  "engagement_context": {
+    "_description": "Default skill context. This is safe normalized metadata unless the user specifies a different engagement mode.",
+    "stage": "pre_mandate_transaction_pitch",
+    "audience": "potential_client_or_management",
+    "objective": "demonstrate sector understanding, transaction relevance, and selective target implications",
+    "tone": "insightful_but_not_over_selling"
+  },
   "target_business_summary": "",
   "known_investment_highlights": [],
   "known_risks_or_open_questions": [],

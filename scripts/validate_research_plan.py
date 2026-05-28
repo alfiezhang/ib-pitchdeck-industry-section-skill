@@ -159,6 +159,28 @@ def validate(
     if source_registry.get("read_as_menu_before_search") is not True:
         warnings.append("source_registry.read_as_menu_before_search should be true")
 
+    research_emphasis = plan.get("research_emphasis", {})
+    if formal_stage:
+        if not isinstance(research_emphasis, dict):
+            blocking_warnings.append("research_emphasis must be an object after broad discovery")
+        else:
+            classification = research_emphasis.get("project_classification", {})
+            if not isinstance(classification, dict) or not text_present(classification.get("key_transaction_question")):
+                blocking_warnings.append("research_emphasis.project_classification.key_transaction_question is required in formal plans")
+            priority_angles = research_emphasis.get("priority_research_angles", [])
+            if not isinstance(priority_angles, list):
+                blocking_warnings.append("research_emphasis.priority_research_angles must be an array")
+            else:
+                filled_angles = [
+                    item for item in priority_angles
+                    if isinstance(item, dict) and text_present(item.get("angle")) and text_present(item.get("why_it_matters_for_pitch"))
+                ]
+                if len(filled_angles) < 3:
+                    blocking_warnings.append("research_emphasis should include at least 3 priority research angles with pitch relevance")
+            slide_implications = research_emphasis.get("fixed_8_slide_implications", [])
+            if not isinstance(slide_implications, list) or len(slide_implications) < 8:
+                blocking_warnings.append("research_emphasis.fixed_8_slide_implications should map emphasis to all 8 fixed slides")
+
     broad = plan.get("broad_discovery", {})
     broad_queries = broad.get("queries", []) if isinstance(broad, dict) else []
     if not isinstance(broad_queries, list):

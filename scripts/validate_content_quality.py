@@ -151,6 +151,11 @@ INLINE_SOURCE_RE = re.compile(
     r"[\(（][^()（）\n]*(?:EV-\d+|Source|source|来源|报告|年报|公告|research|Research)[^()（）\n]*[\)）]"
 )
 EV_ID_RE = re.compile(r"\bEV-\d{3}\b")
+METRIC_RE = re.compile(
+    r"(?P<value>(?:(?:¥|RMB|USD)\s*\d+(?:\.\d+)?\s*(?:亿|万|bn|mn|billion|million)?)|"
+    r"(?:\d+(?:\.\d+)?\s*(?:%|％|亿|万|bn|mn|billion|million)))",
+    flags=re.IGNORECASE,
+)
 ARGUMENT_SIGNAL_RE = re.compile(
     r"\d|%|％|亿|万|CAGR|bn|mn|RMB|USD|¥|"
     r"driv|support|imply|because|therefore|target|margin|share|penetration|"
@@ -170,6 +175,36 @@ def check_inline_source_references(
             f"slide {slide_no}: inline source reference found in '{field_name}'; "
             "move source IDs/names to source_note/source_footer"
         )
+
+
+def metric_signatures(text: str) -> list[str]:
+    signatures: list[str] = []
+    for match in METRIC_RE.finditer(text):
+        value = re.sub(r"\s+", "", match.group("value"))
+        if value:
+            signatures.append(value)
+    return signatures
+
+
+def collect_slide_metric_signatures(slide: dict) -> set[str]:
+    fields: list[str] = []
+    for field_name in ("headline", "main_message", "target_link"):
+        value = slide.get(field_name)
+        if isinstance(value, str):
+            fields.append(value)
+    body_copy = slide.get("body_copy", {})
+    if isinstance(body_copy, dict):
+        fields.extend(value for value in body_copy.values() if isinstance(value, str))
+    chart_data = slide.get("chart_data", {})
+    if isinstance(chart_data, dict):
+        fields.append(str(chart_data.get("title") or ""))
+        fields.append(str(chart_data.get("notes") or ""))
+        source_rows = chart_data.get("source_rows", [])
+        if isinstance(source_rows, list):
+            for row in source_rows:
+                if isinstance(row, dict):
+                    fields.extend(str(row.get(key) or "") for key in ("label", "value", "period", "note"))
+    return set(metric_signatures(" ".join(fields)))
 
 
 def check_body_length(
@@ -224,6 +259,73 @@ def check_argument_density(
         warnings.append(
             f"slide {slide_no}: only {len(strong_fields)} body_copy field(s) read as evidence-backed arguments; "
             f"expected at least {min(min_fields, len(argument_fields))}. Use memo Page Evidence Pack arguments with label + judgment + data/mechanism/target implication."
+        )
+
+
+def check_claim_strength_language(
+    slide: dict,
+    overclaim_phrases: list[str],
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    """Check that non-hard-fact claims do not use absolute language."""
+    slide_no = slide.get("slide_no")
+    contract = slide.get("slide_story_contract", {})
+    claim_strength = ""
+    if isinstance(contract, dict):
+        claim_strength = str(contract.get("claim_strength") or "").strip()
+    if claim_strength == "hard_fact":
+        return
+
+    fields: list[tuple[str, str]] = []
+    for field_name in ("headline", "main_message", "target_link"):
+        value = slide.get(field_name)
+        if isinstance(value, str):
+            fields.append((field_name, value))
+    body_copy = slide.get("body_copy", {})
+    if isinstance(body_copy, dict):
+        fields.extend((f"body_copy.{key}", value) for key, value in body_copy.items() if isinstance(value, str))
+
+    for field_name, value in fields:
+        text_lower = normalize(value)
+        for phrase in overclaim_phrases:
+            if normalize(phrase) and normalize(phrase) in text_lower:
+                message = (
+                    f"slide {slide_no}: overclaim phrase '{phrase}' found in {field_name} "
+                    f"while claim_strength is '{claim_strength or 'missing'}'; use cautious wording or upgrade evidence"
+                )
+                warnings.append(message)
+                blocking_warnings.append(message)
+                return
+
+
+def check_source_note_notes_discipline(
+    slide: dict,
+    warnings: list[str],
+) -> None:
+    """Flag likely scope/calculation notes hidden inside source_note."""
+    slide_no = slide.get("slide_no")
+    source_note = str(slide.get("source_note") or "")
+    if not source_note:
+        return
+    lowered = source_note.lower()
+    note_terms = (
+        "assumption",
+        "calculation",
+        "formula",
+        "scope",
+        "definition",
+        "口径",
+        "假设",
+        "测算",
+        "计算",
+        "不包含",
+        "剔除",
+    )
+    if any(term in lowered for term in note_terms) and "source" not in lowered and "sources" not in lowered and "来源" not in source_note:
+        warnings.append(
+            f"slide {slide_no}: source_note appears to contain scope/calculation notes without clear source attribution; "
+            "separate sources from notes where possible"
         )
 
 
@@ -454,6 +556,9 @@ def validate(
     evidence_warnings: list[str] = []
     layout_warnings: list[str] = []
     layout_blocking_warnings: list[str] = []
+    claim_strength_warnings: list[str] = []
+    claim_strength_blocking_warnings: list[str] = []
+    consistency_warnings: list[str] = []
 
     # Load inputs
     try:
@@ -468,6 +573,8 @@ def validate(
             "chart_data_warnings": [],
             "generic_copy_warnings": [],
             "evidence_warnings": [],
+            "claim_strength_warnings": [],
+            "consistency_warnings": [],
         }
 
     try:
@@ -483,6 +590,8 @@ def validate(
             "chart_data_warnings": [],
             "generic_copy_warnings": [],
             "evidence_warnings": [],
+            "claim_strength_warnings": [],
+            "consistency_warnings": [],
         }
 
     text_fit_rules = {}
@@ -511,6 +620,7 @@ def validate(
 
     generic_source = rules.get("generic_source_phrases", [])
     generic_copy = rules.get("generic_copy_phrases", [])
+    overclaim_phrases = rules.get("overclaim_phrases", [])
     weak_source_markers = rules.get("weak_source_markers", [])
     min_evidence = rules.get("required_storyboard_checks", {}).get("min_evidence_per_slide", 2)
 
@@ -518,6 +628,8 @@ def validate(
     if not isinstance(slides, list):
         errors.append("slides must be an array")
         slides = []
+
+    metric_locations: dict[str, list[int]] = {}
 
     for slide in slides:
         if not isinstance(slide, dict):
@@ -603,20 +715,41 @@ def validate(
                 "source_note",
                 source_warnings,
             )
+            if rules.get("required_storyboard_checks", {}).get("sources_notes_discipline", True):
+                check_source_note_notes_discipline(slide, source_warnings)
 
         # 5. Chart data completeness
         check_chart_data(slide, rules, chart_data_warnings, layout_blocking_warnings, layout_budget)
 
-        # 6. Training data usage
+        # 6. Claim strength and overclaim language
+        check_claim_strength_language(slide, overclaim_phrases, claim_strength_warnings, claim_strength_blocking_warnings)
+
+        # 7. Training data usage
         if memo_text:
             check_training_data_usage(slide, memo_text, rules, source_warnings)
 
-        # 7. Evidence linkage
+        # 8. Evidence linkage
         if memo_text:
             check_evidence_linkage(slide, memo_text, min_evidence, evidence_warnings)
 
+        if rules.get("required_storyboard_checks", {}).get("cross_slide_metric_consistency_check", True):
+            for signature in collect_slide_metric_signatures(slide):
+                metric_locations.setdefault(signature, []).append(slide_no)
+
     if memo_text:
         check_memo_source_quality(memo_text, weak_source_markers, source_warnings)
+
+    if metric_locations:
+        repeated_metrics = {
+            metric: sorted(set(locations))
+            for metric, locations in metric_locations.items()
+            if len(set(locations)) >= 3
+        }
+        for metric, locations in list(repeated_metrics.items())[:8]:
+            consistency_warnings.append(
+                f"cross-slide metric consistency: '{metric}' appears on slides {locations}; "
+                "verify same value/unit/scope/period and label any intentional definition differences"
+            )
 
     all_warnings = (
         density_warnings
@@ -625,12 +758,15 @@ def validate(
         + generic_copy_warnings
         + evidence_warnings
         + layout_warnings
+        + claim_strength_warnings
+        + consistency_warnings
     )
 
     blocking_warnings = []
     if block_source_warnings:
         blocking_warnings.extend(source_warnings)
     blocking_warnings.extend(layout_blocking_warnings)
+    blocking_warnings.extend(claim_strength_blocking_warnings)
     if blocking_warnings:
         errors.append(
             "content quality gate failed: resolve blocking source/layout warnings before PPT delivery"
@@ -654,6 +790,8 @@ def validate(
         "generic_copy_warnings": generic_copy_warnings,
         "evidence_warnings": evidence_warnings,
         "layout_warnings": layout_warnings,
+        "claim_strength_warnings": claim_strength_warnings,
+        "consistency_warnings": consistency_warnings,
     }
 
 

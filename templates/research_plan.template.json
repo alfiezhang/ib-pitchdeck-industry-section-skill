@@ -49,6 +49,71 @@
       }
     ]
   },
+  "research_emphasis": {
+    "purpose": "Fill after broad discovery and before memo synthesis. Use broad research to decide what this project most needs to understand, not to hard-code industry templates.",
+    "project_classification": {
+      "sector_type": "",
+      "transaction_type": "",
+      "target_business_model": "",
+      "likely_buyer_or_investor_angle": "",
+      "key_transaction_question": ""
+    },
+    "priority_research_angles": [
+      {
+        "angle": "",
+        "why_it_matters_for_pitch": "",
+        "evidence_needed": ""
+      }
+    ],
+    "de_prioritized_angles": [
+      {
+        "angle": "",
+        "reason": ""
+      }
+    ],
+    "fixed_8_slide_implications": [
+      {
+        "slide_no": 1,
+        "fixed_slide_type": "industry_overview",
+        "research_emphasis": ""
+      },
+      {
+        "slide_no": 2,
+        "fixed_slide_type": "market_size_segmentation",
+        "research_emphasis": ""
+      },
+      {
+        "slide_no": 3,
+        "fixed_slide_type": "key_industry_drivers",
+        "research_emphasis": ""
+      },
+      {
+        "slide_no": 4,
+        "fixed_slide_type": "value_chain_profit_pool",
+        "research_emphasis": ""
+      },
+      {
+        "slide_no": 5,
+        "fixed_slide_type": "key_barriers_value_drivers",
+        "research_emphasis": ""
+      },
+      {
+        "slide_no": 6,
+        "fixed_slide_type": "competitive_landscape",
+        "research_emphasis": ""
+      },
+      {
+        "slide_no": 7,
+        "fixed_slide_type": "industry_trends_future_evolution",
+        "research_emphasis": ""
+      },
+      {
+        "slide_no": 8,
+        "fixed_slide_type": "key_takeaways_for_target",
+        "research_emphasis": ""
+      }
+    ]
+  },
   "source_selection": {
     "selection_rule": "After broad discovery, select sources by research dimension. Aim for 6-15 distinct high-priority domains across the full memo, with 1-3 relevant packs/domains per dimension when appropriate. Add more for regulated, cross-border, or data-sparse industries.",
     "selected_source_packs": [

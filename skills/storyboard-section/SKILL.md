@@ -16,6 +16,10 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 
 The storyboard is a **planning + drafting** artifact, not a mechanical schema fill. The LLM must reason about the industry thesis, investor questions, page sequencing, and copy before writing. The output should read as a coherent narrative plan, not a disconnected JSON dump.
 
+Default engagement context is `pre_mandate_transaction_pitch`: this is a transaction-oriented industry section for a potential pitch before a formal mandate is won. Read `references/scope_boundary.md` before drafting. The section must show sector understanding, transaction relevance, and selective target implications; it must not read like generic research or retained-client promotional copy.
+
+Also read `references/execution_discipline.md` before drafting. Apply its cross-slide metric consistency, Sources vs Notes discipline, data conflict handling, and critical anti-patterns.
+
 ## Inputs
 
 | Input | Required | Purpose |
@@ -36,7 +40,7 @@ The storyboard is a **planning + drafting** artifact, not a mechanical schema fi
 1. **section_meta**: target name, industry, geography, language, source memo path
 2. **storyline_strategy**: one-sentence thesis, transaction relevance, investor questions (3–5), key messages (5–8), known data gaps, tone guidance
 3. **slides** (×8): slide role, selected page type, decision rationale, headline, main message, body copy, visual direction, optional chart_data, target link, source note, data gaps
-4. **template_binding**: final variant selections for slides 2/6/7, list of inactive variants to remove
+4. **template_binding**: final variant selections for slides 2/3/6/7, list of inactive variants to remove
 5. **qc_self_check**: honest self-assessment covering generic report risk, target linkage, source support, repetition, template fit, and content density
 
 ## Page Type Selection
@@ -91,6 +95,9 @@ For each slide, fill a `slide_story_contract` object **before** writing `headlin
 Each contract requires:
 - **question**: The single investor question this slide answers. One question only.
 - **answer**: One-sentence conclusion that aligns with the headline.
+- **primary_relevance_level**: `sector_credibility`, `transaction_relevance`, `target_implication`, or `mixed`.
+- **target_link_type**: `none`, `light`, `selective`, or `central`. Not every slide should be target-central.
+- **claim_strength**: `hard_fact`, `supported_inference`, `management_claim`, or `hypothesis`.
 - **evidence_ids**: Evidence IDs from the memo that support this answer (at least 2 distinct IDs).
 - **forbidden_topics**: Content types that must NOT appear on this slide (MECE enforcement). Be explicit.
 - **visual_role**: What the visual area should communicate, in one sentence.
@@ -102,9 +109,28 @@ This contract is validated by `validate_storyboard.py`. If `forbidden_topics` ov
 Before writing each slide, read that page's `Page Evidence Pack` in `industry_input_memo.md`.
 
 - Select the strongest 2-4 memo arguments for the slide.
+- Prefer arguments whose `relevance_level` and `claim_strength` match the slide story contract.
 - Convert selected arguments into active `body_copy` fields.
 - Preserve `Fact / data` -> `So what` -> `Target relevance`.
 - Do not add new facts or do second-pass research in storyboard or PPT fill. If the memo evidence pack is thin, flag `data_gaps` instead of filling with generic copy.
+
+### Cross-Slide Metric Consistency
+
+Before finalizing the storyboard, check that repeated metrics use the same value, unit, period, market definition, ranking basis, and target financials across slides. If different definitions are intentionally used, label them clearly in `source_note`, `chart_data.notes`, or `data_gaps`.
+
+### Sources vs Notes
+
+Use `source_note` to identify sources and Evidence IDs. Use `chart_data.notes` or `data_gaps` for scope, calculations, assumptions, exclusions, and caveats. Do not put source names or Evidence IDs in body text.
+
+### Pre-Mandate Relevance Balance
+
+Across the 8-slide section:
+- At least 3 slides should build `sector_credibility`.
+- At least 2 slides should explain `transaction_relevance`.
+- At least 2 slides should include `target_implication`.
+- No more than 4 slides should use `target_link_type = central`.
+
+Do not force target mentions on every slide. Target linkage should be selective, evidence-based, and transaction-relevant.
 
 ## Storyline Discipline
 
@@ -214,6 +240,8 @@ Fields that fall below the minimum will be flagged by `validate_content_quality.
 - Do **not** introduce facts not present in `industry_input_memo.md`.
 - Do **not** invent CAGRs, market sizes, rankings, company names, or source names.
 - Directional judgments are allowed but must read as inference ("management believes," "this suggests," "indicative"), not as hard fact.
+- Match wording to `claim_strength`: `hard_fact` can be direct, `supported_inference` should be cautious, `management_claim` must be labeled as company/user-provided unless externally verified, and `hypothesis` must read as a diligence question or working hypothesis.
+- Avoid overclaim language unless directly sourced as hard fact: 确定性, 不可逆, 无放缓迹象, 不可复制, 必然, 绝对领先.
 - If a fact cannot be verified, write `Insufficient data` and flag it in `data_gaps`.
 - If the memo contains conflicting data, state the conflict rather than silently picking one side or averaging.
 - Every slide should reference at least 2 Evidence IDs or memo sections across body_copy + source_note.

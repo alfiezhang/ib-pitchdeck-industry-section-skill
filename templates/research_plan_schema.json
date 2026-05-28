@@ -3,7 +3,7 @@
   "title": "Industry Research Plan",
   "description": "Planning artifact for the research phase. It makes source selection explicit before memo synthesis and provides a Phase 2/3 harness interface.",
   "type": "object",
-  "required": ["meta", "source_registry", "broad_discovery", "source_selection", "dimension_plan", "quality_controls"],
+  "required": ["meta", "source_registry", "broad_discovery", "research_emphasis", "source_selection", "dimension_plan", "quality_controls"],
   "properties": {
     "meta": {
       "type": "object",
@@ -108,6 +108,65 @@
             "properties": {
               "name": { "type": "string" },
               "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "research_emphasis": {
+      "type": "object",
+      "required": ["project_classification", "priority_research_angles", "de_prioritized_angles", "fixed_8_slide_implications"],
+      "properties": {
+        "purpose": { "type": "string" },
+        "project_classification": {
+          "type": "object",
+          "properties": {
+            "sector_type": { "type": "string" },
+            "transaction_type": { "type": "string" },
+            "target_business_model": { "type": "string" },
+            "likely_buyer_or_investor_angle": { "type": "string" },
+            "key_transaction_question": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "priority_research_angles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["angle", "why_it_matters_for_pitch", "evidence_needed"],
+            "properties": {
+              "angle": { "type": "string" },
+              "why_it_matters_for_pitch": { "type": "string" },
+              "evidence_needed": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "de_prioritized_angles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["angle", "reason"],
+            "properties": {
+              "angle": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "fixed_8_slide_implications": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": ["slide_no", "fixed_slide_type", "research_emphasis"],
+            "properties": {
+              "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+              "fixed_slide_type": { "type": "string" },
+              "research_emphasis": { "type": "string" }
             },
             "additionalProperties": false
           }

@@ -6,6 +6,8 @@
 
 本流程刻意由大模型主导。你需要用判断力综合交易故事线，但输出必须足够规整，能够作为后续 PPT 填充的执行契约。
 
+默认语境是 `pre_mandate_transaction_pitch`：这是尚未必然拿下 mandate 前，用于 pitch 潜在客户的交易导向行业章节。它需要展示行业理解、交易理解和专业判断；它不是泛行业报告、完整咨询研究、公司深度研究、估值报告，也不是已拿下客户后的 sell-side 宣传材料。
+
 ## 输入材料
 
 你将收到：
@@ -17,6 +19,8 @@
 6. PPT 文案映射 (`templates/ppt_copy_mapping.json`) —— 每种页面类型的 active 字段契约
 7. 文本适配规则 (`templates/text_fit_rules.json`) —— 标题和核心信息的行数限制
 8. 页面版式预算 (`templates/layout_budget.json`) —— 每种页面类型的正文、表格和视觉容量限制
+9. 研究边界 (`references/scope_boundary.md`) —— pre-mandate 三层相关性和判断强度纪律
+10. 执行纪律 (`references/execution_discipline.md`) —— 工作流纪律、跨页口径一致性、数据冲突处理和反模式
 
 ## 输出要求
 
@@ -25,7 +29,7 @@
 1. `section_meta` —— 标的、行业、地域、语言、来源备忘录
 2. `storyline_strategy` —— 核心论点、交易相关性、投资者问题、关键信息、数据缺口、语气指导
 3. `slides` —— 8 页幻灯片，每页包含角色、页面类型、选择理由、标题、核心信息、正文、视觉方向、标的关联、来源注释、数据缺口
-4. `template_binding` —— 第 2/6/7 页的最终变体选择
+4. `template_binding` —— 第 2/3/6/7 页的最终变体选择
 5. `qc_self_check` —— 提交人工审核前的诚实自检
 
 ## 推理要求
@@ -51,6 +55,9 @@
 
 - **question**：本页回答的单一投资者问题。只能是一个问题，不要写问题列表。
 - **answer**：直接回答该问题的一句话结论，应与 `headline` 保持一致。
+- **primary_relevance_level**：`sector_credibility`、`transaction_relevance`、`target_implication` 或 `mixed`。
+- **target_link_type**：`none`、`light`、`selective` 或 `central`。不是每页都应该以标的为中心。
+- **claim_strength**：`hard_fact`、`supported_inference`、`management_claim` 或 `hypothesis`。
 - **evidence_ids**：支撑本页结论的备忘录 Evidence ID（如 EV-001），至少 2 个不同 ID。
 - **forbidden_topics**：本页不得出现的内容类型，用于维护 MECE 边界。由你根据本页角色、备忘录和相邻页面自行判断，不要机械套模板。
 - **visual_role**：本页视觉区域应传达什么，一句话说明。
@@ -60,6 +67,9 @@
 {
   "question": "哪些结构性因素支撑该行业的长期需求增长？",
   "answer": "功效化、内容电商和国货认同三类驱动共同支撑行业持续扩容。",
+  "primary_relevance_level": "transaction_relevance",
+  "target_link_type": "selective",
+  "claim_strength": "supported_inference",
   "evidence_ids": ["EV-003", "EV-005", "EV-008"],
   "forbidden_topics": ["CR5/CR10集中度", "渠道份额迁移明细", "价值链利润率", "具名竞品对比"],
   "visual_role": "用三个驱动卡片展示驱动因素、作用机制和一个支撑数据点。"
@@ -84,6 +94,23 @@
 每页的 `slide_role` 必须逐字使用上表中的 canonical role key。
 
 ## 故事线纪律
+
+### Pre-mandate 三层相关性
+
+每页至少主要服务于以下一类：
+
+- `sector_credibility`：证明我们理解行业结构、增长、细分、价值链、竞争或趋势。
+- `transaction_relevance`：说明行业变化为什么和估值、买方兴趣、整合、融资或交易时点有关。
+- `target_implication`：选择性说明标的如何受益、暴露、具备差异化或需要进一步 diligence。
+- `mixed`：有意识地结合多个目的。
+
+整章约束：
+- 至少 3 页建立 sector credibility。
+- 至少 2 页解释 transaction relevance。
+- 至少 2 页包含 target implication。
+- 不超过 4 页让标的成为 central claim。
+
+不要每页都硬贴标的，也不要把每页都写成“行业趋势利好标的”。标的是 case anchor，不是每一页的唯一结论。
 
 ### 一页只讲一个核心故事
 
@@ -196,6 +223,7 @@
 
 使用方式：
 - 为本页选择最强的 2-4 条论据；不要在 storyboard 阶段新编事实或新做研究。
+- 优先选择与本页 `primary_relevance_level` 和 `claim_strength` 匹配的论据。
 - 尽量把每条被选中的论据压缩成一个 active `body_copy` 字段。
 - 保留逻辑链：`Fact / data` -> `So what` -> `Target relevance`。
 - 如果某页论据包不足，在 `data_gaps` 中标注，并保持谨慎措辞，不要用泛泛表述填充。
@@ -245,7 +273,18 @@ PPT copy / fill 阶段只负责压缩和格式化这些论据，不应二次 res
 - 不要把模板脚手架词写进正式文案，如 `PRIMARY CHART`、`POINT 1`、页面类型名等。
 - 正文不要内嵌来源括号。`EV-001`、报告名、年报名、公告名等来源信息只写在 `source_note`，正文保留结论和数据本身。
 - 第 2 页和第 6 页的表格字段会被后处理渲染为真正的 PPT 表格对象；表格行请用 `｜` 分隔单元格，不要把整行写成自然语言段落。
+- `｜` 分隔符只用于上游 JSON 字段。最终 PPT 必须是真正的表格对象，不能用带分隔符的纯文本假装表格。
 - 第 2 页和第 6 页表格必须短格化：每个单元格只写标签、数字或短判断，不写完整段落；如果某个解释超过一格容量，把解释放到右侧 commentary/panel，而不是塞入表格。
+
+## 跨页指标与脚注纪律
+
+最终输出 JSON 前必须检查：
+- 同一指标在各页使用相同数值、单位、市场定义、期间和排名口径。
+- 标的财务数据在各页保持一致，除非 memo 明确记录差异。
+- 如果有意使用不同市场定义，必须清楚标注口径。
+- `source_note` 只用于来源和 Evidence ID。
+- `chart_data.notes` 和 `data_gaps` 用于口径、计算、假设、排除项、限制和未解决差异。
+- 每个计算型指标都应有 note 解释公式或基础。
 
 ## 来源纪律
 
@@ -254,6 +293,8 @@ PPT copy / fill 阶段只负责压缩和格式化这些论据，不应二次 res
 - 如果证据薄弱，弱化措辞（如"据估计""参考性""基于现有数据"）。
 - 如果事实完全无法验证，写明"数据不足"并在 `data_gaps` 中标注。
 - 方向性判断允许存在，但必须读起来像**推断或假设**，而非伪装的事实。
+- 文案必须匹配 `slide_story_contract.claim_strength`：`hard_fact` 可以直接陈述但必须保留口径；`supported_inference` 使用“表明/支持/可能意味着”；`management_claim` 标为公司或用户提供，除非外部验证；`hypothesis` 写成待验证问题或工作假设。
+- 非 `hard_fact` 判断不得使用“确定性”“不可逆”“无放缓迹象”“不可复制”“必然”“绝对领先”等绝对化表达。
 - 如果来源质量较弱，必须在 `known_weaknesses_or_data_gaps`、`data_gaps` 或 `qc_self_check` 中显式写出，不要为了叙事完整性而抹平不确定性。
 - 每页 body_copy + source_note 中应至少引用 2 个不同的 Evidence ID 或备忘录章节。
 

@@ -16,12 +16,24 @@ Design principle:
 
 ## Purpose
 
-Produce a target-linked, source-disciplined 8-slide industry section that tells a coherent transaction story — not a generic industry report. LLM reasoning drives storyline strategy, page planning, page type selection, and slide-level copy in one integrated step (`industry_storyboard.json`), while deterministic scripts handle PPT token filling and quality validation.
+Produce a target-linked, source-disciplined 8-slide industry section that tells a coherent transaction story — not a generic industry report. The default engagement context is `pre_mandate_transaction_pitch`: the section should demonstrate sector understanding, transaction relevance, and selective target implications before a formal mandate is necessarily won. LLM reasoning drives storyline strategy, page planning, page type selection, and slide-level copy in one integrated step (`industry_storyboard.json`), while deterministic scripts handle PPT token filling and quality validation.
+
+At task start, read `references/execution_discipline.md` and then the task-relevant references it names. Before research or storyboarding, read `references/scope_boundary.md`. These define the fixed 8-slide delivery boundary, workflow decision tree, three relevance levels (`sector_credibility`, `transaction_relevance`, `target_implication`), claim-strength discipline, and cross-slide metric consistency.
+
+## Workflow Decision Tree
+
+Choose the smallest workflow that satisfies the user request:
+- New industry section from a brief or attachments: run full workflow through research, memo, gap audit, storyboard, PPT fill, and QC.
+- Existing industry PPT improvement: extract the current storyline, audit gaps and consistency, then regenerate only necessary pages unless a full rebuild is requested.
+- Research-only update: stop after memo, memo validation, and gap audit.
+- Storyboard-only update: use an existing validated memo; do not add new research facts.
+- PPT formatting-only fix: skip research and storyboard changes; run PPT fill/clean/postprocess/validation or targeted formatting repair.
 
 ## Inputs
 
 - **Target brief** or **input card** (`templates/input_card.template.json`)
   - Now supports `research_direction` with priority websites, source domains, source packs, topics, peer set, and exclusions.
+  - `engagement_context` defaults to `pre_mandate_transaction_pitch`; do not ask the user to fill it unless they explicitly specify another context.
   - Do not enrich `input_card` with planner-inferred peers, risks, source preferences, or must-cover topics. The input card is for user-provided facts plus safe normalized metadata; planner hypotheses belong in `artifacts/research_plan.json`.
   - Generate `input_card.json` in transcription mode: copy the user's facts faithfully, perform only minimal metadata normalization, leave planner/research fields empty unless explicitly provided, and set output language to the user's request language unless the user asks otherwise.
 - **User attachments** (optional — pitchbook drafts, CIM extracts, research notes)
@@ -95,12 +107,16 @@ Before research, validate any generated input card. If validation fails, rewrite
 Use `skills/research-memo/SKILL.md`.
 
 The research phase now includes:
+- **Scope boundary**: read `references/scope_boundary.md` before planning; preserve fixed 8-slide output while researching broadly enough to support transaction judgment.
 - **Research plan**: create `artifacts/research_plan.json` before memo synthesis; validate it with `scripts/validate_research_plan.py`.
+- **Research emphasis**: after broad discovery, write a short `Research Emphasis / Hypothesis Plan` before memo synthesis so the formal memo focuses on the questions that matter for this transaction.
 - **Freshness discipline**: fill `research_as_of_date` and `user_material_data_cutoff`; treat user-material periods as historical data periods, not as the current research date.
 - **Source priority resolution**: apply the source planning rule described in Source Registry above.
 - **Multi-round search**: cover all 9 dimensions (definition, size, segmentation, drivers, value chain, barriers, competition, trends, target implications).
 - **Search log**: write `artifacts/search_log.md` incrementally during research.
 - **Evidence Ledger**: assign an Evidence ID (EV-001, EV-002, ...) to each important claim or metric.
+- **Research Gap Audit**: after the memo is written, audit critical gaps, weak sources, metric-scope conflicts, and transaction relevance before storyboarding.
+- **Supplemental Research**: run one focused supplemental research pass only when the gap audit identifies critical gaps.
 - **Chart-ready data**: mark quantitative Key Data Points with `chart_ready: true`.
 - **Per-page Evidence Rows**: at least 2-3 per page.
 
@@ -109,6 +125,10 @@ Output: `industry_input_memo.md` (following updated `references/industry_input_m
 **Stop for human review** unless the user explicitly requests one-shot generation.
 
 Reviewer should confirm: industry definition, market sizing logic, growth drivers, competitive landscape, target linkage, data sources and gaps, Research Plan coverage, Evidence Ledger completeness.
+
+Research gap audit rule:
+- Do not enter storyboard if `industry_input_memo.md` has unresolved Critical Gaps in its Research Gap Audit.
+- Supplemental research is for critical gaps only; do not restart broad discovery or keep searching indefinitely.
 
 If this run starts from only a brief or attachments and verified online research cannot be completed, stop after reporting the failure. Continue only if the operator explicitly chooses a degraded mode; any degraded output must label unsupported facts as `training_data` and must not be treated as diligence-grade.
 
@@ -135,6 +155,8 @@ Input: `industry_input_memo.md` + target brief + page type rules + slide layout 
 Output: `industry_storyboard.json`
 
 This is the **main LLM reasoning step**. It generates, in one pass: storyline strategy, 8-slide page plan, selected page types (with rationale), slide-level PPT copy, source notes (with Evidence IDs), and template binding decisions.
+
+Storyboard must preserve the pre-mandate transaction context: not a generic sector report, not a retained-client sell-side book, and not a target advertisement. Each slide's `slide_story_contract` must identify `primary_relevance_level`, `target_link_type`, and `claim_strength`.
 
 **Content density requirements** (enforced by `templates/content_quality_rules.json`):
 - Every body_copy field: label + opinion + evidence/implication
@@ -189,6 +211,8 @@ Outputs: `replacement_dict.json` → `industry_section_filled.pptx` → `industr
 
 Final PPT validation is a hard gate. If `filled_ppt_validation.json` has `summary.is_valid=false`, do not deliver the PPT. Fix the underlying issue instead of explaining it away.
 
+Validation/fix loop limit: try at most 3 repair cycles for the same validation gate. If the same gate still fails, stop and report the failed gate, remaining errors, likely root cause, and smallest next action.
+
 Operational note:
 - Required runtime command: `python3 scripts/bootstrap_runtime.py --print-python`
 - `run_pipeline.sh` can now start from `industry_storyboard.json` alone and auto-generate `industry_section_ppt_copy.json` when it is missing.
@@ -207,6 +231,7 @@ Do **not** require separate manual review for intermediate debug files; the work
 - **Default mode**: stop after `industry_input_memo.md`, then stop again after `industry_storyboard.json`.
 - **One-shot mode**: continue through storyboard, ppt_copy, and PPT filling only when the user explicitly asks for one-shot generation, full draft generation, or direct PPT output.
 - **Weak-source caution**: one-shot mode removes manual review pauses, not machine gates. If source quality is clearly weak or key facts remain unverified, stop unless the operator explicitly chooses degraded/debug mode. Degraded output must flag gaps explicitly and must not be delivered as diligence-grade output.
+- **Progress discipline**: use the checklist in `references/execution_discipline.md` internally for one-shot runs so research emphasis, gap audit, validation, and final delivery checks are not skipped.
 
 ## Required Outputs
 
@@ -290,6 +315,9 @@ Only static skill assets should be resolved relative to the skill package itself
 - Do **not** rewrite user input into enriched facts before research. Inferred peers, source packs, priority websites, risks, and must-cover topics must be labeled as planner hypotheses in `research_plan.json` or researched findings in `industry_input_memo.md`.
 - Default output language follows the user's request language. Only use another language when the user explicitly asks for it.
 - Separate facts from interpretations. Directional judgments must read as inference, not disguised fact.
+- User-provided target facts take priority for target-specific data unless clearly impossible; external sources take priority for industry, market, peer, and transaction context. Material discrepancies must be documented.
+- Keep cross-slide metrics consistent: same value, unit, market definition, period, ranking basis, and target financials across all slides unless differences are explicitly labeled.
+- Separate Sources from Notes discipline: sources identify origin; notes explain scope, calculations, assumptions, exclusions, and caveats.
 - Every important number must have a source note. If a fact cannot be verified, write `Insufficient data`.
 - If source data conflicts, state the conflict — do not average without explanation.
 - The PPT template (8 logical slides, 16 physical slides with controlled variants on Slides 2/3/6/7) is a **delivery constraint**, not a reasoning constraint.
@@ -316,3 +344,4 @@ Only static skill assets should be resolved relative to the skill package itself
 - If `fill-ppt` scripts fail, fix the upstream PPT copy or mapping — never patch the final PPT manually.
 - If validation fails, diagnose and fix upstream rather than bypassing validation.
 - If content quality validation produces source warnings, fix source attribution or evidence before PPT filling. Other warnings should be addressed when they materially affect deck quality; thin copy will produce thin slides.
+- For Slide 2 `chart_plus_mini_table_page` and Slide 6 `compare_table_page`, final output must use real PPT table objects from post-processing; plain text with separators is not acceptable as the final table.

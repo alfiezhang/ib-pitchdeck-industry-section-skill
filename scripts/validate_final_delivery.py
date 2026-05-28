@@ -173,6 +173,71 @@ def validate_current_content_quality(run_dir: Path, rules_path: Path) -> tuple[l
     return errors, warnings
 
 
+def validate_postprocess_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    storyboard_path = run_dir / "industry_storyboard.json"
+    log_path = run_dir / "artifacts/postprocess_ppt_visuals.log.json"
+    if not storyboard_path.exists():
+        return errors, warnings
+
+    try:
+        storyboard = load_json_file(storyboard_path)
+    except Exception as exc:
+        return [f"cannot validate postprocess outputs: cannot read storyboard: {exc}"], warnings
+
+    slides = storyboard.get("slides", [])
+    if not isinstance(slides, list):
+        return errors, warnings
+
+    selected_by_slide = {
+        int(slide.get("slide_no")): slide.get("selected_page_type")
+        for slide in slides
+        if isinstance(slide, dict) and isinstance(slide.get("slide_no"), int)
+    }
+    required_real_tables = []
+    if selected_by_slide.get(2) == "chart_plus_mini_table_page":
+        required_real_tables.append((2, "Slide 2 mini table"))
+    if selected_by_slide.get(6) == "compare_table_page":
+        required_real_tables.append((6, "Slide 6 compare table"))
+    if not required_real_tables:
+        return errors, warnings
+
+    if not log_path.exists():
+        errors.append("missing postprocess_ppt_visuals.log.json; cannot verify required real table rendering")
+        return errors, warnings
+
+    try:
+        log_data = load_json_file(log_path)
+    except Exception as exc:
+        errors.append(f"cannot read postprocess_ppt_visuals.log.json: {exc}")
+        return errors, warnings
+
+    render_entries = log_data.get("chart_rendering", [])
+    if not isinstance(render_entries, list):
+        errors.append("postprocess_ppt_visuals.log.json missing chart_rendering list")
+        return errors, warnings
+
+    entries_by_slide = {
+        entry.get("slide_no"): entry
+        for entry in render_entries
+        if isinstance(entry, dict)
+    }
+    for slide_no, label in required_real_tables:
+        entry = entries_by_slide.get(slide_no)
+        if not isinstance(entry, dict):
+            errors.append(f"{label} was selected but has no postprocess rendering log entry")
+            continue
+        if slide_no == 2:
+            table_result = entry.get("table", {})
+            if not isinstance(table_result, dict) or table_result.get("rendered") is not True:
+                errors.append(f"{label} did not render as a real PPT table object")
+        elif slide_no == 6:
+            if entry.get("rendered") is not True:
+                errors.append(f"{label} did not render as a real PPT table object")
+    return errors, warnings
+
+
 def validate_memo_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -247,6 +312,10 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
     )
     errors.extend(current_content_errors)
     warnings.extend(current_content_warnings)
+
+    postprocess_errors, postprocess_warnings = validate_postprocess_artifact(run_dir)
+    errors.extend(postprocess_errors)
+    warnings.extend(postprocess_warnings)
 
     ppt_paths = {
         "filled_ppt_path": run_dir / "industry_section_filled.pptx",

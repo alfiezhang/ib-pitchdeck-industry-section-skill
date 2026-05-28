@@ -11,6 +11,7 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 ## Research Baseline
 - Web research is mandatory unless the user already provided `industry_input_memo.md` and explicitly said not to expand it.
 - Provided materials are high-priority inputs, but they do not replace Web research.
+- Read `references/scope_boundary.md` before research. The default context is `pre_mandate_transaction_pitch`: demonstrate sector understanding, transaction relevance, and selective target implications before a mandate is necessarily won.
 - Do not treat planner-inferred peers, sources, risks, or research topics as user-provided input. Keep them in `research_plan.json` until supported by research.
 - The memo must stay transaction-oriented and target-linked. Do not drift into a generic industry report.
 - If Web research is not actually completed, do not silently finish the memo. Record `HIGH PRIORITY GAP: online research not completed`.
@@ -37,14 +38,15 @@ Follow this sequence:
 1. Read `templates/source_registry.json` as a menu of possible source packs/domains. Do not execute searches from default packs yet.
 2. Draft the broad discovery query set in `artifacts/research_plan.json`. Keep unknown industry boundaries, peer sets, source packs, priority domains, and must-cover topics provisional or blank unless the user explicitly supplied them.
 3. Create `artifacts/search_log.md` from `references/search_log_template.md` before the first search attempt.
-4. Run 3-6 unrestricted broad discovery queries before default-pack or source-pack searches. Use them to learn industry vocabulary, metric names, player names, source leads, and jurisdiction-specific terminology.
+4. Run 3-6 unrestricted broad discovery queries before default-pack or source-pack searches. Use them to learn industry vocabulary, metric names, player names, source leads, transaction/M&A angles, buyer/investor angles, counterarguments, and jurisdiction-specific terminology.
 5. Record each search attempt immediately in `artifacts/search_log.md`; do not backfill the log after memo writing.
-6. Update the plan with broad-discovery findings: definition candidates, vocabulary, metric names, source leads, peer categories, and relevant geography/period cues.
-7. Select sources by research dimension. For each dimension, choose 1-3 relevant source packs/domains when appropriate. Across the full memo, aim for 6-15 distinct high-priority domains.
-8. Add 0-5 industry-specific domains discovered during broad search if they are authoritative for the target industry.
-9. Explain every selected pack/domain in `source_selection.reason`.
-10. Add targeted validation and latest/current queries based on the discovered vocabulary and source leads.
-11. Run targeted validation queries against selected packs/domains. Do not run every default pack against every query.
+6. Update the plan with broad-discovery findings: definition candidates, vocabulary, metric names, source leads, peer categories, transaction angles, counterarguments, and relevant geography/period cues.
+7. Fill `research_emphasis`: project classification, 3-5 priority research angles, de-prioritized angles, and how the emphasis maps to all 8 fixed slides.
+8. Select sources by research dimension. For each dimension, choose 1-3 relevant source packs/domains when appropriate. Across the full memo, aim for 6-15 distinct high-priority domains.
+9. Add 0-5 industry-specific domains discovered during broad search if they are authoritative for the target industry.
+10. Explain every selected pack/domain in `source_selection.reason`.
+11. Add targeted validation and latest/current queries based on the discovered vocabulary and source leads.
+12. Run targeted validation queries against selected packs/domains. Do not run every default pack against every query.
 
 Validate the formal plan before memo synthesis:
 
@@ -59,6 +61,8 @@ Validate the formal plan before memo synthesis:
 Use `--stage discovery` only for an optional early sanity check before broad search. Do not use discovery-stage validation to justify memo synthesis or PPT delivery.
 
 Search log coverage is not a substitute for a complete formal plan. `search_log.md` records what happened; `research_plan.json` is the control record. Before memo synthesis, it must include the actual targeted validation queries, latest/current queries, selected packs/domains, and source-selection rationale.
+
+Broad research is a map, not the final answer. Use it to decide what to research formally, not to jump straight into memo conclusions.
 
 ## Multi-Round Search Matrix
 
@@ -163,6 +167,7 @@ When sources conflict, prefer the one that is:
 - Do not carry unsupported claims from an older memo forward as facts during memo expansion.
 - If something is important and missing, use `HIGH PRIORITY GAP: ...`.
 - If something should be improved but is not blocking, use `RECOMMENDED TO SUPPLEMENT: ...`.
+- Classify claim strength where it matters: `hard_fact`, `supported_inference`, `management_claim`, or `hypothesis`. Non-hard-fact claims must use cautious language and avoid absolute claims such as 确定性, 不可逆, 无放缓迹象, 不可复制, 必然, or 绝对领先.
 
 ## Memo Construction Rules
 - Preserve the memo template headings, field names, and order exactly. Do not merge, rename, delete, or reorder fields.
@@ -182,3 +187,6 @@ When sources conflict, prefer the one that is:
 - Fill `Additional Sector-Specific Notes`, `HIGH PRIORITY GAP`, `RECOMMENDED TO SUPPLEMENT`, and `Definition Risks` explicitly instead of omitting them.
 - Fill the `Evidence Ledger` with an entry for each important claim or metric. Use the Evidence ID (e.g., EV-001) as a stable reference across the memo and downstream storyboard `source_note` fields.
 - Fill `Evidence Rows` per page with at least 2-3 items. If a page cannot meet this minimum, flag it in `HIGH PRIORITY GAP`.
+- Fill `Page Evidence Pack` per page with at least 3 arguments, including `Relevance level` and `Claim strength` for each argument.
+- After memo drafting, write `Research Gap Audit` before storyboard generation. Any unresolved Critical Gap must trigger focused supplemental research before storyboard unless the operator explicitly chooses degraded/debug mode.
+- In `Metric Consistency Check`, preserve metric scope: TAM/SAM/SOM, full industry vs sub-sector vs online/platform-specific, GMV vs revenue vs retail sales, CAGR years, market share denominator, ranking basis, and chart-number consistency.

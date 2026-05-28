@@ -38,7 +38,7 @@ Must include:
 4. **Preserve source notes.** Every slide's `source_footer` must carry forward the storyboard's `source_note`.
 5. **Preserve target linkage.** Every slide's `main_takeaway` should reflect the storyboard's `target_link` intent.
 6. **Field alignment.** Map storyboard `body_copy` fields to the exact field names expected by `ppt_copy_schema.json` for each slide role. Use `templates/ppt_copy_mapping.json` for guidance.
-7. **Controlled variants.** Slides 2, 6, and 7 must carry the correct `selected_page_type` from the storyboard's `template_binding`.
+7. **Controlled variants.** Slides 2, 3, 6, and 7 must carry the correct `selected_page_type` from the storyboard's `template_binding`.
 8. **Use lightweight emphasis markup when useful.** The deterministic filler now supports `[[b]]...[[/b]]` for bold emphasis and `[[hl]]...[[/hl]]` for brand-color highlight in text placeholders.
    Prefer `[[b]]` by default.
    Use `[[hl]]` only for one short conclusion phrase or one critical contrast on a slide.

@@ -44,6 +44,10 @@ LOW_RISK_NORMALIZED_PATHS = {
     "geography",
     "language",
     "transaction_type",
+    "engagement_context.stage",
+    "engagement_context.audience",
+    "engagement_context.objective",
+    "engagement_context.tone",
 }
 
 ALLOWED_LANGUAGES = {

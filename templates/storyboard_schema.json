@@ -15,7 +15,18 @@
         "geography": { "type": "string", "description": "Primary geography (e.g., 'China', 'Asia-Pacific')." },
         "language": { "type": "string", "enum": ["en", "zh-CN"], "description": "Output language." },
         "output_mode": { "type": "string", "enum": ["standard_8_slide"], "description": "Output mode. Currently only standard_8_slide is supported." },
-        "source_memo": { "type": "string", "description": "Path to the canonical industry_input_memo.md used as input." }
+        "source_memo": { "type": "string", "description": "Path to the canonical industry_input_memo.md used as input." },
+        "engagement_context": {
+          "type": "object",
+          "description": "Engagement setting. Defaults to pre-mandate transaction pitch unless the user specifies otherwise.",
+          "properties": {
+            "stage": { "type": "string", "enum": ["pre_mandate_transaction_pitch", "post_mandate_sell_side", "generic_research"], "description": "Default is pre_mandate_transaction_pitch." },
+            "audience": { "type": "string" },
+            "objective": { "type": "string" },
+            "tone": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
       }
     },
     "storyline_strategy": {
@@ -53,10 +64,25 @@
           "slide_story_contract": {
             "type": "object",
             "description": "Per-slide planning contract filled BEFORE copy drafting. Ensures each slide has a single clear story and MECE boundaries.",
-            "required": ["question", "answer", "evidence_ids", "forbidden_topics", "visual_role"],
+            "required": ["question", "answer", "primary_relevance_level", "target_link_type", "claim_strength", "evidence_ids", "forbidden_topics", "visual_role"],
             "properties": {
               "question": { "type": "string", "description": "The single investor question this slide answers. One question only." },
               "answer": { "type": "string", "description": "One-sentence conclusion that directly answers the question. This should align with the headline." },
+              "primary_relevance_level": {
+                "type": "string",
+                "enum": ["sector_credibility", "transaction_relevance", "target_implication", "mixed"],
+                "description": "Primary purpose this slide serves in a pre-mandate transaction pitch."
+              },
+              "target_link_type": {
+                "type": "string",
+                "enum": ["none", "light", "selective", "central"],
+                "description": "How central the target implication should be. Not every slide should be target-central."
+              },
+              "claim_strength": {
+                "type": "string",
+                "enum": ["hard_fact", "supported_inference", "management_claim", "hypothesis"],
+                "description": "Evidence strength of the slide's central answer. Use cautious wording unless this is hard_fact."
+              },
               "evidence_ids": { "type": "array", "items": { "type": "string" }, "minItems": 2, "description": "Evidence IDs (e.g., EV-001) from the memo that support this slide's answer." },
               "forbidden_topics": { "type": "array", "items": { "type": "string" }, "description": "Content types that must NOT appear on this slide to maintain MECE boundaries. E.g., for Slide 3: ['CR5/CR10', 'channel structure', 'value chain']." },
               "visual_role": { "type": "string", "description": "What the visual area should communicate. E.g., 'Show market size growth over 3 years as a bar chart'." }
@@ -89,7 +115,7 @@
               "trend_page", "timeline_page", "trend_4_card_page", "trend_5_card_page", "trend_6_card_page"
             ]
           },
-          "decision_rationale": { "type": "string", "description": "Why this page type was chosen over alternatives. Required for controlled-variant slides (2, 6, 7); for fixed slides, explain the content-structure fit." },
+          "decision_rationale": { "type": "string", "description": "Why this page type was chosen over alternatives. Required for controlled-variant slides (2, 3, 6, 7); for fixed slides, explain the content-structure fit." },
           "headline": { "type": "string", "description": "Conclusion-led slide headline. Must be a complete investment insight, not a topic label." },
           "main_message": { "type": "string", "description": "One-sentence takeaway that captures the slide's core argument." },
           "body_copy": {

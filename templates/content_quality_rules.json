@@ -48,6 +48,20 @@
     "行业领先"
   ],
 
+  "overclaim_phrases": [
+    "certainty",
+    "guaranteed",
+    "irreversible",
+    "no slowdown",
+    "impossible to replicate",
+    "确定性",
+    "不可逆",
+    "无放缓迹象",
+    "不可复制",
+    "必然",
+    "绝对领先"
+  ],
+
   "weak_source_markers": [
     "training_data",
     "EV-web",
@@ -76,6 +90,8 @@
     "no_training_data_unless_degraded_mode": true,
     "min_evidence_per_slide": 2,
     "min_argument_fields_per_slide": 3,
-    "argument_fields_should_include_mechanism_or_data": true
+    "argument_fields_should_include_mechanism_or_data": true,
+    "cross_slide_metric_consistency_check": true,
+    "sources_notes_discipline": true
   }
 }

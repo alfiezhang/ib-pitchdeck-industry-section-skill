@@ -12,6 +12,10 @@ Produce `industry_input_memo.md` — a comprehensive, source-disciplined researc
 
 The memo is the **single source of truth** for all facts used in the storyboard. The storyboard skill does not introduce new facts beyond what is in the memo.
 
+Default context: this is a pre-mandate, transaction-oriented industry section. Read `references/scope_boundary.md` before research. The memo should support a pitch discussion by showing sector credibility, transaction relevance, and selective target implications, not by forcing target promotion on every page.
+
+Also read `references/execution_discipline.md` at task start. Apply its data conflict handling, cross-slide metric consistency, Sources vs Notes discipline, and anti-patterns during memo construction.
+
 ## Inputs
 
 | Input | Required | Purpose |
@@ -101,11 +105,12 @@ Execution order:
 3. Draft broad discovery queries in the plan before running them. Do not lock industry boundaries, peer sets, source packs, or priority domains yet unless the user explicitly provided them.
 4. Create `artifacts/search_log.md` from `references/search_log_template.md` before the first search attempt.
 5. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, data terms, peer names, source leads, and geography-specific terminology. Record each attempt immediately in `search_log.md`.
-6. Update the plan with broad-discovery findings: industry definition candidates, vocabulary, metric names, peer categories, and discovered source leads.
-7. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant source packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
-8. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
-9. Add targeted validation queries and latest/current queries based on the discovered industry vocabulary and source leads.
-10. Run targeted validation queries against selected sources, not every default pack against every query.
+6. Update the plan with broad-discovery findings: industry definition candidates, vocabulary, metric names, peer categories, transaction/M&A angles, buyer/investor angles, counterarguments, and discovered source leads.
+7. Write `Research Emphasis / Hypothesis Plan` in the memo draft before formal synthesis. Use broad discovery to classify the project, identify 3-5 priority research angles, de-prioritize distractions, and map the emphasis to the fixed 8 slides.
+8. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant source packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
+9. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
+10. Add targeted validation queries and latest/current queries based on the discovered industry vocabulary and source leads.
+11. Run targeted validation queries against selected sources, not every default pack against every query.
 
 Validate the formal plan before memo synthesis:
 
@@ -150,6 +155,8 @@ This memo is the stage contract for downstream reasoning:
 Required sections:
 - Project meta (target, industry, geography, transaction type, date)
 - **Research Plan** (source priority, search coverage checklist)
+- **Scope Boundary** (confirm pre-mandate transaction-oriented industry section, not generic report / consulting study / company deep dive)
+- **Research Emphasis / Hypothesis Plan** (project classification, priority research angles, de-prioritized angles, fixed 8-slide implications)
 - **Source Selection Rationale** (why selected packs/domains are relevant, and what was intentionally excluded)
 - Deal context (why this industry section matters for this transaction)
 - Target business summary
@@ -157,9 +164,10 @@ Required sections:
 - Source materials (user-provided vs. web-researched, with attribution)
 - **Evidence Ledger** (table: Evidence ID → claim → source → reliability → confidence)
 - Page-by-page content notes (1–8)
-- Per page: `Evidence Rows` (at least 2-3 items), `Page Evidence Pack` (at least 3 arguments), `Key Data Points` with `chart_ready` flags, `Chart-ready Data` where applicable
+- Per page: `Evidence Rows` (at least 2-3 items), `Page Evidence Pack` (at least 3 arguments with relevance level and claim strength), `Key Data Points` with `chart_ready` flags, `Chart-ready Data` where applicable
 - `Presentation Hint`, `Visual Candidate`
 - For every `Key Data Points` entry: `Definition`, `Source Name`, `Source Date`, `Confidence`, and `chart_ready` (true/false)
+- **Research Gap Audit** (critical gaps, optional gaps, intentionally excluded topics, metric consistency)
 
 After writing the memo, validate it before storyboard generation:
 
@@ -188,11 +196,54 @@ Each page must contain a `Page Evidence Pack` before storyboard generation. This
 
 For every page, write at least 3 arguments. Each argument must include:
 - `Evidence IDs`: one or more EV IDs from the Evidence Ledger
+- `Relevance level`: sector_credibility | transaction_relevance | target_implication | mixed
+- `Claim strength`: hard_fact | supported_inference | management_claim | hypothesis
 - `Fact / data`: the concrete fact, metric, named source observation, or sourced qualitative finding
 - `So what`: the investment implication or industry mechanism
 - `Target relevance`: why this supports the target-specific storyline
 
 Do not save expansion for the final PPT stage. The storyboard step should select and compress arguments from this pack; the PPT fill step should not add new facts.
+
+### Research Gap Audit
+
+After the memo is drafted and before storyboard generation, add `## Research Gap Audit`.
+
+Audit for material gaps in:
+- sector definition and scope
+- market size and growth
+- segmentation
+- growth drivers and headwinds
+- value chain / profit pool
+- competitive landscape
+- business model economics
+- transaction relevance
+- buyer / investor logic
+- valuation / M&A context
+- target implications
+- risks / counterarguments
+- evidence quality
+- metric consistency
+
+Classify gaps as:
+- `Critical Gap`: must be fixed before storyboard
+- `Optional Gap`: useful to mention as an open question
+- `Not Relevant`: intentionally excluded with rationale
+
+If any Critical Gap remains unresolved, run one focused Supplemental Research pass and update the memo. Do not proceed to storyboard with unresolved Critical Gaps unless the operator explicitly chooses degraded/debug mode.
+
+### Metric Consistency
+
+For every key metric, preserve scope and unit:
+- TAM / SAM / SOM
+- full industry / sub-sector / online / platform-specific
+- GMV / revenue / sales / retail sales
+- CAGR start/end years
+- market share denominator
+- ranking basis (platform, period, sales volume, GMV, or another measure)
+
+If sources conflict, document the conflict and choose the cleanest source for charting; do not average silently.
+
+User-provided target facts should remain the source of truth for target-specific data unless clearly impossible. External sources should support industry, market, peer, and transaction context. If the same target metric or market metric differs across materials, record the discrepancy and the selected source basis.
 
 ### Chart-ready Data
 

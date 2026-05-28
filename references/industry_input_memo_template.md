@@ -47,6 +47,52 @@ Search Coverage Plan (check off as completed):
 
 ---
 
+## Scope Boundary
+Engagement Context: pre_mandate_transaction_pitch
+Purpose: demonstrate sector understanding, transaction relevance, and selective target implications
+Not A Generic Industry Report:
+Not A Full Consulting Study:
+Not A Company Deep Dive:
+Not A Valuation Report:
+Fixed 8-Slide Structure Preserved:
+
+---
+
+## Research Emphasis / Hypothesis Plan
+> Fill this after broad discovery and before formal memo synthesis.
+
+Project Classification:
+- Sector type:
+- Transaction type:
+- Target business model:
+- Likely buyer / investor angle:
+- Key transaction question:
+
+Priority Research Angles:
+1.
+2.
+3.
+4.
+5.
+
+De-prioritized Angles:
+1.
+2.
+
+How This Should Shape the Fixed 8 Slides:
+| Slide | Fixed Slide Type | Research Emphasis |
+|---|---|---|
+| 1 | Industry overview | |
+| 2 | Market size / segmentation | |
+| 3 | Growth drivers | |
+| 4 | Value chain / profit pool | |
+| 5 | Barriers / value drivers | |
+| 6 | Competition | |
+| 7 | Trends / buyer logic | |
+| 8 | Transaction implications | |
+
+---
+
 ## Deal Context
 
 ---
@@ -120,6 +166,12 @@ Notes:
 Before using this memo downstream, write and pass:
 `artifacts/memo_validation.json` via `scripts/validate_memo.py`.
 
+Claim strength values:
+- hard_fact: directly sourced; preserve period, geography, unit, and scope
+- supported_inference: derived from sourced facts; use cautious wording
+- management_claim: provided by user/company; label as such unless externally verified
+- hypothesis: useful but unproven; treat as a diligence question
+
 ---
 
 ## Known Investment Highlights
@@ -172,16 +224,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -225,16 +283,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -288,16 +352,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -337,16 +407,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -385,16 +461,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -433,16 +515,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -489,16 +577,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -543,16 +637,22 @@ Evidence Rows (at least 2-3):
 Page Evidence Pack (use downstream in storyboard; do not skip):
 - Argument 1:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 2:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
 - Argument 3:
   Evidence IDs:
+  Relevance level: # sector_credibility | transaction_relevance | target_implication | mixed
+  Claim strength: # hard_fact | supported_inference | management_claim | hypothesis
   Fact / data:
   So what:
   Target relevance:
@@ -570,6 +670,40 @@ Sources:
 -
 -
 如无，写：Insufficient data
+
+---
+
+## Research Gap Audit
+
+### Critical Gaps
+> Must be fixed before storyboard. If none, write: None.
+-
+
+### Optional Gaps
+> Useful to mention as open questions, but not blocking.
+-
+
+### Not Relevant / Intentionally Excluded
+> Explain why excluded.
+-
+
+### Metric Consistency Check
+- TAM / SAM / SOM:
+- Full industry vs sub-sector vs online/platform-specific:
+- GMV vs revenue vs sales vs retail sales:
+- CAGR start/end years:
+- Market share denominator:
+- Ranking basis:
+- Cross-slide repeated metric consistency:
+- Target financials consistency:
+- User-provided vs external-source discrepancy:
+- Conflicting source notes:
+- Chart number consistency:
+
+### Supplemental Research Status
+Needed:
+Completed:
+Remaining unresolved critical gaps:
 
 ---
 
