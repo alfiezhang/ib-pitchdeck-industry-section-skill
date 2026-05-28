@@ -62,6 +62,27 @@ Each contract requires:
 - **forbidden_topics**: Content types that must NOT appear on this slide. This is the MECE enforcement mechanism. Be explicit — e.g., for Slide 3 (drivers), forbid "CR5/CR10", "channel structure", "value chain margin".
 - **visual_role**: What the visual area should communicate, in one sentence.
 
+Use the defaults below unless the memo clearly supports a better choice:
+
+| Slide | Default primary_relevance_level | Default target_link_type |
+|---|---|---|
+| 1 | `sector_credibility` | `light` |
+| 2 | `sector_credibility` | `light` |
+| 3 | `transaction_relevance` | `selective` |
+| 4 | `sector_credibility` | `light` |
+| 5 | `transaction_relevance` | `selective` |
+| 6 | `sector_credibility` | `light` |
+| 7 | `transaction_relevance` | `selective` |
+| 8 | `target_implication` | `central` |
+
+`claim_strength` default guidance:
+- Use `hard_fact` only for directly sourced facts with clear scope.
+- Use `supported_inference` for most slide-level conclusions derived from evidence.
+- Use `management_claim` for user/company-provided target facts not externally verified.
+- Use `hypothesis` for unresolved but useful diligence questions.
+
+Before writing body_copy, self-check each `forbidden_topics` item. The validator can only catch exact overlap, so this is a mandatory generation-time MECE check, not an optional afterthought.
+
 Example for Slide 3:
 ```json
 {

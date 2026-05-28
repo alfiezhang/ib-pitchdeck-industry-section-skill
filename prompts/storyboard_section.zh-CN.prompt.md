@@ -62,6 +62,27 @@
 - **forbidden_topics**：本页不得出现的内容类型，用于维护 MECE 边界。由你根据本页角色、备忘录和相邻页面自行判断，不要机械套模板。
 - **visual_role**：本页视觉区域应传达什么，一句话说明。
 
+除非备忘录明确支持更好的选择，否则使用以下默认值：
+
+| 页码 | 默认 primary_relevance_level | 默认 target_link_type |
+|---|---|---|
+| 1 | `sector_credibility` | `light` |
+| 2 | `sector_credibility` | `light` |
+| 3 | `transaction_relevance` | `selective` |
+| 4 | `sector_credibility` | `light` |
+| 5 | `transaction_relevance` | `selective` |
+| 6 | `sector_credibility` | `light` |
+| 7 | `transaction_relevance` | `selective` |
+| 8 | `target_implication` | `central` |
+
+`claim_strength` 默认判断：
+- 只有直接来源支持且口径清楚的事实才用 `hard_fact`。
+- 大多数由证据推导出的页面结论使用 `supported_inference`。
+- 用户/公司提供但未外部验证的标的事实使用 `management_claim`。
+- 未解决但有价值的尽调问题使用 `hypothesis`。
+
+写 body_copy 前，必须逐条检查 `forbidden_topics`。validator 只能捕捉精确重叠，因此这一步是必做的生成期 MECE 自检，不是可选的事后检查。
+
 示例（第 3 页驱动因素）：
 ```json
 {

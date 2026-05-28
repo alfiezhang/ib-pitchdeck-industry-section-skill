@@ -286,17 +286,23 @@ def check_claim_strength_language(
     if isinstance(body_copy, dict):
         fields.extend((f"body_copy.{key}", value) for key, value in body_copy.items() if isinstance(value, str))
 
+    findings: list[str] = []
     for field_name, value in fields:
         text_lower = normalize(value)
         for phrase in overclaim_phrases:
             if normalize(phrase) and normalize(phrase) in text_lower:
-                message = (
-                    f"slide {slide_no}: overclaim phrase '{phrase}' found in {field_name} "
-                    f"while claim_strength is '{claim_strength or 'missing'}'; use cautious wording or upgrade evidence"
-                )
-                warnings.append(message)
-                blocking_warnings.append(message)
-                return
+                findings.append(f"'{phrase}' in {field_name}")
+                break
+    if findings:
+        shown = "; ".join(findings[:3])
+        suffix = "" if len(findings) <= 3 else f"; plus {len(findings) - 3} more"
+        message = (
+            f"slide {slide_no}: overclaim language found while claim_strength is "
+            f"'{claim_strength or 'missing'}': {shown}{suffix}. "
+            "Use cautious wording or upgrade evidence."
+        )
+        warnings.append(message)
+        blocking_warnings.append(message)
 
 
 def check_source_note_notes_discipline(

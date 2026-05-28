@@ -102,7 +102,9 @@ Each contract requires:
 - **forbidden_topics**: Content types that must NOT appear on this slide (MECE enforcement). Be explicit.
 - **visual_role**: What the visual area should communicate, in one sentence.
 
-This contract is validated by `validate_storyboard.py`. If `forbidden_topics` overlap with body_copy content, the validator will flag a MECE violation.
+Default mapping: Slides 1/2/4/6 usually build `sector_credibility` with `target_link_type=light`; Slides 3/5/7 usually build `transaction_relevance` with `target_link_type=selective`; Slide 8 usually uses `target_implication` with `target_link_type=central`. Override only when the memo supports a better choice.
+
+This contract is validated by `validate_storyboard.py`. If `forbidden_topics` overlap with body_copy content, the validator will flag a MECE violation. Because that validator is only a substring backstop, the LLM must also self-check every `forbidden_topics` item before writing body_copy.
 
 ### Use Page Evidence Packs
 

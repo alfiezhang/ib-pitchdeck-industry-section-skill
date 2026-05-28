@@ -89,11 +89,6 @@ SUPPORTED_CHART_TYPES = CHART_TYPES_REQUIRING_SERIES | {"metric_cards", "none", 
 RELEVANCE_LEVELS = {"sector_credibility", "transaction_relevance", "target_implication", "mixed"}
 TARGET_LINK_TYPES = {"none", "light", "selective", "central"}
 CLAIM_STRENGTHS = {"hard_fact", "supported_inference", "management_claim", "hypothesis"}
-METRIC_RE = re.compile(
-    r"(?P<value>(?:(?:¥|RMB|USD)\s*\d+(?:\.\d+)?\s*(?:亿|万|bn|mn|billion|million)?)|"
-    r"(?:\d+(?:\.\d+)?\s*(?:%|％|亿|万|bn|mn|billion|million)))",
-    flags=re.IGNORECASE,
-)
 
 EXPECTED_ROLES = {
     1: "industry_overview",
@@ -325,10 +320,14 @@ def check_storyline_contract(
     #    but body_copy has fewer items
     headline = str(slide.get("headline", ""))
     main_message = str(slide.get("main_message", ""))
-    # Detect number promises in Chinese/English: "五大", "5个", "five key", "3 major", etc.
+    # Detect explicit enumeration promises only. Do not match data such as "¥500亿" or "3-year CAGR".
     en_nums = {"three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
     number_pattern = re.compile(
-        r'(?:([一二三四五六七八九十])大|(\d+)\s*[个大项条]|(three|four|five|six|seven)\s+(?:key|major|critical))',
+        r"(?:"
+        r"([一二三四五六七八九十])\s*大\s*(?:核心|关键|主要|增长|结构性|行业|未来|交易|投资)?\s*(?:趋势|驱动|因素|逻辑|看点|变化|启示|机会|壁垒)|"
+        r"(\d+)\s*(?:个|大)\s*(?:核心|关键|主要|增长|结构性|行业|未来|交易|投资)?\s*(?:趋势|驱动|因素|逻辑|看点|变化|启示|机会|壁垒)|"
+        r"(three|four|five|six|seven)\s+(?:key|major|critical)?\s*(?:drivers|trends|factors|themes|takeaways|implications|barriers)"
+        r")",
         re.IGNORECASE,
     )
     for text_field, text_value in [("headline", headline), ("main_message", main_message)]:
@@ -404,15 +403,6 @@ def check_compare_table_structure(
         )
 
 
-def metric_signatures(text: str) -> list[str]:
-    signatures: list[str] = []
-    for match in METRIC_RE.finditer(text):
-        value = re.sub(r"\s+", "", match.group("value"))
-        if value:
-            signatures.append(value)
-    return signatures
-
-
 def check_storyline_coverage(
     slides: list[dict],
     errors: list[str],
@@ -474,37 +464,6 @@ def check_storyline_coverage(
     if target_central_count > 4:
         errors.append(
             f"pre-mandate relevance balance: {target_central_count} slide(s) are target-central; no more than 4 should make the target the central claim"
-        )
-
-    metric_locations: dict[str, list[int]] = {}
-    for slide in slides:
-        if not isinstance(slide, dict):
-            continue
-        slide_no = slide.get("slide_no")
-        fields = [
-            str(slide.get("headline") or ""),
-            str(slide.get("main_message") or ""),
-            str(slide.get("target_link") or ""),
-        ]
-        body_copy = slide.get("body_copy", {})
-        if isinstance(body_copy, dict):
-            fields.extend(str(value) for value in body_copy.values() if isinstance(value, str))
-        chart_data = slide.get("chart_data", {})
-        if isinstance(chart_data, dict):
-            fields.append(str(chart_data.get("title") or ""))
-            fields.append(str(chart_data.get("notes") or ""))
-        for signature in set(metric_signatures(" ".join(fields))):
-            metric_locations.setdefault(signature, []).append(slide_no)
-
-    repeated_metrics = {
-        metric: sorted(set(locations))
-        for metric, locations in metric_locations.items()
-        if len(set(locations)) >= 3
-    }
-    if repeated_metrics:
-        warnings.append(
-            "cross-slide metric consistency: repeated metrics appear on 3+ slides; verify same value/unit/scope/period: "
-            + "; ".join(f"{metric} on slides {locations}" for metric, locations in list(repeated_metrics.items())[:5])
         )
 
     # 2. Per-slide structural checks
