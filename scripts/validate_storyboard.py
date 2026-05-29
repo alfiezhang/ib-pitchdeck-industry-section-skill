@@ -87,7 +87,7 @@ CHART_TYPES_REQUIRING_SERIES = {
 }
 SUPPORTED_CHART_TYPES = CHART_TYPES_REQUIRING_SERIES | {"metric_cards", "none", "no_chart", "text"}
 RELEVANCE_LEVELS = {"sector_credibility", "transaction_relevance", "target_implication", "mixed"}
-TARGET_LINK_TYPES = {"none", "light", "selective", "central"}
+TARGET_LINK_TYPES = {"light", "selective", "central"}
 CLAIM_STRENGTHS = {"hard_fact", "supported_inference", "management_claim", "hypothesis"}
 
 EXPECTED_ROLES = {
@@ -360,6 +360,25 @@ def check_storyline_contract(
                         f"but body_copy has only {filled_count} filled content slots; "
                         f"title must not over-promise what the page can carry"
                     )
+
+    # 4. target_link_type vs target_link consistency
+    #    If target_link_type is "light", the target_link should not use promotional language
+    #    that implies the target is the central subject.
+    target_link_type = contract.get("target_link_type")
+    target_link = str(slide.get("target_link") or "")
+    if target_link_type == "light" and target_link:
+        promotional_markers = [
+            "护城河", "显著优势", "领先", "最强", "最优", "核心竞争力",
+            "moat", "dominant", "best-in-class", "superior", "competitive advantage",
+        ]
+        target_link_lower = target_link.lower()
+        found = [m for m in promotional_markers if m in target_link_lower]
+        if found:
+            warnings.append(
+                f"slide {slide_no}: target_link_type is 'light' but target_link contains "
+                f"promotional language ({', '.join(found[:3])}); "
+                f"use contextual or evidence-based framing for light target linkage"
+            )
 
 
 def check_compare_table_structure(

@@ -56,7 +56,7 @@ Each contract requires:
 - **question**: The single investor question this slide answers. One question only — not a list.
 - **answer**: One-sentence conclusion that directly answers the question. This should align with the `headline`.
 - **primary_relevance_level**: One of `sector_credibility`, `transaction_relevance`, `target_implication`, or `mixed`.
-- **target_link_type**: One of `none`, `light`, `selective`, or `central`. Not every slide should be target-central.
+- **target_link_type**: One of `light`, `selective`, or `central`. Not every slide should be target-central. Every slide must have a target_link; use `light` for slides where the target connection is contextual rather than the main message.
 - **claim_strength**: One of `hard_fact`, `supported_inference`, `management_claim`, or `hypothesis`.
 - **evidence_ids**: Which Evidence IDs (e.g., EV-001) from the memo support this answer. At least 2 distinct IDs.
 - **forbidden_topics**: Content types that must NOT appear on this slide. This is the MECE enforcement mechanism. Be explicit — e.g., for Slide 3 (drivers), forbid "CR5/CR10", "channel structure", "value chain margin".
@@ -113,6 +113,20 @@ Use the following standard structure unless the user explicitly asks otherwise:
 | 8 | `key_takeaways_for_target` | Fixed: `summary_page` |
 
 Use these canonical role keys exactly in each slide's `slide_role`.
+
+### Slide 5 Barrier Discipline
+
+Slide-level role overrides the global target-linked objective. For Slide 5 (`key_barriers_value_drivers` / `moat_page`), the primary subject is **industry-level barriers, winner capabilities, and value drivers**. The Target should appear only as an implication, evidence of fit, or diligence question.
+
+Slide 5 should answer: "What capabilities are required to win in this industry, and to what extent does the Target appear to possess them?"
+
+Required structure for each card:
+
+```
+[Industry barrier / value driver]: [why it matters in this sector] -> [Target implication or diligence question]
+```
+
+Do not write Slide 5 as "the Target's three moats" or "the Target's competitive barriers." Do not use company-specific facts as a substitute for industry-level barriers.
 
 ## Storyline Discipline
 
@@ -216,12 +230,13 @@ Each slide must include:
 - **main_message / subtitle**: One sentence that captures the slide's core argument. Target one line; two lines are acceptable only when necessary; three lines are not acceptable. Do not end with a period, comma, semicolon, colon, exclamation mark, question mark, or other terminal punctuation.
 - **Fit before writing**: Draft the shortest viable headline/main_message first. Do not rely on the validator to shorten them after the fact.
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
-- **Bullet-style body copy**: Body text boxes must read as bullet points, not memo paragraphs. Write each active body_copy field as one concise bullet-style point. Do not put parenthetical source references such as `(EV-001)` or `(Named report)` in body text; all source IDs/names belong in `source_note`.
+- **Bullet-style body copy**: Body text boxes must read as bullet points, not memo paragraphs. Write each active body_copy field as one concise bullet-style point. Do not put parenthetical source references such as `(EV-001)`, `(Named report)`, `(Named source, 2026)`, or Chinese forms like `（青眼情报, 2025）` in body text; all source IDs/names belong in `source_note`.
 - **Layout budget first**: Before drafting body copy, read `templates/layout_budget.json`. Prefer slide-specific budgets such as `1:summary_page` and `8:summary_page`; otherwise use the page type's `body_fields_max_units`. Table cells must be shorter than ordinary bullets so post-processing does not need unreadably small fonts.
 - **Active page-type contract**: After choosing `selected_page_type`, use only the active `body_copy` fields for that page type from `ppt_copy_schema`/`ppt_copy_mapping`. Do not include inactive variant fields.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
 - **chart_data schema**: `bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` require `categories`, numeric `series[].values`, `unit`, and `source_rows`; `metric_cards` requires at least 3 `source_rows` on Slide 1 and at least 2 elsewhere; `none` is only for non-quantitative layouts with no verified visual data.
+- **Metric card units**: If `metric_cards` mix currency, percentages, counts, or rankings, put `unit` or `value_unit` on each `source_rows[]` item, or include the unit directly in the `value` string. Do not rely on one mixed `chart_data.unit` such as `RMB / %`.
 - **Chart legend labels**: Keep each `series.name` short enough to work as a chart legend label, ideally 2-8 Chinese characters or 1-3 English words. Do not use full-sentence series names.
 - **Slide 1 visual contract**: Slide 1 uses a large right-side `CHART / VISUAL` anchor. It must include executable `chart_data.chart_type`; prefer `metric_cards`, `bar`, or `line`. Use `bar`, `stacked_bar`, or `line` with `categories`, `series`, `unit`, and `source_rows`; use `metric_cards` with exactly three strong `source_rows`; or use `none` only when there is no verified visual data. Do not put procedural instructions into `chart_data.title`. If Slide 1 uses `metric_cards`, `visual_direction` must describe KPI cards, not a funnel or other chart that the renderer will not create.
 - For `matrix_page`, include either `source_rows` with numeric `x` and `y` values for each plotted player, or two numeric series whose values map to the matrix axes.
@@ -307,6 +322,7 @@ If you catch yourself writing any of these, replace with specific evidence + sou
 - For colon-led labels such as `Industry structure:` or `Target position:`, prefer bolding the label prefix rather than highlighting the whole sentence.
 - Do not leave template-helper labels in visible copy. Terms such as `PRIMARY CHART`, `POINT 1`, or page-type names are scaffold only and must not appear in deliverable text.
 - Do not embed source references in body text. Evidence IDs, report names, annual reports, and announcement names should appear in `source_note`, not in parentheses inside bullets.
+- Do not embed named Chinese source citations either, such as `（青眼情报, 2025）` or `（中国香妆协会, 2026）`.
 
 ## Cross-Slide Metric and Footnote Discipline
 
@@ -317,6 +333,18 @@ Before final JSON:
 - Use `source_note` for sources and Evidence IDs.
 - Use `chart_data.notes` and `data_gaps` for scope, calculations, assumptions, exclusions, caveats, and unresolved discrepancies.
 - Every calculated metric should have a note explaining its formula or basis.
+
+### Slide 4 Value Chain Discipline
+
+Slide 4 (`value_chain_profit_pool`) should primarily explain the industry value chain, profit pool, and value capture logic. Target positioning is secondary. Do not make the headline's primary subject "the Target is in the optimal part of the chain"; first explain why that chain stage captures value, then map the Target to that stage.
+
+### Slide 8 Balanced Transaction Implications
+
+Slide 8 (`key_takeaways_for_target`) should synthesize the transaction logic but must stay balanced. Include at least one explicit open diligence question, risk, or validation item, such as channel concentration, repeat purchase, paid traffic efficiency, category extension, or margin sustainability. Do not make Slide 8 only a positive target advocacy page.
+
+### Slide 6 Competitive Landscape Discipline
+
+Slide 6 (`competitive_landscape`) should primarily explain market structure, peer segmentation, and positioning dimensions. Target positioning is secondary. The Target can appear in the table/matrix and one interpretation panel, but the headline/main_message should not be primarily about the Target's advantage or differentiation.
 
 ## Claim Strength Discipline
 

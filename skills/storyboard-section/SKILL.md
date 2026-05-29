@@ -96,7 +96,7 @@ Each contract requires:
 - **question**: The single investor question this slide answers. One question only.
 - **answer**: One-sentence conclusion that aligns with the headline.
 - **primary_relevance_level**: `sector_credibility`, `transaction_relevance`, `target_implication`, or `mixed`.
-- **target_link_type**: `none`, `light`, `selective`, or `central`. Not every slide should be target-central.
+- **target_link_type**: `light`, `selective`, or `central`. Not every slide should be target-central. Every slide must have a target_link; use `light` for slides where the target connection is contextual rather than the main message.
 - **claim_strength**: `hard_fact`, `supported_inference`, `management_claim`, or `hypothesis`.
 - **evidence_ids**: Evidence IDs from the memo that support this answer (at least 2 distinct IDs).
 - **forbidden_topics**: Content types that must NOT appear on this slide (MECE enforcement). Be explicit.
@@ -122,7 +122,7 @@ Before finalizing the storyboard, check that repeated metrics use the same value
 
 ### Sources vs Notes
 
-Use `source_note` to identify sources and Evidence IDs. Use `chart_data.notes` or `data_gaps` for scope, calculations, assumptions, exclusions, and caveats. Do not put source names or Evidence IDs in body text.
+Use `source_note` to identify sources and Evidence IDs. Use `chart_data.notes` or `data_gaps` for scope, calculations, assumptions, exclusions, and caveats. Do not put source names, Evidence IDs, or parenthetical Chinese source citations such as `（青眼情报, 2025）` in body text.
 
 ### Pre-Mandate Relevance Balance
 
@@ -159,6 +159,27 @@ Allocate content to slides so that the 8 slides together form a **complete, non-
 | Competitor positioning / peer comparison | Slide 6 | Slide 3 |
 | Regulatory / tech / ESG trends | Slide 7 | Slide 1–6 |
 | Target-specific implications / recommendations | Slide 8 | Slide 1–7 |
+
+### Slide 5 Barrier Discipline
+
+For Slide 5 (`key_barriers_value_drivers` / `moat_page`), slide-level role overrides the global target-linked objective.
+
+- Primary subject: industry-level barriers, winner capabilities, and value drivers.
+- Secondary subject: selective Target implications, evidence of fit, or diligence questions.
+- Required card logic: industry barrier / value driver -> why it matters in this sector -> Target implication or diligence question.
+- Do not write this as a target-only moat page. Avoid headlines such as "Target's three moats" or "Target's competitive barriers."
+
+### Slide 4 Value Chain Discipline
+
+Slide 4 (`value_chain_profit_pool`) should primarily explain the industry value chain, profit pool, and value capture logic. Target positioning is secondary; do not make the headline primarily about the Target being in the best chain position.
+
+### Slide 8 Balance Discipline
+
+Slide 8 (`key_takeaways_for_target`) should synthesize transaction implications with judgment. Include at least one explicit open diligence question, risk, or validation item; do not make the final page only a positive target advocacy page.
+
+### Slide 6 Competitive Landscape Discipline
+
+Slide 6 (`competitive_landscape`) should primarily explain market structure, peer segmentation, and positioning dimensions. Target positioning is secondary; the headline and main message should not be primarily about the Target's advantage.
 
 ### Slide 1: Three-Layer Funnel
 
@@ -211,6 +232,7 @@ Not: source references in body text — all Evidence IDs and source names belong
   - `metric_cards`: require at least 3 `source_rows` for Slide 1 and at least 2 for any other slide; every row needs `label`, `value`, `period`, and `source`.
   - `none` is allowed only for non-quantitative layouts with no verified visual data.
 - **Slide 1 visual anchor is executable**: Slide 1's right-side `CHART / VISUAL` area is rendered from `chart_data`. Use a clean `metric_cards` payload when the best visual is KPI cards; do not describe a funnel if the actual `chart_data.chart_type` is `metric_cards`.
+- **Metric card units are row-level when mixed**: if `metric_cards` mix currency, percentages, counts, or rankings, put `unit` or `value_unit` on each `source_rows[]` item, or include the unit directly in each value string. Do not use one mixed `chart_data.unit` such as `RMB / %`.
 - **Matrix slides need coordinates**: for `matrix_page`, include numeric x/y coordinates per plotted player in `chart_data.source_rows`, or provide two numeric series that map to the x and y axes.
 - **`chart_title` must stay client-facing downstream**: quantitative slides should make `chart_data.title` usable as the on-slide chart label; execution notes belong in `visual_direction` or `chart_data.notes`.
 - **Target link is mandatory on every slide**: If a slide doesn't connect to the target, it's a generic industry slide — fix it or flag it.

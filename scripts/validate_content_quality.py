@@ -148,18 +148,14 @@ def check_generic_phrases(
 
 
 INLINE_SOURCE_RE = re.compile(
-    r"[\(（][^()（）\n]*(?:EV-\d+|Source|source|来源|报告|年报|公告|research|Research)[^()（）\n]*[\)）]"
+    r"[\(（][^()（）\n]*(?:EV-\d+|Source|source|来源|报告|年报|公告|research|Research|"
+    r"[\u4e00-\u9fff]{2,}(?:协会|情报|咨询|研究院|药监局|年报|公告|数据|智库|证券|交易所|统计局)[^()（）\n]*\d{4})"
+    r"[^()（）\n]*[\)）]"
 )
 EV_ID_RE = re.compile(r"\bEV-\d{3}\b")
 METRIC_RE = re.compile(
     r"(?P<value>(?:(?:¥|RMB|USD)\s*\d+(?:\.\d+)?\s*(?:亿|万|bn|mn|billion|million)?)|"
     r"(?:\d+(?:\.\d+)?\s*(?:%|％|亿|万|bn|mn|billion|million)))",
-    flags=re.IGNORECASE,
-)
-ARGUMENT_SIGNAL_RE = re.compile(
-    r"\d|%|％|亿|万|CAGR|bn|mn|RMB|USD|¥|"
-    r"driv|support|imply|because|therefore|target|margin|share|penetration|"
-    r"驱动|支撑|意味着|因此|标的|利润|份额|渗透|增长|提升|降低|带来",
     flags=re.IGNORECASE,
 )
 ARGUMENT_MECHANISM_RE = re.compile(
@@ -313,6 +309,113 @@ def check_claim_strength_language(
         blocking_warnings.append(message)
 
 
+def check_cautious_language(
+    slide: dict,
+    cautious_phrases: list[str],
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    """Flag promotional language that should be softened in pitch materials. Blocking for pre-mandate context."""
+    if not cautious_phrases:
+        return
+    slide_no = slide.get("slide_no")
+    fields: list[tuple[str, str]] = []
+    for field_name in ("headline", "main_message", "target_link"):
+        value = slide.get(field_name)
+        if isinstance(value, str):
+            fields.append((field_name, value))
+    body_copy = slide.get("body_copy", {})
+    if isinstance(body_copy, dict):
+        fields.extend((f"body_copy.{key}", value) for key, value in body_copy.items() if isinstance(value, str))
+
+    findings: list[str] = []
+    for field_name, value in fields:
+        text_lower = normalize(value)
+        for phrase in cautious_phrases:
+            if normalize(phrase) and normalize(phrase) in text_lower:
+                findings.append(f"'{phrase}' in {field_name}")
+                break
+    if findings:
+        message = (
+            f"slide {slide_no}: promotional / overconfident phrasing is not allowed in pitch materials: "
+            + "; ".join(findings[:3])
+        )
+        warnings.append(message)
+        blocking_warnings.append(message)
+
+
+def check_slide_specific_quality(
+    slide: dict,
+    rules: dict,
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    """Check slide-specific semantic constraints that are too contextual for schema validation."""
+    slide_no = slide.get("slide_no")
+    slide_rules = rules.get("slide_specific_quality_rules", {})
+    if not isinstance(slide_rules, dict):
+        return
+    rule = slide_rules.get(str(slide_no))
+    if not isinstance(rule, dict):
+        return
+
+    headline = str(slide.get("headline") or "")
+    fields_to_check = [
+        ("headline", str(slide.get("headline") or ""), rule.get("forbidden_headline_patterns", [])),
+        ("main_message", str(slide.get("main_message") or ""), rule.get("forbidden_main_message_patterns", [])),
+    ]
+    main_message = fields_to_check[1][1]
+
+    for checked_field, checked_text, patterns in fields_to_check:
+        for pattern in patterns:
+            if not isinstance(pattern, str) or not pattern.strip():
+                continue
+            try:
+                matched = re.search(pattern, checked_text, flags=re.IGNORECASE)
+            except re.error as exc:
+                warnings.append(f"slide {slide_no}: invalid slide-specific {checked_field} regex {pattern!r}: {exc}")
+                continue
+            if matched:
+                description = str(rule.get("description") or "slide-specific semantic rule")
+                message = (
+                    f"slide {slide_no}: {checked_field} appears to violate slide-specific role ({description}; "
+                    f"matched {pattern!r}). Keep the slide's primary subject aligned with its page role and target linkage secondary."
+                )
+                warnings.append(message)
+                blocking_warnings.append(message)
+                break
+
+    body_copy = slide.get("body_copy", {})
+    body_text = ""
+    if isinstance(body_copy, dict):
+        body_text = "\n".join(str(value) for value in body_copy.values() if isinstance(value, str))
+
+    focus_terms = [str(term).strip() for term in rule.get("preferred_focus_terms", []) if str(term).strip()]
+    if focus_terms:
+        combined = f"{headline}\n{main_message}\n{body_text}".lower()
+        if not any(term.lower() in combined for term in focus_terms):
+            description = str(rule.get("description") or "slide-specific semantic rule")
+            warnings.append(
+                f"slide {slide_no}: headline/main_message/body_copy do not clearly signal the expected slide role ({description}); "
+                "make the slide's primary analytical subject explicit and keep target linkage secondary where required"
+            )
+
+    body_focus_terms = [str(term).strip() for term in rule.get("preferred_body_focus_terms", []) if str(term).strip()]
+    if body_focus_terms and body_text:
+        body_lower = body_text.lower()
+        if not any(term.lower() in body_lower for term in body_focus_terms):
+            message = str(rule.get("preferred_body_focus_message") or
+                          "body_copy should contain industry-level focus terms for this slide role")
+            warnings.append(f"slide {slide_no}: {message}")
+
+    required_body_terms = [str(term).strip() for term in rule.get("required_body_terms", []) if str(term).strip()]
+    if required_body_terms:
+        combined_body = f"{main_message}\n{body_text}".lower()
+        if not any(term.lower() in combined_body for term in required_body_terms):
+            message = str(rule.get("required_body_message") or "required slide-specific body term missing")
+            warnings.append(f"slide {slide_no}: {message}")
+
+
 def check_source_note_notes_discipline(
     slide: dict,
     warnings: list[str],
@@ -430,6 +533,24 @@ def check_chart_data(
                 message = f"slide 1: metric_cards visual requires at least {min_rows} source_rows"
                 warnings.append(message)
                 blocking_warnings.append(message)
+            unit = str(chart_data.get("unit") or "")
+            has_mixed_unit = "/" in unit or " and " in unit.lower() or "mixed" in unit.lower()
+            if has_mixed_unit:
+                missing_row_units = []
+                for idx, row in enumerate(rows[:max(min_rows, 1)], start=1):
+                    if not isinstance(row, dict):
+                        continue
+                    value_text = str(row.get("value") or "")
+                    row_unit = str(row.get("unit") or row.get("value_unit") or "")
+                    if not row_unit and not any(token in value_text for token in ("%", "亿", "万", "元", "RMB", "USD", "$")):
+                        missing_row_units.append(str(idx))
+                if missing_row_units:
+                    message = (
+                        "slide 1: metric_cards uses mixed chart_data.unit; each source_row needs row-level "
+                        f"unit/value_unit or a value string with units (missing rows: {', '.join(missing_row_units)})"
+                    )
+                    warnings.append(message)
+                    blocking_warnings.append(message)
             return
         message = f"slide 1: unsupported chart_type '{chart_type}' for deterministic visual rendering"
         warnings.append(message)
@@ -646,6 +767,7 @@ def validate(
     generic_source = rules.get("generic_source_phrases", [])
     generic_copy = rules.get("generic_copy_phrases", [])
     overclaim_phrases = rules.get("overclaim_phrases", [])
+    cautious_phrases = rules.get("cautious_language_phrases", [])
     weak_source_markers = rules.get("weak_source_markers", [])
     min_evidence = rules.get("required_storyboard_checks", {}).get("min_evidence_per_slide", 2)
 
@@ -748,12 +870,16 @@ def validate(
 
         # 6. Claim strength and overclaim language
         check_claim_strength_language(slide, overclaim_phrases, claim_strength_warnings, claim_strength_blocking_warnings)
+        check_cautious_language(slide, cautious_phrases, claim_strength_warnings, claim_strength_blocking_warnings)
 
-        # 7. Training data usage
+        # 7. Slide-specific semantic constraints
+        check_slide_specific_quality(slide, rules, generic_copy_warnings, claim_strength_blocking_warnings)
+
+        # 8. Training data usage
         if memo_text:
             check_training_data_usage(slide, memo_text, rules, source_warnings)
 
-        # 8. Evidence linkage
+        # 9. Evidence linkage
         if memo_text:
             check_evidence_linkage(slide, memo_text, min_evidence, evidence_warnings)
 

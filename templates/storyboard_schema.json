@@ -75,8 +75,8 @@
               },
               "target_link_type": {
                 "type": "string",
-                "enum": ["none", "light", "selective", "central"],
-                "description": "How central the target implication should be. Not every slide should be target-central."
+                "enum": ["light", "selective", "central"],
+                "description": "How central the target implication should be. Not every slide should be target-central. Every slide must have a target_link; use 'light' for slides where the target connection is contextual rather than the main message."
               },
               "claim_strength": {
                 "type": "string",

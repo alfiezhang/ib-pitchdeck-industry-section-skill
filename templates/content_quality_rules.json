@@ -22,6 +22,9 @@
     "publicly available",
     "公开资料",
     "行业报告",
+    "公开行业资料",
+    "行业公开数据",
+    "行业数据",
     "公开信息",
     "市场研究",
     "多方来源"
@@ -84,6 +87,16 @@
     "行业媒体/数据平台"
   ],
 
+  "cautious_language_phrases": [
+    "最优环节",
+    "具吸引力的投资机会",
+    "第二增长曲线",
+    "增长确定性最强",
+    "可辨识的护城河",
+    "定位最优",
+    "显著优势"
+  ],
+
   "required_storyboard_checks": {
     "source_note_specific": true,
     "chart_data_source_rows_for_quant_slides": true,
@@ -93,5 +106,89 @@
     "argument_fields_should_include_mechanism_or_data": true,
     "cross_slide_metric_consistency_check": true,
     "sources_notes_discipline": true
+  },
+
+  "slide_specific_quality_rules": {
+    "4": {
+      "description": "Slide 4 should focus on industry value chain and profit pool first; target positioning is secondary.",
+      "forbidden_headline_patterns": [
+        "标的.{0,12}(最优|核心|制高点|利润池)",
+        "target.{0,30}(best|optimal|profit pool)"
+      ],
+      "preferred_focus_terms": [
+        "产业链",
+        "价值链",
+        "利润池",
+        "品牌商",
+        "渠道",
+        "value chain",
+        "profit pool"
+      ]
+    },
+    "5": {
+      "description": "Slide 5 is industry barriers / value drivers with selective target implications, not a target-only moat page.",
+      "forbidden_headline_patterns": [
+        "标的.{0,8}(护城河|竞争壁垒|壁垒)",
+        "目标公司.{0,8}(护城河|竞争壁垒|壁垒)",
+        "target.{0,20}(moat|barrier|competitive advantage)"
+      ],
+      "preferred_focus_terms": [
+        "行业",
+        "进入壁垒",
+        "壁垒",
+        "门槛",
+        "胜出",
+        "value driver",
+        "barrier",
+        "winner capability"
+      ],
+      "preferred_body_focus_terms": [
+        "行业", "壁垒", "门槛", "进入", "竞争", "价值驱动",
+        "entry barrier", "winner", "barrier", "value driver"
+      ],
+      "preferred_body_focus_message": "Slide 5 body_copy should contain industry-level barrier / value driver language; it reads as target-only if no industry focus terms appear in body_copy."
+    },
+    "6": {
+      "description": "Slide 6 should explain competitive landscape / peer segmentation first; target positioning is secondary.",
+      "forbidden_headline_patterns": [
+        "标的.{0,12}(差异化|优势|生态位|定位|胜出)",
+        "目标公司.{0,12}(差异化|优势|生态位|定位|胜出)",
+        "target.{0,30}(differentiation|advantage|positioning|wins|outperform)"
+      ],
+      "forbidden_main_message_patterns": [
+        "标的.{0,20}(差异化|优势|独特生态位|占据|胜出)",
+        "目标公司.{0,20}(差异化|优势|独特生态位|占据|胜出)",
+        "target.{0,40}(differentiation|advantage|unique position|wins|outperform)"
+      ],
+      "preferred_focus_terms": [
+        "竞争",
+        "格局",
+        "梯队",
+        "分层",
+        "同业",
+        "玩家",
+        "定位维度",
+        "competitive landscape",
+        "peer",
+        "market structure"
+      ],
+      "preferred_body_focus_terms": [
+        "竞争", "格局", "梯队", "分层", "同业", "市场结构", "CR", "集中",
+        "competitive", "landscape", "peer", "market structure", "tier"
+      ],
+      "preferred_body_focus_message": "Slide 6 body_copy should contain competitive landscape / market structure language; it reads as target-only if no landscape focus terms appear in body_copy."
+    },
+    "8": {
+      "description": "Slide 8 should include balanced transaction implications and explicit open diligence questions, not only positive target advocacy.",
+      "required_body_terms": [
+        "待验证",
+        "尽调",
+        "风险",
+        "open DD",
+        "diligence",
+        "question"
+      ],
+      "required_body_message": "Slide 8 should include at least one explicit open diligence question / risk / validation item."
+    }
   }
 }
