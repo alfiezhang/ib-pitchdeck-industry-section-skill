@@ -163,11 +163,15 @@ Storyboard must preserve the pre-mandate transaction context: not a generic sect
 **Content density requirements** (enforced by `templates/content_quality_rules.json`):
 - Every body_copy field: label + opinion + evidence/implication
 - Per-field density targets (see storyboard prompt for ranges)
-- No banned generic phrases in body_copy or source_note
+- No banned generic phrases in body_copy or source_note; do not put parenthetical source citations in body text
 - At least 2 Evidence IDs or memo section references per slide
+- Slide 4 (`value_chain_profit_pool`) must be industry value-chain / profit-pool first, with target positioning second.
+- Slide 5 (`key_barriers_value_drivers`) must be industry-barriers / value-drivers first, with target implications second; do not write it as a target-only moat page.
+- Slide 6 (`competitive_landscape`) must be market-structure / peer-positioning first, with target relative positioning second.
+- Slide 8 (`key_takeaways_for_target`) must include at least one open diligence question, risk, or validation item.
 - Headline and main_message fit rules are enforced by `templates/text_fit_rules.json`: title must fit one line; subtitle/main_message targets one line and must not exceed two lines.
 - Page-level copy and visual budgets are defined in `templates/layout_budget.json`: body fields must be short bullet-style points, table cells must stay compact, and `main_message` must not end with punctuation.
-- Slide 1 right-side visual area is executable: storyboard must set `chart_data.chart_type` to `bar`, `stacked_bar`, `line`, `metric_cards`, or `none`; non-`none` choices need data that `scripts/postprocess_ppt_visuals.py` can render.
+- Slide 1 right-side visual area is executable: storyboard must set `chart_data.chart_type` to `bar`, `stacked_bar`, `line`, `metric_cards`, or `none`; non-`none` choices need data that `scripts/postprocess_ppt_visuals.py` can render. Mixed-unit metric cards need row-level `unit` / `value_unit`.
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
 

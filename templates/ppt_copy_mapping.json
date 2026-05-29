@@ -277,6 +277,7 @@
       "slide_no": 5,
       "slide_key": "key_barriers_value_drivers",
       "selected_page_type": "moat_page",
+      "semantic_role": "industry barriers / value drivers with selective target implications",
       "ppt_copy_fields": {
         "slide_title": { "source_priority": ["slide_title"], "role": "conclusion_led_page_title" },
         "main_takeaway": { "source_priority": ["main_takeaway"], "role": "page_conclusion" },

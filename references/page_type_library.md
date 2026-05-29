@@ -35,13 +35,14 @@ Typical output behavior:
 - supporting panels for profit pool, barriers, and target positioning
 
 ### `moat_page`
-Use when the page is about the few capabilities that separate winners from followers.
+Use when the page is about the industry-level barriers, winner capabilities, or value drivers that separate winners from followers. In this skill, `moat_page` does **not** mean a target-only moat page.
 Best for:
 - Slide 5
 
 Typical output behavior:
 - 3 modules
-- each module focuses on what it is, why it matters, and whether the Target has it
+- each module focuses on the industry barrier / value driver, why it matters in the sector, and the Target implication or diligence question
+- the Target may appear as evidence of fit, but the primary subject remains the industry barrier / value driver
 
 ## Controlled-Choice Page Types
 

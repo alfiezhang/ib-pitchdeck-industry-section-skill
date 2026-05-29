@@ -196,17 +196,31 @@ stage_optional_artifact() {
   fi
 }
 
+stage_optional_artifact_from_any() {
+  local rel="$1"
+  shift
+  local src_dir
+  for src_dir in "$@"; do
+    if [[ -n "$src_dir" && -f "$src_dir/$rel" ]]; then
+      mkdir -p "$OUTPUT_DIR/$(dirname "$rel")"
+      stage_file "$src_dir/$rel" "$OUTPUT_DIR/$rel"
+      return
+    fi
+  done
+}
+
 stage_file "$STORYBOARD" "$STAGED_STORYBOARD"
 
 INPUT_DIR="$(cd "$(dirname "$STORYBOARD")" && pwd)"
+WORK_ROOT_ABS="$(cd "$WORK_ROOT" && pwd)"
 if [[ $RESEARCH_GATE -eq 1 ]]; then
   require_research_artifact "$INPUT_DIR" "artifacts/research_plan.json"
   require_research_artifact "$INPUT_DIR" "artifacts/research_plan_validation.json"
   require_research_artifact "$INPUT_DIR" "artifacts/search_log.md"
   require_research_artifact "$INPUT_DIR" "industry_input_memo.md"
 fi
-stage_optional_artifact "$INPUT_DIR" "input_card.json"
-stage_optional_artifact "$INPUT_DIR" "artifacts/input_card_validation.json"
+stage_optional_artifact_from_any "input_card.json" "$INPUT_DIR" "$WORK_ROOT_ABS"
+stage_optional_artifact_from_any "artifacts/input_card_validation.json" "$INPUT_DIR" "$WORK_ROOT_ABS"
 stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan_validation.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/search_log.md"

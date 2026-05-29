@@ -48,7 +48,27 @@
       "slide_key": "key_barriers_value_drivers",
       "selection_mode": "fixed",
       "page_types": ["moat_page"],
-      "default_dominant_element": "text"
+      "default_dominant_element": "text",
+      "semantic_role": "industry_barriers_with_target_implications",
+      "primary_focus": "industry-level entry barriers, winner capabilities, and value drivers",
+      "secondary_focus": "selective target implications or evidence of fit",
+      "primary_question": "What barriers, capabilities, or value drivers determine winners in this industry?",
+      "secondary_question": "To what extent does the target appear to possess or need to validate these capabilities?",
+      "content_balance_rule": {
+        "industry_barriers_min_share": "60%",
+        "target_implications_max_share": "40%"
+      },
+      "required_structure": [
+        "industry barrier or value driver",
+        "why it matters in this sector",
+        "target implication, evidence of fit, or diligence question"
+      ],
+      "anti_patterns": [
+        "Do not write Slide 5 as a target-only moat page.",
+        "Do not make the headline's primary subject the target's moat or target's barriers.",
+        "Do not use company-specific facts as substitutes for industry-level barriers.",
+        "Do not claim the target has a moat unless independently supported."
+      ]
     },
     {
       "slide_no": 6,
@@ -56,9 +76,28 @@
       "selection_mode": "controlled_choice",
       "page_types": ["compare_table_page", "matrix_page"],
       "default_dominant_element": "table",
+      "semantic_role": "competitive_landscape_with_target_positioning",
+      "primary_focus": "market structure, peer segmentation, and positioning dimensions",
+      "secondary_focus": "target's relative position within that landscape",
+      "primary_question": "How is the competitive landscape structured and which dimensions separate player groups?",
+      "secondary_question": "Where does the target sit relative to named peers and what does that imply?",
+      "content_balance_rule": {
+        "competitive_landscape_min_share": "60%",
+        "target_positioning_max_share": "40%"
+      },
       "selection_priority": [
         "prefer_compare_table_when named peer comparison is the clearest story",
         "prefer_matrix_when positioning against two dimensions is the clearest story"
+      ],
+      "required_structure": [
+        "market structure or player tiers",
+        "comparison dimensions or positioning axes",
+        "target's relative position and implication"
+      ],
+      "anti_patterns": [
+        "Do not write Slide 6 as a target-only differentiation page.",
+        "Do not make the headline or main_message primarily about the target's advantage.",
+        "Do not discuss target positioning without named peer or market-structure context."
       ]
     },
     {

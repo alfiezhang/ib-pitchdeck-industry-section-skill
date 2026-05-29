@@ -114,6 +114,20 @@
 
 每页的 `slide_role` 必须逐字使用上表中的 canonical role key。
 
+### 第 5 页壁垒纪律
+
+单页角色优先于全局 target-linked 目标。第 5 页（`key_barriers_value_drivers` / `moat_page`）的主语必须是**行业层面的进入壁垒、胜出能力或价值驱动因素**；标的只能作为匹配度、已验证能力或待尽调问题出现。
+
+第 5 页应回答：“这个行业要胜出需要哪些能力，标的在多大程度上已经具备或仍需验证？”
+
+每个 card 的结构必须是：
+
+```
+[行业壁垒 / 价值驱动因素]：[为什么在这个行业重要] → [标的 implication 或待验证问题]
+```
+
+不要把第 5 页写成“标的三重护城河”或“标的竞争壁垒”。不要用公司自身事实替代行业壁垒分析。
+
 ## 故事线纪律
 
 ### Pre-mandate 三层相关性
@@ -205,12 +219,13 @@
 - **main_message（核心信息 / 副标题）**：一句话概括本页的核心论点。目标 1 行；必要时可以 2 行；不得变成 3 行；结尾不要使用句号、逗号、顿号、分号、冒号、感叹号、问号等标点符号。
 - **生成前适配**：先写最短可用的标题和核心信息，不要依赖 validator 事后反复压缩。
 - **body_copy（正文）**：适配 PPT 占位符的结构化内容。使用 schema 为该页角色定义的字段名。面向 PowerPoint 写作——有力、可扫读、非段落式的。
-- **正文 bullet 化**：正文框内的内容必须像 bullet point 一样短、可扫读；每个 active body_copy 字段写成一个短 bullet 观点，不要写成 memo 段落。不要在正文中写括号来源，如 `（EV-001）`、`（某报告）`；所有来源只放在 `source_note`。
+- **正文 bullet 化**：正文框内的内容必须像 bullet point 一样短、可扫读；每个 active body_copy 字段写成一个短 bullet 观点，不要写成 memo 段落。不要在正文中写括号来源，如 `（EV-001）`、`（某报告）`、`（青眼情报, 2025）`、`（中国香妆协会, 2026）`；所有来源只放在 `source_note`。
 - **版式预算优先**：写正文前读取 `templates/layout_budget.json`。优先使用 `1:summary_page`、`8:summary_page` 这类 slide-specific budgets；否则使用对应 page type 的 `body_fields_max_units`。表格单元格要更短，避免后处理被迫用过小字体。
 - **Active 页面契约**：选定 `selected_page_type` 后，只填写该页面类型在 `ppt_copy_schema`/`ppt_copy_mapping` 中定义的 active `body_copy` 字段；不要把未选中的变体字段带入最终 storyboard。
 - **visual_direction（视觉方向）**：图表/图示应展示什么、应基于什么数据。
 - **chart_data（图表数据）**：如果页面依赖定量图表，必须尽量提供结构化图表数据，包括图表类型、分类、序列、单位和来源行注释。
 - **chart_data schema**：`bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` 必须包含 `categories`、数值型 `series[].values`、`unit` 和 `source_rows`；`metric_cards` 在第 1 页至少需要 3 个 `source_rows`，其他页至少 2 个；`none` 只允许用于没有可验证视觉数据的非定量页面。
+- **指标卡单位**：如果 `metric_cards` 同时包含金额、百分比、数量或排名，必须在每个 `source_rows[]` 项里写 `unit` 或 `value_unit`，或直接把单位写进 `value` 字符串。不要只依赖一个混合 `chart_data.unit`，如 `亿元人民币 / %`。
 - **图例标签**：每个 `series.name` 必须足够短，可以直接作为图表图例；中文建议 2-8 个字，英文建议 1-3 个词。不要把完整句子写成 series name。
 - **第 1 页视觉契约**：第 1 页右侧是一个大的 `CHART / VISUAL` 锚点，必须提供可执行的 `chart_data.chart_type`。优先使用 `metric_cards`、`bar` 或 `line`；如选择 `bar`、`stacked_bar` 或 `line`，必须提供 `categories`、`series`、`unit` 和 `source_rows`；如选择 `metric_cards`，必须提供三个 `source_rows`；只有在没有可验证视觉数据时才使用 `none`。不要把执行说明写进 `chart_data.title`。如果第 1 页使用 `metric_cards`，`visual_direction` 必须描述 KPI 卡片，而不是漏斗图等当前渲染器不会创建的图形。
 - 对 `matrix_page`，请在 `source_rows` 中为每个被绘制对象提供数值型 `x` 和 `y` 坐标，或提供两个数值序列分别对应矩阵横轴和纵轴。
@@ -292,7 +307,7 @@ PPT copy / fill 阶段只负责压缩和格式化这些论据，不应二次 res
 - 同层级正文不要靠改字号做强调。
 - 冒号前的标签型前缀优先考虑加粗，如 `行业结构：`、`标的位置：`。
 - 不要把模板脚手架词写进正式文案，如 `PRIMARY CHART`、`POINT 1`、页面类型名等。
-- 正文不要内嵌来源括号。`EV-001`、报告名、年报名、公告名等来源信息只写在 `source_note`，正文保留结论和数据本身。
+- 正文不要内嵌来源括号。`EV-001`、报告名、年报名、公告名等来源信息只写在 `source_note`，正文保留结论和数据本身。也不要写 `（青眼情报, 2025）`、`（中国香妆协会, 2026）` 这类中文来源括号。
 - 第 2 页和第 6 页的表格字段会被后处理渲染为真正的 PPT 表格对象；表格行请用 `｜` 分隔单元格，不要把整行写成自然语言段落。
 - `｜` 分隔符只用于上游 JSON 字段。最终 PPT 必须是真正的表格对象，不能用带分隔符的纯文本假装表格。
 - 第 2 页和第 6 页表格必须短格化：每个单元格只写标签、数字或短判断，不写完整段落；如果某个解释超过一格容量，把解释放到右侧 commentary/panel，而不是塞入表格。
@@ -306,6 +321,18 @@ PPT copy / fill 阶段只负责压缩和格式化这些论据，不应二次 res
 - `source_note` 只用于来源和 Evidence ID。
 - `chart_data.notes` 和 `data_gaps` 用于口径、计算、假设、排除项、限制和未解决差异。
 - 每个计算型指标都应有 note 解释公式或基础。
+
+### 第 4 页价值链纪律
+
+第 4 页（`value_chain_profit_pool`）应首先解释行业价值链、利润池和价值捕获逻辑。标的定位是次级内容。不要让标题主语变成“标的处于最优环节”；应先说明为什么某一产业链环节捕获价值，再映射标的位置。
+
+### 第 8 页平衡交易含义
+
+第 8 页（`key_takeaways_for_target`）应总结交易逻辑，但必须保持平衡。至少写出一个明确的待验证问题、风险或尽调事项，例如渠道集中度、复购率、投流效率、品类延展或利润率可持续性。不要把第 8 页写成只有正面结论的标的宣传页。
+
+### 第 6 页竞争格局纪律
+
+第 6 页（`competitive_landscape`）应首先解释市场结构、玩家分层和定位维度。标的定位是次级内容。标的可以出现在表格/矩阵中，也可以在一个解读 panel 中点出，但标题和 `main_message` 不应主要围绕标的优势或差异化。
 
 ## 来源纪律
 

@@ -605,11 +605,15 @@ def format_metric_value(label: str, value: Union[float, int, str], unit: str) ->
             value = float(text.replace(",", ""))
         except ValueError:
             return text
-    if "%" in label or "同比" in label or "增速" in label:
-        return f"{value:+.1f}%"
-    if "份额" in label or "占比" in label or "比例" in label or "渗透率" in label:
-        return f"{value:.1f}%"
     is_integer = isinstance(value, int) or (isinstance(value, float) and value.is_integer())
+    if "CAGR" in label.upper():
+        return f"{int(value) if is_integer else f'{value:.1f}'}%"
+    if "%" in label or "同比" in label or "增速" in label:
+        return f"{value:+.0f}%" if is_integer else f"{value:+.1f}%"
+    if "份额" in label or "占比" in label or "比例" in label or "渗透率" in label:
+        return f"{int(value)}%" if is_integer else f"{value:.1f}%"
+    if "%" in unit and not any(token in unit for token in ("亿", "万", "元", "RMB", "USD", "$")):
+        return f"{int(value)}%" if is_integer else f"{value:.1f}%"
     if "亿元" in label or "规模" in label or "亿元" in unit or "人民币" in unit:
         if is_integer:
             return f"{int(value):,}亿元"
@@ -655,6 +659,7 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
 
     for idx, row in enumerate(rows[:card_count]):
         label = row.get("label", "")
+        row_unit = row.get("unit") or row.get("value_unit") or unit
         add_metric_card(
             slide,
             left + idx * (card_width + gap),
@@ -662,7 +667,7 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
             card_width,
             card_height,
             label,
-            format_metric_value(label, row.get("value", 0), unit),
+            format_metric_value(label, row.get("value", 0), row_unit),
             accents[idx],
         )
 
