@@ -11,7 +11,8 @@
       "slide_key": "industry_overview",
       "selection_mode": "fixed",
       "page_types": ["summary_page"],
-      "default_dominant_element": "text"
+      "default_dominant_element": "text",
+      "allowed_target_link_types": ["light", "selective"]
     },
     {
       "slide_no": 2,
@@ -22,7 +23,8 @@
       "selection_priority": [
         "prefer_chart_plus_mini_table_when_segment_split_needs_side-by-side quantitative context",
         "prefer_chart_page_when_one visual can carry the page clearly"
-      ]
+      ],
+      "allowed_target_link_types": ["light", "selective"]
     },
     {
       "slide_no": 3,
@@ -34,14 +36,16 @@
         "prefer_driver_card_page when the slide has exactly 4 MECE drivers or when the fifth/sixth point is weak",
         "prefer_driver_card_5_page when the research supports 5 distinct drivers with no forced filler",
         "prefer_driver_card_6_page when the research supports 6 distinct drivers and each can be stated concisely"
-      ]
+      ],
+      "allowed_target_link_types": ["light", "selective"]
     },
     {
       "slide_no": 4,
       "slide_key": "value_chain_profit_pool",
       "selection_mode": "fixed",
       "page_types": ["value_chain_page"],
-      "default_dominant_element": "diagram"
+      "default_dominant_element": "diagram",
+      "allowed_target_link_types": ["light", "selective"]
     },
     {
       "slide_no": 5,
@@ -63,6 +67,7 @@
         "why it matters in this sector",
         "target implication, evidence of fit, or diligence question"
       ],
+      "allowed_target_link_types": ["light", "selective"],
       "anti_patterns": [
         "Do not write Slide 5 as a target-only moat page.",
         "Do not make the headline's primary subject the target's moat or target's barriers.",
@@ -94,6 +99,7 @@
         "comparison dimensions or positioning axes",
         "target's relative position and implication"
       ],
+      "allowed_target_link_types": ["light", "selective"],
       "anti_patterns": [
         "Do not write Slide 6 as a target-only differentiation page.",
         "Do not make the headline or main_message primarily about the target's advantage.",
@@ -112,6 +118,12 @@
         "prefer_trend_5_card_page when the research supports 5 distinct parallel trends that can fit as concise cards",
         "prefer_trend_6_card_page when the research supports 6 distinct parallel trends and each card can remain compact",
         "prefer_timeline_page when sequence and timing are central to the story"
+      ],
+      "allowed_target_link_types": ["light", "selective"],
+      "anti_patterns": [
+        "Do not frame every trend as a target benefit.",
+        "Do not use 均利好 / 精准契合 / 有望受益 without evidence qualification.",
+        "Target implications should be selective, not a blanket statement that all trends favor the target."
       ]
     },
     {
@@ -119,7 +131,8 @@
       "slide_key": "key_takeaways_for_target",
       "selection_mode": "fixed",
       "page_types": ["summary_page"],
-      "default_dominant_element": "text"
+      "default_dominant_element": "text",
+      "allowed_target_link_types": ["selective", "central"]
     }
   ]
 }

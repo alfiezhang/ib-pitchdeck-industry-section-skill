@@ -62,7 +62,19 @@
     "无放缓迹象",
     "不可复制",
     "必然",
-    "绝对领先"
+    "绝对领先",
+    "稀缺标的",
+    "稀缺标的",
+    "制高点",
+    "壁垒最高",
+    "最丰厚",
+    "精准契合",
+    "均利好",
+    "盈利质量优秀",
+    "领先行业",
+    "显著领先",
+    "均具吸引力",
+    "确定性最强"
   ],
 
   "weak_source_markers": [
@@ -94,7 +106,18 @@
     "增长确定性最强",
     "可辨识的护城河",
     "定位最优",
-    "显著优势"
+    "显著优势",
+    "稀缺标的",
+    "均具吸引力",
+    "均利好",
+    "精准契合",
+    "有望受益",
+    "领先行业",
+    "盈利质量优秀",
+    "制高点",
+    "最丰厚",
+    "壁垒最高",
+    "显著领先"
   ],
 
   "required_storyboard_checks": {
@@ -109,6 +132,19 @@
   },
 
   "slide_specific_quality_rules": {
+    "2": {
+      "description": "Slide 2 covers market size AND segmentation. The segmentation angle must be one clear axis — not a grab-bag mixing channel, sub-category, and price band.",
+      "forbidden_headline_patterns": [],
+      "preferred_focus_terms": [
+        "市场", "规模", "增长", "扩容", "细分", "渠道", "品类", "价格带",
+        "market size", "growth", "segmentation", "channel", "category"
+      ],
+      "anti_patterns": [
+        "headline mixes two unrelated axes (e.g., market growth + channel shift)",
+        "chart_data shows market size time-series but headline emphasizes channel structure",
+        "body_copy has both channel share and sub-category growth as co-equal stories"
+      ]
+    },
     "4": {
       "description": "Slide 4 should focus on industry value chain and profit pool first; target positioning is secondary.",
       "forbidden_headline_patterns": [
@@ -132,21 +168,25 @@
         "目标公司.{0,8}(护城河|竞争壁垒|壁垒)",
         "target.{0,20}(moat|barrier|competitive advantage)"
       ],
+      "forbidden_main_message_patterns": [
+        "标的.{0,15}(护城河|竞争壁垒|壁垒|三重)",
+        "target.{0,30}(moat|barrier|competitive advantage)"
+      ],
       "preferred_focus_terms": [
-        "行业",
-        "进入壁垒",
-        "壁垒",
-        "门槛",
-        "胜出",
-        "value driver",
-        "barrier",
-        "winner capability"
+        "行业", "进入壁垒", "壁垒", "门槛", "胜出",
+        "value driver", "barrier", "winner capability"
       ],
       "preferred_body_focus_terms": [
         "行业", "壁垒", "门槛", "进入", "竞争", "价值驱动",
         "entry barrier", "winner", "barrier", "value driver"
       ],
-      "preferred_body_focus_message": "Slide 5 body_copy should contain industry-level barrier / value driver language; it reads as target-only if no industry focus terms appear in body_copy."
+      "preferred_body_focus_message": "Slide 5 body_copy should contain industry-level barrier / value driver language; it reads as target-only if no industry focus terms appear in body_copy.",
+      "anti_patterns": [
+        "target-only moat page (every bullet about target capabilities)",
+        "each bullet mechanically starts with 行业/标的 paired structure",
+        "target superiority claim without external benchmark",
+        "headline or subtitle makes target the primary subject of barriers"
+      ]
     },
     "6": {
       "description": "Slide 6 should explain competitive landscape / peer segmentation first; target positioning is secondary.",
@@ -161,32 +201,52 @@
         "target.{0,40}(differentiation|advantage|unique position|wins|outperform)"
       ],
       "preferred_focus_terms": [
-        "竞争",
-        "格局",
-        "梯队",
-        "分层",
-        "同业",
-        "玩家",
-        "定位维度",
-        "competitive landscape",
-        "peer",
-        "market structure"
+        "竞争", "格局", "梯队", "分层", "同业", "玩家", "定位维度",
+        "competitive landscape", "peer", "market structure"
       ],
       "preferred_body_focus_terms": [
         "竞争", "格局", "梯队", "分层", "同业", "市场结构", "CR", "集中",
         "competitive", "landscape", "peer", "market structure", "tier"
       ],
-      "preferred_body_focus_message": "Slide 6 body_copy should contain competitive landscape / market structure language; it reads as target-only if no landscape focus terms appear in body_copy."
+      "preferred_body_focus_message": "Slide 6 body_copy should contain competitive landscape / market structure language; it reads as target-only if no landscape focus terms appear in body_copy.",
+      "anti_patterns": [
+        "bullet primarily titled 标的位置 or 标的定位",
+        "table designed mainly to prove target differentiation",
+        "headline frames target as the primary subject of competitive landscape",
+        "body_copy has a dedicated 'target positioning' bullet alongside the table"
+      ]
+    },
+    "7": {
+      "description": "Slide 7 is industry trends / future evolution. Target implications should be selective, not every trend framed as target benefit.",
+      "forbidden_headline_patterns": [
+        "标的.{0,12}(利好|受益|机会|趋势)",
+        "target.{0,30}(benefit|opportunity|trend)"
+      ],
+      "forbidden_main_message_patterns": [
+        "均利好.{0,15}标的",
+        "标的.{0,20}(均|全部|精准|契合)",
+        "target.{0,30}(all|every|benefit)"
+      ],
+      "preferred_focus_terms": [
+        "趋势", "演变", "整合", "监管", "升级", "未来", "结构性",
+        "trend", "evolution", "regulation", "shift", "future"
+      ],
+      "preferred_body_focus_terms": [
+        "趋势", "行业", "演变", "整合", "升级", "门槛", "监管",
+        "trend", "industry", "evolution", "regulation", "shift"
+      ],
+      "preferred_body_focus_message": "Slide 7 body_copy should contain industry trend / evolution language; it reads as target benefit page if no industry trend focus terms appear in body_copy.",
+      "anti_patterns": [
+        "every trend card ends with 标的含义 or 标的受益",
+        "subtitle says 均利好标的 or similar blanket target benefit claim",
+        "trend slide reads like target opportunity page rather than industry evolution",
+        "uses 均利好 / 精准契合 / 有望受益 without evidence qualification"
+      ]
     },
     "8": {
       "description": "Slide 8 should include balanced transaction implications and explicit open diligence questions, not only positive target advocacy.",
       "required_body_terms": [
-        "待验证",
-        "尽调",
-        "风险",
-        "open DD",
-        "diligence",
-        "question"
+        "待验证", "尽调", "风险", "open DD", "diligence", "question"
       ],
       "required_body_message": "Slide 8 should include at least one explicit open diligence question / risk / validation item."
     }

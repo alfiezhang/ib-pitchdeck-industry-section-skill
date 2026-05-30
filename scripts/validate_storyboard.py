@@ -101,6 +101,19 @@ EXPECTED_ROLES = {
     8: "key_takeaways_for_target",
 }
 
+# Slides 1-7 are industry structure pages; target should not be the central claim.
+# Slide 8 is the conclusion page where central target linkage is appropriate.
+ALLOWED_TARGET_LINK_TYPES_PER_SLIDE = {
+    1: {"light", "selective"},
+    2: {"light", "selective"},
+    3: {"light", "selective"},
+    4: {"light", "selective"},
+    5: {"light", "selective"},
+    6: {"light", "selective"},
+    7: {"light", "selective"},
+    8: {"selective", "central"},
+}
+
 
 def load_json(path: Path) -> dict:
     return load_json_file(path)
@@ -286,6 +299,13 @@ def check_storyline_contract(
             f"slide {slide_no}: slide_story_contract.target_link_type must be one of "
             f"{sorted(TARGET_LINK_TYPES)}, found {target_link_type!r}"
         )
+    if target_link_type and slide_no in ALLOWED_TARGET_LINK_TYPES_PER_SLIDE:
+        allowed = ALLOWED_TARGET_LINK_TYPES_PER_SLIDE[slide_no]
+        if target_link_type not in allowed:
+            errors.append(
+                f"slide {slide_no}: target_link_type '{target_link_type}' is not allowed for this slide role; "
+                f"allowed: {sorted(allowed)}. Industry structure slides (1-7) cannot use 'central'."
+            )
     claim_strength = contract.get("claim_strength")
     if claim_strength and claim_strength not in CLAIM_STRENGTHS:
         errors.append(
