@@ -71,46 +71,36 @@
         "reason": ""
       }
     ],
-    "fixed_8_slide_implications": [
+    "provisional_slide_hypotheses": [
       {
-        "slide_no": 1,
-        "fixed_slide_type": "industry_overview",
-        "research_emphasis": ""
+        "possible_slide_role": "",
+        "research_hypothesis": "",
+        "evidence_needed": "",
+        "status": "TBD pending targeted validation"
       },
       {
-        "slide_no": 2,
-        "fixed_slide_type": "market_size_segmentation",
-        "research_emphasis": ""
+        "possible_slide_role": "",
+        "research_hypothesis": "",
+        "evidence_needed": "",
+        "status": "TBD pending targeted validation"
       },
       {
-        "slide_no": 3,
-        "fixed_slide_type": "key_industry_drivers",
-        "research_emphasis": ""
+        "possible_slide_role": "",
+        "research_hypothesis": "",
+        "evidence_needed": "",
+        "status": "TBD pending targeted validation"
       },
       {
-        "slide_no": 4,
-        "fixed_slide_type": "value_chain_profit_pool",
-        "research_emphasis": ""
+        "possible_slide_role": "",
+        "research_hypothesis": "",
+        "evidence_needed": "",
+        "status": "TBD pending targeted validation"
       },
       {
-        "slide_no": 5,
-        "fixed_slide_type": "key_barriers_value_drivers",
-        "research_emphasis": ""
-      },
-      {
-        "slide_no": 6,
-        "fixed_slide_type": "competitive_landscape",
-        "research_emphasis": ""
-      },
-      {
-        "slide_no": 7,
-        "fixed_slide_type": "industry_trends_future_evolution",
-        "research_emphasis": ""
-      },
-      {
-        "slide_no": 8,
-        "fixed_slide_type": "key_takeaways_for_target",
-        "research_emphasis": ""
+        "possible_slide_role": "",
+        "research_hypothesis": "",
+        "evidence_needed": "",
+        "status": "TBD pending targeted validation"
       }
     ]
   },

@@ -41,7 +41,12 @@ def _clean_source_footer(source_note: str) -> str:
     if not source_note:
         return source_note
     import re
-    cleaned = re.sub(r"^(Sources|Sources):\s*", "", source_note, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(
+        r"^(?:Sources\s*[:：]?\s*)+",
+        "",
+        source_note,
+        flags=re.IGNORECASE,
+    ).strip()
     return cleaned if cleaned else source_note
 
 

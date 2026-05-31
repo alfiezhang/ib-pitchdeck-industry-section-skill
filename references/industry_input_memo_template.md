@@ -160,21 +160,6 @@ A source can be promoted into the Evidence Ledger only after:
 If the original source cannot be accessed, mark the evidence as `secondary-reviewed`
 and disclose the limitation. Do not label it as `primary-reviewed`.
 
-## Evidence Promotion Gate
-> Search-result snippets, search-engine descriptions, AI summaries, reposts,
-> aggregator pages, and secondary pages quoting another source are discovery
-> leads only. They must not enter the Evidence Ledger or Page Evidence Pack.
-
-A source can be promoted into the Evidence Ledger only after:
-1. the underlying webpage, report, filing, or PDF has been opened and reviewed;
-2. the exact claim or datapoint has been located in context;
-3. the source publication date and the applicable data period have been recorded separately;
-4. the geography, market definition, channel scope, metric type, and unit have been confirmed;
-5. a source locator has been recorded, including page number, section, table, paragraph, or URL anchor where available.
-
-If the original source cannot be accessed, mark the evidence as `secondary-reviewed`
-and disclose the limitation. Do not label it as `primary-reviewed`.
-
 ## Evidence Ledger
 > Every important claim or metric in the memo should have a corresponding Evidence ID.
 > These IDs are the anchor points for downstream storyboard source_note fields and
@@ -209,31 +194,6 @@ Claim strength values:
 - supported_inference: derived from sourced facts; use cautious wording
 - management_claim: provided by user/company; label as such unless externally verified
 - hypothesis: useful but unproven; treat as a diligence question
-
-## Metric Reconciliation
-> All quantitative metrics used in slides must be reconciled before storyboard.
-> Metrics with different metric_type, channel_scope, market_definition, or data_period
-> must not be automatically compared, summed, or placed in the same chart series.
-
-| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Conflict Status | Resolution |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Market sizing | MET-001 | | | | | | | | | | | |
-| Market sizing | MET-002 | | | | | | | | | | | |
-
-<!--
-Metric Type: retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
-Channel Scope: all_channel | online | douyin | tmall | sampled_platforms | offline
-Conflict Status: cross-checked | single-source | conflicting | not_comparable | unresolved
-Comparable With: list of MET-IDs this metric can be compared to
--->
-
-Key rules:
-- Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
-- Different channel_scope values must not be auto-summed or subtracted
-- Different market_definition values must not be auto-nested as parent-child
-- Different data_period values must not be plotted in the same time series without explicit labeling
-- Metrics with conflicting or not_comparable status must not appear in page headlines, chart data, main takeaway, or core transaction logic
-
 
 ## Metric Reconciliation
 > All quantitative metrics used in slides must be reconciled before storyboard.

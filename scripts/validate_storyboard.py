@@ -324,6 +324,19 @@ def check_storyline_contract(
     if isinstance(evidence_ids, list) and len(set(str(item) for item in evidence_ids if item)) < 2:
         errors.append(f"slide {slide_no}: slide_story_contract.evidence_ids must have at least 2 distinct items")
 
+    # metric_ids check: quantitative slides should reference memo Metric Reconciliation
+    metric_ids = contract.get("metric_ids", [])
+    slide_has_quantitative = bool(
+        slide.get("chart_data") or
+        any(kw in str(slide.get("headline", "")).lower() for kw in ("¥", "亿", "bn", "%", "CAGR", "CR", "份额", "排名", "规模"))
+        or any(kw in str(slide.get("body_copy", "")).lower() for kw in ("GMV", "营收", "市占率", "增速", "CAGR"))
+    )
+    if slide_has_quantitative and not metric_ids:
+        warnings.append(
+            f"slide {slide_no}: quantitative slide has no metric_ids in slide_story_contract; "
+            f"populate metric_ids to bind chart/headline metrics to memo Metric Reconciliation"
+        )
+
     # 2. Forbidden_topics enforcement — check if body_copy contains forbidden content
     forbidden = contract.get("forbidden_topics", [])
     body_copy = slide.get("body_copy", {})

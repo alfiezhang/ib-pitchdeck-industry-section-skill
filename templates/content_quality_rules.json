@@ -1,6 +1,5 @@
 {
   "_description": "Content quality thresholds and banned-phrase lists used by validate_content_quality.py. These rules supplement — not replace — the structural contract enforced by validate_storyboard.py.",
-
   "min_chars_by_field_type": {
     "_note": "These are advisory targets. Fields shorter than the minimum generate a density_warning, not an error.",
     "title": 16,
@@ -12,7 +11,6 @@
     "timeline_stage": 60,
     "source_footer": 30
   },
-
   "generic_source_phrases": [
     "industry reports",
     "public sources",
@@ -29,7 +27,6 @@
     "市场研究",
     "多方来源"
   ],
-
   "generic_copy_phrases": [
     "rapidly growing",
     "large market potential",
@@ -50,7 +47,6 @@
     "优势明显",
     "行业领先"
   ],
-
   "overclaim_phrases": [
     "certainty",
     "guaranteed",
@@ -76,7 +72,6 @@
     "均具吸引力",
     "确定性最强"
   ],
-
   "weak_source_markers": [
     "training_data",
     "EV-web",
@@ -98,7 +93,6 @@
     "行业媒体/数据平台综合",
     "行业媒体/数据平台"
   ],
-
   "cautious_language_phrases": [
     "最优环节",
     "具吸引力的投资机会",
@@ -119,7 +113,6 @@
     "壁垒最高",
     "显著领先"
   ],
-
   "required_storyboard_checks": {
     "source_note_specific": true,
     "chart_data_source_rows_for_quant_slides": true,
@@ -130,14 +123,24 @@
     "cross_slide_metric_consistency_check": true,
     "sources_notes_discipline": true
   },
-
   "slide_specific_quality_rules": {
     "2": {
       "description": "Slide 2 covers market size AND segmentation. The segmentation angle must be one clear axis — not a grab-bag mixing channel, sub-category, and price band.",
       "forbidden_headline_patterns": [],
       "preferred_focus_terms": [
-        "市场", "规模", "增长", "扩容", "细分", "渠道", "品类", "价格带",
-        "market size", "growth", "segmentation", "channel", "category"
+        "市场",
+        "规模",
+        "增长",
+        "扩容",
+        "细分",
+        "渠道",
+        "品类",
+        "价格带",
+        "market size",
+        "growth",
+        "segmentation",
+        "channel",
+        "category"
       ],
       "anti_patterns": [
         "headline mixes two unrelated axes (e.g., market growth + channel shift)",
@@ -156,12 +159,29 @@
         "target.{0,40}(driver|engine|all benefit)"
       ],
       "preferred_focus_terms": [
-        "需求", "消费者", "渠道", "产品", "结构", "驱动",
-        "demand", "consumer", "channel", "product", "driver"
+        "需求",
+        "消费者",
+        "渠道",
+        "产品",
+        "结构",
+        "驱动",
+        "demand",
+        "consumer",
+        "channel",
+        "product",
+        "driver"
       ],
       "preferred_body_focus_terms": [
-        "需求", "消费者", "渠道", "产品", "结构", "因素",
-        "demand", "consumer", "driver", "growth"
+        "需求",
+        "消费者",
+        "渠道",
+        "产品",
+        "结构",
+        "因素",
+        "demand",
+        "consumer",
+        "driver",
+        "growth"
       ],
       "preferred_body_focus_message": "Slide 3 body_copy should contain industry demand/driver language; each card should explain a driver mechanism, not just state benefit to target.",
       "anti_patterns": [
@@ -198,12 +218,26 @@
         "target.{0,30}(moat|barrier|competitive advantage)"
       ],
       "preferred_focus_terms": [
-        "行业", "进入壁垒", "壁垒", "门槛", "胜出",
-        "value driver", "barrier", "winner capability"
+        "行业",
+        "进入壁垒",
+        "壁垒",
+        "门槛",
+        "胜出",
+        "value driver",
+        "barrier",
+        "winner capability"
       ],
       "preferred_body_focus_terms": [
-        "行业", "壁垒", "门槛", "进入", "竞争", "价值驱动",
-        "entry barrier", "winner", "barrier", "value driver"
+        "行业",
+        "壁垒",
+        "门槛",
+        "进入",
+        "竞争",
+        "价值驱动",
+        "entry barrier",
+        "winner",
+        "barrier",
+        "value driver"
       ],
       "preferred_body_focus_message": "Slide 5 body_copy should contain industry-level barrier / value driver language; it reads as target-only if no industry focus terms appear in body_copy.",
       "anti_patterns": [
@@ -226,12 +260,31 @@
         "target.{0,40}(differentiation|advantage|unique position|wins|outperform)"
       ],
       "preferred_focus_terms": [
-        "竞争", "格局", "梯队", "分层", "同业", "玩家", "定位维度",
-        "competitive landscape", "peer", "market structure"
+        "竞争",
+        "格局",
+        "梯队",
+        "分层",
+        "同业",
+        "玩家",
+        "定位维度",
+        "competitive landscape",
+        "peer",
+        "market structure"
       ],
       "preferred_body_focus_terms": [
-        "竞争", "格局", "梯队", "分层", "同业", "市场结构", "CR", "集中",
-        "competitive", "landscape", "peer", "market structure", "tier"
+        "竞争",
+        "格局",
+        "梯队",
+        "分层",
+        "同业",
+        "市场结构",
+        "CR",
+        "集中",
+        "competitive",
+        "landscape",
+        "peer",
+        "market structure",
+        "tier"
       ],
       "preferred_body_focus_message": "Slide 6 body_copy should contain competitive landscape / market structure language; it reads as target-only if no landscape focus terms appear in body_copy.",
       "anti_patterns": [
@@ -243,24 +296,6 @@
     },
     "7": {
       "description": "Slide 7 is industry trends / future evolution. Target implications should be selective, not every trend framed as target benefit.",
-      "forbidden_headline_patterns": [
-        "标的.{0,12}(利好|受益|机会|趋势)",
-        "target.{0,30}(benefit|opportunity|trend)"
-      ],
-      "forbidden_main_message_patterns": [
-        "均利好.{0,15}标的",
-        "标的.{0,20}(均|全部|精准|契合)",
-        "target.{0,30}(all|every|benefit)"
-      ],
-      "preferred_focus_terms": [
-        "趋势", "演变", "整合", "监管", "升级", "未来", "结构性",
-        "trend", "evolution", "regulation", "shift", "future"
-      ],
-      "preferred_body_focus_terms": [
-        "趋势", "行业", "演变", "整合", "升级", "门槛", "监管",
-        "trend", "industry", "evolution", "regulation", "shift"
-      ],
-      "preferred_body_focus_message": "Slide 7 body_copy should contain industry trend / evolution language; it reads as target benefit page if no industry trend focus terms appear in body_copy.",
       "forbidden_headline_patterns": [
         "标的.{0,12}(利好|受益|机会|趋势)",
         "target.{0,30}(benefit|opportunity|trend)",
@@ -278,6 +313,35 @@
         "出售窗口已确立",
         "最佳出售时机"
       ],
+      "preferred_focus_terms": [
+        "趋势",
+        "演变",
+        "整合",
+        "监管",
+        "升级",
+        "未来",
+        "结构性",
+        "trend",
+        "evolution",
+        "regulation",
+        "shift",
+        "future"
+      ],
+      "preferred_body_focus_terms": [
+        "趋势",
+        "行业",
+        "演变",
+        "整合",
+        "升级",
+        "门槛",
+        "监管",
+        "trend",
+        "industry",
+        "evolution",
+        "regulation",
+        "shift"
+      ],
+      "preferred_body_focus_message": "Slide 7 body_copy should contain industry trend / evolution language; it reads as target benefit page if no industry trend focus terms appear in body_copy.",
       "anti_patterns": [
         "every trend card ends with 标的含义 or 标的受益",
         "subtitle says 均利好标的 or similar blanket target benefit claim",
@@ -290,7 +354,12 @@
     "8": {
       "description": "Slide 8 should include balanced transaction implications and explicit open diligence questions, not only positive target advocacy.",
       "required_body_terms": [
-        "待验证", "尽调", "风险", "open DD", "diligence", "question"
+        "待验证",
+        "尽调",
+        "风险",
+        "open DD",
+        "diligence",
+        "question"
       ],
       "required_body_message": "Slide 8 should include at least one explicit open diligence question / risk / validation item."
     }

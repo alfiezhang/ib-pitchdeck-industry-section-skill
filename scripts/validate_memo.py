@@ -21,6 +21,7 @@ REQUIRED_SECTIONS = [
     "Industry Definition",
     "Source Materials",
     "Evidence Ledger",
+    "Metric Reconciliation",
     "Research Gap Audit",
 ]
 
@@ -42,12 +43,28 @@ WEAK_SOURCE_MARKERS = (
 
 # Domains with evidence_policy=lead_only in source_registry.json.
 # Default to lead-only until original methodology/report context is confirmed.
-LEAD_ONLY_DOMAIN_PATTERNS = (
-    "grandviewresearch.com",
-    "mordorintelligence.com",
-    "marketresearch.com",
-    "tradingeconomics.com",
-)
+def load_lead_only_domains(registry_path: Optional[Path] = None) -> tuple[str, ...]:
+    """Load lead-only domains from source_registry.json or return defaults."""
+    defaults = (
+        "grandviewresearch.com",
+        "mordorintelligence.com",
+        "marketresearch.com",
+        "tradingeconomics.com",
+    )
+    if not registry_path or not registry_path.exists():
+        return defaults
+    try:
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        packs = registry.get("source_packs", {})
+        domains: list[str] = []
+        for pack_name, pack in packs.items():
+            if not isinstance(pack, dict):
+                continue
+            if pack.get("evidence_policy") == "lead_only":
+                domains.extend(str(d) for d in pack.get("domains", []))
+        return tuple(domains) if domains else defaults
+    except (json.JSONDecodeError, OSError):
+        return defaults
 
 WEAK_SOURCE_ALLOWED_CONTEXT = (
     "rejected",
@@ -151,9 +168,10 @@ def meaningful_gap_lines(text: str) -> list[str]:
     return lines
 
 
-def page_evidence_pack_issues(text: str) -> tuple[list[str], dict[str, Any]]:
+def page_evidence_pack_issues(text: str) -> tuple[list[str], list[str], dict[str, Any]]:
     """Validate that each page has enough evidence and argument material."""
     errors: list[str] = []
+    warnings: list[str] = []
     metrics: dict[str, Any] = {}
     sections = page_sections(text)
     for page_no in range(1, 9):
@@ -204,16 +222,35 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], dict[str, Any]]:
         if claim_strength_count < 3:
             errors.append(f"page {page_no}: Page Evidence Pack has {claim_strength_count} claim strength field(s); expected at least 3")
 
-        # Claim scope check: industry slides (5/6/7) must have industry-level evidence
+        # Claim scope check: industry slides (5/6/7) must have industry-level evidence.
+        # Parse EV-ID → Claim Scope from Evidence Ledger, then count per page.
         if page_no in {5, 6, 7}:
-            industry_claims = len(re.findall(r"Claim Scope\s*:?\s*industry-level", section, flags=re.IGNORECASE))
-            target_claims = len(re.findall(r"Claim Scope\s*:?\s*target-level", section, flags=re.IGNORECASE))
+            page_ids = evidence_ids(section)
+            # Build ledger_map from full text if not in cache
+            ledger_map: dict[str, str] = {}
+            for ledger_line in text.splitlines():
+                if not re.match(r"^\|\s*EV-\d{3}\s*\|", ledger_line):
+                    continue
+                cells = [c.strip() for c in ledger_line.split("|")[1:-1]]
+                if len(cells) >= 3:
+                    ev_id = cells[0].strip()
+                    claim_scope = cells[2].strip().lower() if len(cells) > 2 else ""
+                    ledger_map[ev_id] = claim_scope
+
+            industry_claims = sum(
+                1 for ev_id in page_ids
+                if "industry-level" in ledger_map.get(ev_id, "")
+            )
+            target_claims = sum(
+                1 for ev_id in page_ids
+                if "target-level" in ledger_map.get(ev_id, "")
+            )
             page_metric["industry_claim_count"] = industry_claims
             page_metric["target_claim_count"] = target_claims
 
             if industry_claims < 1:
                 errors.append(
-                    f"page {page_no} (industry structure page): no industry-level claims found. "
+                    f"page {page_no} (industry structure page): no industry-level claims found via EV-IDs. "
                     f"Industry barriers/competition/trends pages must have at least one industry-level claim "
                     f"as the core argument. Target-level claims should only appear in Target relevance or So what."
                 )
@@ -225,7 +262,7 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], dict[str, Any]]:
                 )
 
         metrics[str(page_no)] = page_metric
-    return errors, metrics
+    return errors, warnings, metrics
 
 
 def line_has_allowed_weak_context(line: str) -> bool:
@@ -350,14 +387,16 @@ def _parse_years(raw: str) -> float:
     return 0.0
 
 
-def lead_only_domain_issues(text: str) -> list[str]:
+def lead_only_domain_issues(text: str, lead_only_domains: tuple[str, ...] = ()) -> list[str]:
     """Flag lead-only domains appearing in Evidence Ledger or formal sources."""
+    if not lead_only_domains:
+        lead_only_domains = load_lead_only_domains()
     issues: list[str] = []
     for line_no, line in enumerate(text.splitlines(), start=1):
         lowered = line.lower()
         if not re.match(r"^\|\s*EV-\d{3}\s*\|", line):
             continue
-        for domain in LEAD_ONLY_DOMAIN_PATTERNS:
+        for domain in lead_only_domains:
             if domain in lowered:
                 # Check if marked as primary-reviewed
                 if "primary-reviewed" in lowered:
@@ -466,10 +505,12 @@ def math_consistency_checks(text: str) -> list[str]:
                     continue
                 if m2["value"] is None or m2["value"] <= 0:
                     continue
-                # Try to compute CAGR
-                years = _parse_years(cagr_m.get("Comment", ""))
+                # Try to compute CAGR from endpoint data periods
+                years = _parse_years(cagr_m.get("data_period", "") or cagr_m.get("Data Period", ""))
                 if years < 1:
-                    years = _parse_years(m.get("Data Period", "")) or 5.0
+                    years = _parse_years(m.get("data_period", "") or m.get("Data Period", ""))
+                if years < 1:
+                    years = 5.0  # fallback; will generate a low-confidence warning below
                 begin = min(m["value"], m2["value"])
                 end = max(m["value"], m2["value"])
                 if begin > 0:
@@ -501,9 +542,11 @@ def math_consistency_checks(text: str) -> list[str]:
     return issues
 
 
-def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
+def validate(memo_path: Path, run_dir: Optional[Path] = None, source_registry_path: Optional[Path] = None) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
+
+    lead_only_domains = load_lead_only_domains(source_registry_path)
 
     if not memo_path.exists():
         return {
@@ -527,6 +570,10 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
     if len(rows) < 5:
         errors.append(f"Evidence Ledger has only {len(rows)} populated EV rows; expected at least 5")
 
+    metric_rows = metric_reconciliation_rows(text)
+    if len(metric_rows) < 2:
+        errors.append(f"Metric Reconciliation has only {len(metric_rows)} populated MET rows; expected at least 2")
+
     ids = evidence_ids(text)
     if len(ids) < 8:
         warnings.append(f"memo references only {len(ids)} distinct Evidence IDs; richer runs should use more")
@@ -539,8 +586,9 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
     if pages < 8:
         errors.append(f"memo has page/slide notes for only {pages} page(s); expected 8")
 
-    page_pack_errors, page_pack_metrics = page_evidence_pack_issues(text)
+    page_pack_errors, page_pack_warnings, page_pack_metrics = page_evidence_pack_issues(text)
     errors.extend(page_pack_errors)
+    warnings.extend(page_pack_warnings)
 
     if "chart_ready" not in text:
         warnings.append("memo has no chart_ready flags; quantitative visuals may be under-specified")
@@ -581,7 +629,7 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
         errors.append(issue)
     for issue in evidence_strength_issues(text):
         errors.append(issue)
-    for issue in lead_only_domain_issues(text):
+    for issue in lead_only_domain_issues(text, lead_only_domains):
         errors.append(issue)
 
     math_issues = math_consistency_checks(text)
@@ -620,10 +668,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate industry_input_memo.md completeness and source hygiene.")
     parser.add_argument("--memo", required=True, help="Path to industry_input_memo.md")
     parser.add_argument("--run-dir", default="", help="Run directory containing artifacts/")
+    parser.add_argument("--source-registry", default="", help="Path to templates/source_registry.json for dynamic lead-only domain loading")
     parser.add_argument("--output", help="Optional JSON report path")
     args = parser.parse_args()
 
-    result = validate(Path(args.memo), Path(args.run_dir) if args.run_dir else None)
+    result = validate(
+        Path(args.memo),
+        Path(args.run_dir) if args.run_dir else None,
+        Path(args.source_registry) if args.source_registry else None,
+    )
     if args.output:
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
