@@ -19,6 +19,7 @@ except ImportError as exc:
     ) from exc
 
 TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
+HTML_ENTITY_PATTERN = re.compile(r"&(amp|gt|lt|quot|apos);|&#\d+;|&#x[0-9A-Fa-f]+;")
 P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -120,6 +121,16 @@ def collect_visible_text_issues(pptx_path: Path) -> list[dict]:
                     {
                         "slide_no": slide_idx,
                         "shape_name": shape.name,
+                        "issue_type": "visible_scaffold_label",
+                        "text": normalized,
+                    }
+                )
+            if HTML_ENTITY_PATTERN.search(normalized):
+                issues.append(
+                    {
+                        "slide_no": slide_idx,
+                        "shape_name": shape.name,
+                        "issue_type": "visible_html_entity",
                         "text": normalized,
                     }
                 )
@@ -361,6 +372,14 @@ def build_report(
     active_placeholders = collect_active_placeholders(ppt_mapping, control_file, control_file_path)
     suspicious_missing_values = collect_suspicious_missing_values(replacement_dict, active_placeholders)
     visible_text_issues = collect_visible_text_issues(clean_ppt_path)
+    visible_scaffold_label_issues = [
+        issue for issue in visible_text_issues
+        if issue.get("issue_type") == "visible_scaffold_label"
+    ]
+    visible_html_entity_issues = [
+        issue for issue in visible_text_issues
+        if issue.get("issue_type") == "visible_html_entity"
+    ]
     page_number_check = collect_page_number_issues(clean_ppt_path)
 
     kept_slide_count_ok = len(actual_kept_slides) == len(expected_physical_slides) == 8
@@ -384,7 +403,8 @@ def build_report(
             "expected_kept_slide_count": len(expected_physical_slides),
             "actual_kept_slide_count": len(actual_kept_slides),
             "suspicious_missing_active_value_count": len(suspicious_missing_values),
-            "visible_scaffold_label_count": len(visible_text_issues),
+            "visible_scaffold_label_count": len(visible_scaffold_label_issues),
+            "visible_html_entity_count": len(visible_html_entity_issues),
             "page_number_issue_count": len(page_number_check["issues"]),
             "placeholders_ok": placeholders_ok,
             "kept_slide_count_ok": kept_slide_count_ok,
@@ -406,7 +426,8 @@ def build_report(
         "actual_kept_physical_slides": actual_kept_slides,
         "remaining_placeholders_in_filled_ppt": remaining_placeholders,
         "suspicious_missing_active_values": suspicious_missing_values,
-        "visible_scaffold_label_issues": visible_text_issues,
+        "visible_scaffold_label_issues": visible_scaffold_label_issues,
+        "visible_html_entity_issues": visible_html_entity_issues,
         "page_number_check": page_number_check,
     }
 

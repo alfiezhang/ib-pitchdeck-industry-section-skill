@@ -241,6 +241,16 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
     --output "$OUTPUT_DIR/artifacts/memo_validation.json"
 fi
 
+for memo_candidate in \
+  "$(dirname "$STORYBOARD")/industry_input_memo.md" \
+  "$(dirname "$PPT_COPY")/industry_input_memo.md"
+do
+  if [[ -f "$memo_candidate" ]]; then
+    stage_file "$memo_candidate" "$OUTPUT_DIR/industry_input_memo.md"
+    break
+  fi
+done
+
 echo "[bootstrap] validating storyboard contract..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_storyboard.py" \
   --storyboard "$STAGED_STORYBOARD" \
@@ -277,6 +287,15 @@ if [[ $QUALITY_GATE -eq 1 ]]; then
 fi
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_content_quality.py" "${QUALITY_ARGS[@]}"
 
+if [[ $RESEARCH_GATE -eq 1 ]]; then
+  echo "[bootstrap] validating pre-PPT stage gate..."
+  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_stage_gate.py" \
+    --stage pre_ppt \
+    --run-dir "$OUTPUT_DIR" \
+    --source-registry "$SCRIPT_DIR/templates/source_registry.json" \
+    --output "$OUTPUT_DIR/artifacts/stage_gate_pre_ppt_validation.json"
+fi
+
 if [[ -f "$PPT_COPY" ]]; then
   stage_file "$PPT_COPY" "$STAGED_PPT_COPY"
 else
@@ -291,16 +310,6 @@ else
     --strict-content
   AUTO_GENERATED_PPT_COPY=1
 fi
-
-for memo_candidate in \
-  "$(dirname "$STORYBOARD")/industry_input_memo.md" \
-  "$(dirname "$PPT_COPY")/industry_input_memo.md"
-do
-  if [[ -f "$memo_candidate" ]]; then
-    stage_file "$memo_candidate" "$OUTPUT_DIR/industry_input_memo.md"
-    break
-  fi
-done
 
 echo "=== IB Industry Section PPT Pipeline ==="
 if [[ $AUTO_GENERATED_PPT_COPY -eq 1 ]]; then

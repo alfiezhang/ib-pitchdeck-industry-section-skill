@@ -41,13 +41,30 @@ Use these markers sparingly for key numbers, one short takeaway phrase, or a sin
 
 ## Script Order
 
-Run these scripts in order. Do not skip steps.
+For one-shot or delivery runs, use `run_pipeline.sh`. It bootstraps one Python
+runtime, stages the run files, validates the research/memo/storyboard gates, and
+stops before PPT generation if upstream evidence gates fail.
 
-If running scripts manually instead of `run_pipeline.sh`, first select one runtime and reuse it for every command:
+Manual script execution is for debugging only. If running scripts manually,
+first select one runtime and reuse it for every command:
 
 ```bash
 PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 ```
+
+Before generating `industry_section_ppt_copy.json`, `replacement_dict.json`, or
+any PPTX output, run the deterministic pre-PPT gate:
+
+```bash
+"$PYTHON_CMD" scripts/validate_stage_gate.py \
+  --stage pre_ppt \
+  --run-dir /path/to/run \
+  --source-registry templates/source_registry.json \
+  --output /path/to/run/artifacts/stage_gate_pre_ppt_validation.json
+```
+
+If this gate fails, do not continue to PPT fill. Fix the upstream research plan,
+memo, storyboard, or content-quality artifact first.
 
 ### 1. Validate Storyboard Contract
 
@@ -188,3 +205,8 @@ Prefer running the packaged pipeline instead of invoking the seven scripts manua
 ```
 
 If no explicit output directory is provided, the pipeline stages the input JSON files and writes generated artifacts under `<work_root>/runs/attempt_<timestamp>/` by default, where `work_root` is inferred from the input file location or set explicitly with `--work-root`.
+
+The pipeline writes `artifacts/stage_gate_pre_ppt_validation.json` and exits
+before PPT generation when the formal research plan, memo, storyboard, content
+quality, or MET-ID evidence chain is invalid. Use `--no-research-gate` only for
+explicit PPT-only debugging, never for a research-backed deliverable.

@@ -94,6 +94,11 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 /path/to/workspace/runs/attempt_<timestamp>/
 ```
 
+`run_pipeline.sh` 会在生成 PPT 前运行研究计划、memo、storyboard、内容质量和
+`pre_ppt` 阶段门禁。缺少 `research_plan_validation.json`、`memo_validation.json`
+或存在无法回溯的 MET-ID 时，pipeline 会停止；这类输出只能作为 debug draft，不能当
+final PPT 交付。
+
 最终 PPT 路径会写入：
 
 ```text
@@ -226,6 +231,7 @@ Storyboard 是最核心的 LLM 推理产物。
 industry_section_filled.pptx
 industry_section_filled_clean.pptx
 filled_ppt_validation.json
+artifacts/stage_gate_pre_ppt_validation.json
 artifacts/final_delivery_validation.json
 artifacts/run_quality_summary.md
 ```

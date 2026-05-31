@@ -22,6 +22,7 @@ REQUIRED_CORE_FILES = [
     "filled_ppt_validation.json",
     "artifacts/storyboard_validation.json",
     "artifacts/content_quality_validation.json",
+    "artifacts/stage_gate_pre_ppt_validation.json",
 ]
 
 REQUIRED_RESEARCH_FILES = [
@@ -145,6 +146,7 @@ def validate(run_dir: Path, require_research: bool = True) -> dict[str, Any]:
     for relative in [
         "artifacts/input_card_validation.json",
         "artifacts/storyboard_validation.json",
+        "artifacts/stage_gate_pre_ppt_validation.json",
         "artifacts/research_plan_validation.json",
         "artifacts/memo_validation.json",
         "filled_ppt_validation.json",

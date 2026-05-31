@@ -195,7 +195,15 @@ Run `scripts/validate_content_quality.py` after storyboard validation. Density w
   --output artifacts/content_quality_validation.json
 ```
 
-Review the output. Address `source_warnings` and blocking `layout_warnings` before proceeding. Address `density_warnings`, non-blocking `layout_warnings`, `chart_data_warnings`, `generic_copy_warnings`, and `evidence_warnings` as quality improvements, or use `--quality-gate` to make every warning a hard gate. Use `--allow-source-warnings` only for explicitly degraded/debug drafts that will not be delivered as diligence-grade output.
+Review the output. Address `source_warnings`, blocking `layout_warnings`, and
+all `metric_id_warnings` before proceeding. Unknown, conflicting,
+not-comparable, or unresolved MET-IDs are hard gates because chart/headline
+metrics must be traceable to the memo Metric Reconciliation table. Address
+`density_warnings`, non-blocking `layout_warnings`, `chart_data_warnings`,
+`generic_copy_warnings`, and non-blocking `evidence_warnings` as quality
+improvements, or use `--quality-gate` to make every warning a hard gate. Use
+`--allow-source-warnings` only for explicitly degraded/debug drafts that will not
+be delivered as diligence-grade output.
 
 Content quality validation also checks that:
 - `latest_query` and research artifacts do not treat user-material years as the current research period;
@@ -254,6 +262,7 @@ Do **not** require separate manual review for intermediate debug files; the work
 - `industry_storyboard.json`
 - `artifacts/storyboard_validation.json`
 - `artifacts/content_quality_validation.json`
+- `artifacts/stage_gate_pre_ppt_validation.json`
 - `industry_section_ppt_copy.json` (canonical input to deterministic PPT filling)
 - `replacement_dict.json`
 - `industry_section_filled_clean.pptx` (when PPT output is requested)
@@ -271,6 +280,16 @@ For final delivery, run:
   --run-dir <work_root>/runs/attempt_<timestamp> \
   --output <work_root>/runs/attempt_<timestamp>/artifacts/final_delivery_validation.json
 ```
+
+For PPT generation, prefer the packaged pipeline:
+
+```bash
+./run_pipeline.sh --work-root <work_root> --storyboard <path/to/industry_storyboard.json>
+```
+
+The pipeline runs `scripts/validate_stage_gate.py --stage pre_ppt` before
+creating PPT copy or filling the template. If the gate fails, the output is a
+debug draft at most; do not rename or describe it as final delivery.
 
 Then generate a short quality report:
 

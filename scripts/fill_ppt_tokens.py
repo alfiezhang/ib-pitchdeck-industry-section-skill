@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import html
 import json
 import re
 import tempfile
@@ -19,6 +20,10 @@ def load_json(path: Path):
         raise FileNotFoundError(f"JSON file not found: {path}") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
+
+
+def normalize_replacement_value(value) -> str:
+    return html.unescape(str(value))
 
 
 PARAGRAPH_RE = re.compile(r"(<a:p\b.*?</a:p>)", re.DOTALL)
@@ -167,7 +172,7 @@ def build_styled_runs(paragraph_xml: str, updated: str) -> str:
                 solid_fill = ET.SubElement(rpr, f"{{{A_NS}}}solidFill")
                 ET.SubElement(solid_fill, f"{{{A_NS}}}srgbClr", {"val": HIGHLIGHT_COLOR})
             text_node = ET.SubElement(run, f"{{{A_NS}}}t")
-            text_node.text = escape(strip_rich_text_markup(part))
+            text_node.text = strip_rich_text_markup(part)
             ensure_text_space(text_node, text_node.text or "")
             new_nodes.append(run)
 
@@ -248,7 +253,10 @@ def replace_tokens_in_slide(xml_bytes: bytes, replacements: dict[str, str]) -> t
 
 
 def fill_ppt(template: Path, replacement_dict: Path, output: Path) -> dict:
-    replacements = load_json(replacement_dict)
+    replacements = {
+        str(key): normalize_replacement_value(value)
+        for key, value in load_json(replacement_dict).items()
+    }
     replaced_files = 0
     replaced_paragraphs = 0
     replaced_tokens = 0

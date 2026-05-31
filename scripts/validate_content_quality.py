@@ -669,7 +669,7 @@ def check_metric_ids_against_memo(slides: list[dict], memo_text: str) -> list[st
 
     in_section = False
     for line in memo_text.splitlines():
-        if re.match(r"^##\s+Metric Reconciliation", line, flags=re.IGNORECASE):
+        if re.match(r"^##\s+Metric Reconciliation\b", line, flags=re.IGNORECASE):
             in_section = True
             continue
         if in_section and re.match(r"^##\s+", line):
@@ -1003,6 +1003,7 @@ def validate(
         blocking_warnings.extend(source_warnings)
     blocking_warnings.extend(layout_blocking_warnings)
     blocking_warnings.extend(claim_strength_blocking_warnings)
+    blocking_warnings.extend(metric_id_issues)
     blocking_warnings = unique_preserve_order(blocking_warnings)
 
     layout_warnings = unique_preserve_order(
@@ -1052,6 +1053,7 @@ def validate(
         "chart_data_warnings": chart_data_warnings,
         "generic_copy_warnings": generic_copy_warnings,
         "evidence_warnings": evidence_warnings,
+        "metric_id_warnings": unique_preserve_order(metric_id_issues),
         "layout_warnings": layout_warnings,
         "claim_strength_warnings": claim_strength_warnings,
         "consistency_warnings": consistency_warnings,
