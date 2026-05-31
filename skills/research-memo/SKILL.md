@@ -106,7 +106,7 @@ Execution order:
 4. Create `artifacts/search_log.md` from `references/search_log_template.md` before the first search attempt.
 5. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, data terms, peer names, source leads, and geography-specific terminology. Record each attempt immediately in `search_log.md`.
 6. Update the plan with broad-discovery findings: industry definition candidates, vocabulary, metric names, peer categories, transaction/M&A angles, buyer/investor angles, counterarguments, and discovered source leads.
-7. Write `Research Emphasis / Hypothesis Plan` in the memo draft before formal synthesis. Use broad discovery to classify the project, identify 3-5 priority research angles, de-prioritize distractions, and map the emphasis to the fixed 8 slides.
+7. Write `Research Emphasis / Hypothesis Plan` in the memo draft before formal synthesis. Use broad discovery to classify the project, identify 3-5 priority research angles, de-prioritize distractions, and generate 3–5 provisional slide hypotheses; complete the formal 8-slide storyline only after memo synthesis.
 8. Select source packs/domains by research dimension. For each dimension, use 1-3 relevant source packs/domains when appropriate; across the full memo, aim for 6-15 distinct high-priority domains.
 9. Add 0-5 industry-specific domains if broad discovery reveals authoritative associations, regulators, databases, or vertical publications not covered by the registry.
 10. Add targeted validation queries and latest/current queries based on the discovered industry vocabulary and source leads.
@@ -156,7 +156,7 @@ Required sections:
 - Project meta (target, industry, geography, transaction type, date)
 - **Research Plan** (source priority, search coverage checklist)
 - **Scope Boundary** (confirm pre-mandate transaction-oriented industry section, not generic report / consulting study / company deep dive)
-- **Research Emphasis / Hypothesis Plan** (project classification, priority research angles, de-prioritized angles, fixed 8-slide implications)
+- **Research Emphasis / Hypothesis Plan** (project classification, priority research angles, de-prioritized angles, 8-slide storyline)
 - **Source Selection Rationale** (why selected packs/domains are relevant, and what was intentionally excluded)
 - Deal context (why this industry section matters for this transaction)
 - Target business summary
@@ -338,6 +338,26 @@ If all search providers fail or return zero results in a brief-only run, stop. D
 - Do **not** carry unsupported claims from the old memo forward as facts.
 - If the old memo conflicts with stronger new evidence, prefer the more reliable, more recent, and more definition-matched source.
 - Directional judgments are allowed, but they must read as inference or hypothesis rather than disguised fact.
+
+## Human Review Gate
+
+After this skill produces `industry_input_memo.md`, **stop for human review** unless the user explicitly requested one-shot generation.
+
+Operational rule:
+- in default mode, stop here
+- in one-shot mode, continue only after making data gaps and source strength explicit in the memo rather than hiding uncertainty
+
+## Mandatory Checklist Before Memo Validation
+
+1. Apply Evidence Promotion Gate: all Evidence Ledger rows must have been opened and reviewed.
+2. Populate Claim Scope and Evidence Status for every EV row.
+3. Populate Metric Reconciliation for every slide-bound quantitative metric.
+4. Add Parent Metric ID for subset relationships.
+5. Add CAGR Endpoint IDs for CAGR rows.
+6. Resolve or explicitly flag conflicting / not_comparable / unresolved metrics.
+7. Do not allow unresolved MET-IDs into Page Evidence Packs or downstream slide notes.
+
+---
 
 ## Human Review Gate
 

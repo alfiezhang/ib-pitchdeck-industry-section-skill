@@ -653,6 +653,98 @@ def check_memo_source_quality(
 
 # ── Evidence-per-slide check ─────────────────────────────────────
 
+def check_metric_ids_against_memo(slides: list[dict], memo_text: str) -> list[str]:
+    """Check that storyboard metric_ids exist in memo and are not conflicting."""
+    if not memo_text:
+        return []
+    issues: list[str] = []
+
+    # Parse Metric Reconciliation from memo
+    metric_re = re.compile(
+        r"^\|\s*([^|]+)\s*\|\s*MET-(\d{3})\s*\|", flags=re.MULTILINE
+    )
+    # Simple parser: extract MET-IDs and their conflict status from memo
+    met_status: dict[str, str] = {}
+
+
+    in_section = False
+    for line in memo_text.splitlines():
+        if re.match(r"^##\s+Metric Reconciliation", line, flags=re.IGNORECASE):
+            in_section = True
+            continue
+        if in_section and re.match(r"^##\s+", line):
+            break
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) < 13:
+            continue
+        met_id = cells[1].strip() if len(cells) > 1 else ""
+        if not re.match(r"^MET-\d{3}$", met_id):
+            continue
+        conflict = cells[-2].strip().lower() if len(cells) > 12 else ""
+        resolution = cells[-1].strip() if len(cells) > 13 else ""
+        met_status[met_id] = conflict
+        if resolution:
+            met_status[f"{met_id}_resolution"] = resolution
+
+    all_met_ids = set(met_status.keys()) - {k for k in met_status if k.endswith("_resolution")}
+
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        slide_no = slide.get("slide_no", "")
+        contract = slide.get("slide_story_contract", {})
+        if not isinstance(contract, dict):
+            continue
+        metric_ids = contract.get("metric_ids", [])
+        if not isinstance(metric_ids, list):
+            continue
+        for met_id in metric_ids:
+            met_id = str(met_id).strip()
+            if not met_id.startswith("MET-"):
+                continue
+            if met_id not in all_met_ids:
+                issues.append(
+                    f"slide {slide_no}: metric_ids references {met_id} which does not exist in memo Metric Reconciliation"
+                )
+                continue
+            status = met_status.get(met_id, "")
+            if status in {"conflicting", "not_comparable"}:
+                issues.append(
+                    f"slide {slide_no}: metric_ids references {met_id} with conflict status '{status}'; "
+                    f"conflicting/unresolved metrics must not be used in chart data or slide headlines"
+                )
+            elif status == "unresolved":
+                issues.append(
+                    f"slide {slide_no}: metric_ids references unresolved {met_id}; "
+                    f"resolve before using in quantitative claims"
+                )
+
+    # Also check chart_data values against memo if both present
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        slide_no = slide.get("slide_no", "")
+        chart_data = slide.get("chart_data", {})
+        if not isinstance(chart_data, dict):
+            continue
+        chart_ids = re.findall(r"MET-\d{3}", str(chart_data))
+        for met_id in chart_ids:
+            if met_id not in all_met_ids:
+                issues.append(
+                    f"slide {slide_no}: chart_data references {met_id} not in memo Metric Reconciliation"
+                )
+            else:
+                status = met_status.get(met_id, "")
+                if status in {"conflicting", "not_comparable"}:
+                    issues.append(
+                        f"slide {slide_no}: chart_data references {met_id} with status '{status}'"
+                    )
+
+    return issues
+
+
 def check_evidence_linkage(
     slide: dict,
     memo_text: str,
@@ -889,6 +981,10 @@ def validate(
 
     if memo_text:
         check_memo_source_quality(memo_text, weak_source_markers, source_warnings)
+
+    # Check storyboard metric_ids against memo Metric Reconciliation
+    metric_id_issues = check_metric_ids_against_memo(slides, memo_text)
+    evidence_warnings.extend(metric_id_issues)
 
     if metric_locations:
         repeated_metrics = {

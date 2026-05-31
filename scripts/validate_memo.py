@@ -433,11 +433,13 @@ def math_consistency_checks(text: str) -> list[str]:
             continue
         value = _parse_number(row.get("Value", ""))
         conflict = row.get("Conflict Status", "").strip().lower()
-        metric_type = row.get("Metric Type", "").strip()
+        metric_type = row.get("Metric Type", "").strip().lower()
         channel = row.get("Channel Scope", "").strip()
         market_def = row.get("Market Definition", "").strip()
         comparable_raw = row.get("Comparable With", "")
         comparable = set(re.findall(r"MET-\d{3}", comparable_raw)) if comparable_raw else set()
+        endpoint_raw = row.get("CAGR Endpoint IDs", "")
+        cagr_endpoint_ids = re.findall(r"MET-\d{3}", endpoint_raw)
 
         parent_metric_id = row.get("Parent Metric ID", "").strip()
         # Normalize share values: 51.2 → 0.512
@@ -454,6 +456,7 @@ def math_consistency_checks(text: str) -> list[str]:
             "unit": row.get("Unit", "").strip(),
             "comparable": comparable,
             "parent_metric_id": parent_metric_id,
+            "cagr_endpoint_ids": cagr_endpoint_ids,
         }
 
     # Check 1: Subset ≤ parent set (via Parent Metric ID)
