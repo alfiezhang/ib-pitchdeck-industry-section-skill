@@ -244,6 +244,209 @@ def evidence_strength_issues(text: str) -> list[str]:
     return issues
 
 
+def metric_reconciliation_rows(text: str) -> list[dict[str, str]]:
+    """Parse Metric Reconciliation table rows."""
+    rows: list[dict[str, str]] = []
+
+
+    in_section = False
+    header: list[str] = []
+    for line in text.splitlines():
+        if re.match(r"^##\s+Metric Reconciliation\b", line, flags=re.IGNORECASE):
+            in_section = True
+            continue
+        if in_section and re.match(r"^##\s+", line):
+            break
+        if in_section and line.startswith("|"):
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if not cells:
+                continue
+            if "Metric Group" in cells[0] or "---" in cells[0]:
+                header = cells
+                continue
+            if len(cells) >= 5 and re.match(r"^MET-\d{3}", cells[0]):
+                row = {}
+                for i, cell in enumerate(cells):
+                    key = header[i] if i < len(header) else f"col_{i}"
+                    row[key] = cell
+                rows.append(row)
+    return rows
+
+
+def approx_equal(a: float, b: float, tolerance: float = 0.03) -> bool:
+    """Check approximate equality within tolerance."""
+    if b == 0:
+        return abs(a) < 0.01
+    return abs(a - b) <= tolerance * max(abs(a), abs(b), 1.0)
+
+
+def calculate_cagr(beginning: float, ending: float, years: float) -> float:
+    """Calculate CAGR from beginning and ending values."""
+    if beginning <= 0 or years <= 0:
+        return 0.0
+    return (ending / beginning) ** (1.0 / years) - 1.0
+
+
+_PARSE_NUM = re.compile(r"([\d,]+(?:\.\d+)?)")
+_YEARS_RE = re.compile(r"(\d{4})")
+
+
+def _parse_number(raw: str) -> Optional[float]:
+    """Extract a numeric value from a string."""
+    if not raw:
+        return None
+    clean = raw.replace(",", "").replace(" ", "")
+    # Handle ranges: take average
+    parts = _PARSE_NUM.findall(clean)
+    if not parts:
+        return None
+    values = []
+    for p in parts:
+        try:
+            values.append(float(p))
+        except ValueError:
+            continue
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _parse_years(raw: str) -> float:
+    """Parse a year range into number of years."""
+    years = _YEARS_RE.findall(str(raw))
+    if len(years) >= 2:
+        begin = int(years[0])
+        end = int(years[-1])
+        return float(max(1, end - begin))
+    return 0.0
+
+
+def math_consistency_checks(text: str) -> list[str]:
+    """Check mathematical consistency in memo metrics."""
+    issues: list[str] = []
+
+    rows = metric_reconciliation_rows(text)
+    if len(rows) < 2:
+        return issues  # Not enough structured metric data to check
+
+    parsed: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        met_id = row.get("Metric ID", "")
+        if not met_id or not met_id.startswith("MET-"):
+            continue
+        value = _parse_number(row.get("Value", ""))
+        conflict = row.get("Conflict Status", "").strip().lower()
+        metric_type = row.get("Metric Type", "").strip()
+        channel = row.get("Channel Scope", "").strip()
+        market_def = row.get("Market Definition", "").strip()
+        comparable_raw = row.get("Comparable With", "")
+        comparable = set(re.findall(r"MET-\d{3}", comparable_raw)) if comparable_raw else set()
+
+        parsed[met_id] = {
+            "name": row.get("Metric Name", ""),
+            "value": value,
+            "conflict": conflict,
+            "metric_type": metric_type,
+            "channel": channel,
+            "market_def": market_def,
+            "comparable": comparable,
+        }
+
+    # Check 1: Subset ≤ parent set (same metric_type, same channel_scope, comparable relationship)
+    for met_id, m in parsed.items():
+        if m["value"] is None:
+            continue
+        for parent_id in m["comparable"]:
+            if parent_id not in parsed:
+                continue
+            parent = parsed[parent_id]
+            if parent["value"] is None:
+                continue
+            if m["metric_type"] == "share" or parent["metric_type"] == "share":
+                continue  # Share comparisons handled separately
+            if m["value"] > parent["value"] * (1.0 + 0.05):
+                issues.append(
+                    f"{met_id} ({m['name']}): value {m['value']:.2f} exceeds parent "
+                    f"{parent_id} ({parent['name']}) value {parent['value']:.2f}. "
+                    f"A subset metric should not be larger than its parent metric."
+                )
+            elif m["value"] > parent["value"]:
+                issues.append(
+                    f"{met_id} ({m['name']}): value {m['value']:.2f} slightly exceeds "
+                    f"{parent_id} ({parent['name']}) value {parent['value']:.2f}. "
+                    f"Check if definitions are genuinely comparable or differ in scope."
+                )
+
+    # Check 2: Share sums ≈ 100% (group by same metric_type and channel_scope)
+    share_groups: dict[tuple[str, str], list[tuple[str, float]]] = {}
+    for met_id, m in parsed.items():
+        if m["value"] is None or m["metric_type"] != "share":
+            continue
+        group_key = (m.get("market_def", ""), m.get("channel", ""))
+        share_groups.setdefault(group_key, []).append((met_id, abs(m["value"])))
+
+    for group_key, shares in share_groups.items():
+        if len(shares) < 3:
+            continue  # Need at least 3 shares for a meaningfull check on sum
+        total = sum(s for _, s in shares)
+        if total < 0.1:
+            continue
+        if not approx_equal(total, 1.0, 0.05):
+            ids = ", ".join(f"{mid}({val:.1%})" for mid, val in shares[:6])
+            issues.append(
+                f"Share group ({group_key[0]} / {group_key[1]}): sum is {total:.2%}, expected ~100%. "
+                f"Shares: {ids}"
+            )
+
+    # Check 3: CAGR matches endpoints
+    cagr_rows = [(met_id, m) for met_id, m in parsed.items() if m["metric_type"] == "CAGR" and m["value"] is not None]
+    for cagr_id, cagr_m in cagr_rows:
+        for met_id, m in parsed.items():
+            if met_id not in cagr_m.get("comparable", set()):
+                continue
+            if m["value"] is None or m["value"] <= 0:
+                continue
+            # Find the matching begin/end metric
+            for met_id2, m2 in parsed.items():
+                if met_id2 == met_id or met_id2 not in cagr_m.get("comparable", set()):
+                    continue
+                if m2["value"] is None or m2["value"] <= 0:
+                    continue
+                # Try to compute CAGR
+                years = _parse_years(cagr_m.get("Comment", ""))
+                if years < 1:
+                    years = _parse_years(m.get("Data Period", "")) or 5.0
+                begin = min(m["value"], m2["value"])
+                end = max(m["value"], m2["value"])
+                if begin > 0:
+                    calc_cagr = calculate_cagr(begin, end, years)
+                    if not approx_equal(calc_cagr, cagr_m["value"] / 100.0 if cagr_m["value"] > 1 else cagr_m["value"], 0.15):
+                        issues.append(
+                            f"{cagr_id}: stated CAGR {cagr_m['value']}% does not match computed "
+                            f"CAGR {calc_cagr*100:.1f}% from {begin:.2f}→{end:.2f} over {years:.0f}y"
+                        )
+
+    # Check 4: No conflicting values for same metric (same metric_type + market_def + channel_scope + data_period)
+    key_groups: dict[tuple[str, str, str, str], list[tuple[str, float]]] = {}
+    for met_id, m in parsed.items():
+        if m["value"] is None:
+            continue
+        key = (m["metric_type"], m["market_def"], m["channel"], m.get("Data Period", ""))
+        key_groups.setdefault(key, []).append((met_id, m["value"]))
+
+    for key, values in key_groups.items():
+        if len(values) < 2:
+            continue
+        unique_values = set(round(v, 4) for _, v in values)
+        if len(unique_values) > 1:
+            ids = ", ".join(f"{mid}({val:.2f})" for mid, val in values)
+            issues.append(
+                f"Conflicting metric values for ({key[0]}/{key[1]}/{key[2]}): {ids}"
+            )
+
+    return issues
+
+
 def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -323,6 +526,10 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
     for issue in weak_source_issues(text):
         errors.append(issue)
     for issue in evidence_strength_issues(text):
+        errors.append(issue)
+
+    math_issues = math_consistency_checks(text)
+    for issue in math_issues:
         errors.append(issue)
 
     if run_dir:

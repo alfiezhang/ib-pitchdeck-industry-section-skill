@@ -145,6 +145,36 @@ Notes:
 
 ---
 
+## Evidence Promotion Gate
+> Search-result snippets, search-engine descriptions, AI summaries, reposts,
+> aggregator pages, and secondary pages quoting another source are discovery
+> leads only. They must not enter the Evidence Ledger or Page Evidence Pack.
+
+A source can be promoted into the Evidence Ledger only after:
+1. the underlying webpage, report, filing, or PDF has been opened and reviewed;
+2. the exact claim or datapoint has been located in context;
+3. the source publication date and the applicable data period have been recorded separately;
+4. the geography, market definition, channel scope, metric type, and unit have been confirmed;
+5. a source locator has been recorded, including page number, section, table, paragraph, or URL anchor where available.
+
+If the original source cannot be accessed, mark the evidence as `secondary-reviewed`
+and disclose the limitation. Do not label it as `primary-reviewed`.
+
+## Evidence Promotion Gate
+> Search-result snippets, search-engine descriptions, AI summaries, reposts,
+> aggregator pages, and secondary pages quoting another source are discovery
+> leads only. They must not enter the Evidence Ledger or Page Evidence Pack.
+
+A source can be promoted into the Evidence Ledger only after:
+1. the underlying webpage, report, filing, or PDF has been opened and reviewed;
+2. the exact claim or datapoint has been located in context;
+3. the source publication date and the applicable data period have been recorded separately;
+4. the geography, market definition, channel scope, metric type, and unit have been confirmed;
+5. a source locator has been recorded, including page number, section, table, paragraph, or URL anchor where available.
+
+If the original source cannot be accessed, mark the evidence as `secondary-reviewed`
+and disclose the limitation. Do not label it as `primary-reviewed`.
+
 ## Evidence Ledger
 > Every important claim or metric in the memo should have a corresponding Evidence ID.
 > These IDs are the anchor points for downstream storyboard source_note fields and
@@ -153,15 +183,23 @@ Notes:
 > SEO research pages, and generic company-info pages must not appear as formal evidence rows.
 > If used during discovery, keep them in search_log.md as Lead-only or Rejected sources.
 
-| Evidence ID | Claim / Metric | Source Name | Source URL | Source Date | Data Period | Reliability | Confidence |
-|---|---|---|---|---|---|---|---|
-| EV-001 | | | | | | | |
-| EV-002 | | | | | | | |
-| EV-003 | | | | | | | |
-| EV-004 | | | | | | | |
-| EV-005 | | | | | | | |
+| Evidence ID | Claim / Metric | Claim Scope | Source Name | Source URL | Source Type | Evidence Status | Source Date | Data Period | Source Locator | Raw Excerpt | Reliability | Confidence |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| EV-001 | | | | | | | | | | | | |
+| EV-002 | | | | | | | | | | | | |
+| EV-003 | | | | | | | | | | | | |
+| EV-004 | | | | | | | | | | | | |
+| EV-005 | | | | | | | | | | | | |
 
-<!-- Add rows as needed. Confidence: verified | inferred | training_data -->
+<!--
+Add rows as needed.
+Claim Scope: industry-level | target-level | transaction-inference
+Evidence Status: primary-reviewed | secondary-reviewed | lead-only
+Source Type: 公告 | 协会 | 研究报告 | 媒体 | 数据库 | 管理层材料 | 其他
+Reliability: A (official/regulatory/audited) | B (reputable industry source) | C (media/secondary) | D (unverified/single-source)
+Confidence: verified | inferred | training_data
+Source Locator: page number, section, table, paragraph, or URL anchor
+-->
 
 Before using this memo downstream, write and pass:
 `artifacts/memo_validation.json` via `scripts/validate_memo.py`.
@@ -171,6 +209,56 @@ Claim strength values:
 - supported_inference: derived from sourced facts; use cautious wording
 - management_claim: provided by user/company; label as such unless externally verified
 - hypothesis: useful but unproven; treat as a diligence question
+
+## Metric Reconciliation
+> All quantitative metrics used in slides must be reconciled before storyboard.
+> Metrics with different metric_type, channel_scope, market_definition, or data_period
+> must not be automatically compared, summed, or placed in the same chart series.
+
+| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Conflict Status | Resolution |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Market sizing | MET-001 | | | | | | | | | | | |
+| Market sizing | MET-002 | | | | | | | | | | | |
+
+<!--
+Metric Type: retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
+Channel Scope: all_channel | online | douyin | tmall | sampled_platforms | offline
+Conflict Status: cross-checked | single-source | conflicting | not_comparable | unresolved
+Comparable With: list of MET-IDs this metric can be compared to
+-->
+
+Key rules:
+- Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
+- Different channel_scope values must not be auto-summed or subtracted
+- Different market_definition values must not be auto-nested as parent-child
+- Different data_period values must not be plotted in the same time series without explicit labeling
+- Metrics with conflicting or not_comparable status must not appear in page headlines, chart data, main takeaway, or core transaction logic
+
+
+## Metric Reconciliation
+> All quantitative metrics used in slides must be reconciled before storyboard.
+> Metrics with different metric_type, channel_scope, market_definition, or data_period
+> must not be automatically compared, summed, or placed in the same chart series.
+
+| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Conflict Status | Resolution |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Market sizing | MET-001 | | | | | | | | | | | |
+| Market sizing | MET-002 | | | | | | | | | | | |
+
+<!--
+Metric Type: retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
+Channel Scope: all_channel | online | douyin | tmall | sampled_platforms | offline
+Conflict Status: cross-checked | single-source | conflicting | not_comparable | unresolved
+Comparable With: list of MET-IDs this metric can be compared to
+-->
+
+Key rules:
+- Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
+- Different channel_scope values must not be auto-summed or subtracted
+- Different market_definition values must not be auto-nested as parent-child
+- Different data_period values must not be plotted in the same time series without explicit labeling
+- Metrics with conflicting or not_comparable status must not appear in page headlines, chart data, main takeaway, or core transaction logic
+
 
 ---
 
@@ -246,11 +334,18 @@ Page Evidence Pack (use downstream in storyboard; do not skip):
 
 Key Data Points:
 - Metric:
+  Metric ID:
+  Metric Type: # retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
   Value:
   Unit:
   Period:
   Geography:
+  Market Definition:
+  Parent Market:
+  Channel Scope: # all_channel | online | douyin | tmall | sampled_platforms | offline
   Definition:
+  Definition Match: # exact | partial | not_comparable (with which MET-ID?)
+  Cross-Check Status: # cross-checked | single-source | conflicting
   Source Name:
   Source Date:
   Confidence: # verified | inferred | training_data
@@ -305,15 +400,22 @@ Page Evidence Pack (use downstream in storyboard; do not skip):
 
 Key Data Points:
 - Metric:
+  Metric ID:
+  Metric Type: # retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
   Value:
   Unit:
   Period:
   Geography:
+  Market Definition:
+  Parent Market:
+  Channel Scope: # all_channel | online | douyin | tmall | sampled_platforms | offline
   Definition:
+  Definition Match: # exact | partial | not_comparable (with which MET-ID?)
+  Cross-Check Status: # cross-checked | single-source | conflicting
   Source Name:
   Source Date:
   Confidence: # verified | inferred | training_data
-  chart_ready: false
+  chart_ready: false  # set to true if this datapoint can directly feed a chart
 
 Chart-ready Data:
 - Category:

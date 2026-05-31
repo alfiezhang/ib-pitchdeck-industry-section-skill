@@ -36,6 +36,15 @@ from pathlib import Path
 from json_utils import load_json_file
 
 
+def _clean_source_footer(source_note: str) -> str:
+    """Strip leading 'Sources:'/'Sources：' prefix since the PPT template already has a static 'Sources' label."""
+    if not source_note:
+        return source_note
+    import re
+    cleaned = re.sub(r"^(Sources|Sources):\s*", "", source_note, flags=re.IGNORECASE).strip()
+    return cleaned if cleaned else source_note
+
+
 SLIDE_KEY_MAP = {
     "industry_overview": "industry_overview",
     "market_size_segmentation": "market_size_segmentation",
@@ -171,7 +180,7 @@ def convert_slide(storyboard_slide: dict) -> dict:
         "main_takeaway": storyboard_slide.get("main_message", ""),
         "content": storyboard_slide.get("body_copy", {}),
         "chart_title": chart_title,
-        "source_footer": storyboard_slide.get("source_note", ""),
+        "source_footer": _clean_source_footer(storyboard_slide.get("source_note", "")),
         "speaker_note": "",
     }
 

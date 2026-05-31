@@ -145,6 +145,31 @@
         "body_copy has both channel share and sub-category growth as co-equal stories"
       ]
     },
+    "3": {
+      "description": "Slide 3 should explain industry growth drivers first. Target relevance should be selective and secondary — do not mechanically add 'benefits target' to every driver card.",
+      "forbidden_headline_patterns": [
+        "标的.{0,12}(驱动|引擎|利好|受益)",
+        "target.{0,30}(driver|engine|benefit)"
+      ],
+      "forbidden_main_message_patterns": [
+        "标的.{0,20}(驱动|引擎|利好|均)",
+        "target.{0,40}(driver|engine|all benefit)"
+      ],
+      "preferred_focus_terms": [
+        "需求", "消费者", "渠道", "产品", "结构", "驱动",
+        "demand", "consumer", "channel", "product", "driver"
+      ],
+      "preferred_body_focus_terms": [
+        "需求", "消费者", "渠道", "产品", "结构", "因素",
+        "demand", "consumer", "driver", "growth"
+      ],
+      "preferred_body_focus_message": "Slide 3 body_copy should contain industry demand/driver language; each card should explain a driver mechanism, not just state benefit to target.",
+      "anti_patterns": [
+        "each driver card mechanically ends with 利好标的 or similar target benefit",
+        "driver cards are target-centric rather than industry-structure-centric",
+        "headline or subtitle makes the target the primary subject of drivers"
+      ]
+    },
     "4": {
       "description": "Slide 4 should focus on industry value chain and profit pool first; target positioning is secondary.",
       "forbidden_headline_patterns": [
@@ -236,11 +261,30 @@
         "trend", "industry", "evolution", "regulation", "shift"
       ],
       "preferred_body_focus_message": "Slide 7 body_copy should contain industry trend / evolution language; it reads as target benefit page if no industry trend focus terms appear in body_copy.",
+      "forbidden_headline_patterns": [
+        "标的.{0,12}(利好|受益|机会|趋势)",
+        "target.{0,30}(benefit|opportunity|trend)",
+        "出售时机恰.{0,5}",
+        "出售窗口.{0,5}",
+        "最佳出售",
+        "sale timing is optimal",
+        "optimal exit window"
+      ],
+      "forbidden_main_message_patterns": [
+        "均利好.{0,15}标的",
+        "标的.{0,20}(均|全部|精准|契合)",
+        "target.{0,30}(all|every|benefit)",
+        "出售时机恰.{0,5}",
+        "出售窗口已确立",
+        "最佳出售时机"
+      ],
       "anti_patterns": [
         "every trend card ends with 标的含义 or 标的受益",
         "subtitle says 均利好标的 or similar blanket target benefit claim",
         "trend slide reads like target opportunity page rather than industry evolution",
-        "uses 均利好 / 精准契合 / 有望受益 without evidence qualification"
+        "uses 均利好 / 精准契合 / 有望受益 without evidence qualification",
+        "presents sale-timing conclusion as an established fact",
+        "treats industry consolidation as synonymous with imminent target sale"
       ]
     },
     "8": {

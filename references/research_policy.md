@@ -142,6 +142,24 @@ Write `artifacts/search_log.md` incrementally during the research phase. Use `re
 
 The fallback script is at `scripts/web_search.py`. Select the runtime first with `PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"`, then use `"$PYTHON_CMD"` for fallback commands. Bootstrap will use an existing compatible Python when available, or create `.venv` and install `requirements.txt` when needed.
 
+## Evidence Promotion Gate
+
+Search-result snippets, search-engine descriptions, AI summaries, reposts, aggregator pages, and secondary pages quoting another source are **discovery leads only**. They must not enter the Evidence Ledger or Page Evidence Pack as formal evidence.
+
+A source can be promoted into the Evidence Ledger only after:
+1. the underlying webpage, report, filing, or PDF has been opened and reviewed;
+2. the exact claim or datapoint has been located in context;
+3. the source publication date and the applicable data period have been recorded separately;
+4. the geography, market definition, channel scope, metric type, and unit have been confirmed;
+5. a source locator has been recorded, including page number, section, table, paragraph, or URL anchor where available.
+
+Evidence Status values:
+- **primary-reviewed**: the original source has been opened and the specific datapoint located with locator
+- **secondary-reviewed**: the claim is from a reputable secondary source but the original was not directly accessed
+- **lead-only**: search snippet, aggregator, repost, or AI summary — discovery only, not to be used as formal evidence
+
+If the original source cannot be accessed at all, mark the evidence as `secondary-reviewed` and disclose the limitation. Do not label it as `primary-reviewed`. Lead-only evidence must not appear in Page Evidence Pack arguments, Key Data Points, or downstream storyboard claims.
+
 ## Source Hierarchy
 Prefer sources in this order when facts conflict:
 1. user-provided primary materials, management materials, CIM excerpts, diligence materials
