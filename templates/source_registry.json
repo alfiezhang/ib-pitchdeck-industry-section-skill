@@ -13,6 +13,7 @@
   "source_packs": {
     "china_official": {
       "description": "China official government and regulator sources",
+      "evidence_policy": "formal_candidate",
       "domains": [
         "stats.gov.cn",
         "miit.gov.cn",
@@ -26,6 +27,7 @@
     },
     "china_capital_markets": {
       "description": "China A-share / HKEX company disclosures, filings, and market data",
+      "evidence_policy": "formal_candidate",
       "domains": [
         "cninfo.com.cn",
         "sse.com.cn",
@@ -37,6 +39,7 @@
     },
     "china_financial_data": {
       "description": "China financial data platforms and research report aggregators. Opt-in via preferred_source_packs.",
+      "evidence_policy": "secondary_reviewed",
       "domains": [
         "eastmoney.com",
         "cnstock.com",
@@ -46,6 +49,7 @@
     },
     "global_official": {
       "description": "Global official statistics and multilateral sources",
+      "evidence_policy": "formal_candidate",
       "domains": [
         "sec.gov",
         "census.gov",
@@ -60,26 +64,35 @@
     },
     "global_company_filings": {
       "description": "Company disclosure and filings sources",
+      "evidence_policy": "formal_candidate",
       "domains": [
         "sec.gov",
         "annualreports.com",
         "companieshouse.gov.uk"
       ]
     },
-    "global_market_research": {
-      "description": "Independent market research platforms and syndicated data providers. Distinct from consulting firms — these publish structured market data, not advisory reports. Opt-in via preferred_source_packs.",
+    "global_market_research_formal": {
+      "description": "Structured market-data providers with transparent methodology. Review report context before formal use.",
+      "evidence_policy": "formal_candidate",
       "domains": [
-        "statista.com",
-        "ibisworld.com",
-        "grandviewresearch.com",
-        "marketresearch.com",
         "spglobal.com",
-        "tradingeconomics.com",
-        "mordorintelligence.com"
+        "ibisworld.com",
+        "statista.com"
+      ]
+    },
+    "global_market_research_lead_only": {
+      "description": "Discovery leads only — must confirm original methodology and report context before upgrading to formal evidence.",
+      "evidence_policy": "lead_only",
+      "domains": [
+        "grandviewresearch.com",
+        "mordorintelligence.com",
+        "marketresearch.com",
+        "tradingeconomics.com"
       ]
     },
     "asia_pacific_official": {
       "description": "Asia-Pacific government statistics, central banks, and securities regulators. Opt-in when target is in Japan, Korea, India, or Southeast Asia.",
+      "evidence_policy": "formal_candidate",
       "domains": [
         "e-stat.go.jp",
         "fsa.go.jp",
@@ -93,6 +106,7 @@
     },
     "consulting_reports": {
       "description": "Consulting and industry report sources",
+      "evidence_policy": "secondary_reviewed",
       "domains": [
         "mckinsey.com",
         "bcg.com",
@@ -110,6 +124,7 @@
     },
     "business_media": {
       "description": "Reputable business and industry media",
+      "evidence_policy": "secondary_reviewed",
       "domains": [
         "reuters.com",
         "bloomberg.com",

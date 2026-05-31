@@ -29,6 +29,16 @@ EXPECTED_DIMENSIONS = {
     "target_specific_implications",
 }
 
+# Dimensions where latest_query is mandatory (time-sensitive data).
+LATEST_QUERY_REQUIRED_DIMENSIONS = {
+    "market_size_growth",
+    "segmentation",
+    "demand_drivers",
+    "competitive_landscape_peer_set",
+    "trends_regulation_technology",
+    "target_specific_implications",
+}
+
 YEAR_RE = re.compile(r"\b(20\d{2})\b")
 FRESHNESS_TERMS = (
     "latest",
@@ -177,9 +187,12 @@ def validate(
                 ]
                 if len(filled_angles) < 3:
                     blocking_warnings.append("research_emphasis should include at least 3 priority research angles with pitch relevance")
-            slide_implications = research_emphasis.get("fixed_8_slide_implications", [])
-            if not isinstance(slide_implications, list) or len(slide_implications) < 8:
-                blocking_warnings.append("research_emphasis.fixed_8_slide_implications should map emphasis to all 8 fixed slides")
+            slide_implications = research_emphasis.get("provisional_slide_hypotheses", research_emphasis.get("fixed_8_slide_implications", []))
+            if not isinstance(slide_implications, list) or len(slide_implications) < 3:
+                warnings.append(
+                    "research_emphasis.provisional_slide_hypotheses should include at least 3 provisional page directions; "
+                    "full 8-slide mapping is done after targeted validation in the memo page-by-page notes"
+                )
 
     broad = plan.get("broad_discovery", {})
     broad_queries = broad.get("queries", []) if isinstance(broad, dict) else []
@@ -272,10 +285,12 @@ def validate(
                 blocking_warnings.append(message)
         latest_query = dim.get("latest_query")
         if not text_present(latest_query):
-            message = f"dimension '{dimension or idx}' has no latest_query"
-            warnings.append(message)
-            if formal_stage:
-                blocking_warnings.append(message)
+            if dimension in LATEST_QUERY_REQUIRED_DIMENSIONS:
+                message = f"dimension '{dimension}' has no latest_query (required for time-sensitive dimension)"
+                warnings.append(message)
+                if formal_stage:
+                    blocking_warnings.append(message)
+            # Optional for structural dimensions: industry_definition_scope, value_chain_profit_pool, barriers_value_drivers
         else:
             check_query_freshness(
                 dimension or str(idx),

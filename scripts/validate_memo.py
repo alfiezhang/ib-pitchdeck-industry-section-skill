@@ -40,6 +40,15 @@ WEAK_SOURCE_MARKERS = (
     "行业数据聚合",
 )
 
+# Domains with evidence_policy=lead_only in source_registry.json.
+# Default to lead-only until original methodology/report context is confirmed.
+LEAD_ONLY_DOMAIN_PATTERNS = (
+    "grandviewresearch.com",
+    "mordorintelligence.com",
+    "marketresearch.com",
+    "tradingeconomics.com",
+)
+
 WEAK_SOURCE_ALLOWED_CONTEXT = (
     "rejected",
     "lead-only",
@@ -195,6 +204,26 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], dict[str, Any]]:
         if claim_strength_count < 3:
             errors.append(f"page {page_no}: Page Evidence Pack has {claim_strength_count} claim strength field(s); expected at least 3")
 
+        # Claim scope check: industry slides (5/6/7) must have industry-level evidence
+        if page_no in {5, 6, 7}:
+            industry_claims = len(re.findall(r"Claim Scope\s*:?\s*industry-level", section, flags=re.IGNORECASE))
+            target_claims = len(re.findall(r"Claim Scope\s*:?\s*target-level", section, flags=re.IGNORECASE))
+            page_metric["industry_claim_count"] = industry_claims
+            page_metric["target_claim_count"] = target_claims
+
+            if industry_claims < 1:
+                errors.append(
+                    f"page {page_no} (industry structure page): no industry-level claims found. "
+                    f"Industry barriers/competition/trends pages must have at least one industry-level claim "
+                    f"as the core argument. Target-level claims should only appear in Target relevance or So what."
+                )
+            elif target_claims > 0 and target_claims >= industry_claims:
+                warnings.append(
+                    f"page {page_no}: target-level claims ({target_claims}) equal or exceed "
+                    f"industry-level claims ({industry_claims}). Industry structure pages should "
+                    f"have more industry-level than target-level evidence."
+                )
+
         metrics[str(page_no)] = page_metric
     return errors, metrics
 
@@ -319,6 +348,31 @@ def _parse_years(raw: str) -> float:
         end = int(years[-1])
         return float(max(1, end - begin))
     return 0.0
+
+
+def lead_only_domain_issues(text: str) -> list[str]:
+    """Flag lead-only domains appearing in Evidence Ledger or formal sources."""
+    issues: list[str] = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        lowered = line.lower()
+        if not re.match(r"^\|\s*EV-\d{3}\s*\|", line):
+            continue
+        for domain in LEAD_ONLY_DOMAIN_PATTERNS:
+            if domain in lowered:
+                # Check if marked as primary-reviewed
+                if "primary-reviewed" in lowered:
+                    issues.append(
+                        f"line {line_no}: lead-only domain '{domain}' in evidence row is marked primary-reviewed. "
+                        f"Lead-only sources must be confirmed before promotion. "
+                        f"Mark as secondary-reviewed or confirm the original report."
+                    )
+                else:
+                    issues.append(
+                        f"line {line_no}: lead-only domain '{domain}' in evidence row. "
+                        f"Upgrade to formal evidence only after confirming original methodology and report context."
+                    )
+                break
+    return issues
 
 
 def math_consistency_checks(text: str) -> list[str]:
@@ -526,6 +580,8 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None) -> dict[str, Any]:
     for issue in weak_source_issues(text):
         errors.append(issue)
     for issue in evidence_strength_issues(text):
+        errors.append(issue)
+    for issue in lead_only_domain_issues(text):
         errors.append(issue)
 
     math_issues = math_consistency_checks(text)
