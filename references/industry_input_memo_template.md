@@ -169,7 +169,7 @@ and disclose the limitation. Do not label it as `primary-reviewed`.
 > If used during discovery, keep them in search_log.md as Lead-only or Rejected sources.
 
 | Evidence ID | Claim / Metric | Claim Scope | Source Name | Source URL | Source Type | Evidence Status | Source Date | Data Period | Source Locator | Raw Excerpt | Reliability | Confidence |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | EV-001 | | | | | | | | | | | | |
 | EV-002 | | | | | | | | | | | | |
 | EV-003 | | | | | | | | | | | | |
@@ -200,16 +200,18 @@ Claim strength values:
 > Metrics with different metric_type, channel_scope, market_definition, or data_period
 > must not be automatically compared, summed, or placed in the same chart series.
 
-| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Conflict Status | Resolution |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Market sizing | MET-001 | | | | | | | | | | | |
-| Market sizing | MET-002 | | | | | | | | | | | |
+| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Parent Metric ID | CAGR Endpoint IDs | Conflict Status | Resolution |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Market sizing | MET-001 | | | | | | | | | | | | | |
+| Market sizing | MET-002 | | | | | | | | | | | | | |
 
 <!--
 Metric Type: retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
 Channel Scope: all_channel | online | douyin | tmall | sampled_platforms | offline
 Conflict Status: cross-checked | single-source | conflicting | not_comparable | unresolved
 Comparable With: list of MET-IDs this metric can be compared to
+Parent Metric ID: MET-ID of the parent (superset) metric for subset≤parent validation
+CAGR Endpoint IDs: MET-IDs of begin/end value metrics for CAGR validation
 -->
 
 Key rules:
@@ -218,6 +220,7 @@ Key rules:
 - Different market_definition values must not be auto-nested as parent-child
 - Different data_period values must not be plotted in the same time series without explicit labeling
 - Metrics with conflicting or not_comparable status must not appear in page headlines, chart data, main takeaway, or core transaction logic
+- Share values: use decimal form (e.g., 0.512 for 51.2%), not percentage integers
 
 
 ---

@@ -237,6 +237,7 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
   "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_memo.py" \
     --memo "$INPUT_DIR/industry_input_memo.md" \
     --run-dir "$INPUT_DIR" \
+    --source-registry "$SCRIPT_DIR/templates/source_registry.json" \
     --output "$OUTPUT_DIR/artifacts/memo_validation.json"
 fi
 

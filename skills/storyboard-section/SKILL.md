@@ -116,6 +116,17 @@ Before writing each slide, read that page's `Page Evidence Pack` in `industry_in
 - Preserve `Fact / data` -> `So what` -> `Target relevance`.
 - Do not add new facts or do second-pass research in storyboard or PPT fill. If the memo evidence pack is thin, flag `data_gaps` instead of filling with generic copy.
 
+### Bind Quantitative Claims to MET-IDs
+
+For every slide containing a quantitative headline, chart, table, ranking,
+market share, CAGR, GMV, valuation multiple, or financial metric:
+
+- populate `slide_story_contract.metric_ids`;
+- use only MET-IDs listed in the memo Metric Reconciliation table;
+- do not use MET-IDs marked `conflicting`, `not_comparable`, or `unresolved`;
+- ensure chart values and headline values match the memo values exactly.
+- prefer MET-IDs with `cross-checked` or at minimum `single-source` status.
+
 ### Cross-Slide Metric Consistency
 
 Before finalizing the storyboard, check that repeated metrics use the same value, unit, period, market definition, ranking basis, and target financials across slides. If different definitions are intentionally used, label them clearly in `source_note`, `chart_data.notes`, or `data_gaps`.

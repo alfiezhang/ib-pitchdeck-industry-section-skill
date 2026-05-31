@@ -117,7 +117,7 @@
     },
     "research_emphasis": {
       "type": "object",
-      "required": ["project_classification", "priority_research_angles", "de_prioritized_angles", "fixed_8_slide_implications"],
+      "required": ["project_classification", "priority_research_angles", "de_prioritized_angles", "provisional_slide_hypotheses"],
       "properties": {
         "purpose": { "type": "string" },
         "project_classification": {
@@ -156,9 +156,9 @@
             "additionalProperties": false
           }
         },
-        "fixed_8_slide_implications": {
+        "provisional_slide_hypotheses": {
           "type": "array",
-          "minItems": 8,
+          "minItems": 1,
           "maxItems": 8,
           "items": {
             "type": "object",

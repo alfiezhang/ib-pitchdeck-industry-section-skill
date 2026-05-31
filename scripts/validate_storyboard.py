@@ -332,7 +332,7 @@ def check_storyline_contract(
         or any(kw in str(slide.get("body_copy", "")).lower() for kw in ("GMV", "营收", "市占率", "增速", "CAGR"))
     )
     if slide_has_quantitative and not metric_ids:
-        warnings.append(
+        errors.append(
             f"slide {slide_no}: quantitative slide has no metric_ids in slide_story_contract; "
             f"populate metric_ids to bind chart/headline metrics to memo Metric Reconciliation"
         )

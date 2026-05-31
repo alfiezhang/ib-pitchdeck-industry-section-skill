@@ -313,8 +313,6 @@ def evidence_strength_issues(text: str) -> list[str]:
 def metric_reconciliation_rows(text: str) -> list[dict[str, str]]:
     """Parse Metric Reconciliation table rows."""
     rows: list[dict[str, str]] = []
-
-
     in_section = False
     header: list[str] = []
     for line in text.splitlines():
@@ -323,19 +321,25 @@ def metric_reconciliation_rows(text: str) -> list[dict[str, str]]:
             continue
         if in_section and re.match(r"^##\s+", line):
             break
-        if in_section and line.startswith("|"):
-            cells = [c.strip() for c in line.split("|")[1:-1]]
-            if not cells:
-                continue
-            if "Metric Group" in cells[0] or "---" in cells[0]:
-                header = cells
-                continue
-            if len(cells) >= 5 and re.match(r"^MET-\d{3}", cells[0]):
-                row = {}
-                for i, cell in enumerate(cells):
-                    key = header[i] if i < len(header) else f"col_{i}"
-                    row[key] = cell
-                rows.append(row)
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if not cells:
+            continue
+        # Header row: first cell is "Metric Group"
+        if cells[0] == "Metric Group":
+            header = cells
+            continue
+        # Skip separator rows (---|---|---)
+        if all(set(c) <= {"-", ":"} for c in cells):
+            continue
+        # Data row: MET-ID is in column 1
+        if len(cells) >= 13 and re.match(r"^MET-\d{3}$", cells[1]):
+            row: dict[str, str] = {}
+            for i, cell in enumerate(cells):
+                key = header[i] if i < len(header) else f"col_{i}"
+                row[key] = cell
+            rows.append(row)
     return rows
 
 
@@ -435,6 +439,10 @@ def math_consistency_checks(text: str) -> list[str]:
         comparable_raw = row.get("Comparable With", "")
         comparable = set(re.findall(r"MET-\d{3}", comparable_raw)) if comparable_raw else set()
 
+        parent_metric_id = row.get("Parent Metric ID", "").strip()
+        # Normalize share values: 51.2 → 0.512
+        if metric_type == "share" and value is not None and value > 1:
+            value = value / 100.0
         parsed[met_id] = {
             "name": row.get("Metric Name", ""),
             "value": value,
@@ -442,38 +450,41 @@ def math_consistency_checks(text: str) -> list[str]:
             "metric_type": metric_type,
             "channel": channel,
             "market_def": market_def,
+            "data_period": row.get("Data Period", "").strip(),
+            "unit": row.get("Unit", "").strip(),
             "comparable": comparable,
+            "parent_metric_id": parent_metric_id,
         }
 
-    # Check 1: Subset ≤ parent set (same metric_type, same channel_scope, comparable relationship)
+    # Check 1: Subset ≤ parent set (via Parent Metric ID)
     for met_id, m in parsed.items():
         if m["value"] is None:
             continue
-        for parent_id in m["comparable"]:
-            if parent_id not in parsed:
-                continue
-            parent = parsed[parent_id]
-            if parent["value"] is None:
-                continue
-            if m["metric_type"] == "share" or parent["metric_type"] == "share":
-                continue  # Share comparisons handled separately
-            if m["value"] > parent["value"] * (1.0 + 0.05):
-                issues.append(
-                    f"{met_id} ({m['name']}): value {m['value']:.2f} exceeds parent "
-                    f"{parent_id} ({parent['name']}) value {parent['value']:.2f}. "
-                    f"A subset metric should not be larger than its parent metric."
-                )
-            elif m["value"] > parent["value"]:
-                issues.append(
-                    f"{met_id} ({m['name']}): value {m['value']:.2f} slightly exceeds "
-                    f"{parent_id} ({parent['name']}) value {parent['value']:.2f}. "
-                    f"Check if definitions are genuinely comparable or differ in scope."
-                )
+        parent_id = m.get("parent_metric_id", "")
+        if not parent_id or parent_id not in parsed:
+            continue
+        parent = parsed[parent_id]
+        if parent["value"] is None:
+            continue
+        if m.get("metric_type", "") == "share" or parent.get("metric_type", "") == "share":
+            continue
+        if m["value"] > parent["value"] * (1.0 + 0.05):
+            issues.append(
+                f"{met_id} ({m['name']}): value {m['value']:.2f} exceeds parent "
+                f"{parent_id} ({parent['name']}) value {parent['value']:.2f}. "
+                f"A subset metric should not be larger than its parent metric."
+            )
+        elif m["value"] > parent["value"]:
+            issues.append(
+                f"{met_id} ({m['name']}): value {m['value']:.2f} slightly exceeds "
+                f"{parent_id} ({parent['name']}) value {parent['value']:.2f}. "
+                f"Check if definitions are genuinely comparable or differ in scope."
+            )
 
     # Check 2: Share sums ≈ 100% (group by same metric_type and channel_scope)
     share_groups: dict[tuple[str, str], list[tuple[str, float]]] = {}
     for met_id, m in parsed.items():
-        if m["value"] is None or m["metric_type"] != "share":
+        if m["value"] is None or m.get("metric_type", "") != "share":
             continue
         group_key = (m.get("market_def", ""), m.get("channel", ""))
         share_groups.setdefault(group_key, []).append((met_id, abs(m["value"])))
@@ -505,10 +516,10 @@ def math_consistency_checks(text: str) -> list[str]:
                     continue
                 if m2["value"] is None or m2["value"] <= 0:
                     continue
-                # Try to compute CAGR from endpoint data periods
-                years = _parse_years(cagr_m.get("data_period", "") or cagr_m.get("Data Period", ""))
+                # Compute CAGR from endpoint data periods
+                years = _parse_years(cagr_m.get("data_period", ""))
                 if years < 1:
-                    years = _parse_years(m.get("data_period", "") or m.get("Data Period", ""))
+                    years = _parse_years(m.get("data_period", "") or m2.get("data_period", ""))
                 if years < 1:
                     years = 5.0  # fallback; will generate a low-confidence warning below
                 begin = min(m["value"], m2["value"])
@@ -526,7 +537,7 @@ def math_consistency_checks(text: str) -> list[str]:
     for met_id, m in parsed.items():
         if m["value"] is None:
             continue
-        key = (m["metric_type"], m["market_def"], m["channel"], m.get("Data Period", ""))
+        key = (m.get("metric_type", ""), m.get("market_def", ""), m.get("channel", ""), m.get("data_period", ""))
         key_groups.setdefault(key, []).append((met_id, m["value"]))
 
     for key, values in key_groups.items():
