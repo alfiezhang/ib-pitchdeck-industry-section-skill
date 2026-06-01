@@ -21,6 +21,7 @@
 8. 页面版式预算 (`templates/layout_budget.json`) —— 每种页面类型的正文、表格和视觉容量限制
 9. 研究边界 (`references/scope_boundary.md`) —— pre-mandate 三层相关性和判断强度纪律
 10. 执行纪律 (`references/execution_discipline.md`) —— 工作流纪律、跨页口径一致性、数据冲突处理和反模式
+11. Storyboard schema (`templates/storyboard_schema.json`) —— 必须遵守的 JSON 结构
 
 ## 输出要求
 
@@ -31,6 +32,13 @@
 3. `slides` —— 8 页幻灯片，每页包含角色、页面类型、选择理由、标题、核心信息、正文、视觉方向、标的关联、来源注释、数据缺口
 4. `template_binding` —— 第 2/3/6/7 页的最终变体选择
 5. `qc_self_check` —— 提交人工审核前的诚实自检
+
+写 JSON 前必须先读取 `templates/storyboard_schema.json`、
+`templates/page_type_rules.json`、`templates/ppt_copy_schema.json`、
+`templates/ppt_copy_mapping.json`、`templates/layout_budget.json` 和
+`templates/content_quality_rules.json`。请先构造原生对象 / dict，再用 JSON
+writer 序列化，例如 `json.dump(..., ensure_ascii=False, indent=2)`。不要手工
+修补格式错误的 JSON；如果语法验证失败，应从对象 / dict 重新生成。
 
 ## 推理要求
 
@@ -103,7 +111,7 @@
 
 | 页码 | 角色 | 固定/可选 |
 |------|------|-----------|
-| 1 | `industry_overview` | 固定：`summary_page` |
+| 1 | `industry_overview` | 优先：`industry_overview_dynamic_page`；fallback：`summary_page` |
 | 2 | `market_size_segmentation` | **可选**：`chart_page` 或 `chart_plus_mini_table_page` |
 | 3 | `key_industry_drivers` | **可选**：`driver_card_page`、`driver_card_5_page` 或 `driver_card_6_page` |
 | 4 | `value_chain_profit_pool` | 固定：`value_chain_page` |
@@ -171,21 +179,27 @@
 | 监管、技术、ESG、未来演变 | 第 7 页 | 第 1-6 页 |
 | 标的交易含义、投资结论、DD 问题 | 第 8 页 | 第 1-7 页 |
 
-### 第 1 页：自上而下建立语境
+### 第 1 页：动态行业概览
 
-第 1 页是行业概览，应从更大市场逐层收窄到标的所在赛道。不要直接跳到很窄的线上或单品类数据，除非已交代上层市场语境。
+第 1 页是行业概览，应回答：这个行业是否足够大、是否在增长、是否有值得交易讨论的结构性特征。
 
-推荐层次：
-1. 父级市场范围
-2. 标的所在行业 / 赛道
-3. 与交易最相关的细分机会
+当 memo 中存在 chart-ready 数据时，优先使用 `industry_overview_dynamic_page`。该页使用现有第 1 页画布，不需要新增母版：你负责选择内容结构和数据，确定性脚本负责绘制图表、右侧模块和底部读图结论。
+
+推荐结构：
+1. **主图**：至少 3 个可比数据点的历史市场规模趋势、benchmark 趋势，或其他可比定量序列。
+2. **右侧辅助模块**：2-3 个指标卡，或一个紧凑小表格，用于展示细分、benchmark 或关键结构性读数。
+3. **底部读图结论**：在 `body_copy.bullet_1` 和 `body_copy.bullet_2` 写 2 条短结论。
+
+只有在缺少可靠可比图表数据、指标定义未解决、或画图会误导时，才使用 `summary_page`。不要在 memo 已有可用市场规模、增长、benchmark 或细分数据时默认退回三张 flashcard。
+
+除非几个指标在同一地域、期间、单位和市场定义下严格构成父子集，否则不要画漏斗。否则应使用趋势图、benchmark 图或细分图，并清楚标注口径。
 
 ### 第 2 页：只选择一个细分轴
 
 第 2 页讲市场规模与细分，但细分维度只能选一个主轴：
 
-- 渠道结构，如线上/线下、抖音/天猫/DTC；或
-- 子品类结构，如妆前乳、遮瑕、粉底液；或
+- 渠道结构，如直销/经销/合作伙伴渠道；或
+- 子品类结构，如核心品类、延伸品类、服务场景；或
 - 价格带 / 客群 / 应用场景等其他更适合本行业的轴
 
 如果备忘录中多个轴都有数据，选择最能支撑交易论点的一个。CR5、竞品排名、同业对比不属于第 2 页，应放在第 6 页。
@@ -204,6 +218,7 @@
 
 对于可选变体，根据内容适配度选择，而非使用默认值：
 
+- **第 1 页**：当存在 chart-ready 的市场趋势、benchmark 或结构拆分数据时，优先使用 `industry_overview_dynamic_page`。只有在缺少可靠可比图表数据或画图不安全时，才使用 `summary_page`。
 - **第 2 页**：当市场细分需要并列量化背景时，倾向 `chart_plus_mini_table_page`。当一张图表足以清晰承载表达时，倾向 `chart_page`。
 - **第 3 页**：当有 4 个强 MECE 驱动因素时使用 `driver_card_page`。只有当备忘录支持 5 或 6 个真正独立、非重叠的驱动因素时，才使用 `driver_card_5_page` 或 `driver_card_6_page`；不要为了使用更大的模板而编造 filler drivers。
 - **第 6 页**：当具名同业对比是最清晰的故事时，倾向 `compare_table_page`。当在两个维度上的定位是最清晰的故事时，倾向 `matrix_page`。
@@ -219,15 +234,16 @@
 - **main_message（核心信息 / 副标题）**：一句话概括本页的核心论点。目标 1 行；必要时可以 2 行；不得变成 3 行；结尾不要使用句号、逗号、顿号、分号、冒号、感叹号、问号等标点符号。
 - **生成前适配**：先写最短可用的标题和核心信息，不要依赖 validator 事后反复压缩。
 - **body_copy（正文）**：适配 PPT 占位符的结构化内容。使用 schema 为该页角色定义的字段名。面向 PowerPoint 写作——有力、可扫读、非段落式的。
-- **正文 bullet 化**：正文框内的内容必须像 bullet point 一样短、可扫读；每个 active body_copy 字段写成一个短 bullet 观点，不要写成 memo 段落。不要在正文中写括号来源，如 `（EV-001）`、`（某报告）`、`（青眼情报, 2025）`、`（中国香妆协会, 2026）`；所有来源只放在 `source_note`。
+- **正文 bullet 化**：正文框内的内容必须像 bullet point 一样短、可扫读；每个 active body_copy 字段写成一个短 bullet 观点，不要写成 memo 段落。不要在正文中写括号来源，如 `（EV-001）`、`（某报告）`、`（某行业报告, 2025）`、`（某行业协会, 2026）`；所有来源只放在 `source_note`。
 - **版式预算优先**：写正文前读取 `templates/layout_budget.json`。优先使用 `1:summary_page`、`8:summary_page` 这类 slide-specific budgets；否则使用对应 page type 的 `body_fields_max_units`。表格单元格要更短，避免后处理被迫用过小字体。
 - **Active 页面契约**：选定 `selected_page_type` 后，只填写该页面类型在 `ppt_copy_schema`/`ppt_copy_mapping` 中定义的 active `body_copy` 字段；不要把未选中的变体字段带入最终 storyboard。
 - **visual_direction（视觉方向）**：图表/图示应展示什么、应基于什么数据。
 - **chart_data（图表数据）**：如果页面依赖定量图表，必须尽量提供结构化图表数据，包括图表类型、分类、序列、单位和来源行注释。
-- **chart_data schema**：`bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` 必须包含 `categories`、数值型 `series[].values`、`unit` 和 `source_rows`；`metric_cards` 在第 1 页至少需要 3 个 `source_rows`，其他页至少 2 个；`none` 只允许用于没有可验证视觉数据的非定量页面。
+- **chart_data schema**：`bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` 必须包含 `categories`、数值型 `series[].values`、`unit` 和 `source_rows`；每个定量 `source_rows[]` 项都必须包含来自 memo Metric Reconciliation 的 `metric_id`；`metric_cards` 仅用于第 1 页 fallback `summary_page` 时至少需要 3 个 `source_rows`，其他页至少 2 个；`none` 只允许用于没有可验证视觉数据的非定量页面。
+- **图表指标可比性**：不要在同一个柱状图 / 条形图里比较 `Metric Type`、`Geography`、`Unit` 或图表展示期间不同的指标。例如，不要把收入和产值当成同类品类一起画。应拆成不同视觉、统一到可比口径，或在 `chart_data.notes` 中说明可比基础。
 - **指标卡单位**：如果 `metric_cards` 同时包含金额、百分比、数量或排名，必须在每个 `source_rows[]` 项里写 `unit` 或 `value_unit`，或直接把单位写进 `value` 字符串。不要只依赖一个混合 `chart_data.unit`，如 `亿元人民币 / %`。
 - **图例标签**：每个 `series.name` 必须足够短，可以直接作为图表图例；中文建议 2-8 个字，英文建议 1-3 个词。不要把完整句子写成 series name。
-- **第 1 页视觉契约**：第 1 页右侧是一个大的 `CHART / VISUAL` 锚点，必须提供可执行的 `chart_data.chart_type`。优先使用 `metric_cards`、`bar` 或 `line`；如选择 `bar`、`stacked_bar` 或 `line`，必须提供 `categories`、`series`、`unit` 和 `source_rows`；如选择 `metric_cards`，必须提供三个 `source_rows`；只有在没有可验证视觉数据时才使用 `none`。不要把执行说明写进 `chart_data.title`。如果第 1 页使用 `metric_cards`，`visual_direction` 必须描述 KPI 卡片，而不是漏斗图等当前渲染器不会创建的图形。
+- **第 1 页视觉契约**：第 1 页必须提供可执行的 `chart_data.chart_type`。如果选择 `industry_overview_dynamic_page`，主图必须是 `bar`、`stacked_bar`、`clustered_column` 或 `line`，并填写 `chart_data.composition_type`、`chart_data.secondary_module.rows`，同时在 `body_copy.bullet_1` 和 `body_copy.bullet_2` 写 2 条底部读图结论。`metric_cards` 只用于 fallback `summary_page`。不要把执行说明写进 `chart_data.title`。
 - 对 `matrix_page`，请在 `source_rows` 中为每个被绘制对象提供数值型 `x` 和 `y` 坐标，或提供两个数值序列分别对应矩阵横轴和纵轴。
 - 对定量页面，`chart_data.title` 应写成可直接展示在 PPT 上的短图表标题；执行说明请放在 `visual_direction` 或 `chart_data.notes`，不要写进可见标题。
 - **target_link（标的关联）**：与标的公司的明确关联。每页都必须回答：这对**这个**标的意味着什么？
@@ -307,7 +323,7 @@ PPT copy / fill 阶段只负责压缩和格式化这些论据，不应二次 res
 - 同层级正文不要靠改字号做强调。
 - 冒号前的标签型前缀优先考虑加粗，如 `行业结构：`、`标的位置：`。
 - 不要把模板脚手架词写进正式文案，如 `PRIMARY CHART`、`POINT 1`、页面类型名等。
-- 正文不要内嵌来源括号。`EV-001`、报告名、年报名、公告名等来源信息只写在 `source_note`，正文保留结论和数据本身。也不要写 `（青眼情报, 2025）`、`（中国香妆协会, 2026）` 这类中文来源括号。
+- 正文不要内嵌来源括号。`EV-001`、报告名、年报名、公告名等来源信息只写在 `source_note`，正文保留结论和数据本身。也不要写 `（某行业报告, 2025）`、`（某行业协会, 2026）` 这类中文来源括号。
 - 第 2 页和第 6 页的表格字段会被后处理渲染为真正的 PPT 表格对象；表格行请用 `｜` 分隔单元格，不要把整行写成自然语言段落。
 - `｜` 分隔符只用于上游 JSON 字段。最终 PPT 必须是真正的表格对象，不能用带分隔符的纯文本假装表格。
 - 第 2 页和第 6 页表格必须短格化：每个单元格只写标签、数字或短判断，不写完整段落；如果某个解释超过一格容量，把解释放到右侧 commentary/panel，而不是塞入表格。

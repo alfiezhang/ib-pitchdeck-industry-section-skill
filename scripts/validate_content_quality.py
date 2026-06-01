@@ -10,7 +10,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from json_utils import load_json_file
 from validation_common import (
@@ -491,6 +491,7 @@ def check_chart_data(
     warnings: list[str],
     blocking_warnings: list[str],
     layout_budget: Optional[dict] = None,
+    memo_text: str = "",
 ) -> None:
     """Check chart_data completeness for quantitative slides."""
     slide_no = slide.get("slide_no")
@@ -498,9 +499,14 @@ def check_chart_data(
     chart_data = slide.get("chart_data")
 
     if slide_no == 1:
+        if page_type == "summary_page" and memo_has_comparable_market_timeseries(memo_text):
+            warnings.append(
+                "slide 1: memo appears to contain at least 3 comparable market-size/growth datapoints; "
+                "prefer industry_overview_dynamic_page unless definitions are unresolved or charting would be misleading"
+            )
         if not chart_data or not isinstance(chart_data, dict):
             message = (
-                "slide 1: summary_page visual area needs chart_data with chart_type "
+                "slide 1: visual area needs chart_data with chart_type "
                 "('bar', 'stacked_bar', 'line', 'metric_cards', or 'none')"
             )
             warnings.append(message)
@@ -518,8 +524,29 @@ def check_chart_data(
                 message = f"slide 1: chart_type '{chart_type}' requires source_rows"
                 warnings.append(message)
                 blocking_warnings.append(message)
+            if page_type == "industry_overview_dynamic_page":
+                secondary = chart_data.get("secondary_module") or {}
+                body_copy = slide.get("body_copy") or {}
+                takeaways = [body_copy.get("bullet_1"), body_copy.get("bullet_2")]
+                if not isinstance(secondary, dict) or not secondary.get("rows"):
+                    warnings.append(
+                        "slide 1: industry_overview_dynamic_page should include chart_data.secondary_module.rows "
+                        "for metric cards, a mini table, or a benchmark/segmentation panel"
+                    )
+                if len([item for item in takeaways if str(item or "").strip()]) < 2:
+                    warnings.append(
+                        "slide 1: industry_overview_dynamic_page should include at least two bottom read-through bullets"
+                    )
+            check_chart_metric_binding(slide, memo_text, warnings, blocking_warnings)
             return
         if chart_type in {"metric_cards", "metric_card", "metrics", ""}:
+            if page_type == "industry_overview_dynamic_page":
+                message = (
+                    "slide 1: industry_overview_dynamic_page needs a primary bar/stacked_bar/line chart; "
+                    "use summary_page if only metric cards are supportable"
+                )
+                warnings.append(message)
+                blocking_warnings.append(message)
             rows = chart_data.get("source_rows") or []
             min_rows = 3
             if layout_budget:
@@ -551,6 +578,7 @@ def check_chart_data(
                     )
                     warnings.append(message)
                     blocking_warnings.append(message)
+            check_chart_metric_binding(slide, memo_text, warnings, blocking_warnings)
             return
         message = f"slide 1: unsupported chart_type '{chart_type}' for deterministic visual rendering"
         warnings.append(message)
@@ -574,6 +602,157 @@ def check_chart_data(
                 f"slide {slide_no}: chart_data has no source_rows - "
                 "quantitative slides should trace chart data back to sources"
             )
+
+    check_chart_metric_binding(slide, memo_text, warnings, blocking_warnings)
+
+
+def parse_metric_reconciliation(memo_text: str) -> dict[str, dict[str, str]]:
+    """Parse memo Metric Reconciliation rows into a MET-ID keyed map."""
+    metrics: dict[str, dict[str, str]] = {}
+    if not memo_text:
+        return metrics
+    in_section = False
+    header: list[str] = []
+    for line in memo_text.splitlines():
+        if re.match(r"^##\s+Metric Reconciliation\b", line, flags=re.IGNORECASE):
+            in_section = True
+            continue
+        if in_section and re.match(r"^##\s+", line):
+            break
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if not cells:
+            continue
+        if cells[0] == "Metric Group":
+            header = cells
+            continue
+        if all(set(c) <= {"-", ":"} for c in cells):
+            continue
+        if len(cells) > 1 and re.match(r"^MET-\d{3}$", cells[1]):
+            row: dict[str, str] = {}
+            for i, cell in enumerate(cells):
+                key = header[i] if i < len(header) else f"col_{i}"
+                row[key] = cell
+            metrics[cells[1]] = row
+    return metrics
+
+
+def memo_has_comparable_market_timeseries(memo_text: str) -> bool:
+    """Heuristic: detect whether the memo has enough comparable datapoints for a Slide 1 trend chart."""
+    metrics = parse_metric_reconciliation(memo_text)
+    groups: dict[tuple[str, str, str, str, str], set[str]] = {}
+    market_terms = ("market", "size", "gmv", "sales", "revenue", "市场", "规模", "销售", "收入", "交易额")
+    blocking_statuses = {"conflicting", "not_comparable", "unresolved"}
+    for row in metrics.values():
+        status = row.get("Conflict Status", "").strip().lower()
+        if status in blocking_statuses:
+            continue
+        searchable = " ".join(
+            row.get(field, "")
+            for field in ("Metric Name", "Metric Type", "Metric Group", "Market Definition")
+        ).lower()
+        if not any(term in searchable for term in market_terms):
+            continue
+        period = (row.get("Data Period") or "").strip()
+        if not period:
+            continue
+        key = (
+            (row.get("Metric Type") or "").strip().lower(),
+            (row.get("Market Definition") or "").strip().lower(),
+            (row.get("Geography") or "").strip().lower(),
+            (row.get("Channel Scope") or "").strip().lower(),
+            (row.get("Unit") or "").strip().lower(),
+        )
+        groups.setdefault(key, set()).add(period)
+    return any(len(periods) >= 3 for periods in groups.values())
+
+
+def collect_chart_source_rows(chart_data: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = chart_data.get("source_rows") or []
+    collected = rows if isinstance(rows, list) else []
+    secondary = chart_data.get("secondary_module") or {}
+    if isinstance(secondary, dict) and isinstance(secondary.get("rows"), list):
+        collected = list(collected) + list(secondary.get("rows") or [])
+    return [row for row in collected if isinstance(row, dict)]
+
+
+def check_chart_metric_binding(
+    slide: dict,
+    memo_text: str,
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    """Require chart datapoints to bind to comparable memo MET-IDs."""
+    chart_data = slide.get("chart_data")
+    if not memo_text or not isinstance(chart_data, dict):
+        return
+
+    slide_no = slide.get("slide_no")
+    chart_type = str(chart_data.get("chart_type") or "").lower()
+    if chart_type in {"", "none", "no_chart", "text"}:
+        return
+
+    rows = collect_chart_source_rows(chart_data)
+    if not rows:
+        return
+
+    metrics = parse_metric_reconciliation(memo_text)
+    chart_met_ids: list[str] = []
+    for idx, row in enumerate(rows, start=1):
+        metric_id = str(row.get("metric_id") or "").strip()
+        value = row.get("value")
+        numeric_value = isinstance(value, (int, float)) or bool(re.search(r"\d", str(value or "")))
+        if numeric_value and not metric_id:
+            message = (
+                f"slide {slide_no}: chart_data.source_rows[{idx}] has quantitative value "
+                "but no metric_id; bind every chart datapoint to memo Metric Reconciliation"
+            )
+            warnings.append(message)
+            blocking_warnings.append(message)
+            continue
+        if metric_id:
+            if metric_id not in metrics:
+                message = f"slide {slide_no}: chart_data.source_rows[{idx}] references unknown {metric_id}"
+                warnings.append(message)
+                blocking_warnings.append(message)
+                continue
+            chart_met_ids.append(metric_id)
+
+    unique_ids = list(dict.fromkeys(chart_met_ids))
+    if len(unique_ids) < 2:
+        return
+
+    rows_by_id = [metrics[met_id] for met_id in unique_ids if met_id in metrics]
+    blocking_statuses = {"conflicting", "not_comparable", "unresolved"}
+    for met_id, metric_row in zip(unique_ids, rows_by_id):
+        status = metric_row.get("Conflict Status", "").strip().lower()
+        if status in blocking_statuses:
+            message = f"slide {slide_no}: chart_data uses {met_id} with Conflict Status '{status}'"
+            warnings.append(message)
+            blocking_warnings.append(message)
+
+    comparable_fields = ["Metric Type", "Geography", "Unit"]
+    if chart_type not in {"line", "line_chart"}:
+        comparable_fields.append("Data Period")
+    for field in comparable_fields:
+        values = {
+            (metric_row.get(field) or "").strip().lower()
+            for metric_row in rows_by_id
+            if (metric_row.get(field) or "").strip()
+        }
+        if len(values) > 1:
+            detail = ", ".join(
+                f"{met_id}={metrics[met_id].get(field, '')}"
+                for met_id in unique_ids
+                if met_id in metrics
+            )
+            message = (
+                f"slide {slide_no}: chart_data compares MET-IDs with mixed {field}: {detail}. "
+                "Use separate visuals, normalize the metric, or explain a comparable basis before charting."
+            )
+            warnings.append(message)
+            blocking_warnings.append(message)
 
 
 # ── Training data check ──────────────────────────────────────────
@@ -958,7 +1137,7 @@ def validate(
                 check_source_note_notes_discipline(slide, source_warnings)
 
         # 5. Chart data completeness
-        check_chart_data(slide, rules, chart_data_warnings, layout_blocking_warnings, layout_budget)
+        check_chart_data(slide, rules, chart_data_warnings, layout_blocking_warnings, layout_budget, memo_text)
 
         # 6. Claim strength and overclaim language
         check_claim_strength_language(slide, overclaim_phrases, claim_strength_warnings, claim_strength_blocking_warnings)

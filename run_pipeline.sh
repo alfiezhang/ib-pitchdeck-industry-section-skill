@@ -11,6 +11,7 @@
 #   --ppt-copy FILE        Explicit path to industry_section_ppt_copy.json
 #   --storyboard FILE      Explicit path to industry_storyboard.json
 #   --work-root DIR        Working directory for default outputs (default: infer from inputs, else cwd)
+#   --case-name NAME       Case/project name for grouping runs under work-root/runs/<case_slug>/
 #   --attempt-name NAME    Attempt name for default output layout; starts/switches active attempt
 #   --python PATH          Python interpreter to test first; bootstrap selects one runtime for all scripts
 #   --quality-gate         Enable content quality validation as a hard gate (fail on warnings)
@@ -33,6 +34,7 @@ PPT_COPY=""
 STORYBOARD=""
 PYTHON_CMD_ARG=""
 WORK_ROOT_ARG=""
+CASE_NAME_ARG=""
 ATTEMPT_NAME_ARG=""
 PPT_COPY_EXPLICIT=0
 QUALITY_GATE=0
@@ -48,6 +50,8 @@ while [[ $# -gt 0 ]]; do
       STORYBOARD="$2"; shift 2 ;;
     --work-root)
       WORK_ROOT_ARG="$2"; shift 2 ;;
+    --case-name)
+      CASE_NAME_ARG="$2"; shift 2 ;;
     --attempt-name)
       ATTEMPT_NAME_ARG="$2"; shift 2 ;;
     --python)
@@ -134,7 +138,21 @@ if [[ -z "$OUTPUT_DIR" ]]; then
   if [[ "$(basename "$WORK_ROOT")" == attempt_* ]]; then
     OUTPUT_DIR="$WORK_ROOT"
   else
-    RUNS_DIR="$WORK_ROOT/runs"
+    INPUT_CARD_FOR_CASE=""
+    for input_card_candidate in \
+      "$(dirname "$STORYBOARD")/input_card.json" \
+      "$WORK_ROOT/input_card.json"
+    do
+      if [[ -f "$input_card_candidate" ]]; then
+        INPUT_CARD_FOR_CASE="$input_card_candidate"
+        break
+      fi
+    done
+    CASE_SLUG="$("$PYTHON_CMD" "$SCRIPT_DIR/scripts/resolve_case_slug.py" \
+      --case-name "$CASE_NAME_ARG" \
+      --input-card "$INPUT_CARD_FOR_CASE" \
+      --storyboard "$STORYBOARD")"
+    RUNS_DIR="$WORK_ROOT/runs/$CASE_SLUG"
     ACTIVE_ATTEMPT_FILE="$RUNS_DIR/ACTIVE_ATTEMPT.txt"
     mkdir -p "$RUNS_DIR"
     if [[ -n "$ATTEMPT_NAME_ARG" ]]; then
@@ -386,7 +404,7 @@ echo "[7/7] Running final delivery gate..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/generate_run_quality_summary.py" \
   --run-dir "$OUTPUT_DIR"
 
-if [[ "$(basename "$(dirname "$OUTPUT_DIR")")" == "runs" ]]; then
+if [[ "$(basename "$OUTPUT_DIR")" == attempt_* ]]; then
   printf '%s\n' "$(basename "$OUTPUT_DIR")" > "$(dirname "$OUTPUT_DIR")/ACTIVE_ATTEMPT.txt"
   "$PYTHON_CMD" "$SCRIPT_DIR/scripts/update_runs_index.py" \
     --runs-dir "$(dirname "$OUTPUT_DIR")"

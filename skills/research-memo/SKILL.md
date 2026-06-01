@@ -169,6 +169,17 @@ Required sections:
 - For every `Key Data Points` entry: `Definition`, `Source Name`, `Source Date`, `Confidence`, and `chart_ready` (true/false)
 - **Research Gap Audit** (critical gaps, optional gaps, intentionally excluded topics, metric consistency)
 
+Slide 1 requires explicit chart-readiness work. For the industry overview page,
+actively search for and reconcile:
+- historical market size or comparable benchmark data for at least 3 periods;
+- CAGR or enough datapoints to calculate it;
+- one structurally meaningful segmentation, benchmark, or adoption split where available;
+- chart-ready data with consistent definition, geography, period, unit, and MET-IDs.
+
+If reliable comparable data exists, the downstream storyboard should be able to
+use `industry_overview_dynamic_page` with a primary chart plus a side module. If
+not, document why the page must fall back to `summary_page`.
+
 After writing the memo, validate it before storyboard generation:
 
 ```bash

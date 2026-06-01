@@ -4,7 +4,7 @@
     {
       "slide_no": 1,
       "slide_key": "industry_overview",
-      "selected_page_type": "summary_page",
+      "selected_page_type": "industry_overview_dynamic_page",
       "ppt_copy_fields": {
         "slide_title": {
           "source_priority": [

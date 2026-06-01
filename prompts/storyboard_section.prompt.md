@@ -21,6 +21,7 @@ You will receive:
 8. Layout budget (`templates/layout_budget.json`) — body, table, and visual capacity limits by page type
 9. Scope boundary (`references/scope_boundary.md`) — pre-mandate relevance levels and claim-strength discipline
 10. Execution discipline (`references/execution_discipline.md`) — workflow discipline, metric consistency, data conflict handling, and anti-patterns
+11. Storyboard schema (`templates/storyboard_schema.json`) — required JSON structure
 
 ## Required Output
 
@@ -31,6 +32,14 @@ Produce **one valid JSON object** conforming to `templates/storyboard_schema.jso
 3. `slides` — 8 slides, each with role, page type, rationale, headline, main message, body copy, visual direction, target link, source note, data gaps
 4. `template_binding` — final variant selections for slides 2, 3, 6, 7
 5. `qc_self_check` — honest self-assessment before human review
+
+Before writing the JSON, read `templates/storyboard_schema.json`,
+`templates/page_type_rules.json`, `templates/ppt_copy_schema.json`,
+`templates/ppt_copy_mapping.json`, `templates/layout_budget.json`, and
+`templates/content_quality_rules.json`. Build the output as a native object/dict
+and serialize with a JSON writer such as
+`json.dump(..., ensure_ascii=False, indent=2)`. Do not hand-edit malformed JSON;
+if validation fails due to syntax, rebuild from the object/dict.
 
 ## Reasoning Requirements
 
@@ -87,7 +96,7 @@ Example for Slide 3:
 ```json
 {
   "question": "What structural factors drive long-term demand growth in this industry?",
-  "answer": "Three converging drivers — skincare-ification, channel DTC shift, and premiumization — support sustained double-digit growth.",
+  "answer": "Three converging drivers — demand upgrade, go-to-market shift, and value-chain consolidation — support sustained growth.",
   "primary_relevance_level": "transaction_relevance",
   "target_link_type": "selective",
   "claim_strength": "supported_inference",
@@ -103,7 +112,7 @@ Use the following standard structure unless the user explicitly asks otherwise:
 
 | Slide | Role | Fixed/Variant |
 |-------|------|---------------|
-| 1 | `industry_overview` | Fixed: `summary_page` |
+| 1 | `industry_overview` | Prefer `industry_overview_dynamic_page`; fallback `summary_page` |
 | 2 | `market_size_segmentation` | **Variant**: `chart_page` or `chart_plus_mini_table_page` |
 | 3 | `key_industry_drivers` | **Variant**: `driver_card_page`, `driver_card_5_page`, or `driver_card_6_page` |
 | 4 | `value_chain_profit_pool` | Fixed: `value_chain_page` |
@@ -171,24 +180,27 @@ Allocate content to slides so that the 8 slides together form a **complete, non-
 | Regulatory / tech / ESG trends | Slide 7 | Slide 1–6 |
 | Target-specific implications / recommendations | Slide 8 | Slide 1–7 |
 
-### Slide 1: Three-Layer Funnel
+### Slide 1: Dynamic Industry Overview
 
-Slide 1 is the industry overview. It must follow a **top-down funnel** — never skip layers:
+Slide 1 should answer whether the industry is large enough, growing enough, and structurally interesting enough to deserve a transaction discussion.
 
-1. **Layer 1 — Parent category scope**: Set the scene with the broadest relevant category (e.g., 整体化妆品市场)
-2. **Layer 2 — Target category**: Narrow to the specific industry (e.g., 底妆市场)
-3. **Layer 3 — Focused segment**: Zoom into the actionable segment (e.g., 线上底妆)
+Prefer `industry_overview_dynamic_page` when the memo contains chart-ready data. This uses the existing slide 1 canvas, not a new master template: you choose the content structure and data; deterministic scripts draw the chart, side module, and bottom takeaways.
 
-Bad: Jumping directly from "化妆品市场 ¥X bn" to "线上底妆规模增长 X%" — skipping the 底妆 layer.
-Good: "化妆品市场 ¥X bn → 底妆占比 X%，规模 ¥Y bn → 线上底妆渗透率 Z%，规模 ¥W bn"
+Preferred structure:
 
-Each layer should be one bullet or one panel point. The funnel should feel natural, not forced.
+1. **Primary chart**: historical market-size trend, benchmark trend, or another comparable quantitative series with at least 3 datapoints.
+2. **Secondary module**: 2-3 metric cards or a compact mini-table for a segmentation, benchmark, or key structural readout.
+3. **Bottom takeaways**: 2 short read-through bullets in `body_copy.bullet_1` and `body_copy.bullet_2`.
+
+Use `summary_page` only when no reliable comparable chart data exists, metric definitions are unresolved, or charting would be misleading. Do not default to three flashcards when the memo has usable market-size, growth, benchmark, or segmentation data.
+
+Do not use a funnel unless the metrics are strict parent-child subsets under the same geography, period, unit, and market definition. Otherwise, use a trend, benchmark, or segmentation chart and label scopes clearly.
 
 ### Slide 2: Single Focus Axis
 
 Slide 2 covers market size AND segmentation. The segmentation angle must be **one clear axis**, not a grab-bag:
 
-- Choose **channel structure** (online/offline, DTC/retail) OR **sub-segments** (by category, price tier, consumer segment) — not both.
+- Choose **go-to-market structure** (direct/partner/channel mix) OR **sub-segments** (by category, price tier, customer segment) — not both.
 - If the memo has strong data on both, pick the one that best serves the transaction thesis.
 - CR5 / concentration data does NOT belong on Slide 2 — it belongs on Slide 6 (competitive landscape).
 
@@ -206,15 +218,16 @@ Not: source references in body text — all Evidence IDs and source names belong
 
 | Pattern | Example |
 |---|---|
-| ❌ Label only | "渠道结构：线上占比提升" |
-| ❌ Data dump | "2023年线上占比62%，2024年预计65%，2025年预计68%" |
-| ❌ Source in body | "线上渠道占比达65%（EV-005），增长迅速" |
-| ✅ Pyramid | "线上渠道主导增长：占比从62%→65%→68%（2023-25E），驱动底妆品牌加速DTC转型" |
+| ❌ Label only | "需求结构：重点场景占比提升" |
+| ❌ Data dump | "2023年占比62%，2024年预计65%，2025年预计68%" |
+| ❌ Source in body | "重点场景占比达65%（EV-005），增长迅速" |
+| ✅ Pyramid | "重点场景主导增长：占比从62%→65%→68%（2023-25E），带动行业价值池向高频应用集中" |
 
 ## Page Type Selection
 
 For variants, choose based on content fit, not default:
 
+- **Slide 1**: Prefer `industry_overview_dynamic_page` when chart-ready market trend, benchmark, or structural split data exists. Use `summary_page` only when reliable comparable chart data is unavailable or unsafe to chart.
 - **Slide 2**: Prefer `chart_plus_mini_table_page` when segmentation needs side-by-side quantitative context. Prefer `chart_page` when one visual can carry the page clearly.
 - **Slide 3**: Use `driver_card_page` for 4 strong MECE drivers. Use `driver_card_5_page` or `driver_card_6_page` only when the memo supports 5 or 6 distinct, non-overlapping drivers; do not create filler drivers just to use a larger template.
 - **Slide 6**: Prefer `compare_table_page` when named peer comparison is the clearest story. Prefer `matrix_page` when positioning against two dimensions is the clearest story.
@@ -230,15 +243,16 @@ Each slide must include:
 - **main_message / subtitle**: One sentence that captures the slide's core argument. Target one line; two lines are acceptable only when necessary; three lines are not acceptable. Do not end with a period, comma, semicolon, colon, exclamation mark, question mark, or other terminal punctuation.
 - **Fit before writing**: Draft the shortest viable headline/main_message first. Do not rely on the validator to shorten them after the fact.
 - **body_copy**: Structured content compatible with PPT placeholders. Use the field names expected by the schema for each slide role. Write for PowerPoint — punchy, scannable, not paragraph-long.
-- **Bullet-style body copy**: Body text boxes must read as bullet points, not memo paragraphs. Write each active body_copy field as one concise bullet-style point. Do not put parenthetical source references such as `(EV-001)`, `(Named report)`, `(Named source, 2026)`, or Chinese forms like `（青眼情报, 2025）` in body text; all source IDs/names belong in `source_note`.
+- **Bullet-style body copy**: Body text boxes must read as bullet points, not memo paragraphs. Write each active body_copy field as one concise bullet-style point. Do not put parenthetical source references such as `(EV-001)`, `(Named report)`, `(Named source, 2026)`, or Chinese forms like `（某行业报告, 2025）` in body text; all source IDs/names belong in `source_note`.
 - **Layout budget first**: Before drafting body copy, read `templates/layout_budget.json`. Prefer slide-specific budgets such as `1:summary_page` and `8:summary_page`; otherwise use the page type's `body_fields_max_units`. Table cells must be shorter than ordinary bullets so post-processing does not need unreadably small fonts.
 - **Active page-type contract**: After choosing `selected_page_type`, use only the active `body_copy` fields for that page type from `ppt_copy_schema`/`ppt_copy_mapping`. Do not include inactive variant fields.
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
-- **chart_data schema**: `bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` require `categories`, numeric `series[].values`, `unit`, and `source_rows`; `metric_cards` requires at least 3 `source_rows` on Slide 1 and at least 2 elsewhere; `none` is only for non-quantitative layouts with no verified visual data.
+- **chart_data schema**: `bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` require `categories`, numeric `series[].values`, `unit`, and `source_rows`; every quantitative `source_rows[]` item must include `metric_id` from the memo Metric Reconciliation table; `metric_cards` requires at least 3 `source_rows` on Slide 1 fallback `summary_page` and at least 2 elsewhere; `none` is only for non-quantitative layouts with no verified visual data.
+- **Chart metric comparability**: Do not compare metrics with different `Metric Type`, `Geography`, `Unit`, or charted `Data Period` in the same bar/column chart. For example, do not chart revenue and production value as if they were peer categories. Use separate visuals, normalize to a common basis, or disclose the comparable basis in `chart_data.notes`.
 - **Metric card units**: If `metric_cards` mix currency, percentages, counts, or rankings, put `unit` or `value_unit` on each `source_rows[]` item, or include the unit directly in the `value` string. Do not rely on one mixed `chart_data.unit` such as `RMB / %`.
 - **Chart legend labels**: Keep each `series.name` short enough to work as a chart legend label, ideally 2-8 Chinese characters or 1-3 English words. Do not use full-sentence series names.
-- **Slide 1 visual contract**: Slide 1 uses a large right-side `CHART / VISUAL` anchor. It must include executable `chart_data.chart_type`; prefer `metric_cards`, `bar`, or `line`. Use `bar`, `stacked_bar`, or `line` with `categories`, `series`, `unit`, and `source_rows`; use `metric_cards` with exactly three strong `source_rows`; or use `none` only when there is no verified visual data. Do not put procedural instructions into `chart_data.title`. If Slide 1 uses `metric_cards`, `visual_direction` must describe KPI cards, not a funnel or other chart that the renderer will not create.
+- **Slide 1 visual contract**: Slide 1 must include executable `chart_data.chart_type`. For `industry_overview_dynamic_page`, use a primary `bar`, `stacked_bar`, `clustered_column`, or `line` chart, add `chart_data.composition_type`, add `chart_data.secondary_module.rows`, and write two bottom takeaways in `body_copy.bullet_1` and `body_copy.bullet_2`. Use `metric_cards` only for fallback `summary_page`. Do not put procedural instructions into `chart_data.title`.
 - For `matrix_page`, include either `source_rows` with numeric `x` and `y` values for each plotted player, or two numeric series whose values map to the matrix axes.
 - For quantitative slides, make `chart_data.title` a short on-slide chart label. Keep build instructions in `visual_direction` or `chart_data.notes`, not in the visible chart title field.
 - **target_link**: Explicit connection to the target. Every slide must answer: why does this matter for **this** target?
@@ -322,7 +336,7 @@ If you catch yourself writing any of these, replace with specific evidence + sou
 - For colon-led labels such as `Industry structure:` or `Target position:`, prefer bolding the label prefix rather than highlighting the whole sentence.
 - Do not leave template-helper labels in visible copy. Terms such as `PRIMARY CHART`, `POINT 1`, or page-type names are scaffold only and must not appear in deliverable text.
 - Do not embed source references in body text. Evidence IDs, report names, annual reports, and announcement names should appear in `source_note`, not in parentheses inside bullets.
-- Do not embed named Chinese source citations either, such as `（青眼情报, 2025）` or `（中国香妆协会, 2026）`.
+- Do not embed named Chinese source citations either, such as `（某行业报告, 2025）` or `（某行业协会, 2026）`.
 
 ## Cross-Slide Metric and Footnote Discipline
 

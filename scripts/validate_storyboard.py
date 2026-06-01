@@ -23,13 +23,13 @@ DEFAULT_LAYOUT_BUDGET_PATH = Path(__file__).resolve().parents[1] / "templates" /
 
 
 FIXED_PAGE_TYPES = {
-    1: "summary_page",
     4: "value_chain_page",
     5: "moat_page",
     8: "summary_page",
 }
 
 VARIANT_PAGE_TYPES = {
+    1: ("slide_1_variant", {"industry_overview_dynamic_page", "summary_page"}),
     2: ("slide_2_variant", {"chart_page", "chart_plus_mini_table_page"}),
     3: ("slide_3_variant", {"driver_card_page", "driver_card_5_page", "driver_card_6_page"}),
     6: ("slide_6_variant", {"compare_table_page", "matrix_page"}),
@@ -621,6 +621,11 @@ def validate_template_binding(
     inactive = set(template_binding.get("inactive_variants_to_remove", []))
     expected_inactive = set()
     for slide_no, (binding_key, valid_types) in VARIANT_PAGE_TYPES.items():
+        if slide_no == 1 and binding_key not in template_binding:
+            slide_value = slide_by_no.get(slide_no, {}).get("selected_page_type")
+            if slide_value not in valid_types:
+                errors.append(f"slide {slide_no}: selected_page_type must be one of {sorted(valid_types)}, found {slide_value}")
+            continue
         bound_value = template_binding.get(binding_key)
         slide_value = slide_by_no.get(slide_no, {}).get("selected_page_type")
         if bound_value not in valid_types:

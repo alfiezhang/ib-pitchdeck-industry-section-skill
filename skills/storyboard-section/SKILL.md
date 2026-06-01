@@ -33,6 +33,24 @@ Also read `references/execution_discipline.md` before drafting. Apply its cross-
 | `templates/content_quality_rules.json` | Yes | Density targets, banned phrases, and quality thresholds |
 | `templates/layout_budget.json` | Yes | Page-type capacity limits for body copy, tables, subtitles, and visuals |
 
+## Required Pre-Draft Read
+
+Before creating or editing `industry_storyboard.json`, read these files in this
+order and keep them open as the contract:
+
+1. `templates/storyboard_schema.json`
+2. `templates/page_type_rules.json`
+3. `templates/ppt_copy_schema.json`
+4. `templates/ppt_copy_mapping.json`
+5. `templates/layout_budget.json`
+6. `templates/content_quality_rules.json`
+
+Do not write a first draft and then discover the schema after JSON validation
+fails. Build the storyboard as a native object/dict and serialize it with a JSON
+writer such as `json.dump(..., ensure_ascii=False, indent=2)`. If the JSON is
+malformed, rebuild from the object/dict; do not patch smart quotes or broken
+JSON text by hand.
+
 ## Output
 
 `industry_storyboard.json` — a single JSON file conforming to `templates/storyboard_schema.json`, containing:
@@ -60,7 +78,6 @@ For each slide, choose `selected_page_type` first, then fill only the active `bo
 
 | Slide / canonical `slide_role` | Page Type |
 |-------|-----------|
-| 1 — `industry_overview` | `summary_page` |
 | 4 — `value_chain_profit_pool` | `value_chain_page` |
 | 5 — `key_barriers_value_drivers` | `moat_page` |
 | 8 — `key_takeaways_for_target` | `summary_page` |
@@ -69,6 +86,7 @@ For each slide, choose `selected_page_type` first, then fill only the active `bo
 
 | Slide / canonical `slide_role` | Options | Selection Priority |
 |-------|---------|-------------------|
+| 1 — `industry_overview` | `industry_overview_dynamic_page` or `summary_page` | Prefer dynamic overview when chart-ready market trend, benchmark, or structural split data exists; use summary only as fallback |
 | 2 — `market_size_segmentation` | `chart_page` or `chart_plus_mini_table_page` | Prefer `chart_plus_mini_table_page` when segmentation needs side-by-side quantitative context; prefer `chart_page` when one visual carries the page |
 | 3 — `key_industry_drivers` | `driver_card_page`, `driver_card_5_page`, or `driver_card_6_page` | Choose the card count supported by distinct MECE drivers; do not invent filler drivers to use a larger layout |
 | 6 — `competitive_landscape` | `compare_table_page` or `matrix_page` | Prefer `compare_table_page` when named peer comparison is the clearest story; prefer `matrix_page` when 2D positioning is central |
@@ -126,6 +144,12 @@ market share, CAGR, GMV, valuation multiple, or financial metric:
 - do not use MET-IDs marked `conflicting`, `not_comparable`, or `unresolved`;
 - ensure chart values and headline values match the memo values exactly.
 - prefer MET-IDs with `cross-checked` or at minimum `single-source` status.
+- for every quantitative `chart_data.source_rows[]` datapoint, include
+  `metric_id` from the memo Metric Reconciliation table.
+- do not put metrics with different `Metric Type`, `Geography`, `Unit`, or
+  charted `Data Period` in the same bar/column chart unless they have been
+  normalized to a common comparable basis and that basis is disclosed in
+  `chart_data.notes`.
 
 ### Cross-Slide Metric Consistency
 
@@ -133,7 +157,7 @@ Before finalizing the storyboard, check that repeated metrics use the same value
 
 ### Sources vs Notes
 
-Use `source_note` to identify sources and Evidence IDs. Use `chart_data.notes` or `data_gaps` for scope, calculations, assumptions, exclusions, and caveats. Do not put source names, Evidence IDs, or parenthetical Chinese source citations such as `（青眼情报, 2025）` in body text.
+Use `source_note` to identify sources and Evidence IDs. Use `chart_data.notes` or `data_gaps` for scope, calculations, assumptions, exclusions, and caveats. Do not put source names, Evidence IDs, or parenthetical Chinese source citations such as `（某行业报告, 2025）` in body text.
 
 ### Pre-Mandate Relevance Balance
 
@@ -192,21 +216,37 @@ Slide 8 (`key_takeaways_for_target`) should synthesize transaction implications 
 
 Slide 6 (`competitive_landscape`) should primarily explain market structure, peer segmentation, and positioning dimensions. Target positioning is secondary; the headline and main message should not be primarily about the Target's advantage.
 
-### Slide 1: Three-Layer Funnel
+### Slide 1: Dynamic Industry Overview
 
-Slide 1 is the industry overview. It must follow a **top-down funnel** — never skip layers:
+Slide 1 is the industry overview. It should answer: is this industry large
+enough, growing enough, and structurally interesting enough to deserve a
+transaction discussion?
 
-1. **Layer 1 — Parent category scope**: Set the scene with the broadest relevant category (e.g., 整体化妆品市场)
-2. **Layer 2 — Target category**: Narrow to the specific industry (e.g., 底妆市场)
-3. **Layer 3 — Focused segment**: Zoom into the actionable segment (e.g., 线上底妆)
+Use `industry_overview_dynamic_page` when the memo contains chart-ready data.
+This dynamic page uses the existing slide 1 canvas, not a new master template:
+the LLM chooses the content and data, while deterministic scripts draw the
+chart, side module, and bottom takeaways.
 
-Each layer should be one bullet or one panel point. The funnel should feel natural, not forced.
+Preferred structure:
+
+1. **Primary chart**: historical market-size trend, benchmark trend, or another comparable quantitative series with at least 3 datapoints.
+2. **Secondary module**: 2-3 metric cards or a compact mini-table for a segmentation, benchmark, or key structural readout.
+3. **Bottom takeaways**: 2 short read-through bullets in `body_copy.bullet_1` and `body_copy.bullet_2`.
+
+Use `summary_page` only when no reliable comparable chart data exists, metric
+definitions are unresolved, or charting would be misleading. Do not default to
+three flashcards when the memo has usable market-size, growth, benchmark, or
+segmentation data.
+
+Do not use a funnel unless the metrics are strict parent-child subsets under
+the same geography, period, unit, and market definition. Otherwise, use a trend,
+benchmark, or segmentation chart and label scopes clearly.
 
 ### Slide 2: Single Focus Axis
 
 Slide 2 covers market size AND segmentation. The segmentation angle must be **one clear axis**, not a grab-bag:
 
-- Choose **channel structure** (online/offline, DTC/retail) OR **sub-segments** (by category, price tier, consumer segment) — not both.
+- Choose **go-to-market structure** (direct/partner/channel mix) OR **sub-segments** (by category, price tier, customer segment) — not both.
 - If the memo has strong data on both, pick the one that best serves the transaction thesis.
 - CR5 / concentration data does NOT belong on Slide 2 — it belongs on Slide 6 (competitive landscape).
 
@@ -224,10 +264,10 @@ Not: source references in body text — all Evidence IDs and source names belong
 
 | Pattern | Example |
 |---|---|
-| ❌ Label only | "渠道结构：线上占比提升" |
-| ❌ Data dump | "2023年线上占比62%，2024年预计65%，2025年预计68%" |
-| ❌ Source in body | "线上渠道占比达65%（EV-005），增长迅速" |
-| ✅ Pyramid | "线上渠道主导增长：占比从62%→65%→68%（2023-25E），驱动底妆品牌加速DTC转型" |
+| ❌ Label only | "需求结构：重点场景占比提升" |
+| ❌ Data dump | "2023年占比62%，2024年预计65%，2025年预计68%" |
+| ❌ Source in body | "重点场景占比达65%（EV-005），增长迅速" |
+| ✅ Pyramid | "重点场景主导增长：占比从62%→65%→68%（2023-25E），带动行业价值池向高频应用集中" |
 
 ## Copy Rules
 
@@ -242,13 +282,22 @@ Not: source references in body text — all Evidence IDs and source names belong
   - `bar`, `clustered_column`, `stacked_bar`, `stacked_column`, `line`: require `categories`, `series[].name`, numeric `series[].values`, `unit`, and `source_rows`.
   - `metric_cards`: require at least 3 `source_rows` for Slide 1 and at least 2 for any other slide; every row needs `label`, `value`, `period`, and `source`.
   - `none` is allowed only for non-quantitative layouts with no verified visual data.
-- **Slide 1 visual anchor is executable**: Slide 1's right-side `CHART / VISUAL` area is rendered from `chart_data`. Use a clean `metric_cards` payload when the best visual is KPI cards; do not describe a funnel if the actual `chart_data.chart_type` is `metric_cards`.
+- **Slide 1 dynamic overview data**: For `industry_overview_dynamic_page`, use a primary `bar`, `stacked_bar`, `clustered_column`, or `line` chart. Add `chart_data.composition_type` (`market_trend`, `trend_plus_segmentation`, `benchmark`, or similar), `chart_data.secondary_module.rows`, and two bottom read-through bullets. If only KPI cards are supportable, choose fallback `summary_page`.
+- **Slide 1 visual anchor is executable**: Slide 1 is rendered from `chart_data`. Use a clean `metric_cards` payload only for fallback `summary_page`; do not describe a funnel if the actual `chart_data.chart_type` is `metric_cards`.
 - **Metric card units are row-level when mixed**: if `metric_cards` mix currency, percentages, counts, or rankings, put `unit` or `value_unit` on each `source_rows[]` item, or include the unit directly in each value string. Do not use one mixed `chart_data.unit` such as `RMB / %`.
 - **Matrix slides need coordinates**: for `matrix_page`, include numeric x/y coordinates per plotted player in `chart_data.source_rows`, or provide two numeric series that map to the x and y axes.
 - **`chart_title` must stay client-facing downstream**: quantitative slides should make `chart_data.title` usable as the on-slide chart label; execution notes belong in `visual_direction` or `chart_data.notes`.
 - **Target link is mandatory on every slide**: If a slide doesn't connect to the target, it's a generic industry slide — fix it or flag it.
 - **Source notes are mandatory**: Reference memo Evidence IDs (e.g., EV-001), memo sections, or named sources. Never write "industry reports" or similarly vague attributions.
 - **Weak sources are not formal evidence**: Do not use Zhihu, Baijiahao, repost/content-farm pages, document-sharing sites, SEO research pages, or generic company-info pages in slide `source_note` or as direct evidence. If they informed discovery, leave them in the search log as lead-only/rejected sources.
+
+## Page Type Selection
+
+- **Slide 1**: Prefer `industry_overview_dynamic_page` when chart-ready market trend, benchmark, or structural split data exists. Use `summary_page` only when reliable comparable chart data is unavailable or unsafe to chart.
+- **Slide 2**: Prefer `chart_plus_mini_table_page` when segmentation needs side-by-side quantitative context. Prefer `chart_page` when one visual can carry the page clearly.
+- **Slide 3**: Use `driver_card_page` for 4 strong MECE drivers. Use `driver_card_5_page` or `driver_card_6_page` only when the memo supports 5 or 6 distinct, non-overlapping drivers; do not create filler drivers just to use a larger template.
+- **Slide 6**: Prefer `compare_table_page` when named peer comparison is the clearest story. Prefer `matrix_page` when positioning against two dimensions is the clearest story.
+- **Slide 7**: Use `trend_page` for 3 strong parallel trends. Use larger trend-card variants only when the memo supports that many distinct trends; prefer `timeline_page` when sequence and timing are central.
 
 ## Content Density
 

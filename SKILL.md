@@ -171,7 +171,8 @@ Storyboard must preserve the pre-mandate transaction context: not a generic sect
 - Slide 8 (`key_takeaways_for_target`) must include at least one open diligence question, risk, or validation item.
 - Headline and main_message fit rules are enforced by `templates/text_fit_rules.json`: title must fit one line; subtitle/main_message targets one line and must not exceed two lines.
 - Page-level copy and visual budgets are defined in `templates/layout_budget.json`: body fields must be short bullet-style points, table cells must stay compact, and `main_message` must not end with punctuation.
-- Slide 1 right-side visual area is executable: storyboard must set `chart_data.chart_type` to `bar`, `stacked_bar`, `line`, `metric_cards`, or `none`; non-`none` choices need data that `scripts/postprocess_ppt_visuals.py` can render. Mixed-unit metric cards need row-level `unit` / `value_unit`.
+- Slide 1 should prefer `industry_overview_dynamic_page` when chart-ready market trend, benchmark, or structural split data exists. This uses the existing slide 1 canvas; no master-template variant is required.
+- Slide 1 dynamic overview must set `chart_data.chart_type` to `bar`, `stacked_bar`, `clustered_column`, or `line`, provide comparable MET-backed source rows, add `chart_data.secondary_module.rows`, and write two bottom read-through bullets. Use fallback `summary_page` with `metric_cards` only when reliable comparable chart data is unavailable or unsafe to chart.
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
 
@@ -269,23 +270,32 @@ Do **not** require separate manual review for intermediate debug files; the work
 - `filled_ppt_validation.json`
 - `artifacts/final_delivery_validation.json`
 - `artifacts/run_quality_summary.md`
-- `<work_root>/runs/RUNS_INDEX.md`
-- `<work_root>/runs/LATEST_FINAL_RUN.txt`
-- `<work_root>/runs/LATEST_FINAL_PPT.txt`
+- `<work_root>/runs/<case_slug>/RUNS_INDEX.md`
+- `<work_root>/runs/<case_slug>/LATEST_FINAL_RUN.txt`
+- `<work_root>/runs/<case_slug>/LATEST_FINAL_PPT.txt`
 
 For final delivery, run:
 
 ```bash
 "$PYTHON_CMD" scripts/validate_final_delivery.py \
-  --run-dir <work_root>/runs/attempt_<timestamp> \
-  --output <work_root>/runs/attempt_<timestamp>/artifacts/final_delivery_validation.json
+  --run-dir <work_root>/runs/<case_slug>/attempt_<timestamp> \
+  --output <work_root>/runs/<case_slug>/attempt_<timestamp>/artifacts/final_delivery_validation.json
 ```
 
 For PPT generation, prefer the packaged pipeline:
 
 ```bash
-./run_pipeline.sh --work-root <work_root> --storyboard <path/to/industry_storyboard.json>
+./run_pipeline.sh \
+  --work-root <work_root> \
+  --case-name "<project or target name>" \
+  --storyboard <path/to/industry_storyboard.json>
 ```
+
+When running under a shared workspace used for multiple projects, pass
+`--case-name "<project or target name>"` so outputs are grouped under
+`<work_root>/runs/<case_slug>/attempt_<timestamp>/`. If omitted, the pipeline
+will infer `case_slug` from `input_card.json` or `industry_storyboard.json` when
+possible; unresolved cases fall back to `case_unspecified`.
 
 The pipeline runs `scripts/validate_stage_gate.py --stage pre_ppt` before
 creating PPT copy or filling the template. If the gate fails, the output is a
@@ -295,14 +305,14 @@ Then generate a short quality report:
 
 ```bash
 "$PYTHON_CMD" scripts/generate_run_quality_summary.py \
-  --run-dir <work_root>/runs/attempt_<timestamp>
+  --run-dir <work_root>/runs/<case_slug>/attempt_<timestamp>
 ```
 
 If multiple `attempt_*` directories exist, update the runs index before reporting the final answer:
 
 ```bash
 "$PYTHON_CMD" scripts/update_runs_index.py \
-  --runs-dir <work_root>/runs
+  --runs-dir <work_root>/runs/<case_slug>
 ```
 
 Report the path from `LATEST_FINAL_PPT.txt` as the final PPT. Do not ask the user to infer the final deliverable from multiple attempt folders.
@@ -311,7 +321,7 @@ Do not deliver if final delivery validation fails.
 
 Attempt management:
 - For one user task, keep repairing the same active attempt directory.
-- `run_pipeline.sh` writes `<work_root>/runs/ACTIVE_ATTEMPT.txt` and reuses it by default.
+- `run_pipeline.sh` writes `<work_root>/runs/<case_slug>/ACTIVE_ATTEMPT.txt` and reuses it by default.
 - Use `--attempt-name` only when intentionally starting or switching to a new attempt.
 - Do not say a deck is complete until `artifacts/final_delivery_validation.json` reports `is_valid=true` for that same attempt and `LATEST_FINAL_PPT.txt` points to that deck.
 
@@ -334,9 +344,12 @@ Hard rules:
 
 Generated working files should live near the resolved user materials. By default, deterministic pipeline outputs should be written under:
 
-- `<work_root>/runs/attempt_<timestamp>/`
+- `<work_root>/runs/<case_slug>/attempt_<timestamp>/`
 
 Use one run directory as the single package of record. Do not create a second nested `runs/attempt_*` directory inside an existing attempt directory, and do not copy only the final PPT out of the pipeline directory as the apparent delivery.
+
+Do not mix multiple projects directly under one top-level `runs/attempt_*` list.
+Use a stable `case_slug` per project, preferably by passing `--case-name`.
 
 Only static skill assets should be resolved relative to the skill package itself, such as `scripts/`, `templates/`, `assets/`, `references/`, and `prompts/`.
 

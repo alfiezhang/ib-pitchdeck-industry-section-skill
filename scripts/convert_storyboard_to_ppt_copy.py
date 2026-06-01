@@ -66,6 +66,7 @@ CHART_PAGE_TYPES = {"chart_page", "chart_plus_mini_table_page"}
 
 EXPECTED_CONTENT_FIELDS = {
     1: {
+        "industry_overview_dynamic_page": ["bullet_1", "bullet_2", "bullet_3"],
         "summary_page": ["bullet_1", "bullet_2", "bullet_3"],
     },
     2: {

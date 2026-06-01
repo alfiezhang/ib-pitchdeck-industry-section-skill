@@ -594,6 +594,46 @@ def add_supporting_note(slide, left: int, top: int, width: int, height: int, tex
     r.font.color.rgb = TEXT_GRAY
 
 
+def add_left_textbox(
+    slide,
+    left: int,
+    top: int,
+    width: int,
+    height: int,
+    text: str,
+    font_size: int = 9,
+    bold: bool = False,
+    color: RGBColor = TEXT_GRAY,
+) -> None:
+    textbox = slide.shapes.add_textbox(Emu(left), Emu(top), Emu(width), Emu(height))
+    tf = textbox.text_frame
+    tf.clear()
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    p.line_spacing = 1.05
+    run = p.add_run()
+    run.text = str(text or "")
+    run.font.size = Pt(font_size)
+    run.font.name = BODY_FONT
+    run.font.bold = bold
+    run.font.color.rgb = color
+
+
+def add_panel_box(slide, left: int, top: int, width: int, height: int) -> None:
+    panel = slide.shapes.add_shape(
+        MSO_AUTO_SHAPE_TYPE.RECTANGLE,
+        Emu(left),
+        Emu(top),
+        Emu(width),
+        Emu(height),
+    )
+    panel.fill.solid()
+    panel.fill.fore_color.rgb = RGBColor(0xFA, 0xFB, 0xFC)
+    panel.line.color.rgb = GRID_GRAY
+    panel.line.width = Pt(1)
+
+
 def format_metric_value(label: str, value: Union[float, int, str], unit: str) -> str:
     if isinstance(value, str):
         text = value.strip()
@@ -621,6 +661,124 @@ def format_metric_value(label: str, value: Union[float, int, str], unit: str) ->
     if is_integer:
         return f"{int(value):,}"
     return f"{value:,.1f}"
+
+
+def render_secondary_module(slide, chart_data: dict, layout: dict) -> dict:
+    module = chart_data.get("secondary_module") or {}
+    if not isinstance(module, dict):
+        module = {}
+    module_type = str(module.get("module_type") or "metric_cards").lower()
+    rows = module.get("rows") or []
+    if not rows:
+        rows = chart_data.get("source_rows") or []
+    rows = [row for row in rows if isinstance(row, dict)]
+    if not rows:
+        return {"rendered": False, "reason": "missing secondary module rows"}
+
+    left, top, width, height = layout["side_box"]
+    removed = remove_text_shapes_in_box(slide, layout["side_box"])
+    add_panel_box(slide, left, top, width, height)
+    title = str(module.get("title") or chart_data.get("secondary_title") or "").strip()
+    title_height = 260000 if title else 0
+    if title:
+        add_left_textbox(slide, left + 120000, top + 70000, width - 240000, title_height, title, 9, True, BRAND_BLUE)
+
+    content_top = top + title_height + 110000
+    content_height = height - title_height - 180000
+    if module_type in {"mini_table", "table", "segmentation_table"}:
+        headers = module.get("headers") or ["Metric", "Read-through"]
+        col_count = min(max(len(headers), 2), 3)
+        row_count = min(len(rows), 4) + 1
+        table_shape = slide.shapes.add_table(
+            row_count,
+            col_count,
+            Emu(left + 90000),
+            Emu(content_top),
+            Emu(width - 180000),
+            Emu(content_height),
+        )
+        table = table_shape.table
+        for col_idx in range(col_count):
+            table.columns[col_idx].width = Emu(int((width - 180000) / col_count))
+            set_cell_text(table.cell(0, col_idx), headers[col_idx] if col_idx < len(headers) else "", 8.5, True, RGBColor(0xFF, 0xFF, 0xFF))
+        for row_idx, row in enumerate(rows[: row_count - 1], start=1):
+            values = [
+                row.get("label", ""),
+                format_metric_value(str(row.get("label") or ""), row.get("value", ""), row.get("unit") or row.get("value_unit") or chart_data.get("unit") or ""),
+                row.get("note", ""),
+            ]
+            for col_idx in range(col_count):
+                set_cell_text(table.cell(row_idx, col_idx), values[col_idx] if col_idx < len(values) else "", 8.5, False)
+        style_table_shape(table_shape)
+        return {"rendered": True, "module_type": module_type, "rows": row_count, "removed_text_shapes": removed}
+
+    card_count = min(max(len(rows), 2), 3)
+    gap = 90000
+    card_height = (content_height - gap * (card_count - 1)) // card_count
+    accents = [ACCENT_RED, BRAND_BLUE, RGBColor(0x4D, 0x7C, 0x3A)]
+    for idx, row in enumerate(rows[:card_count]):
+        label = row.get("label", "")
+        row_unit = row.get("unit") or row.get("value_unit") or chart_data.get("unit") or ""
+        add_metric_card(
+            slide,
+            left + 160000,
+            content_top + idx * (card_height + gap),
+            width - 320000,
+            card_height,
+            label,
+            format_metric_value(label, row.get("value", ""), row_unit),
+            accents[idx],
+        )
+    return {"rendered": True, "module_type": "metric_cards", "cards": card_count, "removed_text_shapes": removed}
+
+
+def render_bottom_takeaways(slide, slide_data: dict, layout: dict) -> dict:
+    body = slide_data.get("body_copy") or {}
+    takeaways = [
+        str(body.get("bullet_1") or "").strip(),
+        str(body.get("bullet_2") or "").strip(),
+    ]
+    takeaways = [item for item in takeaways if item]
+    if not takeaways:
+        return {"rendered": False, "reason": "missing bottom takeaway bullets"}
+    left, top, width, height = layout["bottom_box"]
+    removed = remove_text_shapes_in_box(slide, layout["bottom_box"])
+    line_height = height // max(len(takeaways), 1)
+    for idx, text in enumerate(takeaways[:2]):
+        add_left_textbox(slide, left, top + idx * line_height, width, line_height, f"• {text}", 9, False)
+    return {"rendered": True, "takeaways": len(takeaways[:2]), "removed_text_shapes": removed}
+
+
+def render_slide1_dynamic_overview(slide, slide_data: dict, layout: dict) -> dict:
+    chart_data = slide_data.get("chart_data") or {}
+    chart_type = str(chart_data.get("chart_type") or "").lower()
+    cleanup_box = layout.get("cleanup_box")
+    removed = []
+    if cleanup_box:
+        removed = remove_shapes_in_box(slide, cleanup_box)
+
+    chart_title = str(chart_data.get("title") or "").strip()
+    if chart_title and "title_box" in layout:
+        left, top, width, height = layout["title_box"]
+        add_left_textbox(slide, left, top, width, height, chart_title, 9, True, TEXT_GRAY)
+
+    if chart_type in {"bar", "column", "clustered_bar", "clustered_column", "stacked_bar", "stacked_column", "line", "line_chart"}:
+        chart_result = build_chart(slide, slide_data, layout)
+    else:
+        chart_result = {
+            "rendered": False,
+            "reason": f"dynamic overview requires a chart type supported by the deterministic renderer, found '{chart_type}'",
+        }
+    side_result = render_secondary_module(slide, chart_data, layout)
+    bottom_result = render_bottom_takeaways(slide, slide_data, layout)
+    return {
+        "rendered": bool(chart_result.get("rendered") and (side_result.get("rendered") or bottom_result.get("rendered"))),
+        "mode": "dynamic_overview",
+        "chart": chart_result,
+        "secondary_module": side_result,
+        "bottom_takeaways": bottom_result,
+        "removed_existing_content_shapes": removed,
+    }
 
 
 def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
@@ -717,6 +875,17 @@ def remove_text_shapes_in_box(slide, box: tuple[int, int, int, int]) -> list[dic
     for shape in list(slide.shapes):
         if not hasattr(shape, "text_frame"):
             continue
+        if not intersects(shape, box):
+            continue
+        text = getattr(shape, "text", "").strip() if hasattr(shape, "text") else ""
+        remove_shape(shape)
+        removed.append({"shape_name": shape.name, "text": text[:80]})
+    return removed
+
+
+def remove_shapes_in_box(slide, box: tuple[int, int, int, int]) -> list[dict]:
+    removed = []
+    for shape in list(slide.shapes):
         if not intersects(shape, box):
             continue
         text = getattr(shape, "text", "").strip() if hasattr(shape, "text") else ""
@@ -835,7 +1004,9 @@ def render_quant_slide(prs: Presentation, storyboard: dict, slide_no: int, rende
         return {"slide_no": slide_no, "rendered": False, "reason": "clean deck has fewer slides than expected"}
 
     slide = prs.slides[slide_no - 1]
-    if page_type == "matrix_page":
+    if slide_no == 1 and page_type == "industry_overview_dynamic_page":
+        result = render_slide1_dynamic_overview(slide, slide_data, layout)
+    elif page_type == "matrix_page":
         result = render_matrix_slide(slide, slide_data, layout)
     elif slide_no == 2 and page_type == "chart_plus_mini_table_page":
         result = render_slide2_chart_plus_table(slide, slide_data, layout)

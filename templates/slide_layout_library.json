@@ -4,6 +4,7 @@
       "slide_no": 1,
       "slide_key": "industry_overview",
       "page_type_to_slide": {
+        "industry_overview_dynamic_page": "slide1.xml",
         "summary_page": "slide1.xml"
       }
     },

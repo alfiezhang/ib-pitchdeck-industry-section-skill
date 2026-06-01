@@ -85,14 +85,20 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 ```bash
 ./run_pipeline.sh \
   --work-root /path/to/workspace \
+  --case-name "project-or-target-name" \
   --storyboard /path/to/workspace/industry_storyboard.json
 ```
 
 输出会写到：
 
 ```text
-/path/to/workspace/runs/attempt_<timestamp>/
+/path/to/workspace/runs/<case_slug>/attempt_<timestamp>/
 ```
+
+如果不传 `--case-name`，pipeline 会尽量从 `input_card.json` 或
+`industry_storyboard.json` 推断项目名；推断失败时会放到
+`runs/case_unspecified/`。在 WorkBuddy 这类共享工作目录里，建议总是传
+`--case-name`，避免不同项目混在同一个 `runs` 目录下。
 
 `run_pipeline.sh` 会在生成 PPT 前运行研究计划、memo、storyboard、内容质量和
 `pre_ppt` 阶段门禁。缺少 `research_plan_validation.json`、`memo_validation.json`
@@ -102,7 +108,7 @@ final PPT 交付。
 最终 PPT 路径会写入：
 
 ```text
-/path/to/workspace/runs/LATEST_FINAL_PPT.txt
+/path/to/workspace/runs/<case_slug>/LATEST_FINAL_PPT.txt
 ```
 
 ## 推荐工作流
@@ -173,6 +179,11 @@ industry_storyboard.json
 
 Storyboard 是最核心的 LLM 推理产物。
 
+第 1 页默认不再只是三张指标卡。如果 memo 有可比的市场趋势、benchmark
+或结构拆分数据，应选择 `industry_overview_dynamic_page`，由 LLM 指定主图、
+右侧指标卡 / 小表格和底部读图结论，再由脚本在现有第 1 页画布上动态绘制。
+只有在数据不可比、证据冲突或没有 chart-ready 数据时，才退回 `summary_page`。
+
 ### 5. Validation
 
 主要验证包括：
@@ -213,6 +224,7 @@ Storyboard 是最核心的 LLM 推理产物。
 - storyboard 的 `body_copy` 只能包含当前 active layout 会实际使用的字段，多余字段会报错
 - 正文需要像 PPT bullet，而不是 memo 段落；过长 bullet 会要求压缩或拆分
 - 每页正文需要有证据、指标或机制论证支撑，避免只有空泛标签
+- 第 1 页有可靠 chart-ready 数据却退回纯指标卡，会被提示优先使用动态行业概览页
 - 标题、副标题、来源、图表数据、跨页指标一致性会进入质量检查
 
 ### 6. PPT 生成
@@ -222,6 +234,7 @@ Storyboard 是最核心的 LLM 推理产物。
 ```bash
 ./run_pipeline.sh \
   --work-root /path/to/workspace \
+  --case-name "project-or-target-name" \
   --storyboard /path/to/workspace/industry_storyboard.json
 ```
 
@@ -292,7 +305,7 @@ artifacts/
 
 - `filled_ppt_validation.json` 通过
 - `artifacts/final_delivery_validation.json` 通过
-- `runs/LATEST_FINAL_PPT.txt` 指向最终 clean PPTX
+- `runs/<case_slug>/LATEST_FINAL_PPT.txt` 指向最终 clean PPTX
 
 ## 修改模板时要注意
 

@@ -145,6 +145,7 @@ Apply object-level visual cleanup after token fill. This step is where real char
 Current scope:
 - removes template scaffold labels such as `PRIMARY CHART`, `POINT 1`, `STANDARD`
 - renders real visual objects on Slide 1, Slide 2, and selected Slide 6 variants when executable data is present
+- renders Slide 1 `industry_overview_dynamic_page` on the existing slide 1 canvas as a primary chart plus right-side metric cards / mini-table and bottom read-through takeaways; this does not require adding a new master-template slide
 - renders Slide 2 mini-table and Slide 6 compare table as real PPT table objects when those page types are selected; do not deliver fake tables made from plain text separators
 - reads deterministic render coordinates from `templates/render_layouts.json`
 
@@ -201,10 +202,13 @@ Try at most 3 validation/fix cycles for the same failed gate. After 3 failed cyc
 Prefer running the packaged pipeline instead of invoking the seven scripts manually:
 
 ```bash
-/path/to/skill/run_pipeline.sh /path/to/work/industry_section_ppt_copy.json /path/to/work/industry_storyboard.json
+/path/to/skill/run_pipeline.sh \
+  --work-root /path/to/work \
+  --case-name "project-or-target-name" \
+  --storyboard /path/to/work/industry_storyboard.json
 ```
 
-If no explicit output directory is provided, the pipeline stages the input JSON files and writes generated artifacts under `<work_root>/runs/attempt_<timestamp>/` by default, where `work_root` is inferred from the input file location or set explicitly with `--work-root`.
+If no explicit output directory is provided, the pipeline stages the input JSON files and writes generated artifacts under `<work_root>/runs/<case_slug>/attempt_<timestamp>/` by default, where `work_root` is inferred from the input file location or set explicitly with `--work-root`. Pass `--case-name` when using a shared workspace so multiple projects do not mix under one top-level `runs` folder.
 
 The pipeline writes `artifacts/stage_gate_pre_ppt_validation.json` and exits
 before PPT generation when the formal research plan, memo, storyboard, content

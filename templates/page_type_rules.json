@@ -9,10 +9,14 @@
     {
       "slide_no": 1,
       "slide_key": "industry_overview",
-      "selection_mode": "fixed",
-      "page_types": ["summary_page"],
-      "default_dominant_element": "text",
-      "allowed_target_link_types": ["light", "selective"]
+      "selection_mode": "controlled_choice",
+      "page_types": ["industry_overview_dynamic_page", "summary_page"],
+      "default_dominant_element": "chart",
+      "selection_priority": [
+        "prefer_industry_overview_dynamic_page when the memo contains a reliable comparable market-size time series, benchmark series, or structural split that can be charted",
+        "use_summary_page only when chart-ready data is unavailable, definitions are not comparable, or unresolved evidence conflicts would make a chart misleading"
+      ],
+      "allowed_target_link_types": ["light"]
     },
     {
       "slide_no": 2,

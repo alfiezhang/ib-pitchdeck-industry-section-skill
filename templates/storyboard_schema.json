@@ -108,6 +108,7 @@
             "description": "The page type chosen for this slide. Must be a valid option per templates/page_type_rules.json.",
             "enum": [
               "summary_page",
+              "industry_overview_dynamic_page",
               "chart_page", "chart_plus_mini_table_page",
               "driver_card_page", "driver_card_5_page", "driver_card_6_page",
               "value_chain_page",
@@ -130,6 +131,10 @@
             "description": "Optional structured data payload for chart-ready slides. Use when the slide depends on a quantitative visual rather than only a qualitative sketch.",
             "properties": {
               "chart_type": { "type": "string", "description": "Suggested visual type such as bar, line, stacked_bar, matrix, waterfall, or table." },
+              "composition_type": {
+                "type": "string",
+                "description": "Optional layout intent for dynamic overview pages, such as market_trend, trend_plus_segmentation, benchmark, or fallback_metric_cards."
+              },
               "title": { "type": "string", "description": "Short chart title or caption." },
               "x_axis_label": { "type": "string", "description": "Optional x-axis label, especially for matrix visuals." },
               "y_axis_label": { "type": "string", "description": "Optional y-axis label, especially for matrix visuals." },
@@ -186,9 +191,45 @@
                     "y": { "type": "number" },
                     "period": { "type": "string" },
                     "source": { "type": "string" },
+                    "metric_id": { "type": "string", "pattern": "^MET-\\d{3}$", "description": "Metric ID from memo Metric Reconciliation for this datapoint when value is quantitative." },
                     "note": { "type": "string" }
                   }
                 }
+              },
+              "secondary_module": {
+                "type": "object",
+                "description": "Optional side module for Slide 1 dynamic overview: metric cards, compact table, benchmark panel, or segmentation panel.",
+                "properties": {
+                  "module_type": { "type": "string", "description": "metric_cards, mini_table, horizontal_bar, benchmark_panel, or insight_box." },
+                  "title": { "type": "string" },
+                  "headers": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "rows": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": { "type": "string" },
+                        "value": {
+                          "oneOf": [
+                            { "type": "number" },
+                            { "type": "string" }
+                          ]
+                        },
+                        "period": { "type": "string" },
+                        "unit": { "type": "string" },
+                        "value_unit": { "type": "string" },
+                        "source": { "type": "string" },
+                        "metric_id": { "type": "string", "pattern": "^MET-\\d{3}$" },
+                        "note": { "type": "string" }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
               },
               "notes": { "type": "string", "description": "Construction notes, caveats, or interpolation logic." }
             },
