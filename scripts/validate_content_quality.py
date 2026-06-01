@@ -23,6 +23,7 @@ from validation_common import (
 
 
 DEFAULT_LAYOUT_BUDGET_PATH = Path(__file__).resolve().parents[1] / "templates" / "layout_budget.json"
+DEFAULT_DRILLDOWN_ROLE_LIBRARY_PATH = Path(__file__).resolve().parents[1] / "templates" / "drilldown_role_library.json"
 # ── Helpers ──────────────────────────────────────────────────────
 
 def load_json(path: Path) -> dict:
@@ -32,6 +33,21 @@ def load_json(path: Path) -> dict:
 def load_text(path: Path) -> str:
     with path.open("r", encoding="utf-8") as f:
         return f.read()
+
+
+def load_drilldown_role_ids(path: Path = DEFAULT_DRILLDOWN_ROLE_LIBRARY_PATH) -> set[str]:
+    try:
+        data = load_json(path)
+    except FileNotFoundError:
+        return set()
+    roles = data.get("roles", [])
+    if not isinstance(roles, list):
+        return set()
+    return {
+        str(role.get("role_id") or "").strip()
+        for role in roles
+        if isinstance(role, dict) and str(role.get("role_id") or "").strip()
+    }
 
 
 def normalize(s: str) -> str:
@@ -420,6 +436,7 @@ def validate_slide_1_2_pair(
     slides: list[dict],
     warnings: list[str],
     blocking_warnings: list[str],
+    valid_drilldown_roles: Optional[set[str]] = None,
 ) -> None:
     """Validate that Slide 1 is an overview and Slide 2 is a distinct drill-down."""
     slide_1 = None
@@ -443,7 +460,9 @@ def validate_slide_1_2_pair(
         return
 
     # 1. Role check
-    role_2 = str(contract_2.get("page_role", "") or contract_2.get("drilldown_role", "")).strip()
+    drilldown_role = str(contract_2.get("drilldown_role") or "").strip()
+    page_role = str(contract_2.get("page_role") or "").strip()
+    role_2 = drilldown_role or page_role
     if not role_2:
         message = (
             "slide 2: page_role / drilldown_role is required. Slide 2 must select one drill-down role "
@@ -452,6 +471,18 @@ def validate_slide_1_2_pair(
         )
         warnings.append(message)
         blocking_warnings.append(message)
+    elif valid_drilldown_roles and role_2 not in valid_drilldown_roles:
+        message = (
+            f"slide 2: drilldown_role/page_role '{role_2}' is not in templates/drilldown_role_library.json. "
+            f"Allowed roles: {', '.join(sorted(valid_drilldown_roles))}."
+        )
+        warnings.append(message)
+        blocking_warnings.append(message)
+    elif not drilldown_role:
+        warnings.append(
+            "slide 2: drilldown_role should be set explicitly even when page_role is present; "
+            "use one role_id from templates/drilldown_role_library.json."
+        )
 
     # 2. drill_down_from_slide check
     drill_from = contract_2.get("drill_down_from_slide")
@@ -1106,6 +1137,7 @@ def validate(
             layout_budget = load_json(layout_budget_path)
         except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f"cannot load layout budget: {exc}")
+    valid_drilldown_roles = load_drilldown_role_ids()
 
     memo_text = ""
     if memo_path:
@@ -1241,7 +1273,7 @@ def validate(
         check_memo_source_quality(memo_text, weak_source_markers, source_warnings)
 
     # Slide 1/2 pair validation: overview → drill-down
-    validate_slide_1_2_pair(slides, generic_copy_warnings, claim_strength_blocking_warnings)
+    validate_slide_1_2_pair(slides, generic_copy_warnings, claim_strength_blocking_warnings, valid_drilldown_roles)
 
     # Check storyboard metric_ids against memo Metric Reconciliation
     metric_id_issues = check_metric_ids_against_memo(slides, memo_text)

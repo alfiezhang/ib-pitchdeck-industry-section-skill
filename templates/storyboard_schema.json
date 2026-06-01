@@ -97,7 +97,6 @@
               "drilldown_role": { "type": "string", "description": "For Slide 2: the selected drill-down role from templates/drilldown_role_library.json (e.g., 'market_segmentation', 'channel_structure'). Required when slide_no is 2." }
             }
           },
-          },
           "slide_role": {
             "type": "string",
             "enum": [

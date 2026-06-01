@@ -56,7 +56,7 @@
     {
       "role_id": "channel_structure",
       "description": "How do products or services reach customers, and how is channel structure shifting?",
-      "typical_content": ["channel mix", "channel share trends", "channel economics", "DTC vs distributor vs platform"],
+      "typical_content": ["channel mix", "channel share trends", "channel economics", "direct vs distributor vs platform"],
       "visual_candidates": ["stacked_bar", "channel_shift_line", "mini_table"],
       "when_to_use": "When go-to-market structure is a key competitive differentiator or is undergoing structural change",
       "industry_examples": ["consumer_goods", "retail", "internet", "pharma_distribution", "wholesale"]
