@@ -172,7 +172,7 @@ Storyboard must preserve the pre-mandate transaction context: not a generic sect
 - Headline and main_message fit rules are enforced by `templates/text_fit_rules.json`: title must fit one line; subtitle/main_message targets one line and must not exceed two lines.
 - Page-level copy and visual budgets are defined in `templates/layout_budget.json`: body fields must be short bullet-style points, table cells must stay compact, and `main_message` must not end with punctuation.
 - Slide 1 should prefer `industry_overview_dynamic_page` when chart-ready market trend, benchmark, or structural split data exists. This uses the existing slide 1 canvas; no master-template variant is required.
-- Slide 1 dynamic overview must set `chart_data.chart_type` to `bar`, `stacked_bar`, `clustered_column`, or `line`, provide comparable MET-backed source rows, add `chart_data.secondary_module.rows`, and write two bottom read-through bullets. Use fallback `summary_page` with `metric_cards` only when reliable comparable chart data is unavailable or unsafe to chart.
+- Slide 1 dynamic overview must preserve the left-side `KEY MESSAGES` area with `body_copy.bullet_1` through `body_copy.bullet_3`, set `chart_data.chart_type` to `bar`, `stacked_bar`, `clustered_column`, or `line`, and provide comparable MET-backed source rows for the right-side `CHART / VISUAL` area. Do not add right-side flashcards when a chart is available. Use fallback `summary_page` with `metric_cards` only when reliable comparable chart data is unavailable or unsafe to chart.
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
 

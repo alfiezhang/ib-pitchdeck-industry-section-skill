@@ -205,7 +205,7 @@
               },
               "secondary_module": {
                 "type": "object",
-                "description": "Optional side module for Slide 1 dynamic overview: metric cards, compact table, benchmark panel, or segmentation panel.",
+                "description": "Optional auxiliary module for layouts that explicitly support one. The current Slide 1 dynamic overview template preserves left-side KEY MESSAGES and renders only a right-side chart, so do not rely on this for Slide 1.",
                 "properties": {
                   "module_type": { "type": "string", "description": "metric_cards, mini_table, horizontal_bar, benchmark_panel, or insight_box." },
                   "title": { "type": "string" },

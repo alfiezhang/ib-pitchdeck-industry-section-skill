@@ -180,13 +180,12 @@ Allocate content to slides so that the 8 slides together form a **complete, non-
 
 Slide 1 should answer whether the industry is large enough, growing enough, and structurally interesting enough to deserve a transaction discussion.
 
-Prefer `industry_overview_dynamic_page` when the memo contains chart-ready data. This uses the existing slide 1 canvas, not a new master template: you choose the content structure and data; deterministic scripts draw the chart, side module, and bottom takeaways.
+Prefer `industry_overview_dynamic_page` when the memo contains chart-ready data. This uses the existing slide 1 canvas, not a new master template: preserve the left-side `KEY MESSAGES` area for three concise bullets, and use deterministic scripts to replace only the right-side `CHART / VISUAL` area with a real chart.
 
 Preferred structure:
 
-1. **Primary chart**: historical market-size trend, benchmark trend, or another comparable quantitative series with at least 3 datapoints.
-2. **Secondary module**: 2-3 metric cards or a compact mini-table for a segmentation, benchmark, or key structural readout.
-3. **Bottom takeaways**: 2 short read-through bullets in `body_copy.bullet_1` and `body_copy.bullet_2`.
+1. **Left key messages**: three concise bullets in `body_copy.bullet_1` through `body_copy.bullet_3`.
+2. **Right primary chart**: historical market-size trend, benchmark trend, or another comparable quantitative series with at least 3 datapoints.
 
 Use `summary_page` only when no reliable comparable chart data exists, metric definitions are unresolved, or charting would be misleading. Do not default to three flashcards when the memo has usable market-size, growth, benchmark, or segmentation data.
 
@@ -250,7 +249,7 @@ Each slide must include:
 - **Chart metric comparability**: Do not compare metrics with different `Metric Type`, `Geography`, `Unit`, or charted `Data Period` in the same bar/column chart. For example, do not chart revenue and production value as if they were peer categories. Use separate visuals, normalize to a common basis, or disclose the comparable basis in `chart_data.notes`.
 - **Metric card units**: If `metric_cards` mix currency, percentages, counts, or rankings, put `unit` or `value_unit` on each `source_rows[]` item, or include the unit directly in the `value` string. Do not rely on one mixed `chart_data.unit` such as `RMB / %`.
 - **Chart legend labels**: Keep each `series.name` short enough to work as a chart legend label, ideally 2-8 Chinese characters or 1-3 English words. Do not use full-sentence series names.
-- **Slide 1 visual contract**: Slide 1 must include executable `chart_data.chart_type`. For `industry_overview_dynamic_page`, use a primary `bar`, `stacked_bar`, `clustered_column`, or `line` chart, add `chart_data.composition_type`, add `chart_data.secondary_module.rows`, and write two bottom takeaways in `body_copy.bullet_1` and `body_copy.bullet_2`. Use `metric_cards` only for fallback `summary_page`. Do not put procedural instructions into `chart_data.title`.
+- **Slide 1 visual contract**: Slide 1 must include executable `chart_data.chart_type`. For `industry_overview_dynamic_page`, keep `body_copy.bullet_1` through `body_copy.bullet_3` as left-side key messages and use a primary `bar`, `stacked_bar`, `clustered_column`, or `line` chart in the right-side visual area. Do not add right-side flashcards when a chart is available. Use `metric_cards` only for fallback `summary_page`. Do not put procedural instructions into `chart_data.title`.
 - For `matrix_page`, include either `source_rows` with numeric `x` and `y` values for each plotted player, or two numeric series whose values map to the matrix axes.
 - For quantitative slides, make `chart_data.title` a short on-slide chart label. Keep build instructions in `visual_direction` or `chart_data.notes`, not in the visible chart title field.
 - **target_link**: Explicit connection to the target. Every slide must answer: why does this matter for **this** target?

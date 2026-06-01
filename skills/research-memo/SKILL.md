@@ -177,8 +177,8 @@ actively search for and reconcile:
 - chart-ready data with consistent definition, geography, period, unit, and MET-IDs.
 
 If reliable comparable data exists, the downstream storyboard should be able to
-use `industry_overview_dynamic_page` with a primary chart plus a side module. If
-not, document why the page must fall back to `summary_page`.
+use `industry_overview_dynamic_page` with left-side key messages and a right-side
+primary chart. If not, document why the page must fall back to `summary_page`.
 
 After writing the memo, validate it before storyboard generation:
 

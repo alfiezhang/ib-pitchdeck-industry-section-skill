@@ -82,17 +82,46 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
     errors = []
     warnings = []
     text = read_text(path)
-    attempt_count = len(re.findall(r"^###\s+Search\s+#?\d+", text, flags=re.MULTILINE))
-    if not re.search(r"^##\s+Search Attempts\s*$", text, flags=re.MULTILINE) and attempt_count < 3:
-        warnings.append("search_log.md missing '## Search Attempts' section")
+    attempts = re.split(r"^###\s+Search\s+#?\d+.*$", text, flags=re.MULTILINE)[1:]
+    filled_attempts = []
+    for block in attempts:
+        fields: dict[str, str] = {}
+        for field in ("Query", "Provider", "Search Stage", "Result Count", "Selected Sources"):
+            match = re.search(rf"^\s*-\s+\*\*{re.escape(field)}\*\*:\s*(.*?)\s*$", block, flags=re.MULTILINE)
+            if not match:
+                fields[field] = ""
+                continue
+            value = match.group(1).strip()
+            fields[field] = "" if not value or value.startswith("#") else value
+        if fields.get("Query") and fields.get("Provider") and fields.get("Search Stage"):
+            filled_attempts.append(fields)
+
+    filled_attempt_count = len(filled_attempts)
+    if not re.search(r"^##\s+Search Attempts\s*$", text, flags=re.MULTILINE):
+        errors.append("search_log.md missing '## Search Attempts' section")
     if not re.search(r"^##\s+(?:Search )?Coverage Checklist\s*$", text, flags=re.MULTILINE):
-        warnings.append("search_log.md missing '## Coverage Checklist' section")
-    if not re.search(r"(broad_discovery|Broad Discovery)", text, flags=re.IGNORECASE):
-        warnings.append("search_log.md has no broad_discovery stage")
-    if not re.search(r"(targeted_validation|latest_check|Targeted Validation|Latest)", text, flags=re.IGNORECASE):
-        warnings.append("search_log.md has no targeted_validation/latest_check stage")
-    if attempt_count < 3:
-        warnings.append(f"search_log.md has only {attempt_count} search attempt(s); expected at least 3")
+        errors.append("search_log.md missing '## Coverage Checklist' section")
+
+    stages = " ".join(attempt.get("Search Stage", "") for attempt in filled_attempts).lower()
+    if "broad_discovery" not in stages and "broad discovery" not in stages:
+        errors.append("search_log.md has no completed broad_discovery search attempt")
+    if not any(token in stages for token in ("targeted_validation", "latest_check", "targeted validation", "latest")):
+        errors.append("search_log.md has no completed targeted_validation/latest_check search attempt")
+    if filled_attempt_count < 3:
+        errors.append(f"search_log.md has only {filled_attempt_count} completed search attempt(s); expected at least 3")
+
+    checked_coverage = len(re.findall(r"^\s*-\s+\[[xX]\]\s+", text, flags=re.MULTILINE))
+    if checked_coverage < 3:
+        errors.append(
+            f"search_log.md coverage checklist has only {checked_coverage} checked item(s); expected at least 3"
+        )
+
+    for idx, attempt in enumerate(filled_attempts, start=1):
+        if not attempt.get("Result Count"):
+            warnings.append(f"search_log.md completed search {idx} is missing Result Count")
+        if not attempt.get("Selected Sources"):
+            warnings.append(f"search_log.md completed search {idx} is missing Selected Sources")
+
     for line_no, line in enumerate(text.splitlines(), start=1):
         lowered = line.lower()
         if "**selected sources**" not in lowered:

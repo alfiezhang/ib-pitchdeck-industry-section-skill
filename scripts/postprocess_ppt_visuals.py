@@ -81,7 +81,6 @@ SCAFFOLD_LABELS = {
     "DOWNSTREAM",
     "PROFIT POOL",
     "KEY BARRIERS",
-    "KEY MESSAGES",
     "industry_overview",
     "market_size_segmentation",
     "key_industry_drivers",
@@ -127,6 +126,9 @@ def load_render_layouts(path: Path = DEFAULT_RENDER_LAYOUTS_PATH) -> dict[int, d
                 raise ValueError(f"Invalid render layout file {path}: slide {slide_no}/{page_type} boxes must be an object.")
             normalized[slide_no][page_type] = {}
             for box_name, box in boxes.items():
+                if isinstance(box, bool):
+                    normalized[slide_no][page_type][box_name] = box
+                    continue
                 if not (
                     isinstance(box, list)
                     and len(box) == 4
@@ -322,7 +324,9 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
         chart_payload.add_series(short_label(chart_series.get("name") or ""), values)
 
     chart_box = layout["chart_box"]
-    removed = remove_text_shapes_in_box(slide, chart_box)
+    removed = []
+    if not layout.get("preserve_existing_shapes"):
+        removed = remove_text_shapes_in_box(slide, chart_box)
     left, top, width, height = chart_box
     if len(series) > 1:
         height = int(height * 0.88)
@@ -753,14 +757,9 @@ def render_slide1_dynamic_overview(slide, slide_data: dict, layout: dict) -> dic
     chart_data = slide_data.get("chart_data") or {}
     chart_type = str(chart_data.get("chart_type") or "").lower()
     cleanup_box = layout.get("cleanup_box")
-    removed = []
+    cleared = []
     if cleanup_box:
-        removed = remove_shapes_in_box(slide, cleanup_box)
-
-    chart_title = str(chart_data.get("title") or "").strip()
-    if chart_title and "title_box" in layout:
-        left, top, width, height = layout["title_box"]
-        add_left_textbox(slide, left, top, width, height, chart_title, 9, True, TEXT_GRAY)
+        cleared = clear_text_shapes_in_box(slide, cleanup_box)
 
     if chart_type in {"bar", "column", "clustered_bar", "clustered_column", "stacked_bar", "stacked_column", "line", "line_chart"}:
         chart_result = build_chart(slide, slide_data, layout)
@@ -769,15 +768,13 @@ def render_slide1_dynamic_overview(slide, slide_data: dict, layout: dict) -> dic
             "rendered": False,
             "reason": f"dynamic overview requires a chart type supported by the deterministic renderer, found '{chart_type}'",
         }
-    side_result = render_secondary_module(slide, chart_data, layout)
-    bottom_result = render_bottom_takeaways(slide, slide_data, layout)
     return {
-        "rendered": bool(chart_result.get("rendered") and (side_result.get("rendered") or bottom_result.get("rendered"))),
+        "rendered": bool(chart_result.get("rendered")),
         "mode": "dynamic_overview",
         "chart": chart_result,
-        "secondary_module": side_result,
-        "bottom_takeaways": bottom_result,
-        "removed_existing_content_shapes": removed,
+        "left_key_messages_preserved": True,
+        "right_visual_only": True,
+        "cleared_existing_visual_text_shapes": cleared,
     }
 
 
@@ -881,6 +878,21 @@ def remove_text_shapes_in_box(slide, box: tuple[int, int, int, int]) -> list[dic
         remove_shape(shape)
         removed.append({"shape_name": shape.name, "text": text[:80]})
     return removed
+
+
+def clear_text_shapes_in_box(slide, box: tuple[int, int, int, int]) -> list[dict]:
+    cleared = []
+    for shape in list(slide.shapes):
+        if not hasattr(shape, "text_frame"):
+            continue
+        if not intersects(shape, box):
+            continue
+        text = getattr(shape, "text", "").strip() if hasattr(shape, "text") else ""
+        if not text:
+            continue
+        shape.text_frame.clear()
+        cleared.append({"shape_name": shape.name, "text": text[:80]})
+    return cleared
 
 
 def remove_shapes_in_box(slide, box: tuple[int, int, int, int]) -> list[dict]:

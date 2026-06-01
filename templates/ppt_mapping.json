@@ -4,7 +4,7 @@
   "layout_binding_by_slide": {
     "1": {
       "selected_page_type": "industry_overview_dynamic_page",
-      "structure_summary": "Dynamic industry overview on the existing slide 1 canvas: primary chart, side module, and bottom read-through takeaways; summary_page is fallback when chart-ready data is unavailable.",
+      "structure_summary": "Dynamic industry overview on the existing slide 1 canvas: preserve left-side KEY MESSAGES and replace only the right-side CHART / VISUAL area with a primary chart; summary_page is fallback when chart-ready data is unavailable.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",

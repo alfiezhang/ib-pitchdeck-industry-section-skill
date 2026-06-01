@@ -504,6 +504,7 @@ def evidence_promotion_issues(text: str) -> list[str]:
         excerpt = row.get("Raw Excerpt", "").strip()
         source_name = row.get("Source Name", "").strip()
         source_url = row.get("Source URL", "").strip()
+        source_type = row.get("Source Type", "").strip().lower()
 
         if not row.get("Claim / Metric", "").strip():
             issues.append(f"{ev_id}: Claim / Metric is required")
@@ -513,6 +514,15 @@ def evidence_promotion_issues(text: str) -> list[str]:
             issues.append(f"{ev_id}: Evidence Status must be one of {sorted(allowed_statuses)}")
         if not source_name and not source_url:
             issues.append(f"{ev_id}: Source Name or Source URL is required")
+        if status in {"primary-reviewed", "secondary-reviewed"}:
+            is_user_material = any(token in source_type for token in ("user", "client", "management", "provided", "用户", "客户", "管理层"))
+            if not is_user_material:
+                if not source_url:
+                    issues.append(f"{ev_id}: formal external evidence requires a full Source URL")
+                elif not re.match(r"^https?://[^\\s/$.?#].[^\\s]*$", source_url, flags=re.IGNORECASE):
+                    issues.append(
+                        f"{ev_id}: Source URL '{source_url}' is not a full URL; use the exact article/report/PDF URL"
+                    )
 
         if status == "lead-only":
             issues.append(

@@ -145,7 +145,7 @@ Apply object-level visual cleanup after token fill. This step is where real char
 Current scope:
 - removes template scaffold labels such as `PRIMARY CHART`, `POINT 1`, `STANDARD`
 - renders real visual objects on Slide 1, Slide 2, and selected Slide 6 variants when executable data is present
-- renders Slide 1 `industry_overview_dynamic_page` on the existing slide 1 canvas as a primary chart plus right-side metric cards / mini-table and bottom read-through takeaways; this does not require adding a new master-template slide
+- renders Slide 1 `industry_overview_dynamic_page` on the existing slide 1 canvas by preserving the left-side `KEY MESSAGES` area and replacing only the right-side `CHART / VISUAL` area with a real chart; this does not require adding a new master-template slide
 - renders Slide 2 mini-table and Slide 6 compare table as real PPT table objects when those page types are selected; do not deliver fake tables made from plain text separators
 - reads deterministic render coordinates from `templates/render_layouts.json`
 

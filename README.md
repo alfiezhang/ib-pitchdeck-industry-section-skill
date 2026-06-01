@@ -180,8 +180,8 @@ industry_storyboard.json
 Storyboard 是最核心的 LLM 推理产物。
 
 第 1 页默认不再只是三张指标卡。如果 memo 有可比的市场趋势、benchmark
-或结构拆分数据，应选择 `industry_overview_dynamic_page`，由 LLM 指定主图、
-右侧指标卡 / 小表格和底部读图结论，再由脚本在现有第 1 页画布上动态绘制。
+或结构拆分数据，应选择 `industry_overview_dynamic_page`。该模式保留左侧
+`KEY MESSAGES` 三条信息，只把右侧 `CHART / VISUAL` 区替换为真实图表。
 只有在数据不可比、证据冲突或没有 chart-ready 数据时，才退回 `summary_page`。
 
 ### 5. Validation

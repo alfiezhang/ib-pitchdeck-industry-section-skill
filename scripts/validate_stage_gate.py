@@ -12,6 +12,7 @@ from json_utils import load_json_file
 from validate_content_quality import validate as validate_content_quality
 from validate_memo import validate as validate_memo
 from validate_research_plan import validate as validate_research_plan
+from validate_run_artifacts import validate_search_log
 from validate_storyboard import validate as validate_storyboard
 
 
@@ -88,6 +89,10 @@ def validate_research_plan_gate(
 
     if not search_log_path.exists():
         errors.append(f"missing required artifact: {search_log_path}")
+    else:
+        search_errors, search_warnings = validate_search_log(search_log_path)
+        errors.extend(search_errors)
+        warnings.extend(search_warnings)
 
     registry_data = load_source_registry(source_registry, errors)
     if isinstance(plan_data, dict):

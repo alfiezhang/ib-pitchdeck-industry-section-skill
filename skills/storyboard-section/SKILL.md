@@ -220,14 +220,14 @@ transaction discussion?
 
 Use `industry_overview_dynamic_page` when the memo contains chart-ready data.
 This dynamic page uses the existing slide 1 canvas, not a new master template:
-the LLM chooses the content and data, while deterministic scripts draw the
-chart, side module, and bottom takeaways.
+preserve the left-side `KEY MESSAGES` area for three concise bullets, while
+deterministic scripts replace only the right-side `CHART / VISUAL` area with a
+real chart.
 
 Preferred structure:
 
-1. **Primary chart**: historical market-size trend, benchmark trend, or another comparable quantitative series with at least 3 datapoints.
-2. **Secondary module**: 2-3 metric cards or a compact mini-table for a segmentation, benchmark, or key structural readout.
-3. **Bottom takeaways**: 2 short read-through bullets in `body_copy.bullet_1` and `body_copy.bullet_2`.
+1. **Left key messages**: three concise bullets in `body_copy.bullet_1` through `body_copy.bullet_3`.
+2. **Right primary chart**: historical market-size trend, benchmark trend, or another comparable quantitative series with at least 3 datapoints.
 
 Use `summary_page` only when no reliable comparable chart data exists, metric
 definitions are unresolved, or charting would be misleading. Do not default to
@@ -307,7 +307,7 @@ Not: source references in body text — all Evidence IDs and source names belong
   - `bar`, `clustered_column`, `stacked_bar`, `stacked_column`, `line`: require `categories`, `series[].name`, numeric `series[].values`, `unit`, and `source_rows`.
   - `metric_cards`: require at least 3 `source_rows` for Slide 1 and at least 2 for any other slide; every row needs `label`, `value`, `period`, and `source`.
   - `none` is allowed only for non-quantitative layouts with no verified visual data.
-- **Slide 1 dynamic overview data**: For `industry_overview_dynamic_page`, use a primary `bar`, `stacked_bar`, `clustered_column`, or `line` chart. Add `chart_data.composition_type` (`market_trend`, `trend_plus_segmentation`, `benchmark`, or similar), `chart_data.secondary_module.rows`, and two bottom read-through bullets. If only KPI cards are supportable, choose fallback `summary_page`.
+- **Slide 1 dynamic overview data**: For `industry_overview_dynamic_page`, keep `body_copy.bullet_1` through `body_copy.bullet_3` as left-side key messages and use a primary `bar`, `stacked_bar`, `clustered_column`, or `line` chart in the right-side visual area. If only KPI cards are supportable, choose fallback `summary_page`.
 - **Slide 1 visual anchor is executable**: Slide 1 is rendered from `chart_data`. Use a clean `metric_cards` payload only for fallback `summary_page`; do not describe a funnel if the actual `chart_data.chart_type` is `metric_cards`.
 - **Metric card units are row-level when mixed**: if `metric_cards` mix currency, percentages, counts, or rankings, put `unit` or `value_unit` on each `source_rows[]` item, or include the unit directly in each value string. Do not use one mixed `chart_data.unit` such as `RMB / %`.
 - **Matrix slides need coordinates**: for `matrix_page`, include numeric x/y coordinates per plotted player in `chart_data.source_rows`, or provide two numeric series that map to the x and y axes.

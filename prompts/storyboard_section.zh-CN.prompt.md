@@ -183,12 +183,11 @@ writer 序列化，例如 `json.dump(..., ensure_ascii=False, indent=2)`。不�
 
 第 1 页是行业概览，应回答：这个行业是否足够大、是否在增长、是否有值得交易讨论的结构性特征。
 
-当 memo 中存在 chart-ready 数据时，优先使用 `industry_overview_dynamic_page`。该页使用现有第 1 页画布，不需要新增母版：你负责选择内容结构和数据，确定性脚本负责绘制图表、右侧模块和底部读图结论。
+当 memo 中存在 chart-ready 数据时，优先使用 `industry_overview_dynamic_page`。该页使用现有第 1 页画布，不需要新增母版：保留左侧 `KEY MESSAGES` 区域的三条精炼 bullet，确定性脚本只把右侧 `CHART / VISUAL` 区域替换为真实图表。
 
 推荐结构：
-1. **主图**：至少 3 个可比数据点的历史市场规模趋势、benchmark 趋势，或其他可比定量序列。
-2. **右侧辅助模块**：2-3 个指标卡，或一个紧凑小表格，用于展示细分、benchmark 或关键结构性读数。
-3. **底部读图结论**：在 `body_copy.bullet_1` 和 `body_copy.bullet_2` 写 2 条短结论。
+1. **左侧 Key Messages**：在 `body_copy.bullet_1` 至 `body_copy.bullet_3` 写三条精炼行业结论。
+2. **右侧主图**：至少 3 个可比数据点的历史市场规模趋势、benchmark 趋势，或其他可比定量序列。
 
 只有在缺少可靠可比图表数据、指标定义未解决、或画图会误导时，才使用 `summary_page`。不要在 memo 已有可用市场规模、增长、benchmark 或细分数据时默认退回三张 flashcard。
 
@@ -243,7 +242,7 @@ writer 序列化，例如 `json.dump(..., ensure_ascii=False, indent=2)`。不�
 - **图表指标可比性**：不要在同一个柱状图 / 条形图里比较 `Metric Type`、`Geography`、`Unit` 或图表展示期间不同的指标。例如，不要把收入和产值当成同类品类一起画。应拆成不同视觉、统一到可比口径，或在 `chart_data.notes` 中说明可比基础。
 - **指标卡单位**：如果 `metric_cards` 同时包含金额、百分比、数量或排名，必须在每个 `source_rows[]` 项里写 `unit` 或 `value_unit`，或直接把单位写进 `value` 字符串。不要只依赖一个混合 `chart_data.unit`，如 `亿元人民币 / %`。
 - **图例标签**：每个 `series.name` 必须足够短，可以直接作为图表图例；中文建议 2-8 个字，英文建议 1-3 个词。不要把完整句子写成 series name。
-- **第 1 页视觉契约**：第 1 页必须提供可执行的 `chart_data.chart_type`。如果选择 `industry_overview_dynamic_page`，主图必须是 `bar`、`stacked_bar`、`clustered_column` 或 `line`，并填写 `chart_data.composition_type`、`chart_data.secondary_module.rows`，同时在 `body_copy.bullet_1` 和 `body_copy.bullet_2` 写 2 条底部读图结论。`metric_cards` 只用于 fallback `summary_page`。不要把执行说明写进 `chart_data.title`。
+- **第 1 页视觉契约**：第 1 页必须提供可执行的 `chart_data.chart_type`。如果选择 `industry_overview_dynamic_page`，保留 `body_copy.bullet_1` 至 `body_copy.bullet_3` 作为左侧 Key Messages，右侧主图必须是 `bar`、`stacked_bar`、`clustered_column` 或 `line`。有图表时不要再增加右侧 flashcards；`metric_cards` 只用于 fallback `summary_page`。不要把执行说明写进 `chart_data.title`。
 - 对 `matrix_page`，请在 `source_rows` 中为每个被绘制对象提供数值型 `x` 和 `y` 坐标，或提供两个数值序列分别对应矩阵横轴和纵轴。
 - 对定量页面，`chart_data.title` 应写成可直接展示在 PPT 上的短图表标题；执行说明请放在 `visual_direction` 或 `chart_data.notes`，不要写进可见标题。
 - **target_link（标的关联）**：与标的公司的明确关联。每页都必须回答：这对**这个**标的意味着什么？

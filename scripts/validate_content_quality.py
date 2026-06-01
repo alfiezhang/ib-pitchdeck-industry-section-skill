@@ -635,17 +635,11 @@ def check_chart_data(
                 warnings.append(message)
                 blocking_warnings.append(message)
             if page_type == "industry_overview_dynamic_page":
-                secondary = chart_data.get("secondary_module") or {}
                 body_copy = slide.get("body_copy") or {}
-                takeaways = [body_copy.get("bullet_1"), body_copy.get("bullet_2")]
-                if not isinstance(secondary, dict) or not secondary.get("rows"):
+                key_messages = [body_copy.get("bullet_1"), body_copy.get("bullet_2"), body_copy.get("bullet_3")]
+                if len([item for item in key_messages if str(item or "").strip()]) < 3:
                     warnings.append(
-                        "slide 1: industry_overview_dynamic_page should include chart_data.secondary_module.rows "
-                        "for metric cards, a mini table, or a benchmark/segmentation panel"
-                    )
-                if len([item for item in takeaways if str(item or "").strip()]) < 2:
-                    warnings.append(
-                        "slide 1: industry_overview_dynamic_page should include at least two bottom read-through bullets"
+                        "slide 1: industry_overview_dynamic_page should preserve three left-side key message bullets"
                     )
             check_chart_metric_binding(slide, memo_text, warnings, blocking_warnings)
             return
@@ -787,6 +781,54 @@ def collect_chart_source_rows(chart_data: dict[str, Any]) -> list[dict[str, Any]
     return [row for row in collected if isinstance(row, dict)]
 
 
+def _parse_chart_number(value: Any) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value or "").strip().replace(",", "")
+    if not text:
+        return None
+    match = re.search(r"[-+]?\d+(?:\.\d+)?", text)
+    if not match:
+        return None
+    try:
+        return float(match.group(0))
+    except ValueError:
+        return None
+
+
+def _is_percent_metric(row: dict[str, str]) -> bool:
+    searchable = " ".join(
+        str(row.get(field, ""))
+        for field in ("Metric Type", "Metric Name", "Unit")
+    ).lower()
+    return any(token in searchable for token in ("%", "share", "rate", "ratio", "penetration", "占比", "份额", "比例", "渗透率"))
+
+
+def _is_percent_source_row(row: dict[str, Any], chart_data: dict[str, Any]) -> bool:
+    searchable = " ".join(
+        str(value or "")
+        for value in (
+            row.get("label"),
+            row.get("unit"),
+            row.get("value_unit"),
+            row.get("note"),
+            chart_data.get("unit"),
+        )
+    ).lower()
+    return "%" in searchable or any(token in searchable for token in ("share", "占比", "份额", "比例", "渗透率"))
+
+
+def _normalized_for_compare(value: float, is_percent: bool) -> list[float]:
+    if not is_percent:
+        return [value]
+    candidates = [value]
+    if value <= 1:
+        candidates.append(value * 100.0)
+    else:
+        candidates.append(value / 100.0)
+    return candidates
+
+
 def check_chart_metric_binding(
     slide: dict,
     memo_text: str,
@@ -806,6 +848,21 @@ def check_chart_metric_binding(
     rows = collect_chart_source_rows(chart_data)
     if not rows:
         return
+
+    series = chart_data.get("series") or []
+    categories = chart_data.get("categories") or []
+    if isinstance(series, list) and isinstance(categories, list) and categories:
+        datapoint_count = 0
+        for chart_series in series:
+            if isinstance(chart_series, dict) and isinstance(chart_series.get("values"), list):
+                datapoint_count += len(chart_series.get("values") or [])
+        if datapoint_count and len(rows) < datapoint_count:
+            message = (
+                f"slide {slide_no}: chart_data has {datapoint_count} chart datapoint(s) but only "
+                f"{len(rows)} source_rows; bind every chart datapoint to a specific MET-ID"
+            )
+            warnings.append(message)
+            blocking_warnings.append(message)
 
     metrics = parse_metric_reconciliation(memo_text)
     chart_met_ids: list[str] = []
@@ -828,6 +885,30 @@ def check_chart_metric_binding(
                 blocking_warnings.append(message)
                 continue
             chart_met_ids.append(metric_id)
+            metric_row = metrics[metric_id]
+            source_value = _parse_chart_number(value)
+            metric_value = _parse_chart_number(metric_row.get("Value", ""))
+            if _is_percent_source_row(row, chart_data) and not _is_percent_metric(metric_row):
+                message = (
+                    f"slide {slide_no}: chart_data.source_rows[{idx}] is percentage/share-like but "
+                    f"binds to {metric_id} ({metric_row.get('Metric Type', '')} / {metric_row.get('Unit', '')})"
+                )
+                warnings.append(message)
+                blocking_warnings.append(message)
+            if source_value is not None and metric_value is not None:
+                source_candidates = _normalized_for_compare(source_value, _is_percent_source_row(row, chart_data))
+                metric_candidates = _normalized_for_compare(metric_value, _is_percent_metric(metric_row))
+                if not any(
+                    abs(source - metric) <= max(0.05, abs(metric) * 0.02)
+                    for source in source_candidates
+                    for metric in metric_candidates
+                ):
+                    message = (
+                        f"slide {slide_no}: chart_data.source_rows[{idx}] value {value} does not match "
+                        f"{metric_id} value {metric_row.get('Value', '')}; do not reuse unrelated MET-IDs"
+                    )
+                    warnings.append(message)
+                    blocking_warnings.append(message)
 
     unique_ids = list(dict.fromkeys(chart_met_ids))
     if len(unique_ids) < 2:
