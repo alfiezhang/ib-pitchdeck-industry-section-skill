@@ -229,7 +229,7 @@ Classify gaps as:
 - `Optional Gap`: useful to mention as an open question
 - `Not Relevant`: intentionally excluded with rationale
 
-If any Critical Gap remains unresolved, run one focused Supplemental Research pass and update the memo. Do not proceed to storyboard with unresolved Critical Gaps unless the operator explicitly chooses degraded/debug mode.
+If any Critical Gap remains unresolved, run one focused Supplemental Research pass and update the memo. Also run one focused supplemental-search pass for single-source or conflicting market size, CAGR, market share, ranking, channel mix, valuation / transaction multiple, or target financial metrics that would anchor a slide title, chart, main takeaway, or transaction implication. Do not proceed to storyboard with unresolved Critical Gaps unless the operator explicitly chooses degraded/debug mode.
 
 ### Metric Consistency
 
@@ -351,11 +351,13 @@ Operational rule:
 
 1. Apply Evidence Promotion Gate: all Evidence Ledger rows must have been opened and reviewed.
 2. Populate Claim Scope and Evidence Status for every EV row.
-3. Populate Metric Reconciliation for every slide-bound quantitative metric.
-4. Add Parent Metric ID for subset relationships.
-5. Add CAGR Endpoint IDs for CAGR rows.
-6. Resolve or explicitly flag conflicting / not_comparable / unresolved metrics.
-7. Do not allow unresolved MET-IDs into Page Evidence Packs or downstream slide notes.
+3. Populate Source Locator and Raw Excerpt for every primary-reviewed EV row.
+4. Keep lead-only sources out of Evidence Ledger, Page Evidence Pack, Key Data Points, and downstream storyboard claims.
+5. Populate Metric Reconciliation for every slide-bound quantitative metric.
+6. Add Parent Metric ID for subset relationships.
+7. Add CAGR Endpoint IDs for CAGR rows.
+8. Resolve or explicitly flag conflicting / not_comparable / unresolved metrics.
+9. Do not allow unresolved MET-IDs into Page Evidence Packs or downstream slide notes.
 
 ---
 

@@ -76,6 +76,35 @@ WEAK_SOURCE_ALLOWED_CONTEXT = (
     "未采用",
 )
 
+GENERIC_SOURCE_LOCATORS = {
+    "正文",
+    "正文段落",
+    "官网",
+    "官网正文",
+    "报告正文",
+    "白皮书正文",
+    "source",
+    "website",
+    "webpage",
+    "article",
+    "report",
+    "n/a",
+    "na",
+    "-",
+    "—",
+}
+
+REQUIRED_METRIC_FIELDS = (
+    "Metric Type",
+    "Market Definition",
+    "Channel Scope",
+    "Geography",
+    "Data Period",
+    "Value",
+    "Unit",
+    "Conflict Status",
+)
+
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -101,6 +130,37 @@ def ledger_rows(text: str) -> list[str]:
             break
         if in_ledger and re.match(r"^\|\s*EV-\d{3}\s*\|", line):
             rows.append(line)
+    return rows
+
+
+def evidence_ledger_rows(text: str) -> list[dict[str, str]]:
+    """Parse Evidence Ledger table rows into dictionaries."""
+    rows: list[dict[str, str]] = []
+    in_ledger = False
+    header: list[str] = []
+    for line in text.splitlines():
+        if re.match(r"^##\s+Evidence Ledger\b", line, flags=re.IGNORECASE):
+            in_ledger = True
+            continue
+        if in_ledger and re.match(r"^##\s+", line):
+            break
+        if not in_ledger or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if not cells:
+            continue
+        if cells[0] == "Evidence ID":
+            header = cells
+            continue
+        if all(set(c) <= {"-", ":"} for c in cells):
+            continue
+        if not re.match(r"^EV-\d{3}$", cells[0] if cells else ""):
+            continue
+        row: dict[str, str] = {}
+        for i, cell in enumerate(cells):
+            key = header[i] if i < len(header) else f"col_{i}"
+            row[key] = cell
+        rows.append(row)
     return rows
 
 
@@ -227,7 +287,7 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], list[str], dict[str
         if page_no in {5, 6, 7}:
             page_ids = evidence_ids(section)
             # Build ledger_map from full text if not in cache
-            ledger_map: dict[str, str] = {}
+            ledger_map: dict[str, dict[str, str]] = {}
             for ledger_line in text.splitlines():
                 if not re.match(r"^\|\s*EV-\d{3}\s*\|", ledger_line):
                     continue
@@ -235,18 +295,24 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], list[str], dict[str
                 if len(cells) >= 3:
                     ev_id = cells[0].strip()
                     claim_scope = cells[2].strip().lower() if len(cells) > 2 else ""
-                    ledger_map[ev_id] = claim_scope
+                    status = cells[6].strip().lower() if len(cells) > 6 else ""
+                    ledger_map[ev_id] = {"claim_scope": claim_scope, "evidence_status": status}
 
             industry_claims = sum(
                 1 for ev_id in page_ids
-                if "industry-level" in ledger_map.get(ev_id, "")
+                if "industry-level" in ledger_map.get(ev_id, {}).get("claim_scope", "")
             )
             target_claims = sum(
                 1 for ev_id in page_ids
-                if "target-level" in ledger_map.get(ev_id, "")
+                if "target-level" in ledger_map.get(ev_id, {}).get("claim_scope", "")
+            )
+            lead_only_claims = sorted(
+                ev_id for ev_id in page_ids
+                if "lead-only" in ledger_map.get(ev_id, {}).get("evidence_status", "")
             )
             page_metric["industry_claim_count"] = industry_claims
             page_metric["target_claim_count"] = target_claims
+            page_metric["lead_only_claim_count"] = len(lead_only_claims)
 
             if industry_claims < 1:
                 errors.append(
@@ -259,6 +325,12 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], list[str], dict[str
                     f"page {page_no}: target-level claims ({target_claims}) equal or exceed "
                     f"industry-level claims ({industry_claims}). Industry structure pages should "
                     f"have more industry-level than target-level evidence."
+                )
+            if lead_only_claims:
+                errors.append(
+                    f"page {page_no}: lead-only evidence IDs appear in Page Evidence Pack: "
+                    + ", ".join(lead_only_claims)
+                    + ". Lead-only sources are discovery leads and must not support slide claims."
                 )
 
         metrics[str(page_no)] = page_metric
@@ -418,6 +490,69 @@ def lead_only_domain_issues(text: str, lead_only_domains: tuple[str, ...] = ()) 
     return issues
 
 
+def evidence_promotion_issues(text: str) -> list[str]:
+    """Validate Evidence Ledger promotion fields."""
+    issues: list[str] = []
+    allowed_scopes = {"industry-level", "target-level", "transaction-inference"}
+    allowed_statuses = {"primary-reviewed", "secondary-reviewed", "lead-only"}
+
+    for row in evidence_ledger_rows(text):
+        ev_id = row.get("Evidence ID", "EV-???")
+        scope = row.get("Claim Scope", "").strip().lower()
+        status = row.get("Evidence Status", "").strip().lower()
+        locator = row.get("Source Locator", "").strip()
+        excerpt = row.get("Raw Excerpt", "").strip()
+        source_name = row.get("Source Name", "").strip()
+        source_url = row.get("Source URL", "").strip()
+
+        if not row.get("Claim / Metric", "").strip():
+            issues.append(f"{ev_id}: Claim / Metric is required")
+        if scope not in allowed_scopes:
+            issues.append(f"{ev_id}: Claim Scope must be one of {sorted(allowed_scopes)}")
+        if status not in allowed_statuses:
+            issues.append(f"{ev_id}: Evidence Status must be one of {sorted(allowed_statuses)}")
+        if not source_name and not source_url:
+            issues.append(f"{ev_id}: Source Name or Source URL is required")
+
+        if status == "lead-only":
+            issues.append(
+                f"{ev_id}: lead-only evidence must stay in search_log.md, not formal Evidence Ledger"
+            )
+        if status == "primary-reviewed":
+            if not locator:
+                issues.append(f"{ev_id}: primary-reviewed evidence requires Source Locator")
+            elif locator.lower() in GENERIC_SOURCE_LOCATORS:
+                issues.append(
+                    f"{ev_id}: Source Locator '{locator}' is too generic; use page, section, table, paragraph, or URL anchor"
+                )
+            if not excerpt:
+                issues.append(f"{ev_id}: primary-reviewed evidence requires Raw Excerpt")
+        elif status == "secondary-reviewed":
+            if not locator:
+                issues.append(
+                    f"{ev_id}: secondary-reviewed evidence should still record Source Locator or explain the limitation"
+                )
+            if not excerpt:
+                issues.append(
+                    f"{ev_id}: secondary-reviewed evidence should include Raw Excerpt or a limitation note"
+                )
+    return issues
+
+
+def metric_required_field_issues(text: str) -> list[str]:
+    """Require slide-bound metrics to carry enough scope metadata."""
+    issues: list[str] = []
+    for row in metric_reconciliation_rows(text):
+        met_id = row.get("Metric ID", "MET-???")
+        missing = [field for field in REQUIRED_METRIC_FIELDS if not row.get(field, "").strip()]
+        if missing:
+            issues.append(f"{met_id}: missing required Metric Reconciliation field(s): {', '.join(missing)}")
+        conflict = row.get("Conflict Status", "").strip().lower()
+        if conflict in {"conflicting", "not_comparable", "unresolved"} and not row.get("Resolution", "").strip():
+            issues.append(f"{met_id}: Conflict Status is '{conflict}' but Resolution is blank")
+    return issues
+
+
 def math_consistency_checks(text: str) -> list[str]:
     """Check mathematical consistency in memo metrics."""
     issues: list[str] = []
@@ -506,7 +641,7 @@ def math_consistency_checks(text: str) -> list[str]:
             )
 
     # Check 3: CAGR matches endpoints
-    cagr_rows = [(met_id, m) for met_id, m in parsed.items() if m["metric_type"] == "CAGR" and m["value"] is not None]
+    cagr_rows = [(met_id, m) for met_id, m in parsed.items() if m["metric_type"] == "cagr" and m["value"] is not None]
     for cagr_id, cagr_m in cagr_rows:
         for met_id, m in parsed.items():
             if met_id not in cagr_m.get("comparable", set()):
@@ -644,6 +779,10 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None, source_registry_pa
     for issue in evidence_strength_issues(text):
         errors.append(issue)
     for issue in lead_only_domain_issues(text, lead_only_domains):
+        errors.append(issue)
+    for issue in evidence_promotion_issues(text):
+        errors.append(issue)
+    for issue in metric_required_field_issues(text):
         errors.append(issue)
 
     math_issues = math_consistency_checks(text)

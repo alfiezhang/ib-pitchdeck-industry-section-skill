@@ -178,7 +178,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["dimension", "broad_query", "targeted_validation_queries", "latest_query", "expected_evidence"],
+        "required": ["dimension", "broad_query", "targeted_validation_queries", "expected_evidence"],
         "properties": {
           "dimension": { "type": "string" },
           "broad_query": { "type": "string" },

@@ -160,6 +160,24 @@ Evidence Status values:
 
 If the original source cannot be accessed at all, mark the evidence as `secondary-reviewed` and disclose the limitation. Do not label it as `primary-reviewed`. Lead-only evidence must not appear in Page Evidence Pack arguments, Key Data Points, or downstream storyboard claims.
 
+## Focused Supplemental Research
+
+Before finalizing the memo, run one focused supplemental-search pass when any of
+the following would anchor a slide title, chart, main takeaway, or transaction
+implication:
+- market size
+- CAGR
+- market share or concentration
+- ranking
+- penetration / channel mix
+- valuation or transaction multiple
+- target-specific financial metric
+
+The goal is not to force a second source when none exists. The goal is to record
+whether the datapoint was cross-checked, remains single-source with caveats, or
+is conflicting / not comparable. Record supplemental searches in `search_log.md`
+and reflect the outcome in Metric Reconciliation.
+
 ## Source Hierarchy
 Prefer sources in this order when facts conflict:
 1. user-provided primary materials, management materials, CIM excerpts, diligence materials

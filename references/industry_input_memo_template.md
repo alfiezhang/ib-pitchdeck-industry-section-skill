@@ -169,7 +169,7 @@ and disclose the limitation. Do not label it as `primary-reviewed`.
 > If used during discovery, keep them in search_log.md as Lead-only or Rejected sources.
 
 | Evidence ID | Claim / Metric | Claim Scope | Source Name | Source URL | Source Type | Evidence Status | Source Date | Data Period | Source Locator | Raw Excerpt | Reliability | Confidence |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | EV-001 | | | | | | | | | | | | |
 | EV-002 | | | | | | | | | | | | |
 | EV-003 | | | | | | | | | | | | |
@@ -201,7 +201,7 @@ Claim strength values:
 > must not be automatically compared, summed, or placed in the same chart series.
 
 | Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Parent Metric ID | CAGR Endpoint IDs | Conflict Status | Resolution |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Market sizing | MET-001 | | | | | | | | | | | | | |
 | Market sizing | MET-002 | | | | | | | | | | | | | |
 
@@ -218,6 +218,8 @@ Key rules:
 - Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
 - Different channel_scope values must not be auto-summed or subtracted
 - Different market_definition values must not be auto-nested as parent-child
+- Slide-bound metrics must populate Metric Type, Market Definition, Channel Scope, Geography, Data Period, Value, Unit, and Conflict Status
+- Single-source metrics may be used only with clear source quality and scope caveats; unresolved/conflicting/not_comparable metrics must not anchor titles, chart data, or main takeaways
 - Different data_period values must not be plotted in the same time series without explicit labeling
 - Metrics with conflicting or not_comparable status must not appear in page headlines, chart data, main takeaway, or core transaction logic
 - Share values: use decimal form (e.g., 0.512 for 51.2%), not percentage integers
