@@ -86,9 +86,17 @@
               "evidence_ids": { "type": "array", "items": { "type": "string" }, "minItems": 2, "description": "Evidence IDs (e.g., EV-001) from the memo that support this slide's answer." },
               "metric_ids": { "type": "array", "items": { "type": "string" }, "description": "Metric IDs (e.g., MET-001) from the memo Metric Reconciliation table that underpin the slide's quantitative claims. Chart data values should match the memo values for these MET-IDs." },
               "forbidden_topics": { "type": "array", "items": { "type": "string" }, "description": "Content types that must NOT appear on this slide to maintain MECE boundaries. E.g., for Slide 3: ['CR5/CR10', 'channel structure', 'value chain']." },
-              "visual_role": { "type": "string", "description": "What the visual area should communicate. E.g., 'Show market size growth over 3 years as a bar chart'." }
-            },
-            "additionalProperties": false
+              "visual_role": { "type": "string", "description": "What the visual area should communicate. E.g., 'Show market size growth over 3 years as a bar chart'." },
+              "page_role": { "type": "string", "description": "The slide's generic page role. For Slide 1 use 'industry_overview'. For Slide 2 use one of the 10 drill-down roles from templates/drilldown_role_library.json (e.g., 'market_segmentation', 'channel_structure', 'customer_structure')." },
+              "page_question": { "type": "string", "description": "The single question this page answers. Distinct from the existing 'question' field — this is the page-level framing question for the slide pair validation." },
+              "primary_metric_ids": { "type": "array", "items": { "type": "string" }, "description": "MET-IDs that form the primary quantitative backbone of this slide. Slide 1 and Slide 2 primary_metric_ids overlap must be < 40%." },
+              "supporting_metric_ids": { "type": "array", "items": { "type": "string" }, "description": "MET-IDs used as secondary or contextual metrics on this slide." },
+              "drill_down_from_slide": { "type": "integer", "minimum": 1, "maximum": 8, "description": "Which slide this page drills down from. Slide 2 must set this to 1. Other slides set it only if they are an explicit drill-down." },
+              "new_information_added": { "type": "array", "items": { "type": "string" }, "description": "Categories of new structural information this slide adds beyond what the parent slide already covered. Slide 2 must have at least one entry. Examples: ['customer_segment', 'application_mix', 'channel_shift']." },
+              "intentional_overlap_metric_ids": { "type": "array", "items": { "type": "string" }, "description": "MET-IDs that intentionally appear on both this slide and its parent (e.g., total market size used as context). These are excluded from the overlap warning." },
+              "drilldown_role": { "type": "string", "description": "For Slide 2: the selected drill-down role from templates/drilldown_role_library.json (e.g., 'market_segmentation', 'channel_structure'). Required when slide_no is 2." }
+            }
+          },
           },
           "slide_role": {
             "type": "string",

@@ -416,6 +416,85 @@ def check_slide_specific_quality(
             warnings.append(f"slide {slide_no}: {message}")
 
 
+def validate_slide_1_2_pair(
+    slides: list[dict],
+    warnings: list[str],
+    blocking_warnings: list[str],
+) -> None:
+    """Validate that Slide 1 is an overview and Slide 2 is a distinct drill-down."""
+    slide_1 = None
+    slide_2 = None
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        no = slide.get("slide_no")
+        if no == 1:
+            slide_1 = slide
+        elif no == 2:
+            slide_2 = slide
+
+    if not slide_1 or not slide_2:
+        return
+
+    contract_1 = slide_1.get("slide_story_contract", {})
+    contract_2 = slide_2.get("slide_story_contract", {})
+
+    if not isinstance(contract_1, dict) or not isinstance(contract_2, dict):
+        return
+
+    # 1. Role check
+    role_2 = str(contract_2.get("page_role", "") or contract_2.get("drilldown_role", "")).strip()
+    if not role_2:
+        message = (
+            "slide 2: page_role / drilldown_role is required. Slide 2 must select one drill-down role "
+            "from templates/drilldown_role_library.json (e.g., market_segmentation, channel_structure, "
+            "customer_structure). Do not hard-code as channel or segment."
+        )
+        warnings.append(message)
+        blocking_warnings.append(message)
+
+    # 2. drill_down_from_slide check
+    drill_from = contract_2.get("drill_down_from_slide")
+    if drill_from != 1:
+        message = "slide 2: drill_down_from_slide must be 1 (drills down from industry overview)"
+        warnings.append(message)
+        blocking_warnings.append(message)
+
+    # 3. new_information_added check
+    new_info = contract_2.get("new_information_added", [])
+    if not isinstance(new_info, list) or len(new_info) < 1:
+        message = (
+            "slide 2: new_information_added is required. Slide 2 must add at least one category "
+            "of new structural insight beyond what Slide 1 covers."
+        )
+        warnings.append(message)
+        blocking_warnings.append(message)
+
+    # 4. Primary metric overlap check
+    metrics_1 = set(str(m).strip() for m in contract_1.get("primary_metric_ids", []) if str(m).strip())
+    metrics_2 = set(str(m).strip() for m in contract_2.get("primary_metric_ids", []) if str(m).strip())
+    intentional_overlap = set(str(m).strip() for m in contract_2.get("intentional_overlap_metric_ids", []))
+
+    if metrics_1 and metrics_2:
+        overlap_set = (metrics_1 & metrics_2) - intentional_overlap
+        denom = min(len(metrics_1), len(metrics_2))
+        if denom > 0:
+            overlap_ratio = len(overlap_set) / denom
+            if overlap_ratio >= 0.75:
+                message = (
+                    f"slide 1/2: primary metric overlap is {overlap_ratio:.0%} (≥75% threshold). "
+                    f"Overlapping MET-IDs: {sorted(overlap_set)[:5]}. "
+                    f"Slide 2 must introduce substantially new quantitative backbone."
+                )
+                warnings.append(message)
+                blocking_warnings.append(message)
+            elif overlap_ratio >= 0.40:
+                warnings.append(
+                    f"slide 1/2: primary metric overlap is {overlap_ratio:.0%} (≥40% threshold). "
+                    f"Consider whether Slide 2 adds enough new quantitative insight."
+                )
+
+
 def check_source_note_notes_discipline(
     slide: dict,
     warnings: list[str],
@@ -1160,6 +1239,9 @@ def validate(
 
     if memo_text:
         check_memo_source_quality(memo_text, weak_source_markers, source_warnings)
+
+    # Slide 1/2 pair validation: overview → drill-down
+    validate_slide_1_2_pair(slides, generic_copy_warnings, claim_strength_blocking_warnings)
 
     # Check storyboard metric_ids against memo Metric Reconciliation
     metric_id_issues = check_metric_ids_against_memo(slides, memo_text)

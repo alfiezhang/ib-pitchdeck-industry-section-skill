@@ -160,9 +160,6 @@ Do not force target mentions on every slide. Do not turn every slide into "indus
 
 Each slide must cover **one core story dimension**. Do not mix unrelated topics on the same slide. If a fact does not fit the slide's role, it belongs on a different slide or should be dropped.
 
-Bad: Slide 2 mixing channel trends, sub-segment growth, AND CR5 concentration changes — three different stories competing for space.
-Good: Slide 2 focusing on market size + one clear segmentation angle (channel OR sub-segments, not both).
-
 ### MECE Content Allocation
 
 Allocate content to slides so that the 8 slides together form a **complete, non-overlapping** story. Before drafting copy, map each major insight from the memo to exactly one slide:
@@ -170,8 +167,7 @@ Allocate content to slides so that the 8 slides together form a **complete, non-
 | Content Type | Belongs On | Do NOT Put On |
 |---|---|---|
 | Overall market size, growth, TAM | Slide 1 or 2 (not both) | — |
-| Channel structure / distribution shifts | Slide 2 (if chosen focus) | Slide 1, 3 |
-| Sub-segment breakdown / category trends | Slide 2 (if chosen focus) | Slide 1, 3 |
+| Selected structural drill-down | Slide 2 | Slide 1, 3 |
 | Industry concentration (CR5/CR10) | Slide 6 (competitive landscape) | Slide 2 |
 | Growth drivers / demand factors | Slide 3 | Slide 1, 2 |
 | Value chain / margin structure | Slide 4 | Slide 5 |
@@ -196,13 +192,15 @@ Use `summary_page` only when no reliable comparable chart data exists, metric de
 
 Do not use a funnel unless the metrics are strict parent-child subsets under the same geography, period, unit, and market definition. Otherwise, use a trend, benchmark, or segmentation chart and label scopes clearly.
 
-### Slide 2: Single Focus Axis
+### Slide 2: Best Available Drill-down
 
-Slide 2 covers market size AND segmentation. The segmentation angle must be **one clear axis**, not a grab-bag:
+Slide 2 must drill into the most decision-relevant structural factor from the industry overview. It answers: **what structural dimension best explains the industry opportunity?**
 
-- Choose **go-to-market structure** (direct/partner/channel mix) OR **sub-segments** (by category, price tier, customer segment) — not both.
-- If the memo has strong data on both, pick the one that best serves the transaction thesis.
-- CR5 / concentration data does NOT belong on Slide 2 — it belongs on Slide 6 (competitive landscape).
+Do not hard-code Slide 2 as channel, segment, or any single topic. Score candidate drill-downs from `templates/drilldown_role_library.json` on: evidence strength, decision relevance, distinctiveness from Slide 1, visualizability, and transaction relevance (1-5 each). Select the highest-scoring role.
+
+Available drill-down roles: `market_segmentation`, `customer_structure`, `channel_structure`, `application_scenarios`, `value_chain_profit_pool`, `penetration_and_benchmark`, `technology_or_product_evolution`, `policy_and_regulation`, `supply_demand_dynamics`, `competitive_structure`.
+
+In the slide contract, set `drilldown_role` and `page_role` to the selected role, `drill_down_from_slide` to 1, and populate `new_information_added` with the categories of new structural insight this slide contributes. CR5 / concentration data belongs on Slide 6, not Slide 2.
 
 ### Pyramid Writing Rule
 
