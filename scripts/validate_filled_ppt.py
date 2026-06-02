@@ -136,6 +136,48 @@ def collect_visible_text_issues(pptx_path: Path) -> list[dict]:
     return issues
 
 
+def collect_embedded_ole_issues(pptx_path: Path) -> list[dict]:
+    issues = []
+    with open_pptx(pptx_path) as archive:
+        for name in archive.namelist():
+            lower_name = name.lower()
+            if lower_name.startswith("ppt/embeddings/oleobject") or (
+                lower_name.startswith("ppt/embeddings/") and lower_name.endswith(".bin")
+            ):
+                issues.append(
+                    {
+                        "part": name,
+                        "issue_type": "embedded_ole_part",
+                        "detail": "Clean PPT contains an embedded object part; remove template OLE/think-cell objects before delivery.",
+                    }
+                )
+                continue
+            if not (lower_name.endswith(".xml") or lower_name.endswith(".rels")):
+                continue
+            try:
+                raw_text = archive.read(name).decode("utf-8", errors="ignore")
+            except Exception:
+                continue
+            lowered = raw_text.lower()
+            if "think-cell" in lowered or "tclayout.activedocument" in lowered:
+                issues.append(
+                    {
+                        "part": name,
+                        "issue_type": "think_cell_reference",
+                        "detail": "Clean PPT contains a think-cell reference that may trigger PowerPoint repair prompts.",
+                    }
+                )
+            if "/oleobject" in lowered or "<p:oleobj" in lowered:
+                issues.append(
+                    {
+                        "part": name,
+                        "issue_type": "embedded_ole_reference",
+                        "detail": "Clean PPT contains an embedded OLE relationship/reference.",
+                    }
+                )
+    return issues
+
+
 def is_footer_page_number_candidate(shape, slide_width: int, slide_height: int) -> bool:
     text = getattr(shape, "text", "") if hasattr(shape, "text") else ""
     normalized = normalize_visible_text(text)
@@ -379,6 +421,7 @@ def build_report(
         issue for issue in visible_text_issues
         if issue.get("issue_type") == "visible_html_entity"
     ]
+    embedded_ole_issues = collect_embedded_ole_issues(clean_ppt_path)
     page_number_check = collect_page_number_issues(clean_ppt_path)
 
     kept_slide_count_ok = len(actual_kept_slides) == len(expected_physical_slides) == 8
@@ -389,6 +432,7 @@ def build_report(
     placeholders_ok = not remaining_placeholders
     suspicious_values_ok = not suspicious_missing_values
     visible_text_ok = not visible_text_issues
+    embedded_ole_ok = not embedded_ole_issues
     page_numbers_ok = page_number_check["is_valid"]
 
     return {
@@ -404,6 +448,7 @@ def build_report(
             "suspicious_missing_active_value_count": len(suspicious_missing_values),
             "visible_scaffold_label_count": len(visible_scaffold_label_issues),
             "visible_html_entity_count": len(visible_html_entity_issues),
+            "embedded_ole_issue_count": len(embedded_ole_issues),
             "page_number_issue_count": len(page_number_check["issues"]),
             "placeholders_ok": placeholders_ok,
             "kept_slide_count_ok": kept_slide_count_ok,
@@ -411,6 +456,7 @@ def build_report(
             "kept_slide_files_renumbered_after_resave": renumbered_after_resave,
             "suspicious_values_ok": suspicious_values_ok,
             "visible_text_ok": visible_text_ok,
+            "embedded_ole_ok": embedded_ole_ok,
             "page_numbers_ok": page_numbers_ok,
             "is_valid": (
                 placeholders_ok
@@ -418,6 +464,7 @@ def build_report(
                 and kept_slide_selection_ok
                 and suspicious_values_ok
                 and visible_text_ok
+                and embedded_ole_ok
                 and page_numbers_ok
             ),
         },
@@ -427,6 +474,7 @@ def build_report(
         "suspicious_missing_active_values": suspicious_missing_values,
         "visible_scaffold_label_issues": visible_scaffold_label_issues,
         "visible_html_entity_issues": visible_html_entity_issues,
+        "embedded_ole_issues": embedded_ole_issues,
         "page_number_check": page_number_check,
     }
 

@@ -66,6 +66,11 @@ any PPTX output, run the deterministic pre-PPT gate:
 If this gate fails, do not continue to PPT fill. Fix the upstream research plan,
 memo, storyboard, or content-quality artifact first.
 
+The PPT-producing scripts (`fill_ppt_tokens.py`, `clean_filled_ppt.py`, and
+`postprocess_ppt_visuals.py`) also enforce this gate when called directly. Do
+not bypass it with `--allow-ungated-debug` except for local diagnostics; an
+ungated PPT is a debug artifact, not a deliverable.
+
 ### 1. Validate Storyboard Contract
 
 Check that `industry_storyboard.json` is executable before converting or filling the deck.
@@ -146,6 +151,7 @@ Current scope:
 - removes template scaffold labels such as `PRIMARY CHART`, `POINT 1`, `STANDARD`
 - renders real visual objects on Slide 1, Slide 2, and selected Slide 6 variants when executable data is present
 - renders Slide 1 `industry_overview_dynamic_page` on the existing slide 1 canvas by preserving the left-side `KEY MESSAGES` area and replacing only the right-side `CHART / VISUAL` area with a real chart; this does not require adding a new master-template slide
+- does not fabricate right-side metric cards from primary chart rows; if a `secondary_module` is requested it must have its own rows, otherwise no secondary module should be rendered
 - renders Slide 2 mini-table and Slide 6 compare table as real PPT table objects when those page types are selected; do not deliver fake tables made from plain text separators
 - reads deterministic render coordinates from `templates/render_layouts.json`
 

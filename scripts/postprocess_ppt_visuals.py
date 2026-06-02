@@ -3,11 +3,14 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Optional, Union
+from zipfile import ZIP_DEFLATED, ZipFile
 
+from gate_guard import require_pre_ppt_gate
 from json_utils import load_json_file
 
 try:
@@ -356,14 +359,19 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
     value_axis.tick_labels.font.color.rgb = TEXT_GRAY
     value_axis.format.line.color.rgb = GRID_GRAY
 
+    normalized_chart_type = str(chart_data.get("chart_type") or "").lower()
     plot = chart.plots[0]
     plot.has_data_labels = True
     data_labels = plot.data_labels
-    data_labels.position = XL_DATA_LABEL_POSITION.OUTSIDE_END
+    if normalized_chart_type in {"stacked_bar", "stacked_column"}:
+        data_labels.position = XL_DATA_LABEL_POSITION.CENTER
+        data_labels.number_format = '0.0'
+    else:
+        data_labels.position = XL_DATA_LABEL_POSITION.OUTSIDE_END
+        data_labels.number_format = '#,##0'
     data_labels.font.size = Pt(9)
     data_labels.font.name = BODY_FONT
     data_labels.font.bold = True
-    data_labels.number_format = '#,##0'
 
     palette = [BRAND_BLUE, ACCENT_RED, RGBColor(0x6C, 0x8E, 0xB8)]
     for idx, s in enumerate(chart.series):
@@ -638,6 +646,17 @@ def add_panel_box(slide, left: int, top: int, width: int, height: int) -> None:
     panel.line.width = Pt(1)
 
 
+def remove_think_cell_ole_shapes(slide) -> list[dict]:
+    removed = []
+    for shape in list(slide.shapes):
+        name = str(getattr(shape, "name", "") or "")
+        if "think-cell" not in name.lower():
+            continue
+        remove_shape(shape)
+        removed.append({"shape_name": name, "shape_type": str(getattr(shape, "shape_type", ""))})
+    return removed
+
+
 def format_metric_value(label: str, value: Union[float, int, str], unit: str) -> str:
     if isinstance(value, str):
         text = value.strip()
@@ -673,11 +692,12 @@ def render_secondary_module(slide, chart_data: dict, layout: dict) -> dict:
         module = {}
     module_type = str(module.get("module_type") or "metric_cards").lower()
     rows = module.get("rows") or []
-    if not rows:
-        rows = chart_data.get("source_rows") or []
     rows = [row for row in rows if isinstance(row, dict)]
     if not rows:
-        return {"rendered": False, "reason": "missing secondary module rows"}
+        return {
+            "rendered": False,
+            "reason": "missing secondary module rows; refused to reuse primary chart source_rows as fallback",
+        }
 
     left, top, width, height = layout["side_box"]
     removed = remove_text_shapes_in_box(slide, layout["side_box"])
@@ -1064,12 +1084,117 @@ def save_presentation(prs: Presentation, output_path: Path) -> None:
     prs.save(output_path)
 
 
+def _remove_ole_graphic_frames(xml_text: str) -> tuple[str, int]:
+    removed_count = 0
+    frame_pattern = re.compile(r"<p:graphicFrame\b.*?</p:graphicFrame>", re.DOTALL)
+
+    def replace_frame(match: re.Match) -> str:
+        nonlocal removed_count
+        frame = match.group(0)
+        lowered = frame.lower()
+        if "<p:oleobj" in lowered or "tclayout.activedocument" in lowered or "think-cell" in lowered:
+            removed_count += 1
+            return ""
+        return frame
+
+    cleaned = frame_pattern.sub(replace_frame, xml_text)
+    ole_obj_pattern = re.compile(r"<p:oleObj\b.*?</p:oleObj>", re.DOTALL)
+    cleaned, fallback_removed = ole_obj_pattern.subn("", cleaned)
+    removed_count += fallback_removed
+    return cleaned, removed_count
+
+
+def _remove_ole_relationships(rels_text: str) -> tuple[str, int]:
+    rel_pattern = re.compile(r"<Relationship\b[^>]*/>", re.DOTALL)
+    removed_count = 0
+
+    def replace_rel(match: re.Match) -> str:
+        nonlocal removed_count
+        rel = match.group(0)
+        lowered = rel.lower()
+        if "/oleobject" in lowered or "target=\"../embeddings/oleobject" in lowered:
+            removed_count += 1
+            return ""
+        return rel
+
+    return rel_pattern.sub(replace_rel, rels_text), removed_count
+
+
+def _remove_ole_content_types(content_types_text: str) -> tuple[str, int]:
+    override_pattern = re.compile(r"<Override\b[^>]*PartName=\"/ppt/embeddings/oleObject[^\"]*\"[^>]*/>", re.DOTALL)
+    cleaned, removed_count = override_pattern.subn("", content_types_text)
+    return cleaned, removed_count
+
+
+def sanitize_ole_artifacts(pptx_path: Path) -> dict:
+    with ZipFile(pptx_path, "r") as archive:
+        original_items = [(name, archive.read(name)) for name in archive.namelist()]
+
+    removed_parts = []
+    updated_parts = []
+    sanitized_items = []
+
+    for name, payload in original_items:
+        lower_name = name.lower()
+        if lower_name.startswith("ppt/embeddings/oleobject") or (
+            lower_name.startswith("ppt/embeddings/") and lower_name.endswith(".bin")
+        ):
+            removed_parts.append(name)
+            continue
+
+        if lower_name.endswith(".rels") or lower_name.endswith(".xml"):
+            text = payload.decode("utf-8", errors="ignore")
+            updated_text = text
+            removed_count = 0
+
+            if lower_name.endswith(".rels"):
+                updated_text, removed_count = _remove_ole_relationships(updated_text)
+            elif lower_name == "[content_types].xml":
+                updated_text, removed_count = _remove_ole_content_types(updated_text)
+            elif lower_name.startswith("ppt/slides/") or lower_name.startswith("ppt/slidelayouts/") or lower_name.startswith("ppt/slidemasters/"):
+                updated_text, removed_count = _remove_ole_graphic_frames(updated_text)
+
+            if "think-cell" in updated_text.lower():
+                updated_text = re.sub(r"think-cell[^<]*", "removed embedded object", updated_text, flags=re.IGNORECASE)
+                removed_count += 1
+            if "tclayout.activedocument" in updated_text.lower():
+                updated_text = re.sub(r"TCLayout\.ActiveDocument\.\d+", "removed.embedded.object", updated_text, flags=re.IGNORECASE)
+                removed_count += 1
+
+            if removed_count:
+                updated_parts.append({"part": name, "removed_count": removed_count})
+                payload = updated_text.encode("utf-8")
+
+        sanitized_items.append((name, payload))
+
+    if not removed_parts and not updated_parts:
+        return {"removed_parts": [], "updated_parts": []}
+
+    with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+    try:
+        with ZipFile(tmp_path, "w", ZIP_DEFLATED) as archive:
+            for name, payload in sanitized_items:
+                archive.writestr(name, payload)
+        shutil.move(str(tmp_path), pptx_path)
+    finally:
+        if tmp_path.exists():
+            os.unlink(tmp_path)
+
+    return {"removed_parts": removed_parts, "updated_parts": updated_parts}
+
+
 def postprocess(input_ppt: Path, storyboard_path: Path, output_ppt: Path, render_layouts_path: Path = DEFAULT_RENDER_LAYOUTS_PATH) -> dict:
     storyboard = load_json(storyboard_path)
     render_layouts = load_render_layouts(render_layouts_path)
     prs = Presentation(str(input_ppt))
 
     removed_labels = remove_scaffold_labels(prs)
+    removed_think_cell_ole = []
+    for slide_idx, slide in enumerate(prs.slides, start=1):
+        removed = remove_think_cell_ole_shapes(slide)
+        if removed:
+            removed_think_cell_ole.append({"slide_no": slide_idx, "removed": removed})
     page_number_updates = rewrite_page_numbers(prs)
     chart_results = []
     for slide_data in storyboard.get("slides", []):
@@ -1083,6 +1208,7 @@ def postprocess(input_ppt: Path, storyboard_path: Path, output_ppt: Path, render
                 chart_results.append(skipped_non_rendered_slide(slide_data))
 
     save_presentation(prs, output_ppt)
+    ole_sanitization = sanitize_ole_artifacts(output_ppt)
 
     return {
         "input_ppt": str(input_ppt),
@@ -1090,6 +1216,8 @@ def postprocess(input_ppt: Path, storyboard_path: Path, output_ppt: Path, render
         "render_layouts": str(render_layouts_path),
         "output_ppt": str(output_ppt),
         "removed_scaffold_labels": removed_labels,
+        "removed_think_cell_ole": removed_think_cell_ole,
+        "ole_sanitization": ole_sanitization,
         "page_number_updates": page_number_updates,
         "chart_rendering": chart_results,
     }
@@ -1113,9 +1241,16 @@ def main() -> None:
         action="store_true",
         help="Exit non-zero if a required deterministic visual renderer fails.",
     )
+    parser.add_argument(
+        "--allow-ungated-debug",
+        action="store_true",
+        help="Bypass the pre-PPT stage gate. Use only for local diagnostics, never delivery.",
+    )
     args = parser.parse_args()
 
-    result = postprocess(Path(args.input_ppt), Path(args.storyboard), Path(args.output), Path(args.render_layouts))
+    output_path = Path(args.output)
+    require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
+    result = postprocess(Path(args.input_ppt), Path(args.storyboard), output_path, Path(args.render_layouts))
     if args.log:
         save_json(result, Path(args.log))
     print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -314,6 +314,12 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
     --output "$OUTPUT_DIR/artifacts/stage_gate_pre_ppt_validation.json"
 fi
 
+PPT_SCRIPT_GATE_ARGS_STRING=""
+if [[ $RESEARCH_GATE -eq 0 ]]; then
+  PPT_SCRIPT_GATE_ARGS_STRING="--allow-ungated-debug"
+  export IB_SKILL_ALLOW_UNGATED_DEBUG=1
+fi
+
 if [[ -f "$PPT_COPY" ]]; then
   stage_file "$PPT_COPY" "$STAGED_PPT_COPY"
 else
@@ -363,7 +369,8 @@ echo "[3/7] Filling PPT tokens..."
   --template "$TEMPLATE" \
   --replacement-dict "$OUTPUT_DIR/replacement_dict.json" \
   --output "$OUTPUT_DIR/industry_section_filled.pptx" \
-  --log "$OUTPUT_DIR/artifacts/fill_ppt_tokens.log.json"
+  --log "$OUTPUT_DIR/artifacts/fill_ppt_tokens.log.json" \
+  ${PPT_SCRIPT_GATE_ARGS_STRING:+"$PPT_SCRIPT_GATE_ARGS_STRING"}
 
 # ── Step 4: Clean inactive variant slides ────────────────────────
 echo "[4/7] Cleaning inactive variant slides..."
@@ -371,7 +378,8 @@ echo "[4/7] Cleaning inactive variant slides..."
   --input "$OUTPUT_DIR/industry_section_filled.pptx" \
   --control-file "$STAGED_STORYBOARD" \
   --output "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
-  --log "$OUTPUT_DIR/artifacts/clean_filled_ppt.log.json"
+  --log "$OUTPUT_DIR/artifacts/clean_filled_ppt.log.json" \
+  ${PPT_SCRIPT_GATE_ARGS_STRING:+"$PPT_SCRIPT_GATE_ARGS_STRING"}
 
 # ── Step 5: Post-process visuals ─────────────────────────────────
 echo "[5/7] Post-processing visuals..."
@@ -381,6 +389,7 @@ echo "[5/7] Post-processing visuals..."
   --output "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
   --render-layouts "$SCRIPT_DIR/templates/render_layouts.json" \
   --log "$OUTPUT_DIR/artifacts/postprocess_ppt_visuals.log.json" \
+  ${PPT_SCRIPT_GATE_ARGS_STRING:+"$PPT_SCRIPT_GATE_ARGS_STRING"} \
   --fail-on-unrendered
 
 # ── Step 6: Validate final output ────────────────────────────────

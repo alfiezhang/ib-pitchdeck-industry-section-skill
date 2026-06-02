@@ -45,7 +45,9 @@ Source Selection Rationale:
 - **Dimension**: # e.g., market_size_growth
 - **Selected Source Reason**:
 - **Result Count**:
-- **Selected Sources**:
+- **Selected Sources**: # exact article/report/PDF URLs only; source names or root domains are insufficient
+- **Opened / Reviewed**: # yes/no; formal evidence requires opening the underlying page/report/PDF
+- **Source Locator / Raw Excerpt**: # page/section/table/paragraph/URL anchor plus short excerpt or limitation note
 - **Lead-only Sources**:
 - **Rejected Sources** (with reason):
 - **Notes**:
@@ -60,7 +62,9 @@ Source Selection Rationale:
 - **Dimension**:
 - **Selected Source Reason**:
 - **Result Count**:
-- **Selected Sources**:
+- **Selected Sources**: # exact article/report/PDF URLs only
+- **Opened / Reviewed**:
+- **Source Locator / Raw Excerpt**:
 - **Lead-only Sources**:
 - **Rejected Sources** (with reason):
 - **Notes**:
@@ -75,7 +79,9 @@ Source Selection Rationale:
 - **Dimension**:
 - **Selected Source Reason**:
 - **Result Count**:
-- **Selected Sources**:
+- **Selected Sources**: # exact article/report/PDF URLs only
+- **Opened / Reviewed**:
+- **Source Locator / Raw Excerpt**:
 - **Lead-only Sources**:
 - **Rejected Sources** (with reason):
 - **Notes**:

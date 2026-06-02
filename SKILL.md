@@ -136,6 +136,7 @@ If this run starts from only a brief or attachments and verified online research
 
 Research plan audit rule:
 - Broad discovery coverage in `search_log.md` does not by itself make research complete.
+- `search_log.md` must record real executed searches, not a reconstructed template. Each completed search attempt must include a query, provider, search stage, result count, exact selected source URL(s), positive opened/reviewed confirmation, and source locator/raw-excerpt context. Search-result snippets or source names/domains alone are not formal evidence.
 - After broad discovery, update `artifacts/research_plan.json` with actual selected source packs/domains, targeted validation queries, latest/current queries, and selection rationale.
 - Run formal validation before memo synthesis:
 
@@ -231,6 +232,11 @@ This is a **deterministic script-driven step**. The LLM does not hand-write `rep
 Outputs: `replacement_dict.json` → `industry_section_filled.pptx` → `industry_section_filled_clean.pptx` → `filled_ppt_validation.json`
 
 Final PPT validation is a hard gate. If `filled_ppt_validation.json` has `summary.is_valid=false`, do not deliver the PPT. Fix the underlying issue instead of explaining it away.
+
+Final delivery validation reports three levels:
+- `technical_delivery_valid`: PPT package, tokens, slide selection, page numbers, OLE cleanup, and visual-object checks passed.
+- `research_evidence_valid`: mandatory research artifacts, search log, memo evidence, MET/EV binding, and content quality gates passed.
+- `client_ready`: no deterministic errors or warnings remain. A technically valid deck can still be a debug draft if research evidence is incomplete or warnings remain.
 
 Validation/fix loop limit: try at most 3 repair cycles for the same validation gate. If the same gate still fails, stop and report the failed gate, remaining errors, likely root cause, and smallest next action.
 

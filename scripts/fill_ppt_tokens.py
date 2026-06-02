@@ -11,6 +11,8 @@ from zipfile import ZipFile
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 
+from gate_guard import require_pre_ppt_gate
+
 
 def load_json(path: Path):
     try:
@@ -302,10 +304,17 @@ def main():
     parser.add_argument("--replacement-dict", default="replacement_dict.json")
     parser.add_argument("--output", default="industry_section_filled.pptx")
     parser.add_argument("--log", default="")
+    parser.add_argument(
+        "--allow-ungated-debug",
+        action="store_true",
+        help="Bypass the pre-PPT stage gate. Use only for local diagnostics, never delivery.",
+    )
     args = parser.parse_args()
 
     try:
-        result = fill_ppt(Path(args.template), Path(args.replacement_dict), Path(args.output))
+        output_path = Path(args.output)
+        require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
+        result = fill_ppt(Path(args.template), Path(args.replacement_dict), output_path)
     except Exception as exc:
         raise SystemExit(str(exc)) from exc
 

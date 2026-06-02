@@ -268,6 +268,8 @@ def validate_memo_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
 def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
+    technical_delivery_valid = True
+    research_evidence_valid = True
 
     artifact_result = validate_run_artifacts(run_dir, require_research=True)
     errors.extend(artifact_result["errors"])
@@ -329,9 +331,11 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
             ppt_report = build_report(**ppt_paths)
         except Exception as exc:
             errors.append(f"cannot validate final PPT: {exc}")
+            technical_delivery_valid = False
         else:
             if not ppt_report["summary"]["is_valid"]:
                 errors.append("final PPT validation failed")
+                technical_delivery_valid = False
                 for issue in ppt_report.get("visible_scaffold_label_issues", []):
                     warnings.append(f"visible scaffold label: slide {issue['slide_no']} {issue['text']}")
                 for issue in ppt_report.get("page_number_check", {}).get("issues", []):
@@ -341,9 +345,33 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
     else:
         missing = [name for name, path in ppt_paths.items() if not path.exists()]
         errors.append("missing final PPT validation input(s): " + ", ".join(missing))
+        technical_delivery_valid = False
+
+    research_error_terms = (
+        "research",
+        "search_log",
+        "search log",
+        "memo",
+        "evidence",
+        "metric",
+        "MET-",
+        "EV-",
+        "source",
+        "content quality",
+        "storyboard",
+        "stage_gate",
+    )
+    research_evidence_valid = not any(
+        any(term.lower() in str(error).lower() for term in research_error_terms)
+        for error in errors
+    )
+    client_ready = technical_delivery_valid and research_evidence_valid and not errors and not warnings
 
     return {
         "is_valid": not errors,
+        "technical_delivery_valid": technical_delivery_valid,
+        "research_evidence_valid": research_evidence_valid,
+        "client_ready": client_ready,
         "error_count": len(errors),
         "warning_count": len(warnings),
         "errors": errors,

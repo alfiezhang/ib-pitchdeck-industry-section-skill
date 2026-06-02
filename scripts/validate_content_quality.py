@@ -634,6 +634,22 @@ def check_chart_data(
                 message = f"slide 1: chart_type '{chart_type}' requires source_rows"
                 warnings.append(message)
                 blocking_warnings.append(message)
+            secondary_module = chart_data.get("secondary_module") or {}
+            if page_type == "industry_overview_dynamic_page":
+                if not isinstance(secondary_module, dict):
+                    secondary_module = {}
+                secondary_type = str(secondary_module.get("module_type") or "").strip().lower()
+                secondary_rows = secondary_module.get("rows") or []
+                if secondary_type and secondary_type not in {"none", "no_module", "disabled"} and (
+                    not isinstance(secondary_rows, list) or not [row for row in secondary_rows if isinstance(row, dict)]
+                ):
+                    message = (
+                        "slide 1: chart_data.secondary_module is requested but rows are empty; "
+                        "either provide true secondary_module.rows or omit/disable the module. "
+                        "Do not reuse primary chart source_rows as metric-card fallback."
+                    )
+                    warnings.append(message)
+                    blocking_warnings.append(message)
             if page_type == "industry_overview_dynamic_page":
                 body_copy = slide.get("body_copy") or {}
                 key_messages = [body_copy.get("bullet_1"), body_copy.get("bullet_2"), body_copy.get("bullet_3")]
@@ -781,6 +797,18 @@ def collect_chart_source_rows(chart_data: dict[str, Any]) -> list[dict[str, Any]
     return [row for row in collected if isinstance(row, dict)]
 
 
+def chart_datapoint_count(chart_data: dict[str, Any]) -> int:
+    categories = chart_data.get("categories") or []
+    series = chart_data.get("series") or []
+    if not isinstance(categories, list) or not isinstance(series, list):
+        return 0
+    datapoint_count = 0
+    for chart_series in series:
+        if isinstance(chart_series, dict) and isinstance(chart_series.get("values"), list):
+            datapoint_count += len(chart_series.get("values") or [])
+    return datapoint_count
+
+
 def _parse_chart_number(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
@@ -818,6 +846,14 @@ def _is_percent_source_row(row: dict[str, Any], chart_data: dict[str, Any]) -> b
     return "%" in searchable or any(token in searchable for token in ("share", "占比", "份额", "比例", "渗透率"))
 
 
+def _row_period(row: dict[str, Any]) -> str:
+    return str(row.get("period") or row.get("data_period") or row.get("year") or "").strip()
+
+
+def _normalized_scope(value: Any) -> str:
+    return re.sub(r"\s+", "", str(value or "").strip().lower())
+
+
 def _normalized_for_compare(value: float, is_percent: bool) -> list[float]:
     if not is_percent:
         return [value]
@@ -852,10 +888,7 @@ def check_chart_metric_binding(
     series = chart_data.get("series") or []
     categories = chart_data.get("categories") or []
     if isinstance(series, list) and isinstance(categories, list) and categories:
-        datapoint_count = 0
-        for chart_series in series:
-            if isinstance(chart_series, dict) and isinstance(chart_series.get("values"), list):
-                datapoint_count += len(chart_series.get("values") or [])
+        datapoint_count = chart_datapoint_count(chart_data)
         if datapoint_count and len(rows) < datapoint_count:
             message = (
                 f"slide {slide_no}: chart_data has {datapoint_count} chart datapoint(s) but only "
@@ -888,6 +921,15 @@ def check_chart_metric_binding(
             metric_row = metrics[metric_id]
             source_value = _parse_chart_number(value)
             metric_value = _parse_chart_number(metric_row.get("Value", ""))
+            source_period = _row_period(row)
+            metric_period = str(metric_row.get("Data Period") or "").strip()
+            if source_period and metric_period and _normalized_scope(source_period) not in _normalized_scope(metric_period):
+                message = (
+                    f"slide {slide_no}: chart_data.source_rows[{idx}] period '{source_period}' does not match "
+                    f"{metric_id} Data Period '{metric_period}'"
+                )
+                warnings.append(message)
+                blocking_warnings.append(message)
             if _is_percent_source_row(row, chart_data) and not _is_percent_metric(metric_row):
                 message = (
                     f"slide {slide_no}: chart_data.source_rows[{idx}] is percentage/share-like but "
@@ -909,6 +951,14 @@ def check_chart_metric_binding(
                     )
                     warnings.append(message)
                     blocking_warnings.append(message)
+
+    if len(chart_met_ids) != len(set(chart_met_ids)) and chart_datapoint_count(chart_data) > len(set(chart_met_ids)):
+        message = (
+            f"slide {slide_no}: chart_data reuses MET-IDs across multiple datapoints. "
+            "Each distinct chart datapoint should bind to its own MET-ID unless the same value is intentionally repeated as context."
+        )
+        warnings.append(message)
+        blocking_warnings.append(message)
 
     unique_ids = list(dict.fromkeys(chart_met_ids))
     if len(unique_ids) < 2:
@@ -1112,6 +1162,54 @@ def check_metric_ids_against_memo(slides: list[dict], memo_text: str) -> list[st
                         f"slide {slide_no}: chart_data references {met_id} with status '{status}'"
                     )
 
+    return issues
+
+
+def check_slide6_industry_balance(slides: list[dict], memo_text: str) -> list[str]:
+    """Require Slide 6 competitive landscape to remain industry/peer-first."""
+    if not memo_text:
+        return []
+    ev_scope: dict[str, str] = {}
+    in_ledger = False
+    header: list[str] = []
+    for line in memo_text.splitlines():
+        if re.match(r"^##\s+Evidence Ledger\b", line, flags=re.IGNORECASE):
+            in_ledger = True
+            continue
+        if in_ledger and re.match(r"^##\s+", line):
+            break
+        if not in_ledger or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if not cells:
+            continue
+        if cells[0] == "Evidence ID":
+            header = cells
+            continue
+        if all(set(c) <= {"-", ":"} for c in cells):
+            continue
+        if not re.match(r"^EV-\d{3}$", cells[0]):
+            continue
+        row = {header[i] if i < len(header) else f"col_{i}": cell for i, cell in enumerate(cells)}
+        ev_scope[cells[0]] = str(row.get("Claim Scope") or "").strip().lower()
+
+    issues: list[str] = []
+    for slide in slides:
+        if not isinstance(slide, dict) or slide.get("slide_no") != 6:
+            continue
+        contract = slide.get("slide_story_contract", {})
+        ev_ids: set[str] = set()
+        source_note = str(slide.get("source_note") or "")
+        ev_ids.update(EV_ID_RE.findall(source_note))
+        if isinstance(contract, dict):
+            ev_ids.update(str(item).strip() for item in contract.get("evidence_ids", []) or [] if str(item).strip())
+        industry_count = sum(1 for ev_id in ev_ids if "industry-level" in ev_scope.get(ev_id, ""))
+        target_count = sum(1 for ev_id in ev_ids if "target-level" in ev_scope.get(ev_id, ""))
+        if target_count and target_count >= industry_count:
+            issues.append(
+                f"slide 6: target-level evidence count ({target_count}) must be lower than industry-level evidence count ({industry_count}); "
+                "competitive landscape pages must be market-structure / peer-positioning first"
+            )
     return issues
 
 
@@ -1360,6 +1458,9 @@ def validate(
     metric_id_issues = check_metric_ids_against_memo(slides, memo_text)
     evidence_warnings.extend(metric_id_issues)
 
+    slide6_balance_issues = check_slide6_industry_balance(slides, memo_text)
+    generic_copy_warnings.extend(slide6_balance_issues)
+
     if metric_locations:
         repeated_metrics = {
             metric: sorted(set(locations))
@@ -1378,6 +1479,7 @@ def validate(
     blocking_warnings.extend(layout_blocking_warnings)
     blocking_warnings.extend(claim_strength_blocking_warnings)
     blocking_warnings.extend(metric_id_issues)
+    blocking_warnings.extend(slide6_balance_issues)
     blocking_warnings = unique_preserve_order(blocking_warnings)
 
     layout_warnings = unique_preserve_order(

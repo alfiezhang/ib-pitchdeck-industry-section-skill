@@ -519,7 +519,7 @@ def evidence_promotion_issues(text: str) -> list[str]:
             if not is_user_material:
                 if not source_url:
                     issues.append(f"{ev_id}: formal external evidence requires a full Source URL")
-                elif not re.match(r"^https?://[^\\s/$.?#].[^\\s]*$", source_url, flags=re.IGNORECASE):
+                elif not re.match(r"^https?://[^\s/$.?#][^\s]*$", source_url, flags=re.IGNORECASE):
                     issues.append(
                         f"{ev_id}: Source URL '{source_url}' is not a full URL; use the exact article/report/PDF URL"
                     )

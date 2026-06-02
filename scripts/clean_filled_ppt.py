@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 from zipfile import ZipFile
 
+from gate_guard import require_pre_ppt_gate
 from json_utils import load_json_file
 
 
@@ -158,10 +159,17 @@ def main():
     parser.add_argument("--control-file", default="industry_storyboard.json", help="Path to industry_storyboard.json or industry_section_ppt_copy.json.")
     parser.add_argument("--output", default="industry_section_filled_clean.pptx", help="Output cleaned PPTX.")
     parser.add_argument("--log", default="", help="Optional JSON log output path.")
+    parser.add_argument(
+        "--allow-ungated-debug",
+        action="store_true",
+        help="Bypass the pre-PPT stage gate. Use only for local diagnostics, never delivery.",
+    )
     args = parser.parse_args()
 
     try:
-        result = clean_presentation(Path(args.input), Path(args.control_file), Path(args.output))
+        output_path = Path(args.output)
+        require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
+        result = clean_presentation(Path(args.input), Path(args.control_file), output_path)
     except Exception as exc:
         raise SystemExit(str(exc)) from exc
     if args.log:

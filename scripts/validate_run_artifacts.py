@@ -45,6 +45,13 @@ WEAK_SOURCE_MARKERS = (
     "中研普华",
 )
 
+FULL_URL_RE = re.compile(r"https?://[^\s\]|)）>]+", flags=re.IGNORECASE)
+RAW_CONTEXT_RE = re.compile(
+    r"raw excerpt|原文|excerpt|opened|reviewed|打开|已读|locator|定位|page|section|paragraph|table|页|节|段|表",
+    flags=re.IGNORECASE,
+)
+TEMPLATE_PLACEHOLDER_RE = re.compile(r"^\s*(?:#.*)?$", flags=re.IGNORECASE)
+
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -86,7 +93,15 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
     filled_attempts = []
     for block in attempts:
         fields: dict[str, str] = {}
-        for field in ("Query", "Provider", "Search Stage", "Result Count", "Selected Sources"):
+        for field in (
+            "Query",
+            "Provider",
+            "Search Stage",
+            "Result Count",
+            "Selected Sources",
+            "Opened / Reviewed",
+            "Source Locator / Raw Excerpt",
+        ):
             match = re.search(rf"^\s*-\s+\*\*{re.escape(field)}\*\*:\s*(.*?)\s*$", block, flags=re.MULTILINE)
             if not match:
                 fields[field] = ""
@@ -110,6 +125,17 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
     if filled_attempt_count < 3:
         errors.append(f"search_log.md has only {filled_attempt_count} completed search attempt(s); expected at least 3")
 
+    if filled_attempt_count and len(FULL_URL_RE.findall(text)) < filled_attempt_count:
+        errors.append(
+            "search_log.md does not contain enough full URLs for completed search attempts; "
+            "record exact source URLs, not only source names or domains"
+        )
+    if filled_attempt_count and len(RAW_CONTEXT_RE.findall(text)) < filled_attempt_count:
+        errors.append(
+            "search_log.md lacks opened/reviewed/source-locator/raw-excerpt context for completed searches; "
+            "search-result snippets alone are not formal research evidence"
+        )
+
     checked_coverage = len(re.findall(r"^\s*-\s+\[[xX]\]\s+", text, flags=re.MULTILINE))
     if checked_coverage < 3:
         errors.append(
@@ -118,9 +144,31 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
 
     for idx, attempt in enumerate(filled_attempts, start=1):
         if not attempt.get("Result Count"):
-            warnings.append(f"search_log.md completed search {idx} is missing Result Count")
+            errors.append(f"search_log.md completed search {idx} is missing Result Count")
         if not attempt.get("Selected Sources"):
-            warnings.append(f"search_log.md completed search {idx} is missing Selected Sources")
+            errors.append(f"search_log.md completed search {idx} is missing Selected Sources")
+        selected_sources = attempt.get("Selected Sources", "")
+        if selected_sources and not FULL_URL_RE.search(selected_sources):
+            errors.append(
+                f"search_log.md completed search {idx} has Selected Sources without a full URL; "
+                "use exact article/report/PDF URLs"
+            )
+        if selected_sources and TEMPLATE_PLACEHOLDER_RE.match(selected_sources):
+            errors.append(f"search_log.md completed search {idx} appears to have placeholder Selected Sources")
+        opened = attempt.get("Opened / Reviewed", "").lower()
+        if not any(token in opened for token in ("yes", "y", "true", "opened", "reviewed", "是", "已")):
+            errors.append(
+                f"search_log.md completed search {idx} is missing positive Opened / Reviewed confirmation"
+            )
+        locator_excerpt = attempt.get("Source Locator / Raw Excerpt", "")
+        if not locator_excerpt or TEMPLATE_PLACEHOLDER_RE.match(locator_excerpt):
+            errors.append(
+                f"search_log.md completed search {idx} is missing Source Locator / Raw Excerpt"
+            )
+        elif len(locator_excerpt.strip()) < 20:
+            errors.append(
+                f"search_log.md completed search {idx} Source Locator / Raw Excerpt is too short to audit"
+            )
 
     for line_no, line in enumerate(text.splitlines(), start=1):
         lowered = line.lower()
