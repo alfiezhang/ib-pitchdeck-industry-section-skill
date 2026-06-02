@@ -219,7 +219,7 @@ Prefer running the packaged pipeline instead of invoking the seven scripts manua
   --storyboard /path/to/work/industry_storyboard.json
 ```
 
-If no explicit output directory is provided, the pipeline stages the input JSON files and writes generated artifacts under `<work_root>/runs/<case_slug>/attempt_<timestamp>/` by default, where `work_root` is inferred from the input file location or set explicitly with `--work-root`. Pass `--case-name` when using a shared workspace so multiple projects do not mix under one top-level `runs` folder.
+If no explicit output directory is provided, the pipeline stages the input JSON files and writes generated artifacts under `<work_root>/runs/<case_slug>/attempt_<timestamp>/` by default, where `work_root` is inferred from the input file location or set explicitly with `--work-root`. Pass `--case-name` when using a shared workspace so multiple projects do not mix under one top-level `runs` folder. The pipeline creates a fresh attempt by default; pass `--resume-active`, `--attempt-name`, or `--output-dir` only when intentionally continuing or selecting a specific attempt.
 
 The pipeline writes `artifacts/stage_gate_pre_ppt_validation.json` and exits
 before PPT generation when the formal research plan, memo, storyboard, content

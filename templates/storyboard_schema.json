@@ -196,6 +196,8 @@
                     },
                     "x": { "type": "number" },
                     "y": { "type": "number" },
+                    "series_name": { "type": "string", "description": "Series name this datapoint belongs to for multi-series charts. Should match series[].name when applicable." },
+                    "category": { "type": "string", "description": "X-axis category this datapoint belongs to. Should match categories[] when applicable." },
                     "period": { "type": "string" },
                     "source": { "type": "string" },
                     "metric_id": { "type": "string", "pattern": "^MET-\\d{3}$", "description": "Metric ID from memo Metric Reconciliation for this datapoint when value is quantitative." },
@@ -226,6 +228,8 @@
                           ]
                         },
                         "period": { "type": "string" },
+                        "category": { "type": "string" },
+                        "series_name": { "type": "string" },
                         "unit": { "type": "string" },
                         "value_unit": { "type": "string" },
                         "source": { "type": "string" },

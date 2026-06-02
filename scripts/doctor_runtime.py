@@ -43,12 +43,14 @@ def main() -> None:
         "recommended_commands": [
             "python3 scripts/bootstrap_runtime.py --print-python",
             "./run_pipeline.sh --work-root <workspace> --case-name <case> --storyboard <run>/industry_storyboard.json",
+            "./run_pipeline.sh --resume-active --work-root <workspace> --case-name <case> --storyboard <run>/industry_storyboard.json  # only to continue an existing attempt",
             "scripts/validate_stage_gate.py --stage pre_ppt --run-dir <run>",
             "scripts/validate_final_delivery.py --run-dir <run>",
         ],
         "rules": [
             "Do not edit skill source files during a user run.",
             "Do not bypass a failing pre-PPT gate for deliverable output.",
+            "Do not rely on ACTIVE_ATTEMPT reuse unless --resume-active or an explicit --output-dir is provided.",
             "Use --allow-ungated-debug only with IB_SKILL_ALLOW_UNGATED_DEBUG=1 and only for local diagnostics.",
             "Generate JSON through structured APIs such as json.dump, then parse it before validation.",
         ],

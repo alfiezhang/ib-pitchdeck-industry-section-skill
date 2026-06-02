@@ -13,6 +13,7 @@
 #   --work-root DIR        Working directory for default outputs (default: infer from inputs, else cwd)
 #   --case-name NAME       Case/project name for grouping runs under work-root/runs/<case_slug>/
 #   --attempt-name NAME    Attempt name for default output layout; starts/switches active attempt
+#   --resume-active        Reuse ACTIVE_ATTEMPT.txt for the case; default creates a fresh attempt
 #   --python PATH          Python interpreter to test first; bootstrap selects one runtime for all scripts
 #   --quality-gate         Enable content quality validation as a hard gate (fail on warnings)
 #   --no-research-gate     Skip research artifact gate (PPT-only debug runs only)
@@ -39,6 +40,7 @@ ATTEMPT_NAME_ARG=""
 PPT_COPY_EXPLICIT=0
 QUALITY_GATE=0
 RESEARCH_GATE=1
+RESUME_ACTIVE=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -54,6 +56,8 @@ while [[ $# -gt 0 ]]; do
       CASE_NAME_ARG="$2"; shift 2 ;;
     --attempt-name)
       ATTEMPT_NAME_ARG="$2"; shift 2 ;;
+    --resume-active)
+      RESUME_ACTIVE=1; shift ;;
     --python)
       PYTHON_CMD_ARG="$2"; shift 2 ;;
     --quality-gate)
@@ -165,11 +169,10 @@ if [[ -z "$OUTPUT_DIR" ]]; then
     if [[ -n "$ATTEMPT_NAME_ARG" ]]; then
       ATTEMPT_NAME="$ATTEMPT_NAME_ARG"
       printf '%s\n' "$ATTEMPT_NAME" > "$ACTIVE_ATTEMPT_FILE"
-    elif [[ -f "$ACTIVE_ATTEMPT_FILE" ]] && [[ -n "$(tr -d '[:space:]' < "$ACTIVE_ATTEMPT_FILE")" ]]; then
+    elif [[ $RESUME_ACTIVE -eq 1 && -f "$ACTIVE_ATTEMPT_FILE" && -n "$(tr -d '[:space:]' < "$ACTIVE_ATTEMPT_FILE")" ]]; then
       ATTEMPT_NAME="$(tr -d '[:space:]' < "$ACTIVE_ATTEMPT_FILE")"
     else
       ATTEMPT_NAME="attempt_$(date +%Y%m%d_%H%M%S)"
-      printf '%s\n' "$ATTEMPT_NAME" > "$ACTIVE_ATTEMPT_FILE"
     fi
     OUTPUT_DIR="$RUNS_DIR/${ATTEMPT_NAME}"
   fi
@@ -179,8 +182,8 @@ mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 RUN_ROOT="$(dirname "$OUTPUT_DIR")"
 
-TEMPLATE="assets/industry_section_template_master.pptx"
-PPT_MAPPING="templates/ppt_mapping.json"
+TEMPLATE="$SCRIPT_DIR/assets/industry_section_template_master.pptx"
+PPT_MAPPING="$SCRIPT_DIR/templates/ppt_mapping.json"
 
 mkdir -p "$OUTPUT_DIR/artifacts"
 
@@ -189,6 +192,7 @@ PPT_COPY_BASENAME="$(basename "$PPT_COPY")"
 STORYBOARD_BASENAME="$(basename "$STORYBOARD")"
 STAGED_PPT_COPY="$OUTPUT_DIR/$PPT_COPY_BASENAME"
 STAGED_STORYBOARD="$OUTPUT_DIR/$STORYBOARD_BASENAME"
+STAGED_MEMO="$OUTPUT_DIR/industry_input_memo.md"
 AUTO_GENERATED_PPT_COPY=0
 
 stage_file() {
@@ -250,6 +254,21 @@ stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/research_plan_validation.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/search_log.md"
 
+for memo_candidate in \
+  "$(dirname "$STORYBOARD")/industry_input_memo.md" \
+  "$(dirname "$PPT_COPY")/industry_input_memo.md"
+do
+  if [[ -f "$memo_candidate" ]]; then
+    stage_file "$memo_candidate" "$STAGED_MEMO"
+    break
+  fi
+done
+
+if [[ $RESEARCH_GATE -eq 1 && ! -f "$STAGED_MEMO" ]]; then
+  echo "ERROR: mandatory research memo was not staged into current attempt: $STAGED_MEMO" >&2
+  exit 1
+fi
+
 if [[ $RESEARCH_GATE -eq 1 ]]; then
   echo "[bootstrap] validating formal research plan..."
   "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_research_plan.py" \
@@ -260,21 +279,11 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
 
   echo "[bootstrap] validating research memo..."
   "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_memo.py" \
-    --memo "$INPUT_DIR/industry_input_memo.md" \
-    --run-dir "$INPUT_DIR" \
+    --memo "$STAGED_MEMO" \
+    --run-dir "$OUTPUT_DIR" \
     --source-registry "$SCRIPT_DIR/templates/source_registry.json" \
     --output "$OUTPUT_DIR/artifacts/memo_validation.json"
 fi
-
-for memo_candidate in \
-  "$(dirname "$STORYBOARD")/industry_input_memo.md" \
-  "$(dirname "$PPT_COPY")/industry_input_memo.md"
-do
-  if [[ -f "$memo_candidate" ]]; then
-    stage_file "$memo_candidate" "$OUTPUT_DIR/industry_input_memo.md"
-    break
-  fi
-done
 
 echo "[bootstrap] validating storyboard contract..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_storyboard.py" \
@@ -287,16 +296,9 @@ echo "[bootstrap] validating storyboard contract..."
 # Density warnings are advisory; source_warnings are blocking unless
 # validate_content_quality.py is run with --allow-source-warnings.
 MEMO_FILE=""
-for memo_candidate in \
-  "$(dirname "$STORYBOARD")/industry_input_memo.md" \
-  "$(dirname "$PPT_COPY")/industry_input_memo.md" \
-  "$OUTPUT_DIR/industry_input_memo.md"
-do
-  if [[ -f "$memo_candidate" ]]; then
-    MEMO_FILE="$memo_candidate"
-    break
-  fi
-done
+if [[ -f "$STAGED_MEMO" ]]; then
+  MEMO_FILE="$STAGED_MEMO"
+fi
 
 echo "[bootstrap] validating content quality..."
 QUALITY_ARGS=(

@@ -103,6 +103,10 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 /path/to/workspace/runs/<case_slug>/attempt_<timestamp>/
 ```
 
+默认每次正式运行都会新建一个 `attempt_<timestamp>`，避免新旧任务混入同一个目录。
+如果你是在继续修复上一轮结果，可以显式传 `--resume-active`，或直接传
+`--output-dir /path/to/workspace/runs/<case_slug>/<attempt_name>`。
+
 如果不传 `--case-name`，pipeline 会尽量从 `input_card.json` 或
 `industry_storyboard.json` 推断项目名；推断失败时会放到
 `runs/case_unspecified/`。在 WorkBuddy 这类共享工作目录里，建议总是传

@@ -793,10 +793,13 @@ def memo_has_comparable_market_timeseries(memo_text: str) -> bool:
 def collect_chart_source_rows(chart_data: dict[str, Any]) -> list[dict[str, Any]]:
     rows = chart_data.get("source_rows") or []
     collected = rows if isinstance(rows, list) else []
-    secondary = chart_data.get("secondary_module") or {}
-    if isinstance(secondary, dict) and isinstance(secondary.get("rows"), list):
-        collected = list(collected) + list(secondary.get("rows") or [])
     return [row for row in collected if isinstance(row, dict)]
+
+
+def collect_secondary_source_rows(chart_data: dict[str, Any]) -> list[dict[str, Any]]:
+    secondary = chart_data.get("secondary_module") or {}
+    rows = secondary.get("rows") if isinstance(secondary, dict) else []
+    return [row for row in (rows or []) if isinstance(row, dict)]
 
 
 def chart_datapoint_count(chart_data: dict[str, Any]) -> int:
@@ -809,6 +812,28 @@ def chart_datapoint_count(chart_data: dict[str, Any]) -> int:
         if isinstance(chart_series, dict) and isinstance(chart_series.get("values"), list):
             datapoint_count += len(chart_series.get("values") or [])
     return datapoint_count
+
+
+def chart_expected_datapoints(chart_data: dict[str, Any]) -> list[dict[str, Any]]:
+    categories = chart_data.get("categories") or []
+    series = chart_data.get("series") or []
+    if not isinstance(categories, list) or not isinstance(series, list):
+        return []
+    expected: list[dict[str, Any]] = []
+    for chart_series in series:
+        if not isinstance(chart_series, dict) or not isinstance(chart_series.get("values"), list):
+            continue
+        series_name = str(chart_series.get("name") or chart_series.get("series_name") or "").strip()
+        for idx, value in enumerate(chart_series.get("values") or []):
+            category = categories[idx] if idx < len(categories) else ""
+            expected.append(
+                {
+                    "series_name": series_name,
+                    "category": category,
+                    "value": value,
+                }
+            )
+    return expected
 
 
 def _parse_chart_number(value: Any) -> float | None:
@@ -850,6 +875,14 @@ def _is_percent_source_row(row: dict[str, Any], chart_data: dict[str, Any]) -> b
 
 def _row_period(row: dict[str, Any]) -> str:
     return str(row.get("period") or row.get("data_period") or row.get("year") or "").strip()
+
+
+def _row_category(row: dict[str, Any]) -> str:
+    return str(row.get("category") or row.get("x") or row.get("period") or row.get("data_period") or row.get("year") or "").strip()
+
+
+def _row_series_name(row: dict[str, Any]) -> str:
+    return str(row.get("series_name") or row.get("series") or row.get("metric_series") or "").strip()
 
 
 def _normalized_scope(value: Any) -> str:
@@ -902,8 +935,9 @@ def check_chart_metric_binding(
     if chart_type in {"", "none", "no_chart", "text"}:
         return
 
-    rows = collect_chart_source_rows(chart_data)
-    if not rows:
+    primary_rows = collect_chart_source_rows(chart_data)
+    secondary_rows = collect_secondary_source_rows(chart_data)
+    if not primary_rows and not secondary_rows:
         return
 
     series = chart_data.get("series") or []
@@ -911,35 +945,45 @@ def check_chart_metric_binding(
     is_time_series = _is_time_series_chart(chart_data)
     if isinstance(series, list) and isinstance(categories, list) and categories:
         datapoint_count = chart_datapoint_count(chart_data)
-        if datapoint_count and len(rows) < datapoint_count:
+        if datapoint_count and len(primary_rows) < datapoint_count:
             message = (
                 f"slide {slide_no}: chart_data has {datapoint_count} chart datapoint(s) but only "
-                f"{len(rows)} source_rows; bind every chart datapoint to a specific MET-ID"
+                f"{len(primary_rows)} primary source_rows; bind every primary chart datapoint to a specific MET-ID"
             )
             warnings.append(message)
             blocking_warnings.append(message)
 
     metrics = parse_metric_reconciliation(memo_text)
     chart_met_ids: list[str] = []
-    for idx, row in enumerate(rows, start=1):
+    expected_datapoints = chart_expected_datapoints(chart_data)
+
+    def validate_row(
+        row: dict[str, Any],
+        idx: int,
+        row_label: str,
+        context: dict[str, Any],
+        expected: Optional[dict[str, Any]] = None,
+        collect_for_chart: bool = False,
+    ) -> None:
         metric_id = str(row.get("metric_id") or "").strip()
         value = row.get("value")
         numeric_value = isinstance(value, (int, float)) or bool(re.search(r"\d", str(value or "")))
         if numeric_value and not metric_id:
             message = (
-                f"slide {slide_no}: chart_data.source_rows[{idx}] has quantitative value "
+                f"slide {slide_no}: {row_label}[{idx}] has quantitative value "
                 "but no metric_id; bind every chart datapoint to memo Metric Reconciliation"
             )
             warnings.append(message)
             blocking_warnings.append(message)
-            continue
+            return
         if metric_id:
             if metric_id not in metrics:
-                message = f"slide {slide_no}: chart_data.source_rows[{idx}] references unknown {metric_id}"
+                message = f"slide {slide_no}: {row_label}[{idx}] references unknown {metric_id}"
                 warnings.append(message)
                 blocking_warnings.append(message)
-                continue
-            chart_met_ids.append(metric_id)
+                return
+            if collect_for_chart:
+                chart_met_ids.append(metric_id)
             metric_row = metrics[metric_id]
             source_value = _parse_chart_number(value)
             metric_value = _parse_chart_number(metric_row.get("Value", ""))
@@ -947,29 +991,48 @@ def check_chart_metric_binding(
             metric_period = str(metric_row.get("Data Period") or "").strip()
             if source_period and metric_period and _normalized_scope(source_period) not in _normalized_scope(metric_period):
                 message = (
-                    f"slide {slide_no}: chart_data.source_rows[{idx}] period '{source_period}' does not match "
+                    f"slide {slide_no}: {row_label}[{idx}] period '{source_period}' does not match "
                     f"{metric_id} Data Period '{metric_period}'"
                 )
                 warnings.append(message)
                 blocking_warnings.append(message)
-            if is_time_series and source_period:
-                category_text = _normalized_scope(categories[idx - 1]) if idx - 1 < len(categories) else ""
-                if category_text and _normalized_scope(source_period) not in category_text:
+            if expected:
+                expected_series = str(expected.get("series_name") or "").strip()
+                row_series = _row_series_name(row)
+                if expected_series and row_series and _normalized_scope(row_series) != _normalized_scope(expected_series):
                     message = (
-                        f"slide {slide_no}: chart_data.source_rows[{idx}] period '{source_period}' does not align "
-                        f"with x-axis category '{categories[idx - 1]}'"
+                        f"slide {slide_no}: {row_label}[{idx}] series_name '{row_series}' does not align "
+                        f"with chart series '{expected_series}'"
                     )
                     warnings.append(message)
                     blocking_warnings.append(message)
-            if _is_percent_source_row(row, chart_data) and not _is_percent_metric(metric_row):
+                row_category = _row_category(row)
+                expected_category = str(expected.get("category") or "").strip()
+                if row_category and expected_category and _normalized_scope(row_category) not in _normalized_scope(expected_category):
+                    message = (
+                        f"slide {slide_no}: {row_label}[{idx}] category/period '{row_category}' does not align "
+                        f"with chart category '{expected_category}'"
+                    )
+                    warnings.append(message)
+                    blocking_warnings.append(message)
+            if is_time_series and source_period:
+                category_text = _normalized_scope(expected.get("category")) if expected else ""
+                if category_text and _normalized_scope(source_period) not in category_text:
+                    message = (
+                        f"slide {slide_no}: {row_label}[{idx}] period '{source_period}' does not align "
+                        f"with x-axis category '{expected.get('category')}'"
+                    )
+                    warnings.append(message)
+                    blocking_warnings.append(message)
+            if _is_percent_source_row(row, context) and not _is_percent_metric(metric_row):
                 message = (
-                    f"slide {slide_no}: chart_data.source_rows[{idx}] is percentage/share-like but "
+                    f"slide {slide_no}: {row_label}[{idx}] is percentage/share-like but "
                     f"binds to {metric_id} ({metric_row.get('Metric Type', '')} / {metric_row.get('Unit', '')})"
                 )
                 warnings.append(message)
                 blocking_warnings.append(message)
             if source_value is not None and metric_value is not None:
-                source_candidates = _normalized_for_compare(source_value, _is_percent_source_row(row, chart_data))
+                source_candidates = _normalized_for_compare(source_value, _is_percent_source_row(row, context))
                 metric_candidates = _normalized_for_compare(metric_value, _is_percent_metric(metric_row))
                 if not any(
                     abs(source - metric) <= max(0.05, abs(metric) * 0.02)
@@ -977,11 +1040,32 @@ def check_chart_metric_binding(
                     for metric in metric_candidates
                 ):
                     message = (
-                        f"slide {slide_no}: chart_data.source_rows[{idx}] value {value} does not match "
+                        f"slide {slide_no}: {row_label}[{idx}] value {value} does not match "
                         f"{metric_id} value {metric_row.get('Value', '')}; do not reuse unrelated MET-IDs"
                     )
                     warnings.append(message)
                     blocking_warnings.append(message)
+
+    def expected_for_row(row: dict[str, Any], idx: int) -> Optional[dict[str, Any]]:
+        row_series = _normalized_scope(_row_series_name(row))
+        row_category = _normalized_scope(_row_category(row))
+        if row_series or row_category:
+            for expected in expected_datapoints:
+                expected_series = _normalized_scope(expected.get("series_name"))
+                expected_category = _normalized_scope(expected.get("category"))
+                series_matches = not row_series or not expected_series or row_series == expected_series
+                category_matches = not row_category or not expected_category or row_category in expected_category
+                if series_matches and category_matches:
+                    return expected
+        return expected_datapoints[idx - 1] if idx - 1 < len(expected_datapoints) else None
+
+    for idx, row in enumerate(primary_rows, start=1):
+        expected = expected_for_row(row, idx)
+        validate_row(row, idx, "chart_data.source_rows", chart_data, expected, collect_for_chart=True)
+
+    secondary_context = chart_data.get("secondary_module") if isinstance(chart_data.get("secondary_module"), dict) else chart_data
+    for idx, row in enumerate(secondary_rows, start=1):
+        validate_row(row, idx, "chart_data.secondary_module.rows", secondary_context, None, collect_for_chart=False)
 
     if len(chart_met_ids) != len(set(chart_met_ids)) and chart_datapoint_count(chart_data) > len(set(chart_met_ids)):
         message = (

@@ -183,6 +183,7 @@ Storyboard must preserve the pre-mandate transaction context: not a generic sect
 - Page-level copy and visual budgets are defined in `templates/layout_budget.json`: body fields must be short bullet-style points, table cells must stay compact, and `main_message` must not end with punctuation.
 - Slide 1 should prefer `industry_overview_dynamic_page` when chart-ready market trend, benchmark, or structural split data exists. This uses the existing slide 1 canvas; no master-template variant is required.
 - Slide 1 dynamic overview must preserve the left-side `KEY MESSAGES` area with `body_copy.bullet_1` through `body_copy.bullet_3`, set `chart_data.chart_type` to `bar`, `stacked_bar`, `clustered_column`, or `line`, and provide comparable MET-backed source rows for the right-side `CHART / VISUAL` area. Do not add right-side flashcards when a chart is available. Use fallback `summary_page` with `metric_cards` only when reliable comparable chart data is unavailable or unsafe to chart.
+- For multi-series charts, each `chart_data.source_rows[]` entry should include `series_name`, `category`, `period`, `value`, and `metric_id`. Primary chart rows and `secondary_module.rows` are validated separately; do not use secondary-module rows as substitutes for missing primary chart datapoint bindings.
 
 **Stop for human review** unless the user explicitly requests one-shot generation.
 
@@ -316,6 +317,11 @@ When running under a shared workspace used for multiple projects, pass
 will infer `case_slug` from `input_card.json` or `industry_storyboard.json` when
 possible; unresolved cases fall back to `case_unspecified`.
 
+Default behavior is to create a fresh `attempt_<timestamp>` for each delivery
+run. Reuse an existing attempt only when explicitly continuing the same run:
+pass `--resume-active`, pass `--attempt-name`, or pass `--output-dir` for the
+exact attempt directory.
+
 The pipeline runs `scripts/validate_stage_gate.py --stage pre_ppt` before
 creating PPT copy or filling the template. If the gate fails, the pipeline must
 stop before generating `industry_section_filled_clean.pptx`. Debug bypass can
@@ -341,8 +347,12 @@ Report the path from `LATEST_FINAL_PPT.txt` as the final PPT. Do not ask the use
 Do not deliver if final delivery validation fails.
 
 Attempt management:
-- For one user task, keep repairing the same active attempt directory.
-- `run_pipeline.sh` writes `<work_root>/runs/<case_slug>/ACTIVE_ATTEMPT.txt` and reuses it by default.
+- For one user task, keep repairing the same attempt directory only when you
+  intentionally resume it.
+- `run_pipeline.sh` creates a fresh attempt by default; it writes
+  `<work_root>/runs/<case_slug>/ACTIVE_ATTEMPT.txt` only after a successful
+  final delivery run or when `--attempt-name` is explicitly supplied.
+- Use `--resume-active` only when intentionally continuing the active attempt.
 - Use `--attempt-name` only when intentionally starting or switching to a new attempt.
 - Do not say a deck is complete until `artifacts/final_delivery_validation.json` reports `is_valid=true` for that same attempt and `LATEST_FINAL_PPT.txt` points to that deck.
 
