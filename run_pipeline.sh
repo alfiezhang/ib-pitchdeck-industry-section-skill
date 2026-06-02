@@ -134,6 +134,13 @@ else
   fi
 fi
 
+WORK_ROOT_ABS_EARLY="$(cd "$WORK_ROOT" && pwd)"
+if [[ "$(basename "$WORK_ROOT_ABS_EARLY")" == "runs" && -z "$OUTPUT_DIR" ]]; then
+  echo "ERROR: --work-root points to a runs directory: $WORK_ROOT_ABS_EARLY" >&2
+  echo "Pass the parent workspace (for example /Users/.../workbuddy), or pass --output-dir for an existing attempt." >&2
+  exit 1
+fi
+
 if [[ -z "$OUTPUT_DIR" ]]; then
   if [[ "$(basename "$WORK_ROOT")" == attempt_* ]]; then
     OUTPUT_DIR="$WORK_ROOT"
@@ -315,9 +322,13 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
 fi
 
 PPT_SCRIPT_GATE_ARGS_STRING=""
+FILLED_PPT_NAME="industry_section_filled.pptx"
+CLEAN_PPT_NAME="industry_section_filled_clean.pptx"
 if [[ $RESEARCH_GATE -eq 0 ]]; then
   PPT_SCRIPT_GATE_ARGS_STRING="--allow-ungated-debug"
   export IB_SKILL_ALLOW_UNGATED_DEBUG=1
+  FILLED_PPT_NAME="industry_section_debug_raw.pptx"
+  CLEAN_PPT_NAME="industry_section_debug.pptx"
 fi
 
 if [[ -f "$PPT_COPY" ]]; then
@@ -361,32 +372,33 @@ echo "[2/7] Generating replacement dictionary..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/generate_replacement_dict.py" \
   --ppt-copy "$STAGED_PPT_COPY" \
   --ppt-mapping "$PPT_MAPPING" \
-  --output "$OUTPUT_DIR/replacement_dict.json"
+  --output "$OUTPUT_DIR/replacement_dict.json" \
+  ${PPT_SCRIPT_GATE_ARGS_STRING:+"$PPT_SCRIPT_GATE_ARGS_STRING"}
 
 # ── Step 3: Fill PPT tokens ─────────────────────────────────────
 echo "[3/7] Filling PPT tokens..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/fill_ppt_tokens.py" \
   --template "$TEMPLATE" \
   --replacement-dict "$OUTPUT_DIR/replacement_dict.json" \
-  --output "$OUTPUT_DIR/industry_section_filled.pptx" \
+  --output "$OUTPUT_DIR/$FILLED_PPT_NAME" \
   --log "$OUTPUT_DIR/artifacts/fill_ppt_tokens.log.json" \
   ${PPT_SCRIPT_GATE_ARGS_STRING:+"$PPT_SCRIPT_GATE_ARGS_STRING"}
 
 # ── Step 4: Clean inactive variant slides ────────────────────────
 echo "[4/7] Cleaning inactive variant slides..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/clean_filled_ppt.py" \
-  --input "$OUTPUT_DIR/industry_section_filled.pptx" \
+  --input "$OUTPUT_DIR/$FILLED_PPT_NAME" \
   --control-file "$STAGED_STORYBOARD" \
-  --output "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
+  --output "$OUTPUT_DIR/$CLEAN_PPT_NAME" \
   --log "$OUTPUT_DIR/artifacts/clean_filled_ppt.log.json" \
   ${PPT_SCRIPT_GATE_ARGS_STRING:+"$PPT_SCRIPT_GATE_ARGS_STRING"}
 
 # ── Step 5: Post-process visuals ─────────────────────────────────
 echo "[5/7] Post-processing visuals..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/postprocess_ppt_visuals.py" \
-  --input-ppt "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
+  --input-ppt "$OUTPUT_DIR/$CLEAN_PPT_NAME" \
   --storyboard "$STAGED_STORYBOARD" \
-  --output "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
+  --output "$OUTPUT_DIR/$CLEAN_PPT_NAME" \
   --render-layouts "$SCRIPT_DIR/templates/render_layouts.json" \
   --log "$OUTPUT_DIR/artifacts/postprocess_ppt_visuals.log.json" \
   ${PPT_SCRIPT_GATE_ARGS_STRING:+"$PPT_SCRIPT_GATE_ARGS_STRING"} \
@@ -395,8 +407,8 @@ echo "[5/7] Post-processing visuals..."
 # ── Step 6: Validate final output ────────────────────────────────
 echo "[6/7] Validating filled PPT..."
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_filled_ppt.py" \
-  --filled-ppt "$OUTPUT_DIR/industry_section_filled.pptx" \
-  --clean-ppt "$OUTPUT_DIR/industry_section_filled_clean.pptx" \
+  --filled-ppt "$OUTPUT_DIR/$FILLED_PPT_NAME" \
+  --clean-ppt "$OUTPUT_DIR/$CLEAN_PPT_NAME" \
   --control-file "$STAGED_STORYBOARD" \
   --replacement-dict "$OUTPUT_DIR/replacement_dict.json" \
   --ppt-mapping "$PPT_MAPPING" \
@@ -405,6 +417,12 @@ echo "[6/7] Validating filled PPT..."
 
 # ── Step 7: Final delivery gate and quality summary ──────────────
 echo "[7/7] Running final delivery gate..."
+if [[ $RESEARCH_GATE -eq 0 ]]; then
+  echo "Debug mode: skipping final delivery gate and latest-final pointer update."
+  echo "Debug PPT:   $OUTPUT_DIR/$CLEAN_PPT_NAME"
+  echo "Validation:  $OUTPUT_DIR/filled_ppt_validation.json"
+  exit 0
+fi
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_final_delivery.py" \
   --run-dir "$OUTPUT_DIR" \
   --source-registry "$SCRIPT_DIR/templates/source_registry.json" \
@@ -430,7 +448,7 @@ fi
 echo ""
 echo "=== Pipeline complete ==="
 echo "Output dir:  $OUTPUT_DIR"
-echo "Clean PPT:   $OUTPUT_DIR/industry_section_filled_clean.pptx"
+echo "Clean PPT:   $OUTPUT_DIR/$CLEAN_PPT_NAME"
 echo "Validation:  $OUTPUT_DIR/filled_ppt_validation.json"
 echo "Final gate:  $OUTPUT_DIR/artifacts/final_delivery_validation.json"
 echo "Quality:     $OUTPUT_DIR/artifacts/run_quality_summary.md"

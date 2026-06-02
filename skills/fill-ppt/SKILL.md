@@ -108,6 +108,11 @@ Convert `industry_section_ppt_copy.json` into a `replacement_dict.json` mapping 
   --output replacement_dict.json
 ```
 
+This script is protected by the pre-PPT gate. If
+`artifacts/stage_gate_pre_ppt_validation.json` is missing or failing, it must
+stop. Do not hand-write or manually patch `replacement_dict.json` to bypass a
+failed research/content gate.
+
 ### 4. Fill PPT Tokens
 
 Replace `{{...}}` tokens in the PPTX template with values from `replacement_dict.json`.

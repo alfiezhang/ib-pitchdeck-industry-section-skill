@@ -99,6 +99,7 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
             "Search Stage",
             "Result Count",
             "Selected Sources",
+            "Dimension",
             "Opened / Reviewed",
             "Source Locator / Raw Excerpt",
         ):
@@ -120,8 +121,28 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
     stages = " ".join(attempt.get("Search Stage", "") for attempt in filled_attempts).lower()
     if "broad_discovery" not in stages and "broad discovery" not in stages:
         errors.append("search_log.md has no completed broad_discovery search attempt")
-    if not any(token in stages for token in ("targeted_validation", "latest_check", "targeted validation", "latest")):
-        errors.append("search_log.md has no completed targeted_validation/latest_check search attempt")
+    has_explicit_validation = any(token in stages for token in ("targeted_validation", "latest_check", "targeted validation", "latest"))
+    validation_quality_attempts = []
+    for attempt in filled_attempts:
+        selected_sources = attempt.get("Selected Sources", "")
+        opened = attempt.get("Opened / Reviewed", "").lower()
+        locator_excerpt = attempt.get("Source Locator / Raw Excerpt", "")
+        dimension = attempt.get("Dimension", "")
+        if (
+            FULL_URL_RE.search(selected_sources)
+            and any(token in opened for token in ("yes", "y", "true", "opened", "reviewed", "是", "已"))
+            and len(locator_excerpt.strip()) >= 20
+            and dimension.strip()
+        ):
+            validation_quality_attempts.append(attempt)
+    if not has_explicit_validation:
+        if len(validation_quality_attempts) >= 3:
+            warnings.append(
+                "search_log.md has validation-quality searches but none are labelled targeted_validation/latest_check; "
+                "future runs should label post-discovery verification searches explicitly"
+            )
+        else:
+            errors.append("search_log.md has no completed targeted_validation/latest_check search attempt")
     if filled_attempt_count < 3:
         errors.append(f"search_log.md has only {filled_attempt_count} completed search attempt(s); expected at least 3")
 

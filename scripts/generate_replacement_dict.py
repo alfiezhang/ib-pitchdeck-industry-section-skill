@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from gate_guard import require_pre_ppt_gate
+
 
 TOP_LEVEL_FIELDS = {
     "selected_page_type",
@@ -177,11 +179,20 @@ def main():
         action="store_true",
         help="Retained for compatibility. Active placeholders are included with empty-string values by default.",
     )
+    parser.add_argument(
+        "--allow-ungated-debug",
+        action="store_true",
+        help="Allow replacement_dict output without a passing pre-PPT gate only when IB_SKILL_ALLOW_UNGATED_DEBUG=1 is set.",
+    )
     args = parser.parse_args()
 
     ppt_copy_path = Path(args.ppt_copy)
     ppt_mapping_path = Path(args.ppt_mapping)
     output_path = Path(args.output)
+    try:
+        require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
+    except Exception as exc:
+        raise SystemExit(str(exc)) from exc
 
     try:
         ppt_copy = load_json(ppt_copy_path)

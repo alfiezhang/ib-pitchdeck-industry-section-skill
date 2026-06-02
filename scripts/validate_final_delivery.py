@@ -61,12 +61,28 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
         "artifacts/research_plan_validation.json": ["plan"],
         "filled_ppt_validation.json": ["summary.filled_ppt", "summary.clean_ppt", "summary.control_file", "summary.replacement_dict"],
     }
-    source_files = [
-        run_dir / "industry_input_memo.md",
-        run_dir / "industry_storyboard.json",
-        run_dir / "industry_section_ppt_copy.json",
-        run_dir / "replacement_dict.json",
-    ]
+    source_files_by_artifact = {
+        "artifacts/content_quality_validation.json": [
+            run_dir / "industry_storyboard.json",
+            run_dir / "industry_input_memo.md",
+        ],
+        "artifacts/storyboard_validation.json": [
+            run_dir / "industry_storyboard.json",
+        ],
+        "artifacts/memo_validation.json": [
+            run_dir / "industry_input_memo.md",
+        ],
+        "artifacts/research_plan_validation.json": [
+            run_dir / "artifacts" / "research_plan.json",
+        ],
+        "filled_ppt_validation.json": [
+            run_dir / "industry_storyboard.json",
+            run_dir / "industry_section_ppt_copy.json",
+            run_dir / "replacement_dict.json",
+            run_dir / "industry_section_filled.pptx",
+            run_dir / "industry_section_filled_clean.pptx",
+        ],
+    }
 
     for rel, fields in checks.items():
         artifact_path = run_dir / rel
@@ -87,6 +103,7 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
             artifact_mtime = artifact_path.stat().st_mtime
         except OSError:
             continue
+        source_files = source_files_by_artifact.get(rel, [])
         newer_sources = [path.name for path in source_files if path.exists() and path.stat().st_mtime > artifact_mtime + 1.0]
         if newer_sources:
             errors.append(f"{rel} is older than source file(s): {', '.join(newer_sources)}; rerun validation")

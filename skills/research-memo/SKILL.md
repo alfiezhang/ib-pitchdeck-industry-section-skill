@@ -215,6 +215,39 @@ For every page, write at least 3 arguments. Each argument must include:
 
 Do not save expansion for the final PPT stage. The storyboard step should select and compress arguments from this pack; the PPT fill step should not add new facts.
 
+### Metric Reconciliation Discipline
+
+`Metric Reconciliation` is the canonical metric table. Every MET-ID used in
+Key Data Points, Page Evidence Pack, Chart-ready Data, storyboard
+`slide_story_contract.metric_ids`, chart data, headlines, or main takeaways must
+first be defined as a populated row in the Metric Reconciliation table.
+
+Do not create MET-IDs only inside page notes. Key Data Points must reference
+existing Metric Reconciliation IDs, not invent new ones.
+
+For each slide-bound metric row, fill at minimum:
+- Metric ID
+- Metric Name
+- Metric Type
+- Market Definition
+- Channel Scope
+- Geography
+- Data Period
+- Value
+- Unit
+- Conflict Status
+
+For time-series charts, use one MET-ID per period/datapoint with the same
+Metric Type, Market Definition, Channel Scope, Geography, and Unit. Data Period
+should differ by datapoint. Do not use Parent Metric ID to link time-series
+datapoints to one another; Parent Metric ID is only for true subset/superset
+relationships.
+
+For share / category-share rows, either use a shared Parent Metric ID or make
+the metric names/definitions explicit enough to show they are parts of one
+structure split. The shares should sum to approximately 100% when they represent
+a complete segmentation.
+
 ### Research Gap Audit
 
 After the memo is drafted and before storyboard generation, add `## Research Gap Audit`.

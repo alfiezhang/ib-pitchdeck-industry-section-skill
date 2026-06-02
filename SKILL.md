@@ -69,11 +69,20 @@ Before starting from a brief or running PPT scripts, ensure the runtime is ready
 
 ```bash
 python3 scripts/bootstrap_runtime.py
+python3 scripts/doctor_runtime.py
 ```
 
 `scripts/bootstrap_runtime.py` is the only supported runtime decision point. It checks existing Python interpreters first; if one can import `pptx`, `lxml.etree`, and at least one fallback-search provider, use it directly. Only if no existing interpreter is complete should it create/update `.venv` and install `requirements.txt`.
 
-Do not manually split the PPT pipeline across multiple Python interpreters. Do not install packages into unrelated system or Node environments. Do not edit scripts to work around dependency issues. If bootstrap fails, stop and report the bootstrap error.
+Do not manually split the PPT pipeline across multiple Python interpreters. Do not install packages into unrelated system or Node environments. Do not edit scripts to work around dependency issues. If bootstrap or `doctor_runtime.py` fails, stop and report the runtime error.
+
+Do not call non-existent legacy script names. The supported entrypoints are:
+- `scripts/validate_stage_gate.py`
+- `scripts/convert_storyboard_to_ppt_copy.py`
+- `scripts/validate_final_delivery.py`
+- `run_pipeline.sh`
+
+Do not use or invent `scripts/stage_gate_ppt.py` or `scripts/convert_to_ppt_copy.py`.
 
 For shell use, get the selected interpreter with:
 
@@ -297,6 +306,10 @@ For PPT generation, prefer the packaged pipeline:
   --storyboard <path/to/industry_storyboard.json>
 ```
 
+`--work-root` must be the parent workspace, not its `runs/` subdirectory. Passing
+`/path/to/workspace/runs` as `--work-root` is invalid because it creates nested
+`runs/runs/...` output.
+
 When running under a shared workspace used for multiple projects, pass
 `--case-name "<project or target name>"` so outputs are grouped under
 `<work_root>/runs/<case_slug>/attempt_<timestamp>/`. If omitted, the pipeline
@@ -304,8 +317,10 @@ will infer `case_slug` from `input_card.json` or `industry_storyboard.json` when
 possible; unresolved cases fall back to `case_unspecified`.
 
 The pipeline runs `scripts/validate_stage_gate.py --stage pre_ppt` before
-creating PPT copy or filling the template. If the gate fails, the output is a
-debug draft at most; do not rename or describe it as final delivery.
+creating PPT copy or filling the template. If the gate fails, the pipeline must
+stop before generating `industry_section_filled_clean.pptx`. Debug bypass can
+only create `industry_section_debug.pptx` and must not be described as final
+delivery.
 
 Then generate a short quality report:
 

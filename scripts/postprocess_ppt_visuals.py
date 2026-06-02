@@ -1249,8 +1249,11 @@ def main() -> None:
     args = parser.parse_args()
 
     output_path = Path(args.output)
-    require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
-    result = postprocess(Path(args.input_ppt), Path(args.storyboard), output_path, Path(args.render_layouts))
+    try:
+        require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
+        result = postprocess(Path(args.input_ppt), Path(args.storyboard), output_path, Path(args.render_layouts))
+    except Exception as exc:
+        raise SystemExit(str(exc)) from exc
     if args.log:
         save_json(result, Path(args.log))
     print(json.dumps(result, ensure_ascii=False, indent=2))

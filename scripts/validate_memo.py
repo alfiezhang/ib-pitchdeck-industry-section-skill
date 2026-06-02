@@ -321,11 +321,15 @@ def page_evidence_pack_issues(text: str) -> tuple[list[str], list[str], dict[str
                     f"as the core argument. Target-level claims should only appear in Target relevance or So what."
                 )
             elif target_claims > 0 and target_claims >= industry_claims:
-                warnings.append(
+                message = (
                     f"page {page_no}: target-level claims ({target_claims}) equal or exceed "
                     f"industry-level claims ({industry_claims}). Industry structure pages should "
                     f"have more industry-level than target-level evidence."
                 )
+                if page_no == 5:
+                    errors.append(message)
+                else:
+                    warnings.append(message)
             if lead_only_claims:
                 errors.append(
                     f"page {page_no}: lead-only evidence IDs appear in Page Evidence Pack: "
@@ -413,6 +417,30 @@ def metric_reconciliation_rows(text: str) -> list[dict[str, str]]:
                 row[key] = cell
             rows.append(row)
     return rows
+
+
+def metric_reconciliation_id_set(text: str) -> set[str]:
+    return {row.get("Metric ID", "").strip() for row in metric_reconciliation_rows(text) if row.get("Metric ID")}
+
+
+def metric_reference_issues(text: str) -> list[str]:
+    """Require every memo MET-ID reference to be defined in Metric Reconciliation."""
+    reconciled = metric_reconciliation_id_set(text)
+    referenced = set(re.findall(r"\bMET-\d{3}\b", text))
+    missing = sorted(referenced - reconciled)
+    if not missing:
+        return []
+    if not reconciled:
+        return [
+            "Metric Reconciliation is empty but memo references MET-IDs elsewhere: "
+            + ", ".join(missing[:12])
+            + ". Define all slide/chart Key Data Point MET-IDs in Metric Reconciliation before storyboard."
+        ]
+    return [
+        "MET-ID(s) referenced outside Metric Reconciliation are not defined in the Metric Reconciliation table: "
+        + ", ".join(missing[:12])
+        + ". Key Data Points, Page Evidence Pack, chart-ready data, and storyboard metrics must reuse defined MET-IDs."
+    ]
 
 
 def approx_equal(a: float, b: float, tolerance: float = 0.03) -> bool:
@@ -587,14 +615,16 @@ def math_consistency_checks(text: str) -> list[str]:
         cagr_endpoint_ids = re.findall(r"MET-\d{3}", endpoint_raw)
 
         parent_metric_id = row.get("Parent Metric ID", "").strip()
+        is_share_metric = "share" in metric_type or any(token in metric_type for token in ("份额", "占比", "比例"))
         # Normalize share values: 51.2 → 0.512
-        if metric_type == "share" and value is not None and value > 1:
+        if is_share_metric and value is not None and value > 1:
             value = value / 100.0
         parsed[met_id] = {
             "name": row.get("Metric Name", ""),
             "value": value,
             "conflict": conflict,
             "metric_type": metric_type,
+            "is_share_metric": is_share_metric,
             "channel": channel,
             "market_def": market_def,
             "data_period": row.get("Data Period", "").strip(),
@@ -614,7 +644,7 @@ def math_consistency_checks(text: str) -> list[str]:
         parent = parsed[parent_id]
         if parent["value"] is None:
             continue
-        if m.get("metric_type", "") == "share" or parent.get("metric_type", "") == "share":
+        if m.get("is_share_metric") or parent.get("is_share_metric"):
             continue
         if m["value"] > parent["value"] * (1.0 + 0.05):
             issues.append(
@@ -632,9 +662,9 @@ def math_consistency_checks(text: str) -> list[str]:
     # Check 2: Share sums ≈ 100% (group by same metric_type and channel_scope)
     share_groups: dict[tuple[str, str], list[tuple[str, float]]] = {}
     for met_id, m in parsed.items():
-        if m["value"] is None or m.get("metric_type", "") != "share":
+        if m["value"] is None or not m.get("is_share_metric"):
             continue
-        group_key = (m.get("market_def", ""), m.get("channel", ""))
+        group_key = (m.get("parent_metric_id") or m.get("market_def", ""), m.get("channel", ""))
         share_groups.setdefault(group_key, []).append((met_id, abs(m["value"])))
 
     for group_key, shares in share_groups.items():
@@ -684,6 +714,8 @@ def math_consistency_checks(text: str) -> list[str]:
     key_groups: dict[tuple[str, str, str, str], list[tuple[str, float]]] = {}
     for met_id, m in parsed.items():
         if m["value"] is None:
+            continue
+        if m.get("is_share_metric"):
             continue
         key = (m.get("metric_type", ""), m.get("market_def", ""), m.get("channel", ""), m.get("data_period", ""))
         key_groups.setdefault(key, []).append((met_id, m["value"]))
@@ -793,6 +825,8 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None, source_registry_pa
     for issue in evidence_promotion_issues(text):
         errors.append(issue)
     for issue in metric_required_field_issues(text):
+        errors.append(issue)
+    for issue in metric_reference_issues(text):
         errors.append(issue)
 
     math_issues = math_consistency_checks(text)

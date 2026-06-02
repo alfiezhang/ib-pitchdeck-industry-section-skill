@@ -5,6 +5,8 @@ Density and generic-copy findings are advisory by default. Source-quality findin
 default because weak or generic attributions can make unsupported facts look diligence-grade.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -854,6 +856,25 @@ def _normalized_scope(value: Any) -> str:
     return re.sub(r"\s+", "", str(value or "").strip().lower())
 
 
+def _looks_like_time_label(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    return bool(
+        re.search(r"\b20\d{2}(?:[EeA]?|E|A)?\b", text)
+        or re.search(r"\b20\d{2}\s*[-~至]\s*20\d{2}", text)
+        or re.search(r"\bQ[1-4]\b|季度|月", text, flags=re.IGNORECASE)
+    )
+
+
+def _is_time_series_chart(chart_data: dict[str, Any]) -> bool:
+    categories = chart_data.get("categories") or []
+    if not isinstance(categories, list) or len(categories) < 2:
+        return False
+    period_like = sum(1 for category in categories if _looks_like_time_label(category))
+    return period_like >= max(2, len(categories) // 2)
+
+
 def _normalized_for_compare(value: float, is_percent: bool) -> list[float]:
     if not is_percent:
         return [value]
@@ -887,6 +908,7 @@ def check_chart_metric_binding(
 
     series = chart_data.get("series") or []
     categories = chart_data.get("categories") or []
+    is_time_series = _is_time_series_chart(chart_data)
     if isinstance(series, list) and isinstance(categories, list) and categories:
         datapoint_count = chart_datapoint_count(chart_data)
         if datapoint_count and len(rows) < datapoint_count:
@@ -930,6 +952,15 @@ def check_chart_metric_binding(
                 )
                 warnings.append(message)
                 blocking_warnings.append(message)
+            if is_time_series and source_period:
+                category_text = _normalized_scope(categories[idx - 1]) if idx - 1 < len(categories) else ""
+                if category_text and _normalized_scope(source_period) not in category_text:
+                    message = (
+                        f"slide {slide_no}: chart_data.source_rows[{idx}] period '{source_period}' does not align "
+                        f"with x-axis category '{categories[idx - 1]}'"
+                    )
+                    warnings.append(message)
+                    blocking_warnings.append(message)
             if _is_percent_source_row(row, chart_data) and not _is_percent_metric(metric_row):
                 message = (
                     f"slide {slide_no}: chart_data.source_rows[{idx}] is percentage/share-like but "
@@ -974,7 +1005,7 @@ def check_chart_metric_binding(
             blocking_warnings.append(message)
 
     comparable_fields = ["Metric Type", "Geography", "Unit"]
-    if chart_type not in {"line", "line_chart"}:
+    if chart_type not in {"line", "line_chart"} and not is_time_series:
         comparable_fields.append("Data Period")
     for field in comparable_fields:
         values = {

@@ -66,6 +66,7 @@
 
 ```bash
 python3 scripts/bootstrap_runtime.py
+python3 scripts/doctor_runtime.py
 ```
 
 如果想获得本次应该使用的 Python 路径：
@@ -73,6 +74,10 @@ python3 scripts/bootstrap_runtime.py
 ```bash
 PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 ```
+
+不要在运行任务时修改 skill 源码来绕过错误；如果 runtime 或 validator 报错，应先修复
+运行环境或输入文件。PPT 生成建议统一走 `run_pipeline.sh`，不要调用旧脚本名或自己拼接
+不存在的脚本。
 
 在 macOS 上，如果 Python 3.13/3.14 遇到 `lxml` 或 code signing 问题，建议换成 Python 3.9-3.11。
 
@@ -89,6 +94,9 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
   --storyboard /path/to/workspace/industry_storyboard.json
 ```
 
+`--work-root` 应该传工作区根目录，例如 `/Users/htlh/Desktop/workbuddy`，不要传
+`/Users/htlh/Desktop/workbuddy/runs`，否则会造成 `runs/runs/...` 嵌套。
+
 输出会写到：
 
 ```text
@@ -104,6 +112,9 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 `pre_ppt` 阶段门禁。缺少 `research_plan_validation.json`、`memo_validation.json`
 或存在无法回溯的 MET-ID 时，pipeline 会停止；这类输出只能作为 debug draft，不能当
 final PPT 交付。
+
+如果显式使用 debug bypass，输出只能是 `industry_section_debug.pptx`，不会写作正式的
+`industry_section_filled_clean.pptx`，也不会更新 final 指针。
 
 最终 PPT 路径会写入：
 
