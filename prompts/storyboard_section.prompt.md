@@ -246,6 +246,8 @@ Each slide must include:
 - **visual_direction**: What the chart/diagram should show and what data should drive it.
 - **chart_data**: When the slide depends on a quantitative visual, include a structured chart payload with chart type, categories, series values, units, and source-row notes. If the slide is qualitative, this can be omitted.
 - **chart_data schema**: `bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` require `categories`, numeric `series[].values`, `unit`, and `source_rows`; every quantitative `source_rows[]` item must include `metric_id` from the memo Metric Reconciliation table; `metric_cards` requires at least 3 `source_rows` on Slide 1 fallback `summary_page` and at least 2 elsewhere; `none` is only for non-quantitative layouts with no verified visual data.
+- **visible metric claims**: every visible number in headline, main_message, body_copy, chart title, mini-table, or compare table must be listed in `visible_metric_claims[]` with `location`, `display_text`, `metric_ids`, and `usage_type`. Do not show a number that cannot be traced to Metric Reconciliation.
+- **scope groups**: when a slide uses multiple metric scopes, add `scope_group` and `scope_note` so China/global, industry/target, market-size/share, or peer/target metrics are not presented as one comparable series.
 - **Chart metric comparability**: Do not compare metrics with different `Metric Type`, `Geography`, `Unit`, or charted `Data Period` in the same bar/column chart. For example, do not chart revenue and production value as if they were peer categories. Use separate visuals, normalize to a common basis, or disclose the comparable basis in `chart_data.notes`.
 - **Metric card units**: If `metric_cards` mix currency, percentages, counts, or rankings, put `unit` or `value_unit` on each `source_rows[]` item, or include the unit directly in the `value` string. Do not rely on one mixed `chart_data.unit` such as `RMB / %`.
 - **Chart legend labels**: Keep each `series.name` short enough to work as a chart legend label, ideally 2-8 Chinese characters or 1-3 English words. Do not use full-sentence series names.
@@ -356,6 +358,11 @@ Slide 8 (`key_takeaways_for_target`) should synthesize the transaction logic but
 ### Slide 6 Competitive Landscape Discipline
 
 Slide 6 (`competitive_landscape`) should primarily explain market structure, peer segmentation, and positioning dimensions. Target positioning is secondary. The Target can appear in the table/matrix and one interpretation panel, but the headline/main_message should not be primarily about the Target's advantage or differentiation.
+
+For `compare_table_page`, populate `compare_table_data` with 3-6 headers and
+3-6 named peer rows. Do not use CR5/CR10, market-structure comments, or target
+positioning statements as fake peer rows. Each row should compare one player
+against the same column basis; numeric cells need MET-ID support.
 
 ## Claim Strength Discipline
 

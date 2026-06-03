@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
+from metric_scope_utils import compare_metric_scopes
+
 
 REQUIRED_SECTIONS = [
     "Project Meta",
@@ -491,6 +493,91 @@ def _parse_years(raw: str) -> float:
     return 0.0
 
 
+def parse_percent_value(raw: str) -> Optional[float]:
+    """Return decimal value: 4.3% -> 0.043; 0.043 -> 0.043."""
+    value = _parse_number(str(raw or ""))
+    if value is None:
+        return None
+    return value / 100.0 if value > 1 else value
+
+
+def parse_period_endpoint(raw: str) -> tuple[Optional[int], Optional[int]]:
+    """Parse ordered year endpoints from a period string."""
+    years = [int(year) for year in _YEARS_RE.findall(str(raw or ""))]
+    if len(years) >= 2:
+        return years[0], years[-1]
+    if len(years) == 1:
+        return years[0], years[0]
+    return None, None
+
+
+def parse_single_period_year(raw: str) -> Optional[int]:
+    begin, end = parse_period_endpoint(raw)
+    if begin is None:
+        return None
+    return end if end is not None else begin
+
+
+def validate_cagr_metric(cagr_id: str, cagr_row: dict[str, Any], rows_by_id: dict[str, dict[str, Any]]) -> list[str]:
+    """Validate a CAGR row using ordered CAGR Endpoint IDs."""
+    issues: list[str] = []
+    endpoint_ids = re.findall(r"MET-\d{3}", cagr_row.get("CAGR Endpoint IDs", ""))
+    if len(endpoint_ids) != 2:
+        return [
+            f"{cagr_id}: CAGR row must define exactly two ordered CAGR Endpoint IDs "
+            "(beginning MET-ID, ending MET-ID). Comparable With cannot replace CAGR Endpoint IDs."
+        ]
+    begin_id, end_id = endpoint_ids
+    if begin_id not in rows_by_id or end_id not in rows_by_id:
+        missing = [met_id for met_id in endpoint_ids if met_id not in rows_by_id]
+        return [f"{cagr_id}: CAGR Endpoint IDs reference missing metric(s): {', '.join(missing)}"]
+
+    begin_row = rows_by_id[begin_id]
+    end_row = rows_by_id[end_id]
+    scope = compare_metric_scopes(begin_row, end_row)
+    if not scope["comparable"]:
+        issues.append(
+            f"{cagr_id}: CAGR endpoints are not comparable: {begin_id} vs {end_id}; {scope['reason']}"
+        )
+
+    begin_value = _parse_number(begin_row.get("Value", ""))
+    end_value = _parse_number(end_row.get("Value", ""))
+    stated = parse_percent_value(cagr_row.get("Value", ""))
+    if begin_value is None or begin_value <= 0:
+        issues.append(f"{cagr_id}: beginning endpoint {begin_id} has invalid value {begin_row.get('Value', '')!r}")
+    if end_value is None or end_value <= 0:
+        issues.append(f"{cagr_id}: ending endpoint {end_id} has invalid value {end_row.get('Value', '')!r}")
+    if stated is None:
+        issues.append(f"{cagr_id}: CAGR value is missing or not numeric")
+
+    begin_year = parse_single_period_year(begin_row.get("Data Period", ""))
+    end_year = parse_single_period_year(end_row.get("Data Period", ""))
+    if begin_year is None or end_year is None:
+        issues.append(
+            f"{cagr_id}: CAGR endpoint periods must parse to years; "
+            f"{begin_id}={begin_row.get('Data Period', '')!r}, {end_id}={end_row.get('Data Period', '')!r}"
+        )
+    elif end_year <= begin_year:
+        issues.append(
+            f"{cagr_id}: CAGR endpoint years must be ordered beginning→ending; "
+            f"{begin_id}={begin_year}, {end_id}={end_year}"
+        )
+
+    if issues or begin_value is None or end_value is None or stated is None or begin_year is None or end_year is None:
+        return issues
+
+    years = end_year - begin_year
+    calculated = calculate_cagr(begin_value, end_value, years)
+    if abs(stated - calculated) > 0.002:
+        issues.append(
+            f"{cagr_id}: CAGR mismatch. Stated {stated * 100:.2f}%, calculated {calculated * 100:.2f}% from "
+            f"{begin_id}={begin_value:,.2f} ({begin_row.get('Data Period', '')}) to "
+            f"{end_id}={end_value:,.2f} ({end_row.get('Data Period', '')}), {years} years. "
+            "Fix Metric Reconciliation or visible slide copy before storyboard."
+        )
+    return issues
+
+
 def lead_only_domain_issues(text: str, lead_only_domains: tuple[str, ...] = ()) -> list[str]:
     """Flag lead-only domains appearing in Evidence Ledger or formal sources."""
     if not lead_only_domains:
@@ -632,6 +719,7 @@ def math_consistency_checks(text: str) -> list[str]:
             "comparable": comparable,
             "parent_metric_id": parent_metric_id,
             "cagr_endpoint_ids": cagr_endpoint_ids,
+            "raw": row,
         }
 
     # Check 1: Subset ≤ parent set (via Parent Metric ID)
@@ -680,35 +768,11 @@ def math_consistency_checks(text: str) -> list[str]:
                 f"Shares: {ids}"
             )
 
-    # Check 3: CAGR matches endpoints
+    # Check 3: CAGR matches ordered endpoint IDs
     cagr_rows = [(met_id, m) for met_id, m in parsed.items() if m["metric_type"] == "cagr" and m["value"] is not None]
+    raw_rows_by_id = {met_id: m["raw"] for met_id, m in parsed.items()}
     for cagr_id, cagr_m in cagr_rows:
-        for met_id, m in parsed.items():
-            if met_id not in cagr_m.get("comparable", set()):
-                continue
-            if m["value"] is None or m["value"] <= 0:
-                continue
-            # Find the matching begin/end metric
-            for met_id2, m2 in parsed.items():
-                if met_id2 == met_id or met_id2 not in cagr_m.get("comparable", set()):
-                    continue
-                if m2["value"] is None or m2["value"] <= 0:
-                    continue
-                # Compute CAGR from endpoint data periods
-                years = _parse_years(cagr_m.get("data_period", ""))
-                if years < 1:
-                    years = _parse_years(m.get("data_period", "") or m2.get("data_period", ""))
-                if years < 1:
-                    years = 5.0  # fallback; will generate a low-confidence warning below
-                begin = min(m["value"], m2["value"])
-                end = max(m["value"], m2["value"])
-                if begin > 0:
-                    calc_cagr = calculate_cagr(begin, end, years)
-                    if not approx_equal(calc_cagr, cagr_m["value"] / 100.0 if cagr_m["value"] > 1 else cagr_m["value"], 0.15):
-                        issues.append(
-                            f"{cagr_id}: stated CAGR {cagr_m['value']}% does not match computed "
-                            f"CAGR {calc_cagr*100:.1f}% from {begin:.2f}→{end:.2f} over {years:.0f}y"
-                        )
+        issues.extend(validate_cagr_metric(cagr_id, cagr_m["raw"], raw_rows_by_id))
 
     # Check 4: No conflicting values for same metric (same metric_type + market_def + channel_scope + data_period)
     key_groups: dict[tuple[str, str, str, str], list[tuple[str, float]]] = {}

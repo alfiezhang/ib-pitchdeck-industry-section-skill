@@ -221,6 +221,7 @@ writer 序列化，例如 `json.dump(..., ensure_ascii=False, indent=2)`。不�
 - **第 2 页**：当市场细分需要并列量化背景时，倾向 `chart_plus_mini_table_page`。当一张图表足以清晰承载表达时，倾向 `chart_page`。
 - **第 3 页**：当有 4 个强 MECE 驱动因素时使用 `driver_card_page`。只有当备忘录支持 5 或 6 个真正独立、非重叠的驱动因素时，才使用 `driver_card_5_page` 或 `driver_card_6_page`；不要为了使用更大的模板而编造 filler drivers。
 - **第 6 页**：当具名同业对比是最清晰的故事时，倾向 `compare_table_page`。当在两个维度上的定位是最清晰的故事时，倾向 `matrix_page`。
+- 如果第 6 页选择 `compare_table_page`，必须填写 `compare_table_data`：3-6 个表头、3-6 个具名同业行。不要用 CR5/CR10、市场结构判断或标的定位判断冒充同业行；每一行都应按同一列口径比较一个玩家，数字单元格必须有 MET-ID 支持。
 - **第 7 页**：当有 3 个强平行趋势时使用 `trend_page`。只有当备忘录支持对应数量的独立趋势时，才使用 `trend_4_card_page`、`trend_5_card_page` 或 `trend_6_card_page`；当时序和节奏是故事核心时，倾向 `timeline_page`。
 
 每次选择都必须在 `decision_rationale` 中说明理由。
@@ -239,6 +240,8 @@ writer 序列化，例如 `json.dump(..., ensure_ascii=False, indent=2)`。不�
 - **visual_direction（视觉方向）**：图表/图示应展示什么、应基于什么数据。
 - **chart_data（图表数据）**：如果页面依赖定量图表，必须尽量提供结构化图表数据，包括图表类型、分类、序列、单位和来源行注释。
 - **chart_data schema**：`bar`/`clustered_column`/`stacked_bar`/`stacked_column`/`line` 必须包含 `categories`、数值型 `series[].values`、`unit` 和 `source_rows`；每个定量 `source_rows[]` 项都必须包含来自 memo Metric Reconciliation 的 `metric_id`；`metric_cards` 仅用于第 1 页 fallback `summary_page` 时至少需要 3 个 `source_rows`，其他页至少 2 个；`none` 只允许用于没有可验证视觉数据的非定量页面。
+- **visible metric claims**：headline、main_message、body_copy、图表标题、mini-table 或同业对比表中所有可见数字，都必须写入 `visible_metric_claims[]`，并填 `location`、`display_text`、`metric_ids`、`usage_type`。不能回溯到 Metric Reconciliation 的数字不要上页。
+- **scope groups**：如果同一页使用多个口径，必须填写 `scope_group` 和 `scope_note`，避免把中国/全球、行业/标的、市场规模/份额、同业/标的指标表现成同一可比序列。
 - **图表指标可比性**：不要在同一个柱状图 / 条形图里比较 `Metric Type`、`Geography`、`Unit` 或图表展示期间不同的指标。例如，不要把收入和产值当成同类品类一起画。应拆成不同视觉、统一到可比口径，或在 `chart_data.notes` 中说明可比基础。
 - **指标卡单位**：如果 `metric_cards` 同时包含金额、百分比、数量或排名，必须在每个 `source_rows[]` 项里写 `unit` 或 `value_unit`，或直接把单位写进 `value` 字符串。不要只依赖一个混合 `chart_data.unit`，如 `亿元人民币 / %`。
 - **图例标签**：每个 `series.name` 必须足够短，可以直接作为图表图例；中文建议 2-8 个字，英文建议 1-3 个词。不要把完整句子写成 series name。

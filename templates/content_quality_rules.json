@@ -69,7 +69,21 @@
     "领先行业",
     "显著领先",
     "均具吸引力",
-    "确定性最强"
+    "确定性最强",
+    "最快",
+    "千亿赛道",
+    "核心引擎",
+    "结构性优势已形成",
+    "刚需",
+    "天然契合",
+    "交易稀缺性",
+    "出售窗口",
+    "控股权出售迎来有利窗口",
+    "利润率有望提升",
+    "接近某上市公司盈利水平",
+    "价值创造逻辑清晰",
+    "控股权交易环境",
+    "稀缺平台"
   ],
   "weak_source_markers": [
     "training_data",
@@ -130,6 +144,20 @@
     "cross_slide_metric_consistency_check": true,
     "sources_notes_discipline": true
   },
+  "cross_slide_distinctness_rules": [
+    {
+      "slides": [3, 7],
+      "description": "Slide 3 should explain current growth drivers; Slide 7 should explain future trend / transaction implications. Do not repeat the same driver cards as trends."
+    },
+    {
+      "slides": [4, 5],
+      "description": "Slide 4 should cover value chain / profit pool; Slide 5 should cover entry barriers / winner capabilities. Do not repeat channel or brand wording as the main point on both slides."
+    },
+    {
+      "slides": [1, 8],
+      "description": "Slide 1 should establish industry attractiveness; Slide 8 should synthesize transaction implications and diligence questions. Do not reuse the same market-size thesis as the transaction conclusion."
+    }
+  ],
   "slide_specific_quality_rules": {
     "2": {
       "description": "Slide 2 covers market size AND segmentation. The segmentation angle must be one clear axis — not a grab-bag mixing channel, sub-category, and price band.",

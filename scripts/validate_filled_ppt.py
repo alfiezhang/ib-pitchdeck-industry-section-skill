@@ -219,6 +219,83 @@ def collect_page_number_issues(pptx_path: Path) -> dict:
     }
 
 
+def collect_required_table_issues(pptx_path: Path, control_data: dict) -> list[dict]:
+    """Check layouts that must be post-processed into real PPT table objects."""
+    issues = []
+    slides = _extract_slides(control_data)
+    selected_by_no = {
+        int(slide.get("slide_no")): str(slide.get("selected_page_type") or "")
+        for slide in slides
+        if isinstance(slide, dict) and str(slide.get("slide_no") or "").isdigit()
+    }
+    required_tables = {
+        2: {"page_types": {"chart_plus_mini_table_page"}, "min_rows": 2, "min_cols": 2},
+        6: {"page_types": {"compare_table_page"}, "min_rows": 4, "min_cols": 3},
+    }
+    prs = Presentation(str(pptx_path))
+    for slide_no, rule in required_tables.items():
+        selected_page_type = selected_by_no.get(slide_no, "")
+        if selected_page_type not in rule["page_types"]:
+            continue
+        if slide_no > len(prs.slides):
+            issues.append(
+                {
+                    "slide_no": slide_no,
+                    "selected_page_type": selected_page_type,
+                    "issue_type": "missing_slide",
+                    "detail": "Selected layout requires a real PPT table but the slide is missing.",
+                }
+            )
+            continue
+        slide = prs.slides[slide_no - 1]
+        table_shapes = [shape for shape in slide.shapes if getattr(shape, "has_table", False)]
+        if not table_shapes:
+            issues.append(
+                {
+                    "slide_no": slide_no,
+                    "selected_page_type": selected_page_type,
+                    "issue_type": "missing_required_table_object",
+                    "detail": "Selected layout requires a real PPT table object; text-only separator rows are not acceptable.",
+                }
+            )
+            continue
+        valid_table_found = False
+        for shape in table_shapes:
+            table = shape.table
+            rows = len(table.rows)
+            cols = len(table.columns)
+            if rows >= rule["min_rows"] and cols >= rule["min_cols"]:
+                valid_table_found = True
+                blank_cells = []
+                for row_idx, row in enumerate(table.rows, start=1):
+                    for col_idx, cell in enumerate(row.cells, start=1):
+                        if not normalize_visible_text(cell.text):
+                            blank_cells.append(f"R{row_idx}C{col_idx}")
+                if blank_cells:
+                    issues.append(
+                        {
+                            "slide_no": slide_no,
+                            "selected_page_type": selected_page_type,
+                            "issue_type": "blank_required_table_cells",
+                            "detail": f"Required table has blank cells: {', '.join(blank_cells[:8])}",
+                        }
+                    )
+                break
+        if not valid_table_found:
+            issues.append(
+                {
+                    "slide_no": slide_no,
+                    "selected_page_type": selected_page_type,
+                    "issue_type": "required_table_too_small",
+                    "detail": (
+                        f"Selected layout requires a table with at least "
+                        f"{rule['min_rows']} rows and {rule['min_cols']} columns."
+                    ),
+                }
+            )
+    return issues
+
+
 def load_slide_layout_library(path: Path = SLIDE_LAYOUT_LIBRARY_PATH) -> dict[int, dict]:
     data = load_json(path)
     slides = data.get("slides")
@@ -423,6 +500,7 @@ def build_report(
     ]
     embedded_ole_issues = collect_embedded_ole_issues(clean_ppt_path)
     page_number_check = collect_page_number_issues(clean_ppt_path)
+    required_table_issues = collect_required_table_issues(clean_ppt_path, control_file)
 
     kept_slide_count_ok = len(actual_kept_slides) == len(expected_physical_slides) == 8
     renumbered_after_resave = actual_kept_slides == [f"slide{i}.xml" for i in range(1, len(actual_kept_slides) + 1)]
@@ -434,6 +512,7 @@ def build_report(
     visible_text_ok = not visible_text_issues
     embedded_ole_ok = not embedded_ole_issues
     page_numbers_ok = page_number_check["is_valid"]
+    required_tables_ok = not required_table_issues
 
     return {
         "summary": {
@@ -450,6 +529,7 @@ def build_report(
             "visible_html_entity_count": len(visible_html_entity_issues),
             "embedded_ole_issue_count": len(embedded_ole_issues),
             "page_number_issue_count": len(page_number_check["issues"]),
+            "required_table_issue_count": len(required_table_issues),
             "placeholders_ok": placeholders_ok,
             "kept_slide_count_ok": kept_slide_count_ok,
             "kept_slide_selection_ok": kept_slide_selection_ok,
@@ -458,6 +538,7 @@ def build_report(
             "visible_text_ok": visible_text_ok,
             "embedded_ole_ok": embedded_ole_ok,
             "page_numbers_ok": page_numbers_ok,
+            "required_tables_ok": required_tables_ok,
             "is_valid": (
                 placeholders_ok
                 and kept_slide_count_ok
@@ -466,6 +547,7 @@ def build_report(
                 and visible_text_ok
                 and embedded_ole_ok
                 and page_numbers_ok
+                and required_tables_ok
             ),
         },
         "expected_kept_slides": expected,
@@ -476,6 +558,7 @@ def build_report(
         "visible_html_entity_issues": visible_html_entity_issues,
         "embedded_ole_issues": embedded_ole_issues,
         "page_number_check": page_number_check,
+        "required_table_issues": required_table_issues,
     }
 
 

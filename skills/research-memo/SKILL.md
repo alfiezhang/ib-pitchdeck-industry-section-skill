@@ -225,6 +225,12 @@ first be defined as a populated row in the Metric Reconciliation table.
 Do not create MET-IDs only inside page notes. Key Data Points must reference
 existing Metric Reconciliation IDs, not invent new ones.
 
+For CAGR rows, `CAGR Endpoint IDs` is mandatory and must contain exactly two
+ordered value metrics: begin MET-ID, end MET-ID. Do not rely on a generic
+5-year fallback. The begin/end rows must share the same metric type, market
+definition, channel scope, geography, and unit; otherwise the CAGR is not
+chart- or headline-ready.
+
 For each slide-bound metric row, fill at minimum:
 - Metric ID
 - Metric Name

@@ -94,8 +94,8 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
   --storyboard /path/to/workspace/industry_storyboard.json
 ```
 
-`--work-root` 应该传工作区根目录，例如 `/Users/htlh/Desktop/workbuddy`，不要传
-`/Users/htlh/Desktop/workbuddy/runs`，否则会造成 `runs/runs/...` 嵌套。
+`--work-root` 应该传工作区根目录，例如 `/path/to/workspace`，不要传
+`/path/to/workspace/runs`，否则会造成 `runs/runs/...` 嵌套。
 
 输出会写到：
 
@@ -239,8 +239,11 @@ Storyboard 是最核心的 LLM 推理产物。
 - storyboard 的 `body_copy` 只能包含当前 active layout 会实际使用的字段，多余字段会报错
 - 正文需要像 PPT bullet，而不是 memo 段落；过长 bullet 会要求压缩或拆分
 - 每页正文需要有证据、指标或机制论证支撑，避免只有空泛标签
+- slide-bound 数字必须先进入 memo 的 `Metric Reconciliation`，可见数字还需要 `visible_metric_claims` 绑定
+- CAGR 必须能用两个明确的起止 MET-ID 复算，不能靠默认年限或不可比口径硬算
 - 第 1 页有可靠 chart-ready 数据却退回纯指标卡，会被提示优先使用动态行业概览页
-- 标题、副标题、来源、图表数据、跨页指标一致性会进入质量检查
+- 第 6 页 `compare_table_page` 必须是真实同业对比表，不接受 CR5/结构判断冒充 peer rows
+- 标题、副标题、来源、图表数据、跨页指标一致性和真实 PPT 表格对象会进入质量检查
 
 ### 6. PPT 生成
 

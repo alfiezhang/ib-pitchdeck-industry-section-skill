@@ -216,6 +216,9 @@ CAGR Endpoint IDs: MET-IDs of begin/end value metrics for CAGR validation
 
 Key rules:
 - Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
+- Every MET-ID used in Key Data Points, Chart-ready Data, Page Evidence Pack, or storyboard must first be populated here.
+- CAGR rows must include exactly two ordered `CAGR Endpoint IDs`: begin MET-ID, end MET-ID. Both endpoint rows must share the same Metric Type, Market Definition, Channel Scope, Geography, and Unit.
+- `Comparable With` is not a substitute for CAGR endpoint rows. Do not calculate or cite CAGR when the endpoints are missing, stale, or not comparable.
 - Different channel_scope values must not be auto-summed or subtracted
 - Different market_definition values must not be auto-nested as parent-child
 - Slide-bound metrics must populate Metric Type, Market Definition, Channel Scope, Geography, Data Period, Value, Unit, and Conflict Status

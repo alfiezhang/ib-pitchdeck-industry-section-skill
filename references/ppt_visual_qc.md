@@ -61,6 +61,10 @@ Review these pages especially carefully:
 
 - **Slide 2** — Market Size & Segmentation
 - **Slide 6** — Competitive Landscape
+  - If `compare_table_page` is selected, it must render as a real PPT table object with 3-6 columns and at least 3 populated peer rows.
+  - Table rows should be named peers or peer archetypes. Do not use CR5/CR10, market-structure comments, or target-positioning summary statements as fake peer rows.
+  - Each cell should be a compact label, figure, or short judgment. Long explanation belongs in body panels or notes, not inside table cells.
+  - If the renderer reports `rendered: false`, the PPT is debug output and must not be treated as final delivery.
 - **Slide 8** — Key Takeaways for Target
 
 These three pages usually determine whether the section feels transaction-oriented and presentation-ready.

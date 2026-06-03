@@ -146,10 +146,19 @@ market share, CAGR, GMV, valuation multiple, or financial metric:
 - prefer MET-IDs with `cross-checked` or at minimum `single-source` status.
 - for every quantitative `chart_data.source_rows[]` datapoint, include
   `metric_id` from the memo Metric Reconciliation table.
+- populate `visible_metric_claims[]` for every visible numeric claim in a
+  headline, subtitle, body field, chart title, mini-table, or compare table.
+  Each entry must specify where the number appears, the displayed text,
+  the supporting MET-ID(s), and whether the number is directly displayed,
+  calculated, contextual, ranking-based, or peer-comparison-based.
 - do not put metrics with different `Metric Type`, `Geography`, `Unit`, or
   charted `Data Period` in the same bar/column chart unless they have been
   normalized to a common comparable basis and that basis is disclosed in
   `chart_data.notes`.
+- use `scope_group` on chart data/source rows when one slide intentionally
+  contains multiple scopes (for example China market size plus global benchmark
+  or industry metric plus target metric). If scopes differ, the visual must
+  clearly separate them instead of implying a like-for-like comparison.
 
 ### Cross-Slide Metric Consistency
 
@@ -211,6 +220,12 @@ Slide 8 (`key_takeaways_for_target`) should synthesize transaction implications 
 ### Slide 6 Competitive Landscape Discipline
 
 Slide 6 (`competitive_landscape`) should primarily explain market structure, peer segmentation, and positioning dimensions. Target positioning is secondary; the headline and main message should not be primarily about the Target's advantage.
+
+When Slide 6 selects `compare_table_page`, populate `compare_table_data` with a
+real peer comparison table: 3-6 headers and 3-6 named peer rows. Do not use
+summary rows such as market structure, CR5/CR10, or target positioning as fake
+peer rows. Keep each cell compact and include row-level MET-IDs when a number,
+ranking, or peer metric appears.
 
 ### Slide 1: Dynamic Industry Overview
 

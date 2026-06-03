@@ -857,10 +857,10 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
     }
 
 
-def split_table_cells(text: str, expected_cols: int) -> list[str]:
+def split_table_cells(text: str, expected_cols: Optional[int] = None) -> list[str]:
     value = str(text or "").strip()
     if not value:
-        return [""] * expected_cols
+        return [""] * expected_cols if expected_cols else []
     if "｜" in value:
         cells = [part.strip() for part in value.split("｜")]
     elif "|" in value:
@@ -869,9 +869,23 @@ def split_table_cells(text: str, expected_cols: int) -> list[str]:
         cells = [part.strip() for part in value.split(" / ")]
     else:
         cells = [value]
+    if expected_cols is None:
+        return cells
     if len(cells) > expected_cols:
         cells = cells[: expected_cols - 1] + [" / ".join(cells[expected_cols - 1 :])]
     return cells + [""] * (expected_cols - len(cells))
+
+
+def estimate_column_weights(headers: list[str], rows: list[list[str]]) -> list[float]:
+    weights: list[float] = []
+    col_count = len(headers)
+    for col_idx in range(col_count):
+        values = [headers[col_idx]] + [row[col_idx] for row in rows if col_idx < len(row)]
+        max_len = max((len(str(value)) for value in values), default=1)
+        weights.append(max(0.8, min(3.2, max_len / 8.0)))
+    if weights:
+        weights[0] = min(weights[0], 1.3)
+    return weights
 
 
 def count_table_cells(text: str) -> int:
@@ -993,32 +1007,53 @@ def render_slide2_chart_plus_table(slide, slide_data: dict, layout: dict) -> dic
 
 def render_slide6_compare_table(slide, slide_data: dict, layout: dict) -> dict:
     body = slide_data.get("body_copy") or {}
-    rows = [body.get(f"table_row_{idx}", "") for idx in range(1, 7)]
-    raw_values = [body.get("table_header", "")] + rows
-    if not any(str(item).strip() for item in raw_values):
+    header_cells = split_table_cells(body.get("table_header", ""))
+    col_count = len(header_cells)
+    if col_count < 3 or col_count > 6:
+        return {
+            "rendered": False,
+            "reason": f"slide 6 compare table requires 3-6 explicit header columns; found {col_count}",
+        }
+
+    row_texts = [
+        body.get(f"table_row_{idx}", "")
+        for idx in range(1, 7)
+        if str(body.get(f"table_row_{idx}", "")).strip()
+    ]
+    if not header_cells and not row_texts:
         return {"rendered": False, "reason": "missing slide 6 compare table body_copy fields"}
-    col_count = max(count_table_cells(item) for item in raw_values)
-    col_count = min(max(col_count, 5), 6)
-    headers = split_table_cells(body.get("table_header", ""), col_count)
+    if len(row_texts) < 3:
+        return {"rendered": False, "reason": "slide 6 compare table needs at least 3 populated peer rows"}
+
+    rows = []
+    for row_idx, row_text in enumerate(row_texts, start=1):
+        cells = split_table_cells(row_text)
+        if len(cells) != col_count:
+            return {"rendered": False, "reason": f"row {row_idx} has {len(cells)} cells; expected {col_count}"}
+        if any(not cell.strip() for cell in cells):
+            return {"rendered": False, "reason": f"row {row_idx} contains blank cell"}
+        rows.append(cells)
 
     table_box = layout["table_box"]
     removed = remove_text_shapes_in_box(slide, table_box)
     left, top, width, height = table_box
-    table_shape = slide.shapes.add_table(7, col_count, Emu(left), Emu(top), Emu(width), Emu(height))
+    table_shape = slide.shapes.add_table(len(rows) + 1, col_count, Emu(left), Emu(top), Emu(width), Emu(height))
     table = table_shape.table
-    col_weights = [1.2, 1.5, 0.9, 1.1, 2.3] if col_count == 5 else [1.1, 1.5, 0.9, 0.8, 1.8, 0.9]
+    col_weights = layout.get("column_weight_overrides", {}).get(str(col_count)) if isinstance(layout.get("column_weight_overrides"), dict) else None
+    if not col_weights:
+        col_weights = estimate_column_weights(header_cells, rows)
     total = sum(col_weights)
     for idx, weight in enumerate(col_weights):
         table.columns[idx].width = Emu(int(width * weight / total))
     header_font = TABLE_HEADER_FONT_SIZE
     body_font = TABLE_BODY_FONT_SIZE
-    for idx, header in enumerate(headers):
+    for idx, header in enumerate(header_cells):
         set_cell_text(table.cell(0, idx), header, header_font, True, RGBColor(0xFF, 0xFF, 0xFF))
-    for row_idx, row_text in enumerate(rows, start=1):
-        for col_idx, cell_text in enumerate(split_table_cells(row_text, col_count)):
+    for row_idx, row_cells in enumerate(rows, start=1):
+        for col_idx, cell_text in enumerate(row_cells):
             set_cell_text(table.cell(row_idx, col_idx), cell_text, body_font, False)
     style_table_shape(table_shape)
-    return {"rendered": True, "rows": 7, "columns": col_count, "removed_text_shapes": removed}
+    return {"rendered": True, "rows": len(rows) + 1, "columns": col_count, "removed_text_shapes": removed}
 
 
 def render_quant_slide(prs: Presentation, storyboard: dict, slide_no: int, render_layouts: dict[int, dict]) -> dict:

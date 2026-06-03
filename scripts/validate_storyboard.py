@@ -416,6 +416,7 @@ def check_storyline_contract(
 
 def check_compare_table_structure(
     slide: dict,
+    errors: list[str],
     warnings: list[str],
 ) -> None:
     """Check that compare_table rows are structurally consistent with the header."""
@@ -431,7 +432,10 @@ def check_compare_table_structure(
     header = body_copy.get("table_header", "")
     header_cells = split_table_cells(header) if isinstance(header, str) else []
     expected_columns = len(header_cells)
-    if expected_columns < 2:
+    if expected_columns < 3 or expected_columns > 6:
+        errors.append(
+            f"slide {slide_no}: compare_table_page requires 3-6 explicit table_header columns; found {expected_columns}"
+        )
         return
 
     rows: list[tuple[str, list[str]]] = []
@@ -439,7 +443,8 @@ def check_compare_table_structure(
         if key.startswith("table_row_") and isinstance(body_copy.get(key), str) and body_copy[key].strip():
             rows.append((key, split_table_cells(body_copy[key])))
 
-    if len(rows) < 2:
+    if len(rows) < 3:
+        errors.append(f"slide {slide_no}: compare_table_page needs at least 3 populated peer rows")
         return
 
     inconsistent = [
@@ -448,11 +453,28 @@ def check_compare_table_structure(
         if len(cells) != expected_columns or any(not str(cell).strip() for cell in cells)
     ]
     if inconsistent:
-        warnings.append(
+        errors.append(
             f"slide {slide_no}: compare_table rows must match the table_header structure; "
             f"inconsistent rows: {', '.join(inconsistent[:4])}. "
             f"Move summary conclusions or CRx commentary to the right-side insight panel instead of partial table rows."
         )
+    column_values = list(zip(*(cells for _, cells in rows))) if rows else []
+    blank_columns = [
+        str(idx + 1)
+        for idx, values in enumerate(column_values)
+        if all(not str(value).strip() for value in values)
+    ]
+    if blank_columns:
+        errors.append(f"slide {slide_no}: compare_table has blank data column(s): {', '.join(blank_columns)}")
+
+    summary_terms = ("市场结构", "竞争维度", "标的定位", "行业判断", "CR4", "CR5", "CR10", "集中度")
+    for key, cells in rows:
+        row_text = " ".join(cells)
+        if any(term in row_text for term in summary_terms) and not re.search(r"(公司|企业|玩家|集团|液压|精密|股份)", cells[0]):
+            errors.append(
+                f"slide {slide_no}: {key} appears to contain summary/CRx commentary rather than a peer row; "
+                "move industry structure judgments to right_top/right_mid/right_bottom"
+            )
 
 
 def check_storyline_coverage(
@@ -523,7 +545,7 @@ def check_storyline_coverage(
         if not isinstance(slide, dict):
             continue
         check_storyline_contract(slide, errors, warnings)
-        check_compare_table_structure(slide, warnings)
+        check_compare_table_structure(slide, errors, warnings)
 
 
 def validate_slides(

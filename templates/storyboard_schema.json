@@ -93,6 +93,8 @@
               "supporting_metric_ids": { "type": "array", "items": { "type": "string" }, "description": "MET-IDs used as secondary or contextual metrics on this slide." },
               "drill_down_from_slide": { "type": "integer", "minimum": 1, "maximum": 8, "description": "Which slide this page drills down from. Slide 2 must set this to 1. Other slides set it only if they are an explicit drill-down." },
               "new_information_added": { "type": "array", "items": { "type": "string" }, "description": "Categories of new structural information this slide adds beyond what the parent slide already covered. Slide 2 must have at least one entry. Examples: ['customer_segment', 'application_mix', 'channel_shift']." },
+              "unique_information_added": { "type": "array", "items": { "type": "string" }, "description": "Distinct information this slide adds that should not be a paraphrase of other slides." },
+              "must_not_repeat_from_slides": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 8 }, "description": "Slide numbers whose core concepts this slide must not repeat." },
               "intentional_overlap_metric_ids": { "type": "array", "items": { "type": "string" }, "description": "MET-IDs that intentionally appear on both this slide and its parent (e.g., total market size used as context). These are excluded from the overlap warning." },
               "drilldown_role": { "type": "string", "description": "For Slide 2: the selected drill-down role from templates/drilldown_role_library.json (e.g., 'market_segmentation', 'channel_structure'). Required when slide_no is 2." }
             }
@@ -145,6 +147,8 @@
               "title": { "type": "string", "description": "Short chart title or caption." },
               "x_axis_label": { "type": "string", "description": "Optional x-axis label, especially for matrix visuals." },
               "y_axis_label": { "type": "string", "description": "Optional y-axis label, especially for matrix visuals." },
+              "scope_group": { "type": "string", "description": "Scope group for the primary chart, used to separate China / global / target / peer metrics." },
+              "scope_note": { "type": "string", "description": "Explicit note when chart or auxiliary metrics use different geography, market definition, channel scope, unit, or metric type." },
               "categories": {
                 "type": "array",
                 "items": { "type": "string" },
@@ -198,6 +202,7 @@
                     "y": { "type": "number" },
                     "series_name": { "type": "string", "description": "Series name this datapoint belongs to for multi-series charts. Should match series[].name when applicable." },
                     "category": { "type": "string", "description": "X-axis category this datapoint belongs to. Should match categories[] when applicable." },
+                    "scope_group": { "type": "string" },
                     "period": { "type": "string" },
                     "source": { "type": "string" },
                     "metric_id": { "type": "string", "pattern": "^MET-\\d{3}$", "description": "Metric ID from memo Metric Reconciliation for this datapoint when value is quantitative." },
@@ -230,6 +235,7 @@
                         "period": { "type": "string" },
                         "category": { "type": "string" },
                         "series_name": { "type": "string" },
+                        "scope_group": { "type": "string" },
                         "unit": { "type": "string" },
                         "value_unit": { "type": "string" },
                         "source": { "type": "string" },
@@ -243,6 +249,54 @@
                 "additionalProperties": false
               },
               "notes": { "type": "string", "description": "Construction notes, caveats, or interpolation logic." }
+            },
+            "additionalProperties": false
+          },
+          "visible_metric_claims": {
+            "type": "array",
+            "description": "Every visible quantitative claim in headline, main_message, body_copy, chart_data or table must bind to reconciled MET-IDs.",
+            "items": {
+              "type": "object",
+              "required": ["location", "display_text", "metric_ids", "usage_type"],
+              "properties": {
+                "location": { "type": "string", "description": "headline | main_message | body_copy.<field> | chart_data | table.<field>" },
+                "display_text": { "type": "string" },
+                "metric_ids": {
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^MET-\\d{3}$" },
+                  "minItems": 1
+                },
+                "usage_type": {
+                  "type": "string",
+                  "enum": ["direct_display", "calculated_display", "context_only", "ranking", "peer_comparison"]
+                },
+                "calculation_note": { "type": "string" },
+                "scope_group": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "compare_table_data": {
+            "type": "object",
+            "properties": {
+              "headers": { "type": "array", "items": { "type": "string" }, "minItems": 3, "maxItems": 6 },
+              "rows": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 6,
+                "items": {
+                  "type": "object",
+                  "required": ["label", "cells"],
+                  "properties": {
+                    "label": { "type": "string" },
+                    "cells": { "type": "array", "items": { "type": "string" } },
+                    "metric_ids": { "type": "array", "items": { "type": "string", "pattern": "^MET-\\d{3}$" } },
+                    "basis_note": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "comparison_basis_note": { "type": "string" }
             },
             "additionalProperties": false
           },

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from json_utils import load_json_file
+from metric_scope_utils import SCOPE_FIELDS, compare_metric_scopes, normalize_scope_value
 from validation_common import (
     check_main_message_terminal_punctuation,
     display_units,
@@ -760,6 +761,33 @@ def parse_metric_reconciliation(memo_text: str) -> dict[str, dict[str, str]]:
     return metrics
 
 
+def parse_evidence_ledger(memo_text: str) -> dict[str, dict[str, str]]:
+    ledger: dict[str, dict[str, str]] = {}
+    if not memo_text:
+        return ledger
+    in_section = False
+    header: list[str] = []
+    for line in memo_text.splitlines():
+        if re.match(r"^##\s+Evidence Ledger\b", line, flags=re.IGNORECASE):
+            in_section = True
+            continue
+        if in_section and re.match(r"^##\s+", line):
+            break
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if not cells:
+            continue
+        if cells[0] == "Evidence ID":
+            header = cells
+            continue
+        if all(set(c) <= {"-", ":"} for c in cells):
+            continue
+        if re.match(r"^EV-\d{3}$", cells[0]):
+            ledger[cells[0]] = {header[i] if i < len(header) else f"col_{i}": cell for i, cell in enumerate(cells)}
+    return ledger
+
+
 def memo_has_comparable_market_timeseries(memo_text: str) -> bool:
     """Heuristic: detect whether the memo has enough comparable datapoints for a Slide 1 trend chart."""
     metrics = parse_metric_reconciliation(memo_text)
@@ -836,7 +864,7 @@ def chart_expected_datapoints(chart_data: dict[str, Any]) -> list[dict[str, Any]
     return expected
 
 
-def _parse_chart_number(value: Any) -> float | None:
+def _parse_chart_number(value: Any) -> Optional[float]:
     if isinstance(value, (int, float)):
         return float(value)
     text = str(value or "").strip().replace(",", "")
@@ -1280,6 +1308,192 @@ def check_metric_ids_against_memo(slides: list[dict], memo_text: str) -> list[st
     return issues
 
 
+QUANT_CLAIM_RE = re.compile(
+    r"(?:\d+(?:\.\d+)?\s*(?:%|％|亿元|亿|万|万美元|亿美元|元|CAGR)|"
+    r"CAGR|CR[34510]|Top\s*\d+|第[一二三四五六七八九十\d]+|行业第一|排名)",
+    re.IGNORECASE,
+)
+
+
+def visible_text_fields(slide: dict) -> list[tuple[str, str]]:
+    fields = [
+        ("headline", str(slide.get("headline") or "")),
+        ("main_message", str(slide.get("main_message") or "")),
+        ("target_link", str(slide.get("target_link") or "")),
+    ]
+    body = slide.get("body_copy") or {}
+    if isinstance(body, dict):
+        for key, value in body.items():
+            if isinstance(value, str):
+                fields.append((f"body_copy.{key}", value))
+    chart_data = slide.get("chart_data") or {}
+    if isinstance(chart_data, dict):
+        fields.append(("chart_data.title", str(chart_data.get("title") or "")))
+        secondary = chart_data.get("secondary_module") or {}
+        if isinstance(secondary, dict):
+            for idx, row in enumerate(secondary.get("rows") or [], start=1):
+                if isinstance(row, dict):
+                    fields.append((f"chart_data.secondary_module.rows[{idx}]", " ".join(str(row.get(k) or "") for k in ("label", "value", "unit", "note"))))
+    return [(loc, text) for loc, text in fields if text.strip()]
+
+
+def check_visible_metric_claims(slide: dict, memo_text: str, blocking_warnings: list[str]) -> None:
+    if not memo_text:
+        return
+    slide_no = slide.get("slide_no")
+    metrics = parse_metric_reconciliation(memo_text)
+    claims = slide.get("visible_metric_claims")
+    quant_locations = [(loc, text) for loc, text in visible_text_fields(slide) if QUANT_CLAIM_RE.search(text)]
+    if quant_locations and not isinstance(claims, list):
+        blocking_warnings.append(
+            f"slide {slide_no}: visible quantitative claim(s) require visible_metric_claims bindings: "
+            + ", ".join(loc for loc, _ in quant_locations[:6])
+        )
+        return
+
+    claim_locations = {str(claim.get("location") or ""): claim for claim in claims or [] if isinstance(claim, dict)}
+    for loc, text in quant_locations:
+        claim = claim_locations.get(loc)
+        if not claim:
+            # Allow chart datapoint rows to be covered by direct row metric_id.
+            if loc.startswith("chart_data.") and re.search(r"MET-\d{3}", str(slide.get("chart_data", {}))):
+                continue
+            blocking_warnings.append(
+                f"slide {slide_no}: visible quantitative claim at {loc!r} is not covered by visible_metric_claims"
+            )
+            continue
+        metric_ids = [str(m).strip() for m in claim.get("metric_ids", []) if str(m).strip()]
+        if not metric_ids:
+            blocking_warnings.append(f"slide {slide_no}: visible_metric_claims[{loc}] has no metric_ids")
+            continue
+        for met_id in metric_ids:
+            if met_id not in metrics:
+                blocking_warnings.append(f"slide {slide_no}: visible_metric_claims[{loc}] references unknown {met_id}")
+                continue
+            status = str(metrics[met_id].get("Conflict Status") or "").strip().lower()
+            if status in {"conflicting", "not_comparable", "unresolved"}:
+                blocking_warnings.append(
+                    f"slide {slide_no}: visible_metric_claims[{loc}] uses {met_id} with Conflict Status '{status}'"
+                )
+        if claim.get("usage_type") == "calculated_display" and not str(claim.get("calculation_note") or "").strip():
+            blocking_warnings.append(f"slide {slide_no}: calculated visible metric claim at {loc!r} needs calculation_note")
+        if claim.get("usage_type") == "ranking" and not re.search(r"(basis|口径|按|期间|排名)", str(claim.get("calculation_note") or claim.get("display_text") or ""), re.I):
+            blocking_warnings.append(f"slide {slide_no}: ranking visible metric claim at {loc!r} needs ranking basis")
+
+
+def check_slide_scope_compatibility(slide: dict, memo_text: str, blocking_warnings: list[str], warnings: list[str]) -> None:
+    if not memo_text:
+        return
+    chart_data = slide.get("chart_data")
+    if not isinstance(chart_data, dict):
+        return
+    metrics = parse_metric_reconciliation(memo_text)
+    slide_no = slide.get("slide_no")
+    chart_type = str(chart_data.get("chart_type") or "").lower()
+    primary_rows = [row for row in chart_data.get("source_rows") or [] if isinstance(row, dict)]
+    series_groups: dict[str, list[str]] = {}
+    for row in primary_rows:
+        met_id = str(row.get("metric_id") or "").strip()
+        if met_id in metrics:
+            series_groups.setdefault(str(row.get("series_name") or "primary"), []).append(met_id)
+    for series_name, met_ids in series_groups.items():
+        unique_ids = list(dict.fromkeys(met_ids))
+        if len(unique_ids) < 2:
+            continue
+        base = metrics[unique_ids[0]]
+        for met_id in unique_ids[1:]:
+            scope = compare_metric_scopes(base, metrics[met_id])
+            if not scope["comparable"]:
+                blocking_warnings.append(
+                    f"slide {slide_no}: chart series '{series_name}' mixes incompatible metric scopes "
+                    f"({unique_ids[0]} vs {met_id}: {scope['reason']})"
+                )
+        if chart_type not in {"line", "line_chart"} and not _is_time_series_chart(chart_data):
+            periods = {normalize_scope_value(metrics[met_id].get("Data Period", "")) for met_id in unique_ids if metrics[met_id].get("Data Period")}
+            if len(periods) > 1:
+                blocking_warnings.append(
+                    f"slide {slide_no}: chart series '{series_name}' mixes Data Period values without time-series framing"
+                )
+
+    scope_groups = set()
+    for row in primary_rows:
+        if row.get("scope_group"):
+            scope_groups.add(str(row.get("scope_group")))
+        met_id = str(row.get("metric_id") or "").strip()
+        if met_id in metrics:
+            scope_groups.add("|".join(normalize_scope_value(metrics[met_id].get(field, "")) for field in SCOPE_FIELDS[:4]))
+    secondary = chart_data.get("secondary_module") or {}
+    if isinstance(secondary, dict):
+        for row in secondary.get("rows") or []:
+            if isinstance(row, dict) and row.get("scope_group"):
+                scope_groups.add(str(row.get("scope_group")))
+    if slide_no == 2 and len(scope_groups) >= 3 and not str(chart_data.get("scope_note") or chart_data.get("notes") or "").strip():
+        blocking_warnings.append(
+            "slide 2: uses 3+ metric scope groups without chart_data.scope_note/notes; split primary axis and auxiliary context"
+        )
+
+
+def _concept_tokens(text: str) -> set[str]:
+    text = re.sub(r"[^\w\u4e00-\u9fff]+", "", text.lower())
+    tokens: set[str] = set()
+    for n in (2, 3, 4):
+        tokens.update(text[i : i + n] for i in range(0, max(0, len(text) - n + 1)))
+    stop = {"行业", "市场", "公司", "中国", "发展", "趋势", "驱动", "结构", "企业", "价值"}
+    return {token for token in tokens if token and token not in stop}
+
+
+def check_cross_slide_distinctness(slides: list[dict], rules: dict, blocking_warnings: list[str], warnings: list[str]) -> None:
+    by_no = {slide.get("slide_no"): slide for slide in slides if isinstance(slide, dict)}
+    default_rules = [
+        {"slides": [3, 7], "max_semantic_overlap": 0.45, "blocking": True, "reason": "drivers must not repeat future trends"},
+        {"slides": [4, 5], "max_semantic_overlap": 0.45, "blocking": True, "reason": "profit pools must not repeat barriers"},
+        {"slides": [1, 8], "max_semantic_overlap": 0.55, "blocking": False, "reason": "summary may recap but must add transaction implications and DD questions"},
+    ]
+    distinct_rules = rules.get("cross_slide_distinctness_rules") or default_rules
+    for rule in distinct_rules:
+        pair = rule.get("slides") or []
+        if len(pair) != 2 or pair[0] not in by_no or pair[1] not in by_no:
+            continue
+        slide_a, slide_b = by_no[pair[0]], by_no[pair[1]]
+        text_a = " ".join(text for _, text in visible_text_fields(slide_a))
+        text_b = " ".join(text for _, text in visible_text_fields(slide_b))
+        tokens_a = _concept_tokens(text_a)
+        tokens_b = _concept_tokens(text_b)
+        if not tokens_a or not tokens_b:
+            continue
+        overlap = len(tokens_a & tokens_b) / max(1, min(len(tokens_a), len(tokens_b)))
+        max_overlap = float(rule.get("max_semantic_overlap", 0.5))
+        if overlap > max_overlap:
+            repeated = sorted(tokens_a & tokens_b, key=len, reverse=True)[:8]
+            message = (
+                f"slide {pair[0]} / slide {pair[1]} semantic overlap {overlap:.0%} exceeds {max_overlap:.0%}; "
+                f"{rule.get('reason', 'slides must be distinct')}. Repeated concepts: {', '.join(repeated)}"
+            )
+            (blocking_warnings if rule.get("blocking", False) else warnings).append(message)
+
+
+def check_transaction_trend_claim_support(slide: dict, memo_text: str, blocking_warnings: list[str]) -> None:
+    text = " ".join(text for _, text in visible_text_fields(slide))
+    if not re.search(r"(产业|行业).{0,8}整合.{0,6}加速|(交易|出售|控股权).{0,8}窗口.{0,6}(打开|确立|清晰)|验证.{0,20}(趋势|逻辑|窗口)", text):
+        return
+    ledger = parse_evidence_ledger(memo_text)
+    contract = slide.get("slide_story_contract") or {}
+    ev_ids = set(re.findall(r"EV-\d{3}", str(slide.get("source_note") or "")))
+    if isinstance(contract, dict):
+        ev_ids.update(str(item).strip() for item in contract.get("evidence_ids", []) or [] if str(item).strip())
+    transaction_evidence = []
+    for ev_id in ev_ids:
+        row = ledger.get(ev_id, {})
+        searchable = " ".join(str(row.get(field, "")) for field in ("Evidence Category", "Source Type", "Claim / Metric", "Claim Scope")).lower()
+        if "transaction_case" in searchable or "交易" in searchable or "并购" in searchable or "收购" in searchable:
+            transaction_evidence.append(ev_id)
+    if len(set(transaction_evidence)) < 2:
+        blocking_warnings.append(
+            f"slide {slide.get('slide_no')}: transaction/consolidation trend claim is supported by only "
+            f"{len(set(transaction_evidence))} transaction_case EV-ID(s); use at least 2 distinct cases or downgrade wording to a recent observation sample"
+        )
+
+
 def check_slide6_industry_balance(slides: list[dict], memo_text: str) -> list[str]:
     """Require Slide 6 competitive landscape to remain industry/peer-first."""
     if not memo_text:
@@ -1543,6 +1757,8 @@ def validate(
 
         # 5. Chart data completeness
         check_chart_data(slide, rules, chart_data_warnings, layout_blocking_warnings, layout_budget, memo_text)
+        check_slide_scope_compatibility(slide, memo_text, layout_blocking_warnings, chart_data_warnings)
+        check_visible_metric_claims(slide, memo_text, layout_blocking_warnings)
 
         # 6. Claim strength and overclaim language
         check_claim_strength_language(slide, overclaim_phrases, claim_strength_warnings, claim_strength_blocking_warnings)
@@ -1558,6 +1774,7 @@ def validate(
         # 9. Evidence linkage
         if memo_text:
             check_evidence_linkage(slide, memo_text, min_evidence, evidence_warnings)
+            check_transaction_trend_claim_support(slide, memo_text, claim_strength_blocking_warnings)
 
         if rules.get("required_storyboard_checks", {}).get("cross_slide_metric_consistency_check", True):
             for signature in collect_slide_metric_signatures(slide):
@@ -1568,6 +1785,7 @@ def validate(
 
     # Slide 1/2 pair validation: overview → drill-down
     validate_slide_1_2_pair(slides, generic_copy_warnings, claim_strength_blocking_warnings, valid_drilldown_roles)
+    check_cross_slide_distinctness(slides, rules, claim_strength_blocking_warnings, generic_copy_warnings)
 
     # Check storyboard metric_ids against memo Metric Reconciliation
     metric_id_issues = check_metric_ids_against_memo(slides, memo_text)

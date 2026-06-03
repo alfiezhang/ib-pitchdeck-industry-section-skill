@@ -178,13 +178,29 @@ def convert_slide(storyboard_slide: dict) -> dict:
     else:
         chart_title = ""
 
+    content = copy.deepcopy(storyboard_slide.get("body_copy", {}) or {})
+    compare_table = storyboard_slide.get("compare_table_data")
+    if page_type == "compare_table_page" and isinstance(compare_table, dict):
+        headers = compare_table.get("headers") or []
+        rows = compare_table.get("rows") or []
+        if isinstance(headers, list) and headers:
+            content["table_header"] = "｜".join(str(item).strip() for item in headers)
+        if isinstance(rows, list):
+            for idx, row in enumerate(rows[:6], start=1):
+                if not isinstance(row, dict):
+                    continue
+                label = str(row.get("label") or "").strip()
+                cells = row.get("cells") or []
+                values = [label] + [str(item).strip() for item in cells if str(item).strip()]
+                content[f"table_row_{idx}"] = "｜".join(values)
+
     ppt_slide = {
         "slide_no": storyboard_slide.get("slide_no", 0),
         "slide_key": slide_key,
         "selected_page_type": page_type,
         "slide_title": storyboard_slide.get("headline", ""),
         "main_takeaway": storyboard_slide.get("main_message", ""),
-        "content": storyboard_slide.get("body_copy", {}),
+        "content": content,
         "chart_title": chart_title,
         "source_footer": _clean_source_footer(storyboard_slide.get("source_note", "")),
         "speaker_note": "",

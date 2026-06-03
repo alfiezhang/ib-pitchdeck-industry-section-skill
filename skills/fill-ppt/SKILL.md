@@ -158,6 +158,7 @@ Current scope:
 - renders Slide 1 `industry_overview_dynamic_page` on the existing slide 1 canvas by preserving the left-side `KEY MESSAGES` area and replacing only the right-side `CHART / VISUAL` area with a real chart; this does not require adding a new master-template slide
 - does not fabricate right-side metric cards from primary chart rows; if a `secondary_module` is requested it must have its own rows, otherwise no secondary module should be rendered
 - renders Slide 2 mini-table and Slide 6 compare table as real PPT table objects when those page types are selected; do not deliver fake tables made from plain text separators
+- final validation checks that selected Slide 2 mini-table / Slide 6 compare-table layouts contain real, populated PPT table objects; blank cells or missing table objects make the deck non-deliverable
 - reads deterministic render coordinates from `templates/render_layouts.json`
 
 ### 7. Validate Filled PPT
