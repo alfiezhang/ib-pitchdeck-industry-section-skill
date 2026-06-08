@@ -1,0 +1,70 @@
+{
+  "schema_version": "formal_search_plan_v1",
+  "meta": {
+    "target_company": "",
+    "transaction_type": "",
+    "industry": "",
+    "subsector": "",
+    "geography": "",
+    "language": "English",
+    "prepared_date": "",
+    "research_as_of_date": ""
+  },
+  "industry_scope_pack": {
+    "artifact_path": "artifacts/industry_scope_pack.json",
+    "purpose": "Use the scope pack as a research map: market definition, category boundaries, data hierarchy, required reconciliations, unvalidated leads, and seed questions. Do not convert scope-pack leads into findings here.",
+    "scope_inputs_to_use": [
+      "scope_summary",
+      "market_definitions",
+      "ambiguous_boundaries",
+      "data_hierarchy",
+      "unvalidated_leads",
+      "required_reconciliations",
+      "formal_research_seed_questions"
+    ]
+  },
+  "planning_instruction": "Create only the relevant issue/subissue entries after reading industry_scope_pack.json. For each entry, write clear executable search instructions: exact query strings the next step should actually run. Cover required reconciliations and important unvalidated leads. Do not write investment hypotheses, validated findings, slide conclusions, or page plans.",
+  "issue_search_plan": [
+    {
+      "issue_area": "market_size_growth",
+      "subissue": "current_market_size",
+      "priority": "high",
+      "research_question": "What is the current relevant market size, and what scope/geography does each source use?",
+      "search_instructions": [
+        {
+          "instruction_id": "FS-001",
+          "query": "<industry/subsector> <geography> market size latest report",
+          "purpose": "Find current market-size datapoints and source scope.",
+          "source_hint": "official statistics, industry association, broker/consulting report, company disclosure"
+        },
+        {
+          "instruction_id": "FS-002",
+          "query": "<industry/subsector> <geography> market size CAGR forecast",
+          "purpose": "Find growth datapoints or enough periods to reconcile CAGR.",
+          "source_hint": "industry report, broker report, official statistics"
+        }
+      ]
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "peer_universe",
+      "priority": "high",
+      "research_question": "Who are the relevant top peers and adjacent players for this market definition?",
+      "search_instructions": [
+        {
+          "instruction_id": "FS-003",
+          "query": "<industry/subsector> <geography> leading companies market share",
+          "purpose": "Identify peer universe, share indicators, and inclusion rationale.",
+          "source_hint": "company disclosure, industry report, platform data"
+        }
+      ]
+    }
+  ],
+  "research_discipline": {
+    "do_not_generate_hypotheses": true,
+    "formal_validation_lives_in": "artifacts/formal_research_execution_report.json",
+    "execution_report_inherits_plan_taxonomy": "In formal_research_execution_report.json, copy issue_area, subissue, and research_question from the issue_search_plan item associated with each executed FS-xxx. Do not reclassify taxonomy in the execution report.",
+    "fs_vs_s_id_discipline": "FS-xxx IDs are planned search instructions only. After writing this plan, run actual searches and log them as S-xxx entries in artifacts/search_log.md. In the execution report, search_instruction_ids uses FS-xxx and search_attempt_ids uses S-xxx.",
+    "if_evidence_is_insufficient": "Record the issue/subissue as thin, insufficient, or unavailable_after_research in the formal execution report and research pack; do not invent a page claim."
+  }
+}

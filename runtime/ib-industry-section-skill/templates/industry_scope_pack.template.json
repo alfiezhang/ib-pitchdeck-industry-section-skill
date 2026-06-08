@@ -1,0 +1,78 @@
+{
+  "schema_version": "industry_scope_pack_v1",
+  "meta": {
+    "target_company": "",
+    "transaction_type": "",
+    "industry": "",
+    "subsector": "",
+    "geography": "",
+    "language": "English",
+    "prepared_date": "",
+    "research_as_of_date": ""
+  },
+  "scope_stage_instruction": "Scoping only. Do not write confirmed market size, growth rate, market share, channel ranking, competitive landscape, valuation multiples, or page-ready claims. Any numerical or directional finding encountered during broad discovery must be stored only as an unvalidated lead.",
+  "scope_summary": {
+    "working_market": "",
+    "parent_market": "",
+    "broader_market": "",
+    "adjacent_markets": []
+  },
+  "market_definitions": {
+    "narrow_definition": {
+      "included_segments": [],
+      "excluded_segments": [],
+      "use_case": "market sizing / competitive share"
+    },
+    "broad_definition": {
+      "included_segments": [],
+      "additional_segments": [],
+      "use_case": "trend discussion / product ecosystem"
+    }
+  },
+  "ambiguous_boundaries": [
+    {
+      "item": "",
+      "why_ambiguous": "",
+      "research_treatment": ""
+    }
+  ],
+  "scope_confidence_rationale": "",
+  "data_hierarchy": [
+    {
+      "level": 1,
+      "metric_scope": "broader beauty / personal care market",
+      "can_be_compared_with": [],
+      "cannot_be_compared_with": []
+    },
+    {
+      "level": 2,
+      "metric_scope": "parent category market",
+      "can_be_compared_with": [],
+      "cannot_be_compared_with": []
+    },
+    {
+      "level": 3,
+      "metric_scope": "working market / subsector",
+      "can_be_compared_with": [],
+      "cannot_be_compared_with": []
+    }
+  ],
+  "unvalidated_leads": [
+    {
+      "lead": "",
+      "claim_type": "",
+      "source_hint": "",
+      "must_validate": []
+    }
+  ],
+  "required_reconciliations": [
+    {
+      "topic": "",
+      "why_it_matters": "",
+      "formal_research_requirement": ""
+    }
+  ],
+  "reconciliation_policy": "",
+  "formal_research_seed_questions": [],
+  "do_not_use_as_claims": true
+}

@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Renderer Spec",
+  "description": "Compiled renderer-facing slide specification. Formal runs compile it from deck_blueprint after page evidence contract validation.",
+  "type": "object",
+  "required": ["schema_version", "section_meta", "slides"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "renderer_spec_v1" },
+    "section_meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "slides": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "slide_no",
+          "fixed_page_role",
+          "selected_page_type",
+          "primary_issue_analysis_id",
+          "issue_analysis_ids",
+          "claim_strength",
+          "headline",
+          "main_message",
+          "body_copy",
+          "source_note"
+        ],
+        "properties": {
+          "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+          "fixed_page_role": { "type": "string" },
+          "slide_role": { "type": "string" },
+          "selected_page_type": { "type": "string" },
+          "primary_issue_analysis_id": { "type": "string", "pattern": "^IA-\\d{3}$" },
+          "issue_analysis_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^IA-\\d{3}$" }
+          },
+          "claim_strength": {
+            "type": "string",
+            "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "open_question"]
+          },
+          "headline": { "type": "string" },
+          "main_message": { "type": "string" },
+          "body_copy": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "chart_data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "compare_table_data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^EV-\\d{3}$" }
+          },
+          "visible_metric_claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["location", "display_text", "metric_ids", "usage_type"],
+              "properties": {
+                "location": { "type": "string" },
+                "display_text": { "type": "string" },
+                "metric_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "pattern": "^MET-\\d{3}$" }
+                },
+                "usage_type": {
+                  "type": "string",
+                  "enum": ["direct_display", "calculated_display", "ranking", "peer_comparison", "context_only"]
+                },
+                "calculation_note": { "type": "string" },
+                "basis_note": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "source_note": { "type": "string" },
+          "pitch_relevance": { "type": "string" },
+          "page_role": { "type": "string" },
+          "drilldown_role": { "type": "string" },
+          "drill_down_from_slide": { "type": "integer" },
+          "new_information_added": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "caveats": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "open_questions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "template_binding": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

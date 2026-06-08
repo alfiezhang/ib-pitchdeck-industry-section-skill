@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lightweight Formal Search Plan",
+  "description": "Industry-scope-pack-driven executable issue/subissue search instruction plan. The schema documents shape; scripts/validate_formal_search_plan.py enforces lightweight execution readiness before formal searches.",
+  "type": "object",
+  "required": ["schema_version", "meta", "industry_scope_pack", "issue_search_plan"],
+  "properties": {
+    "schema_version": { "const": "formal_search_plan_v1" },
+    "meta": { "type": "object", "additionalProperties": true },
+    "industry_scope_pack": { "type": "object", "additionalProperties": true },
+    "issue_search_plan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_area", "subissue", "research_question", "priority", "search_instructions"],
+        "properties": {
+          "issue_area": { "type": "string" },
+          "subissue": { "type": "string" },
+          "research_question": { "type": "string" },
+          "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "search_instructions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["instruction_id", "query", "purpose"],
+              "properties": {
+                "instruction_id": { "type": "string", "pattern": "^FS-\\d{3}$" },
+                "query": { "type": "string", "minLength": 6 },
+                "purpose": { "type": "string", "minLength": 6 },
+                "source_hint": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "research_discipline": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}

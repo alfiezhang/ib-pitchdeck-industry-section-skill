@@ -1,0 +1,485 @@
+{
+  "meta": {
+    "target_company": "Example Target",
+    "industry": "Example sector",
+    "geography": "Example geography",
+    "research_as_of_date": "2026-06-03"
+  },
+  "issue_analyses": [
+    {
+      "analysis_id": "IA-001",
+      "source_execution_result_ids": ["FR-001"],
+      "issue_area": "market_size_growth",
+      "subissue": "current_market_size",
+      "analysis_type": "descriptive_market_fact",
+      "core_statement": "The relevant market is large enough to support a credible pitch discussion when scope and source are explicit.",
+      "analysis_text": "The current market-size evidence gives the deck blueprint a defensible starting point: it defines the market scope, ties the number to a reviewed source, and keeps the geographic boundary explicit. The analysis should not be stretched into a broader adjacent-market claim, but it is sufficient to anchor an industry overview and a scoped chart if the source note preserves period, unit, and market definition.",
+      "supporting_points": [
+        {
+          "point": "Market scale is supported by a reviewed market-size source.",
+          "evidence_ids": ["EV-001"],
+          "metric_ids": ["MET-001"],
+          "role": "primary_fact",
+          "evidence_sufficiency": "sufficient"
+        },
+        {
+          "point": "Forecast evidence exists but should preserve period assumptions.",
+          "evidence_ids": ["EV-002"],
+          "metric_ids": ["MET-002"],
+          "role": "secondary_fact",
+          "evidence_sufficiency": "sufficient"
+        }
+      ],
+      "evidence_sufficiency": "sufficient",
+      "status": "validated",
+      "evidence_ids": ["EV-001", "EV-002"],
+      "metric_ids": ["MET-001", "MET-002"],
+      "limitations": [],
+      "downstream_permission": {
+        "headline_allowed": true,
+        "chart_allowed": true,
+        "body_copy_allowed": true
+      },
+      "candidate_use_cases": ["market_attractiveness"]
+    },
+    {
+      "analysis_id": "IA-002",
+      "source_execution_result_ids": ["FR-002"],
+      "issue_area": "market_size_growth",
+      "subissue": "market_segmentation",
+      "analysis_type": "structure_analysis",
+      "core_statement": "One structural segmentation axis explains growth better than total market expansion alone.",
+      "analysis_text": "The segmentation evidence is useful because it identifies a structural split that the overview page cannot answer by itself. The evidence is thinner than the market-size facts, so it should be used as a drill-down explanation rather than a headline claim that overstates causality. Deck blueprint can use it for a chart if the metric scope stays clear and the page carries a caveat that the split is single-source.",
+      "supporting_points": [
+        {
+          "point": "The structural split is metric-backed, but source coverage remains limited.",
+          "evidence_ids": ["EV-001", "EV-002"],
+          "metric_ids": ["MET-003"],
+          "role": "primary_fact",
+          "evidence_sufficiency": "thin"
+        }
+      ],
+      "evidence_sufficiency": "thin",
+      "status": "partially_validated",
+      "evidence_ids": ["EV-001", "EV-002"],
+      "metric_ids": ["MET-003"],
+      "limitations": ["Metric coverage is single-source."],
+      "downstream_permission": {
+        "headline_allowed": false,
+        "chart_allowed": true,
+        "body_copy_allowed": true
+      },
+      "candidate_use_cases": ["market_structure", "growth_drivers"]
+    },
+    {
+      "analysis_id": "IA-003",
+      "source_execution_result_ids": ["FR-003"],
+      "issue_area": "competitive_dynamics",
+      "subissue": "basis_of_competition",
+      "analysis_type": "competitive_dynamic",
+      "core_statement": "Competitive advantage appears tied to repeatable capabilities rather than a single market share statistic.",
+      "analysis_text": "The competitive evidence supports a capability-based lens: companies compete through repeatable operating capabilities, channel access, and product or service differentiation rather than one isolated share number. This analysis can support driver, value-chain, barrier, peer-positioning, and trend pages, provided the renderer does not convert it into target advocacy. The point is an industry framework first and selective target context second.",
+      "supporting_points": [
+        {
+          "point": "Reviewed evidence supports a capability-based competition lens.",
+          "evidence_ids": ["EV-001", "EV-003"],
+          "metric_ids": [],
+          "role": "primary_fact",
+          "evidence_sufficiency": "sufficient"
+        }
+      ],
+      "evidence_sufficiency": "sufficient",
+      "status": "validated",
+      "evidence_ids": ["EV-001", "EV-003"],
+      "metric_ids": [],
+      "limitations": [],
+      "downstream_permission": {
+        "headline_allowed": true,
+        "chart_allowed": false,
+        "body_copy_allowed": true
+      },
+      "candidate_use_cases": ["value_chain", "barriers", "competitive_landscape", "strategic_timing", "pitch_relevance"]
+    },
+    {
+      "analysis_id": "IA-004",
+      "source_execution_result_ids": ["FR-004"],
+      "issue_area": "pitch_relevance_target_context",
+      "subissue": "evidence_limits",
+      "analysis_type": "evidence_gap",
+      "core_statement": "One pitch-relevant target-context claim remains unverified and should stay as a limitation.",
+      "analysis_text": "The available public evidence is too thin to turn this target-context claim into a conclusion. It can still help deck blueprint by defining a caveat or discussion boundary, but it must not become a confident headline, chart anchor, or investment highlight. The appropriate use is to remind the renderer that pre-mandate materials should separate sector credibility from target-specific assertions that require management or diligence verification.",
+      "supporting_points": [
+        {
+          "point": "Available public evidence is too thin to promote the claim as a conclusion.",
+          "evidence_ids": ["EV-003"],
+          "metric_ids": [],
+          "role": "caveat",
+          "evidence_sufficiency": "thin"
+        }
+      ],
+      "evidence_sufficiency": "thin",
+      "status": "unverified",
+      "evidence_ids": ["EV-003"],
+      "metric_ids": [],
+      "limitations": ["Requires management or expert validation."],
+      "downstream_permission": {
+        "headline_allowed": false,
+        "chart_allowed": false,
+        "body_copy_allowed": true
+      },
+      "candidate_use_cases": ["open_question"]
+    }
+  ],
+  "research_backlog": [
+    {
+      "issue_area": "market_size_growth",
+      "subissue": "historical_growth",
+      "attempted_statement": "Historical CAGR should be analyzed if comparable time-series evidence exists.",
+      "reason": "The fixture keeps this subissue out of deck blueprint.",
+      "needed_evidence": ["Comparable historical market-size series"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "do_not_use_for_strong_claim"
+    },
+    {
+      "issue_area": "market_size_growth",
+      "subissue": "forecast_growth",
+      "attempted_statement": "Forecast growth should be analyzed with assumptions.",
+      "reason": "The fixture uses IA-001 only for scoped market size.",
+      "needed_evidence": ["Forecast growth assumptions"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "do_not_use_for_strong_claim"
+    },
+    {
+      "issue_area": "market_size_growth",
+      "subissue": "growth_quality",
+      "attempted_statement": "Growth quality should separate price, volume, penetration, mix, and channel migration.",
+      "reason": "Not needed for this fixture deck blueprint.",
+      "needed_evidence": ["Growth decomposition evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "market_size_growth",
+      "subissue": "market_cycle",
+      "attempted_statement": "Market cycle should be analyzed where relevant.",
+      "reason": "Not needed for this fixture deck blueprint.",
+      "needed_evidence": ["Cycle or replacement-period evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "demand_customer_logic",
+      "subissue": "customer_segments",
+      "attempted_statement": "Customer segments should be identified.",
+      "reason": "Demand logic is not used by this minimal fixture.",
+      "needed_evidence": ["Customer segmentation source"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "demand_customer_logic",
+      "subissue": "demand_drivers",
+      "attempted_statement": "Demand drivers should be identified.",
+      "reason": "Demand logic is not used by this minimal fixture.",
+      "needed_evidence": ["Customer demand driver evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "demand_customer_logic",
+      "subissue": "willingness_to_pay",
+      "attempted_statement": "Willingness to pay should be analyzed where pricing matters.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Price-tier or willingness-to-pay evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "demand_customer_logic",
+      "subissue": "repeat_or_replacement",
+      "attempted_statement": "Repeat, replacement, or service attributes should be analyzed.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Repeat or replacement behavior evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "demand_customer_logic",
+      "subissue": "channel_behavior",
+      "attempted_statement": "Channel behavior should be identified.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Channel behavior data"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "demand_customer_logic",
+      "subissue": "unmet_needs",
+      "attempted_statement": "Unmet needs should be identified.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Customer pain point evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "industry_structure",
+      "subissue": "concentration",
+      "attempted_statement": "Industry concentration should be established.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Top player share data"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "industry_structure",
+      "subissue": "value_chain",
+      "attempted_statement": "Value chain should be mapped.",
+      "reason": "The fixture uses IA-003 as a broad capability proxy instead.",
+      "needed_evidence": ["Value chain source"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "industry_structure",
+      "subissue": "profit_pool",
+      "attempted_statement": "Profit pool should be analyzed.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Margin or profit pool evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "industry_structure",
+      "subissue": "business_models",
+      "attempted_statement": "Business model types should be described.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Business model source"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "industry_structure",
+      "subissue": "barriers_to_entry",
+      "attempted_statement": "Barriers to entry should be analyzed.",
+      "reason": "Fixture maps barriers from IA-003 only.",
+      "needed_evidence": ["Barrier evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "industry_structure",
+      "subissue": "supplier_customer_power",
+      "attempted_statement": "Supplier and customer power should be analyzed.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Supplier/customer bargaining evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "key_trends_drivers",
+      "subissue": "secular_tailwinds",
+      "attempted_statement": "Secular tailwinds should be identified.",
+      "reason": "Fixture maps trend page from IA-003 only.",
+      "needed_evidence": ["Trend source"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "key_trends_drivers",
+      "subissue": "headwinds_and_risks",
+      "attempted_statement": "Headwinds and risks should be identified.",
+      "reason": "Not used as a strong fixture claim.",
+      "needed_evidence": ["Risk evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "key_trends_drivers",
+      "subissue": "technology_disruption",
+      "attempted_statement": "Technology disruption should be identified.",
+      "reason": "Not used as a strong fixture claim.",
+      "needed_evidence": ["Technology disruption evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "key_trends_drivers",
+      "subissue": "regulatory_developments",
+      "attempted_statement": "Regulatory changes should be identified.",
+      "reason": "Not used as a strong fixture claim.",
+      "needed_evidence": ["Regulatory evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "key_trends_drivers",
+      "subissue": "channel_or_go_to_market_shift",
+      "attempted_statement": "Channel or go-to-market shift should be identified.",
+      "reason": "Not used as a strong fixture claim.",
+      "needed_evidence": ["Channel shift evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "key_trends_drivers",
+      "subissue": "mna_and_consolidation",
+      "attempted_statement": "M&A and consolidation should be observed if evidence exists.",
+      "reason": "Not used as a strong fixture claim.",
+      "needed_evidence": ["Transaction case evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "peer_universe",
+      "attempted_statement": "Peer universe should be defined.",
+      "reason": "Fixture table is generated from IA-003 only.",
+      "needed_evidence": ["Peer universe evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "competitor_profiles",
+      "attempted_statement": "Competitor profiles should be built.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Competitor profile evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "peer_financials",
+      "attempted_statement": "Peer financials should be reconciled.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Peer revenue and margin data"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "strategic_positioning",
+      "attempted_statement": "Strategic positioning should be compared.",
+      "reason": "Covered directionally by IA-003.",
+      "needed_evidence": ["Strategic positioning evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "product_or_service_focus",
+      "attempted_statement": "Product or service focus should be compared.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Product/service scope evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "channel_footprint",
+      "attempted_statement": "Channel footprint should be compared.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Channel footprint evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "recent_developments",
+      "attempted_statement": "Recent developments should be captured.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Recent development evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "valuation_snapshot_peer_fact",
+      "attempted_statement": "Valuation snapshot may be recorded only as peer fact.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Peer valuation fact evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "do_not_use_for_strong_claim"
+    },
+    {
+      "issue_area": "competitive_dynamics",
+      "subissue": "winners_losers",
+      "attempted_statement": "Share gain/loss should be evidenced before use.",
+      "reason": "The research pack lacks comparable share-gain/loss evidence across peers.",
+      "needed_evidence": ["Share trend by peer", "Comparable peer channel or revenue growth"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "do_not_use_for_strong_claim"
+    },
+    {
+      "issue_area": "competitive_dynamics",
+      "subissue": "new_entrants",
+      "attempted_statement": "New entrant risk should be identified.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["New entrant evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_dynamics",
+      "subissue": "substitutes_or_adjacent_risk",
+      "attempted_statement": "Substitute or adjacent risk should be identified.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Substitute risk evidence"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_dynamics",
+      "subissue": "differentiation_durability",
+      "attempted_statement": "Durability of differentiation should be assessed.",
+      "reason": "Covered only directionally by IA-003.",
+      "needed_evidence": ["Durability evidence"],
+      "research_action": "review_peer_data",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "competitive_dynamics",
+      "subissue": "consolidation_logic",
+      "attempted_statement": "Consolidation logic should be evidenced before use.",
+      "reason": "Not used as a strong fixture claim.",
+      "needed_evidence": ["Multiple transaction or consolidation cases"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "do_not_use_for_strong_claim"
+    },
+    {
+      "issue_area": "pitch_relevance_target_context",
+      "subissue": "why_sector_relevant",
+      "attempted_statement": "Sector relevance should be explained for pitch discussion.",
+      "reason": "Fixture uses deck blueprint answers instead of a separate issue block.",
+      "needed_evidence": ["Sector relevance synthesis"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "pitch_relevance_target_context",
+      "subissue": "target_context_fit",
+      "attempted_statement": "Target context fit should be separated from target advocacy.",
+      "reason": "Not needed for this minimal fixture.",
+      "needed_evidence": ["Target-context facts"],
+      "research_action": "request_user_or_management_input",
+      "downstream_permission": "use_only_as_context"
+    },
+    {
+      "issue_area": "pitch_relevance_target_context",
+      "subissue": "discussion_implications",
+      "attempted_statement": "Discussion implications should be balanced.",
+      "reason": "Fixture uses Slide 8 deck blueprint for this.",
+      "needed_evidence": ["Pitch discussion synthesis"],
+      "research_action": "run_targeted_search",
+      "downstream_permission": "use_only_as_context"
+    }
+  ],
+  "rejected_or_deprioritized_analyses": [
+    {
+      "source_execution_result_id": "FR-005",
+      "attempted_statement": "An adjacent market can be used as direct evidence.",
+      "reason": "Rejected because scope was not comparable.",
+      "evidence_ids": []
+    }
+  ]
+}

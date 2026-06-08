@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+"""Validate deck_blueprint.json before compiling it to PPT renderer inputs."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+from deck_blueprint_utils import (
+    FIXED_PAGE_ROLES,
+    METRIC_VISUAL_CAPABILITIES,
+    VALID_CLAIM_STRENGTHS,
+    analysis_evidence_ids,
+    analysis_index,
+    analysis_metric_ids,
+    as_list,
+    metric_ids_from_visual,
+    non_empty_text,
+    normalize_deck_blueprint_for_page_plan,
+    normalize_text,
+    proof_points_from_blueprint_slide,
+    selected_issue_analysis_ids,
+    template_variants_by_slide,
+    unique,
+    visual_plan_from_blueprint_slide,
+)
+from json_utils import load_json_file
+from upstream_validation import DECK_BLUEPRINT_UPSTREAM_VALIDATIONS, assert_formal_upstream_valid
+
+
+BLOCKED_MARKERS = (
+    "DRAFT_REWRITE_REQUIRED",
+    "TODO_REPLACE",
+    "TODO:",
+    "PLACEHOLDER",
+    "{{",
+    "}}",
+)
+
+
+def _usage(analysis: dict[str, Any]) -> dict[str, Any]:
+    usage = analysis.get("downstream_permission")
+    return usage if isinstance(usage, dict) else {}
+
+
+def _contains_marker(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(_contains_marker(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_marker(item) for item in value)
+    if isinstance(value, str):
+        return any(marker.lower() in value.lower() for marker in BLOCKED_MARKERS)
+    return False
+
+
+def _body_blocks(slide: dict[str, Any]) -> list[dict[str, Any]]:
+    return [item for item in as_list(slide.get("body_blocks")) if isinstance(item, dict)]
+
+
+def _variant_for_slide(template_registry: dict[str, Any], slide_no: int, page_type: str) -> dict[str, Any] | None:
+    return template_variants_by_slide(template_registry).get(slide_no, {}).get(page_type)
+
+
+def _required_body_fields_for_variant(variant: dict[str, Any] | None, page_type: str, slide: dict[str, Any]) -> list[str]:
+    if not variant:
+        return []
+    fields = [str(item) for item in (variant.get("required_body_fields") or [])]
+    if page_type == "compare_table_page" and (
+        isinstance(slide.get("compare_table_data"), dict)
+        or isinstance((slide.get("visual_design") or {}).get("compare_table_data"), dict)
+    ):
+        fields = [field for field in fields if not (field == "table_header" or field.startswith("table_row_"))]
+    return fields
+
+
+def _block_target_field(block: dict[str, Any]) -> str:
+    for key in ("target_field", "template_field", "body_field", "field"):
+        value = str(block.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _collect_selected_metric_ids(analyses_by_id: dict[str, dict[str, Any]], issue_ids: list[str]) -> set[str]:
+    values: set[str] = set()
+    for analysis_id in issue_ids:
+        values.update(analysis_metric_ids(analyses_by_id.get(analysis_id) or {}))
+    return values
+
+
+def _collect_selected_evidence_ids(analyses_by_id: dict[str, dict[str, Any]], issue_ids: list[str]) -> set[str]:
+    values: set[str] = set()
+    for analysis_id in issue_ids:
+        values.update(analysis_evidence_ids(analyses_by_id.get(analysis_id) or {}))
+    return values
+
+
+def _ids_permitted_by_source_analyses(
+    analyses_by_id: dict[str, dict[str, Any]],
+    *,
+    ids: list[str],
+    source_analysis_ids: list[str],
+    id_kind: str,
+    permission_field: str,
+) -> set[str]:
+    permitted: set[str] = set()
+    for analysis_id in source_analysis_ids:
+        analysis = analyses_by_id.get(analysis_id) or {}
+        if _usage(analysis).get(permission_field) is not True:
+            continue
+        if id_kind == "metric":
+            permitted.update(analysis_metric_ids(analysis))
+        else:
+            permitted.update(analysis_evidence_ids(analysis))
+    return {item for item in ids if item in permitted}
+
+
+def _check_text_quality(slide: dict[str, Any], prefix: str, errors: list[str], warnings: list[str]) -> None:
+    headline = str(slide.get("headline") or "").strip()
+    main_message = str(slide.get("main_message") or "").strip()
+    thesis = str(slide.get("page_thesis") or slide.get("page_answer") or "").strip()
+    if normalize_text(headline) and normalize_text(headline) == normalize_text(main_message):
+        errors.append(f"{prefix}: headline and main_message must not be identical")
+    if normalize_text(headline) and normalize_text(headline) == normalize_text(thesis):
+        warnings.append(f"{prefix}: headline duplicates page_thesis; rewrite headline as client-facing page copy")
+    if headline and len(normalize_text(headline)) < 10:
+        warnings.append(f"{prefix}: headline looks too thin to carry an IB page argument")
+    if not any(token in headline for token in ("，", "：", "；", ",", ":", ";")) and not any(ch.isdigit() for ch in headline):
+        warnings.append(f"{prefix}: headline may be a label rather than a conclusion-led title")
+
+    body_norms: dict[str, int] = {}
+    for idx, block in enumerate(_body_blocks(slide), start=1):
+        copy = str(block.get("copy") or block.get("point") or "").strip()
+        norm = normalize_text(copy)
+        if len(norm) >= 8:
+            body_norms[norm] = body_norms.get(norm, 0) + 1
+        if normalize_text(copy) and normalize_text(copy) in {normalize_text(headline), normalize_text(main_message)}:
+            errors.append(f"{prefix}: body_blocks[{idx}] duplicates headline/main_message")
+    if any(count >= 2 for count in body_norms.values()):
+        errors.append(f"{prefix}: duplicate body block copy; each active field needs a distinct page role")
+
+
+def validate(
+    deck_blueprint: dict[str, Any],
+    issue_analysis: dict[str, Any],
+    template_registry: dict[str, Any],
+) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    if deck_blueprint.get("schema_version") != "deck_blueprint_v1":
+        errors.append("schema_version must be deck_blueprint_v1")
+    if not non_empty_text(deck_blueprint.get("deck_storyline")):
+        errors.append("deck_storyline is required")
+    if _contains_marker(deck_blueprint):
+        errors.append("deck_blueprint contains draft/TODO/placeholder markers")
+
+    analyses_by_id = analysis_index(issue_analysis)
+    variants_by_slide = template_variants_by_slide(template_registry)
+    slides = deck_blueprint.get("slides") if isinstance(deck_blueprint, dict) else None
+    if not isinstance(slides, list):
+        return errors + ["slides must be an array"], warnings
+    if len(slides) != 8:
+        errors.append(f"slides must contain exactly 8 entries; found {len(slides)}")
+
+    seen: set[int] = set()
+    for idx, slide in enumerate(slides, start=1):
+        if not isinstance(slide, dict):
+            errors.append(f"slides[{idx}] must be an object")
+            continue
+        slide_no = slide.get("slide_no")
+        prefix = f"slide {slide_no or idx}"
+        if not isinstance(slide_no, int):
+            errors.append(f"{prefix}: slide_no must be integer")
+            continue
+        if slide_no in seen:
+            errors.append(f"{prefix}: duplicate slide_no")
+        seen.add(slide_no)
+        expected_role = FIXED_PAGE_ROLES.get(slide_no)
+        role = str(slide.get("fixed_page_role") or slide.get("page_role") or "").strip()
+        if role != expected_role:
+            errors.append(f"{prefix}: fixed_page_role must be '{expected_role}', found '{role}'")
+
+        for field in ("investor_question", "page_thesis", "headline", "main_message", "selected_page_type"):
+            if not non_empty_text(slide.get(field)):
+                errors.append(f"{prefix}: {field} is required")
+        claim_strength = str(slide.get("claim_strength") or "").strip()
+        if claim_strength not in VALID_CLAIM_STRENGTHS:
+            errors.append(f"{prefix}: claim_strength must be one of {sorted(VALID_CLAIM_STRENGTHS)}")
+
+        issue_ids = selected_issue_analysis_ids(slide)
+        if not issue_ids:
+            errors.append(f"{prefix}: issue_analysis_ids must select at least one issue analysis")
+        missing_issue_ids = [analysis_id for analysis_id in issue_ids if analysis_id not in analyses_by_id]
+        if missing_issue_ids:
+            errors.append(f"{prefix}: issue_analysis_ids not found: {', '.join(missing_issue_ids)}")
+
+        selected_metric_ids = _collect_selected_metric_ids(analyses_by_id, issue_ids)
+        selected_evidence_ids = _collect_selected_evidence_ids(analyses_by_id, issue_ids)
+        visual_plan = visual_plan_from_blueprint_slide(slide)
+        page_type = str(slide.get("selected_page_type") or "").strip()
+        variant = variants_by_slide.get(slide_no, {}).get(page_type)
+        if not variant:
+            errors.append(f"{prefix}: selected_page_type '{page_type}' is not registered for this slide")
+        elif variant.get("formal_allowed") is not True:
+            errors.append(f"{prefix}: selected_page_type '{page_type}' is not formal_allowed")
+        required_fields = _required_body_fields_for_variant(variant, page_type, slide)
+        targeted_fields: dict[str, int] = {}
+        for block_idx, block in enumerate(_body_blocks(slide), start=1):
+            target = _block_target_field(block)
+            if not target:
+                continue
+            if target not in required_fields:
+                errors.append(
+                    f"{prefix}: body_blocks[{block_idx}] target_field '{target}' is not active for selected_page_type '{page_type}'"
+                )
+            elif target in targeted_fields:
+                errors.append(
+                    f"{prefix}: body_blocks[{block_idx}] duplicates target_field '{target}' already used by body_blocks[{targeted_fields[target]}]"
+                )
+            else:
+                targeted_fields[target] = block_idx
+        if isinstance(slide.get("body_copy"), dict):
+            missing_fields = [field for field in required_fields if not str(slide["body_copy"].get(field, "")).strip()]
+            if missing_fields:
+                warnings.append(
+                    f"{prefix}: body_copy does not fill active template field(s): {', '.join(missing_fields)}. "
+                    "This is a renderer/fit risk, not an evidence-boundary failure; prefer editing the page thesis "
+                    "or selecting a simpler template instead of padding weak copy."
+                )
+        else:
+            block_count = len(_body_blocks(slide))
+            if block_count < len(required_fields):
+                warnings.append(
+                    f"{prefix}: body_blocks has {block_count} item(s), while selected template has "
+                    f"{len(required_fields)} active body field(s). Compiler will map available blocks only; "
+                    "choose a simpler template or add genuinely distinct copy if the page would feel thin."
+                )
+
+        _check_text_quality(slide, prefix, errors, warnings)
+
+        proof_points = proof_points_from_blueprint_slide(slide)
+        if not proof_points:
+            errors.append(f"{prefix}: at least one body/visual proof point is required")
+        body_evidence_ids: list[str] = []
+        body_metric_ids: list[str] = []
+        for point_idx, point in enumerate(proof_points, start=1):
+            source_analysis_ids = unique([str(item).strip() for item in as_list(point.get("source_analysis_ids")) if str(item).strip()])
+            evidence_ids = unique([str(item).strip() for item in as_list(point.get("evidence_ids")) if str(item).strip()])
+            metric_ids = unique([str(item).strip() for item in as_list(point.get("metric_ids")) if str(item).strip()])
+            body_evidence_ids.extend(evidence_ids)
+            body_metric_ids.extend(metric_ids)
+            missing_sources = [analysis_id for analysis_id in source_analysis_ids if analysis_id not in issue_ids]
+            if missing_sources:
+                errors.append(f"{prefix}: proof point {point_idx} source_analysis_ids outside slide issue_analysis_ids: {', '.join(missing_sources)}")
+            evidence_outside = [ev_id for ev_id in evidence_ids if ev_id not in selected_evidence_ids]
+            metric_outside = [met_id for met_id in metric_ids if met_id not in selected_metric_ids]
+            if evidence_outside:
+                errors.append(f"{prefix}: proof point {point_idx} evidence_ids outside selected issue analyses: {', '.join(evidence_outside)}")
+            if metric_outside:
+                errors.append(f"{prefix}: proof point {point_idx} metric_ids outside selected issue analyses: {', '.join(metric_outside)}")
+            body_permitted = _ids_permitted_by_source_analyses(
+                analyses_by_id,
+                ids=evidence_ids,
+                source_analysis_ids=source_analysis_ids,
+                id_kind="evidence",
+                permission_field="body_copy_allowed",
+            )
+            body_forbidden = sorted(set(evidence_ids) - body_permitted)
+            if evidence_ids and body_forbidden:
+                errors.append(f"{prefix}: proof point {point_idx} evidence lacks body_copy_allowed permission: {', '.join(body_forbidden)}")
+
+        visual_metric_ids = visual_plan.get("visual_metric_ids") or metric_ids_from_visual(slide)
+        if visual_plan.get("required_capability") in METRIC_VISUAL_CAPABILITIES and visual_metric_ids:
+            visual_permitted: set[str] = set()
+            for point in proof_points:
+                source_ids = unique([str(item).strip() for item in as_list(point.get("source_analysis_ids")) if str(item).strip()])
+                point_metric_ids = unique([str(item).strip() for item in as_list(point.get("metric_ids")) if str(item).strip()])
+                visual_permitted.update(
+                    _ids_permitted_by_source_analyses(
+                        analyses_by_id,
+                        ids=point_metric_ids,
+                        source_analysis_ids=source_ids,
+                        id_kind="metric",
+                        permission_field="chart_allowed",
+                    )
+                )
+            visual_forbidden = sorted(set(visual_metric_ids) - visual_permitted)
+            if visual_forbidden:
+                errors.append(f"{prefix}: visual metrics lack downstream_permission.chart_allowed: {', '.join(visual_forbidden)}")
+
+        headline_permitted = any(_usage(analyses_by_id.get(analysis_id) or {}).get("headline_allowed") is True for analysis_id in issue_ids)
+        if not headline_permitted and claim_strength not in {"hypothesis", "open_question"}:
+            errors.append(f"{prefix}: no selected issue analysis permits headline usage")
+        if not unique(body_evidence_ids) and not unique(body_metric_ids) and not as_list(slide.get("open_questions")):
+            errors.append(f"{prefix}: page has no evidence, metrics, or open_questions")
+
+    missing = set(FIXED_PAGE_ROLES) - seen
+    if missing:
+        errors.append("missing slide_no entries: " + ", ".join(str(num) for num in sorted(missing)))
+
+    normalized = normalize_deck_blueprint_for_page_plan(deck_blueprint)
+    if len(normalized.get("slides") or []) != len(slides):
+        errors.append("deck_blueprint cannot be normalized into a page plan")
+    return errors, warnings
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--deck-blueprint", required=True)
+    parser.add_argument("--issue-analysis", required=True)
+    parser.add_argument("--template-registry", required=True)
+    parser.add_argument("--output")
+    args = parser.parse_args()
+
+    try:
+        deck_blueprint_path = Path(args.deck_blueprint)
+        issue_analysis_path = Path(args.issue_analysis)
+        template_registry_path = Path(args.template_registry)
+        errors, warnings = validate(
+            load_json_file(deck_blueprint_path),
+            load_json_file(issue_analysis_path),
+            load_json_file(template_registry_path),
+        )
+        errors.extend(
+            assert_formal_upstream_valid(
+                [deck_blueprint_path, issue_analysis_path, template_registry_path],
+                expected_names={"deck_blueprint.json", "industry_issue_analysis.json", "template_registry.json"},
+                validation_rels=DECK_BLUEPRINT_UPSTREAM_VALIDATIONS,
+                stage_name="deck_blueprint",
+            )
+        )
+    except Exception as exc:
+        errors, warnings = [str(exc)], []
+
+    result = {
+        "is_valid": not errors,
+        "deck_blueprint": args.deck_blueprint,
+        "issue_analysis": args.issue_analysis,
+        "template_registry": args.template_registry,
+        "error_count": len(errors),
+        "warning_count": len(warnings),
+        "errors": errors,
+        "warnings": warnings,
+    }
+    text = json.dumps(result, ensure_ascii=False, indent=2)
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0 if not errors else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

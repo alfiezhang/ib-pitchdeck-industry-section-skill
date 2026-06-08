@@ -1,0 +1,12 @@
+{
+  "schema_version": "formal_research_execution_report_v1",
+  "formal_research_completed_at": "YYYY-MM-DDTHH:MM:SS",
+  "search_log": "artifacts/search_log.md",
+  "issue_results": [],
+  "coverage_summary": {
+    "covered_issue_areas": [],
+    "thin_or_unresolved_subissues": [],
+    "not_available_after_research": []
+  },
+  "unresolved_issues": []
+}
