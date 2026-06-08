@@ -43,65 +43,41 @@ Source Selection Rationale:
 Use `### Search N` as the canonical heading. The validator also accepts
 `### S-00N` as an alias and normalizes both to `S-00N`.
 
-### Search 1
-- **Query**:
-- **Provider**: # built-in WebSearch | Tavily | DuckDuckGo
-- **Site / Domain Constraint**: # e.g., site:cninfo.com.cn or empty
-- **Source Pack**: # e.g., china_capital_markets or empty
-- **Search Stage**: # broad_discovery | source_planning | formal_research_execution | latest_check | peer_check
-- **Search Instruction IDs**: # FS-xxx from artifacts/formal_search_plan.json for formal/latest/peer searches; blank for broad_discovery
-- **Mode**: # priority | only | unrestricted
-- **Dimension**: # e.g., market_size_growth
-- **Selected Source Reason**:
-- **Result Count**:
-- **Selected Sources**: # exact article/report/PDF URLs only; source names or root domains are insufficient
-- **Opened / Reviewed**: # yes/no; formal evidence requires opening the underlying page/report/PDF
-- **Source Locator / Raw Excerpt**: # page/section/table/paragraph/URL anchor plus short excerpt or limitation note
-- **Source Review IDs**: # SRC-xxx rows in artifacts/source_reviews.json for formal opened/reviewed sources
-- **Source Archive IDs / Paths**: # artifacts/source_archive/SRC-xxx.md or PDF for usable formal evidence; blank for broad_discovery leads
-- **Lead-only Sources**:
-- **Rejected Sources** (with reason):
-- **Notes**:
+Prefer the append helper for new entries so `S-xxx` numbering and field names
+stay parseable:
 
-### Search 2
-- **Query**:
-- **Provider**:
-- **Site / Domain Constraint**:
-- **Source Pack**:
-- **Search Stage**:
-- **Search Instruction IDs**:
-- **Mode**:
-- **Dimension**:
-- **Selected Source Reason**:
-- **Result Count**:
-- **Selected Sources**: # exact article/report/PDF URLs only
-- **Opened / Reviewed**:
-- **Source Locator / Raw Excerpt**:
-- **Source Review IDs**:
-- **Lead-only Sources**:
-- **Rejected Sources** (with reason):
-- **Notes**:
+```bash
+"$PYTHON_CMD" scripts/append_search_attempt.py \
+  --search-log "$RUN_DIR/artifacts/search_log.md" \
+  --query "<exact query actually searched>" \
+  --stage formal_research_execution \
+  --fs-id FS-001 \
+  --selected-source "<exact opened/reviewed URL>" \
+  --opened-reviewed yes \
+  --locator-excerpt "<page/section/table plus short excerpt or limitation>"
+```
 
-### Search 3
-- **Query**:
-- **Provider**:
-- **Site / Domain Constraint**:
-- **Source Pack**:
-- **Search Stage**:
-- **Search Instruction IDs**:
-- **Mode**:
-- **Dimension**:
-- **Selected Source Reason**:
-- **Result Count**:
-- **Selected Sources**: # exact article/report/PDF URLs only
-- **Opened / Reviewed**:
-- **Source Locator / Raw Excerpt**:
-- **Source Review IDs**:
-- **Lead-only Sources**:
-- **Rejected Sources** (with reason):
-- **Notes**:
+Field reference for a helper-generated block:
+- Query
+- Provider
+- Site / Domain Constraint
+- Source Pack
+- Search Stage
+- Search Instruction IDs
+- Mode
+- Dimension
+- Selected Source Reason
+- Result Count
+- Selected Sources
+- Opened / Reviewed
+- Source Locator / Raw Excerpt
+- Source Review IDs
+- Source Archive IDs / Paths
+- Lead-only Sources
+- Rejected Sources (with reason)
+- Notes
 
-<!-- Add more Search N blocks as needed -->
+<!-- Add real Search N blocks with scripts/append_search_attempt.py. Do not leave blank Search headings in this file. -->
 
 ---
 

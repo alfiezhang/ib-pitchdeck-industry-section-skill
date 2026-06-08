@@ -10,7 +10,22 @@
     "prepared_date": "",
     "research_as_of_date": ""
   },
-  "scope_stage_instruction": "Scoping only. Do not write confirmed market size, growth rate, market share, channel ranking, competitive landscape, valuation multiples, or page-ready claims. Any numerical or directional finding encountered during broad discovery must be stored only as an unvalidated lead.",
+  "scope_stage_instruction": "Scoping only. Broad discovery query strings should focus on definition, classification, included/excluded segments, adjacent markets, data hierarchy, metric scope, methodology terms, and boundary risks. Do not write confirmed market size, growth rate, market share, channel ranking, competitive landscape, valuation multiples, M&A conclusions, or page-ready claims. Any numerical or directional finding encountered during broad discovery must be stored only as an unvalidated lead.",
+  "llm_definition_draft": {
+    "purpose": "LLM-only pre-search draft based on the user brief and general domain understanding. Use this to design scoping searches. Do not include numbers, market conclusions, rankings, valuation, or investment claims.",
+    "working_market_draft": "",
+    "parent_market_draft": "",
+    "broader_market_draft": "",
+    "included_segments_draft": [],
+    "excluded_segments_draft": [],
+    "adjacent_markets_draft": [],
+    "ambiguous_boundaries_to_check": [],
+    "data_scope_questions": [],
+    "scoping_search_queries": [
+      "<industry/subsector> definition classification included segments adjacent categories",
+      "<industry/subsector> taxonomy metric definition scope methodology"
+    ]
+  },
   "scope_summary": {
     "working_market": "",
     "parent_market": "",

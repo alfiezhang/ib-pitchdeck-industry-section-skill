@@ -185,6 +185,8 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
             run_dir / "artifacts" / "formal_research_execution_validation.json",
             run_dir / "artifacts" / "source_reviews.json",
             run_dir / "artifacts" / "source_reviews_validation.json",
+            run_dir / "artifacts" / "source_archive" / "source_archive_index.json",
+            run_dir / "artifacts" / "source_archive_validation.json",
             run_dir / "artifacts" / "formal_search_plan.json",
             run_dir / "artifacts" / "search_log.md",
         ],

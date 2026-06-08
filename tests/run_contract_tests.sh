@@ -266,6 +266,7 @@ import json
 import os
 from pathlib import Path
 
+from compile_deck_blueprint import _body_copy_from_blocks
 from json_utils import load_json_file
 from validate_deck_blueprint import validate
 
@@ -299,6 +300,28 @@ if errors:
     raise SystemExit("natural conclusion-led Chinese headline should remain valid: " + json.dumps(errors, ensure_ascii=False))
 if any("headline may be a label" in warning for warning in warnings):
     raise SystemExit("natural conclusion-led Chinese headline should not trigger label warning: " + json.dumps(warnings, ensure_ascii=False))
+
+bad_target = json.loads(json.dumps(natural))
+bad_target["slides"][0]["body_blocks"][0]["target_field"] = "left_key_1"
+errors, warnings = validate(
+    bad_target,
+    load_json_file(Path(os.environ["FIXTURES_DIR"]) / "valid_issue_analysis.json"),
+    load_json_file(tmp / "template_registry.json"),
+)
+joined = "\n".join(errors)
+if "Allowed active body fields: bullet_1, bullet_2, bullet_3" not in joined:
+    raise SystemExit("invalid target_field error should list allowed active fields: " + joined)
+try:
+    _body_copy_from_blocks(
+        bad_target["slides"][0],
+        ["bullet_1", "bullet_2", "bullet_3"],
+        "industry_overview_dynamic_page",
+    )
+except ValueError as exc:
+    if "Allowed active body fields: bullet_1, bullet_2, bullet_3" not in str(exc):
+        raise SystemExit("compile error should list allowed active fields: " + str(exc))
+else:
+    raise SystemExit("invalid target_field should fail compiler")
 PY
 
 "$PYTHON_CMD" scripts/compile_deck_blueprint.py \
@@ -430,6 +453,8 @@ PY
 
 "$PYTHON_CMD" - <<'PY'
 from validate_content_quality import build_content_repair_plan, classify_content_root_causes
+from validate_content_quality import check_body_length, check_text_fit
+from validation_common import layout_budget_findings
 
 messages = [
     "slide 1: material visible quantitative claim at 'main_message' has no metric_ids",
@@ -454,6 +479,50 @@ assert "deck_blueprint.json" in repair_plan["primary_repair_targets"], repair_pl
 assert "renderer_spec.json" in repair_plan["do_not_edit"], repair_plan
 assert "replacement_dict.json" in repair_plan["do_not_edit"], repair_plan
 assert repair_plan["targets"][0]["repair_fields"], repair_plan
+
+long_body = "结构性机会：" + "渠道迁移、产品功效化和品牌利润池共同支撑页面论证，" * 8
+errors, warnings = layout_budget_findings(
+    {"left_panel": long_body},
+    8,
+    "summary_page",
+    {
+        "global": {"body_copy": {"max_bullet_units_default": 20, "max_newlines_per_field": 1}, "table": {"max_cell_units": 12}},
+        "slide_budgets": {},
+        "page_type_budgets": {"summary_page": {"body_fields_max_units": {"left_panel": 20}}},
+    },
+)
+assert not errors, errors
+assert any("advisory body capacity" in warning for warning in warnings), warnings
+
+blocking = []
+density_warnings = []
+check_body_length(long_body, 8, "left_panel", density_warnings, blocking)
+assert density_warnings, density_warnings
+assert not blocking, blocking
+
+fit_warnings = []
+fit_blocking = []
+check_text_fit(
+    "这是一个明显超出标题文本框容量的长标题，需要继续延长以触发硬性标题换行限制",
+    "headline",
+    1,
+    "industry_overview_dynamic_page",
+    {
+        "renderer_field_aliases": {"headline": "slide_title"},
+        "fields": {
+            "1:industry_overview_dynamic_page:slide_title": {
+                "placeholder": "{{slide_01_title}}",
+                "max_line_units": 10,
+                "target_lines": 1,
+                "max_lines": 1,
+                "block_if_exceeds_max_lines": True,
+            }
+        },
+    },
+    fit_warnings,
+    fit_blocking,
+)
+assert fit_blocking, fit_warnings
 PY
 
 "$PYTHON_CMD" scripts/validate_page_evidence_contract.py \
@@ -668,10 +737,15 @@ PY
 
 "$PYTHON_CMD" - <<'PY'
 import json
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
+from build_formal_research_execution_report_skeleton import build_report as build_formal_execution_skeleton
+from build_source_archive import build_archive as build_source_archive
 from validate_formal_research_execution import validate as validate_formal_research_execution
+from validate_formal_research_execution import parse_search_attempts
 from validate_formal_search_plan import validate as validate_formal_search_plan
 from validate_industry_scope_pack import validate as validate_industry_scope_pack
 from validate_source_archive import validate as validate_source_archive
@@ -684,11 +758,81 @@ with tempfile.TemporaryDirectory() as tmp:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir()
 
+    auto_search_log = artifacts / "search_log_auto.md"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/append_search_attempt.py",
+            "--search-log",
+            str(auto_search_log),
+            "--query",
+            "example industry formal source",
+            "--stage",
+            "formal_research_execution",
+            "--fs-id",
+            "FS-001",
+            "--selected-source",
+            "https://example.com/auto-source",
+            "--result-count",
+            "3",
+            "--opened-reviewed",
+            "yes",
+            "--locator-excerpt",
+            "table 1 contains reviewed source context.",
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    auto_attempts = parse_search_attempts(auto_search_log)
+    assert "S-001" in auto_attempts, auto_attempts
+    assert auto_attempts["S-001"]["search instruction ids"] == "FS-001", auto_attempts
+    templated_search_log = artifacts / "search_log_from_template.md"
+    templated_search_log.write_text(Path("references/search_log_template.md").read_text(encoding="utf-8"), encoding="utf-8")
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/append_search_attempt.py",
+            "--search-log",
+            str(templated_search_log),
+            "--query",
+            "example broad definition source",
+            "--stage",
+            "broad_discovery",
+            "--selected-source",
+            "https://example.com/definition-source",
+            "--result-count",
+            "2",
+            "--opened-reviewed",
+            "yes",
+            "--locator-excerpt",
+            "section 1 contains reviewed definition context.",
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    templated_attempts = parse_search_attempts(templated_search_log)
+    assert "S-001" in templated_attempts, templated_attempts
+
     (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
     (artifacts / "input_card_validation.json").write_text(json.dumps({"is_valid": True}), encoding="utf-8")
     scope_pack = {
         "schema_version": "industry_scope_pack_v1",
         "meta": {"industry": "example"},
+        "llm_definition_draft": {
+            "purpose": "LLM-only definition draft before scoping search.",
+            "working_market_draft": "example working market",
+            "parent_market_draft": "example parent market",
+            "broader_market_draft": "example broader market",
+            "included_segments_draft": ["core segment"],
+            "excluded_segments_draft": ["adjacent category"],
+            "adjacent_markets_draft": ["adjacent category"],
+            "ambiguous_boundaries_to_check": ["adjacent extension"],
+            "data_scope_questions": ["Which source definitions include adjacent extensions?"],
+            "scoping_search_queries": [
+                "example industry definition included segments adjacent categories",
+                "example industry taxonomy metric definition scope methodology",
+            ],
+        },
         "scope_summary": {
             "working_market": "example working market",
             "parent_market": "example parent market",
@@ -749,6 +893,10 @@ with tempfile.TemporaryDirectory() as tmp:
     polluted_scope["scope_summary"]["working_market"] = "example market is 100亿元 and already validated"
     polluted_errors, _ = validate_industry_scope_pack(polluted_scope)
     assert any("numeric finding appears outside unvalidated_leads" in item for item in polluted_errors), polluted_errors
+    polluted_query_scope = json.loads(json.dumps(scope_pack))
+    polluted_query_scope["llm_definition_draft"]["scoping_search_queries"][0] = "example industry market size growth 2026"
+    polluted_query_errors, _ = validate_industry_scope_pack(polluted_query_scope)
+    assert any("broad discovery must validate definition/scope only" in item for item in polluted_query_errors), polluted_query_errors
     no_gap_scope = json.loads(json.dumps(scope_pack))
     no_gap_scope["ambiguous_boundaries"] = []
     no_gap_scope["required_reconciliations"] = []
@@ -879,12 +1027,44 @@ with tempfile.TemporaryDirectory() as tmp:
     errors, warnings = validate_formal_research_execution(report, plan, artifacts / "search_log.md")
     assert not errors, errors
     (artifacts / "formal_research_execution_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": warnings}, ensure_ascii=False), encoding="utf-8")
+    skeleton_report = build_formal_execution_skeleton(
+        plan=plan,
+        search_log_path=artifacts / "search_log.md",
+        reviews=source_reviews["reviews"],
+        search_log_ref="artifacts/search_log.md",
+        include_unexecuted=False,
+    )
+    skeleton_errors, _ = validate_formal_research_execution(skeleton_report, plan, artifacts / "search_log.md")
+    assert not skeleton_errors, skeleton_errors
+    assert skeleton_report["issue_results"][0]["search_instruction_ids"] == ["FS-001"], skeleton_report
+    assert skeleton_report["issue_results"][0]["search_attempt_ids"] == ["S-002"], skeleton_report
+    assert skeleton_report["issue_results"][0]["source_review_ids"] == ["SRC-001"], skeleton_report
+    assert skeleton_report["issue_results"][0]["status"] == "thin", skeleton_report
     archive_result = validate_source_archive(source_reviews_path=artifacts / "source_reviews.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert archive_result["is_valid"], archive_result
     (artifacts / "source_archive_validation.json").write_text(json.dumps(archive_result, ensure_ascii=False), encoding="utf-8")
+    auto_archive_dir = artifacts / "source_archive_auto"
+    auto_index = auto_archive_dir / "source_archive_index.json"
+    auto_archive_build = build_source_archive(
+        source_reviews_path=artifacts / "source_reviews.json",
+        archive_dir=auto_archive_dir,
+        source_archive_index_path=auto_index,
+        run_dir=run_dir,
+        overwrite=True,
+    )
+    assert auto_archive_build["archive_entry_count"] == 2, auto_archive_build
+    auto_archive_result = validate_source_archive(source_reviews_path=artifacts / "source_reviews.json", source_archive_index_path=auto_index, run_dir=run_dir)
+    assert auto_archive_result["is_valid"], auto_archive_result
     source_result = validate_source_reviews(artifacts / "source_reviews.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert source_result["is_valid"], source_result
     assert not any("S-001" in item for item in source_result["warnings"]), source_result
+    false_with_ev_reviews = json.loads(json.dumps(source_reviews))
+    false_with_ev_reviews["reviews"][0]["usable_as_evidence"] = False
+    (artifacts / "source_reviews_false_with_ev.json").write_text(json.dumps(false_with_ev_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
+    false_with_ev_result = validate_source_reviews(artifacts / "source_reviews_false_with_ev.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
+    assert not false_with_ev_result["is_valid"], false_with_ev_result
+    assert any("evidence_ids are present but usable_as_evidence is false" in item for item in false_with_ev_result["errors"]), false_with_ev_result
+    assert any("all referenced reviews are usable_as_evidence=false" in item for item in false_with_ev_result["errors"]), false_with_ev_result
     weak_reviews = json.loads(json.dumps(source_reviews))
     weak_reviews["reviews"][0]["limitations"] = ["This page is a repost without methodology and should remain lead-only."]
     (artifacts / "source_reviews_weak.json").write_text(json.dumps(weak_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -901,6 +1081,24 @@ with tempfile.TemporaryDirectory() as tmp:
     alias_result = validate_source_reviews(artifacts / "source_reviews_alias.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert alias_result["is_valid"], alias_result
     assert alias_result["review_count"] == 2, alias_result
+    field_alias_reviews = {
+        "source_reviews": [
+            {"review_id": "SRC-001", "source_url": "https://example.com/market-size", "source_title": "Example market size report", "source_locator": "table 2, current market-size row with geography and scope columns", "raw_excerpt": "The report gives a current market-size datapoint with geography and scope.", "search_attempt_ids": ["S-002"], "evidence_ids": ["EV-001"], "usable_as_evidence": True},
+            {"review_id": "SRC-002", "source_url": "https://example.com/value-chain", "source_title": "Example value chain report", "source_locator": "section 3, value-chain economics paragraph and margin-pool discussion", "raw_excerpt": "The source describes where value accrues across the example industry chain.", "search_attempt_ids": ["S-003"], "evidence_ids": ["EV-002"], "usable_as_evidence": True},
+        ]
+    }
+    (artifacts / "source_reviews_field_alias.json").write_text(json.dumps(field_alias_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
+    field_alias_result = validate_source_reviews(artifacts / "source_reviews_field_alias.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
+    assert field_alias_result["is_valid"], field_alias_result
+    archive_alias_index = {
+        "archive_entries": [
+            {"archive_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "snapshot_type": "excerpt_snapshot", "snapshot_path": "artifacts/source_archive/SRC-001.md", "captured_at": "2026-06-07T10:10:00", "locator": "table 2", "reviewed_excerpt": "The report gives a current market-size datapoint with geography and scope."},
+            {"archive_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "snapshot_type": "excerpt_snapshot", "snapshot_path": "artifacts/source_archive/SRC-002.md", "captured_at": "2026-06-07T10:11:00", "locator": "section 3", "reviewed_excerpt": "The source describes where value accrues across the example industry chain."},
+        ]
+    }
+    (archive_dir / "source_archive_index_alias.json").write_text(json.dumps(archive_alias_index, ensure_ascii=False, indent=2), encoding="utf-8")
+    archive_alias_result = validate_source_archive(source_reviews_path=artifacts / "source_reviews_field_alias.json", source_archive_index_path=archive_dir / "source_archive_index_alias.json", run_dir=run_dir)
+    assert archive_alias_result["is_valid"], archive_alias_result
     (artifacts / "source_reviews_validation.json").write_text(json.dumps(source_result, ensure_ascii=False), encoding="utf-8")
     stage_result = validate_stage("pre_research_pack", run_dir, None)
     assert stage_result["is_valid"], stage_result

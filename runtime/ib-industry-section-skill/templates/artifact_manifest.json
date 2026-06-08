@@ -25,12 +25,12 @@
     },
     "search_log": {
       "path": "artifacts/search_log.md",
-      "owner": "llm_incremental_research_log",
+      "owner": "script_assisted_research_log",
       "inputs": ["formal_search_plan"]
     },
     "formal_research_execution_report": {
       "path": "artifacts/formal_research_execution_report.json",
-      "owner": "llm",
+      "owner": "script_skeleton_llm_judgment",
       "validator": "scripts/validate_formal_research_execution.py",
       "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": ["formal_search_plan", "search_log"]
@@ -40,11 +40,11 @@
       "owner": "llm_source_review_audit",
       "validator": "scripts/validate_source_reviews.py",
       "validation": "artifacts/source_reviews_validation.json",
-      "inputs": ["search_log", "formal_research_execution_report", "source_archive"]
+      "inputs": ["search_log", "formal_research_execution_report"]
     },
     "source_archive": {
       "path": "artifacts/source_archive/source_archive_index.json",
-      "owner": "llm_source_snapshot_audit",
+      "owner": "script_excerpt_snapshot_builder",
       "validator": "scripts/validate_source_archive.py",
       "validation": "artifacts/source_archive_validation.json",
       "inputs": ["source_reviews"]
@@ -152,6 +152,7 @@
     { "gate": "formal_search_plan", "artifact": "formal_search_plan" },
     { "gate": "formal_research_execution", "artifact": "formal_research_execution_report" },
     { "gate": "source_reviews", "artifact": "source_reviews" },
+    { "gate": "source_archive", "artifact": "source_archive" },
     { "gate": "pre_research_pack", "artifact": "pre_research_pack_gate" },
     { "gate": "research_pack", "artifact": "research_pack" },
     { "gate": "issue_analysis", "artifact": "issue_analysis" },

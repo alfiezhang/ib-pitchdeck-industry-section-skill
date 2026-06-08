@@ -23,6 +23,7 @@ from validate_source_archive import validate as validate_source_archive
 
 FULL_URL_RE = re.compile(r"^https?://[^\s\]|)）>]+$", flags=re.IGNORECASE)
 EV_RE = re.compile(r"\bEV-\d{3}\b")
+SRC_RE = re.compile(r"^SRC-\d{3}$")
 FORMAL_SEARCH_STAGES = {"formal_research_execution", "latest_check", "peer_check", "formal research execution", "latest", "peer check"}
 POSITIVE_REVIEW_MARKERS = ("yes", "y", "true", "opened", "reviewed", "是", "已")
 USER_SOURCE_VALUES = {"user-provided", "user provided", "input_card", "management", "company/user-provided"}
@@ -114,8 +115,42 @@ def _load_reviews(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
         if not isinstance(item, dict):
             errors.append(f"reviews[{idx}] must be an object")
             continue
-        normalized.append(item)
+        normalized.append(_canonical_review(item))
     return normalized, errors
+
+
+def _first_present(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, list) and value:
+            return value
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _canonical_review(review: dict[str, Any]) -> dict[str, Any]:
+    """Accept common LLM aliases while preserving canonical downstream fields."""
+    canonical = dict(review)
+    aliases = {
+        "source_review_id": ("source_review_id", "review_id", "source_id", "id"),
+        "url": ("url", "source_url", "source", "source_link"),
+        "title": ("title", "source_title", "source_name", "name"),
+        "locator": ("locator", "source_locator", "location", "source_location"),
+        "excerpt": ("excerpt", "raw_excerpt", "reviewed_excerpt", "source_excerpt"),
+        "search_attempt_ids": ("search_attempt_ids", "search_ids", "attempt_ids"),
+        "evidence_ids": ("evidence_ids", "ev_ids"),
+    }
+    for target, keys in aliases.items():
+        if target not in canonical or not _text(canonical.get(target)):
+            value = _first_present(review, keys)
+            if value not in (None, ""):
+                canonical[target] = value
+    return canonical
 
 
 def _review_by_evidence(reviews: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -137,6 +172,15 @@ def _review_by_attempt(reviews: list[dict[str, Any]]) -> dict[str, list[dict[str
             norm = f"S-{int(match.group(1)):03d}" if match else text.upper()
             by_attempt.setdefault(norm, []).append(review)
     return by_attempt
+
+
+def _review_by_id(reviews: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    for review in reviews:
+        source_review_id = _text(review.get("source_review_id"))
+        if source_review_id:
+            by_id[source_review_id] = review
+    return by_id
 
 
 def _selected_urls(raw: str) -> list[str]:
@@ -173,6 +217,12 @@ def _has_original_review_support(review: dict[str, Any]) -> bool:
 
 def _validate_review_fields(review: dict[str, Any], idx: int, errors: list[str], warnings: list[str]) -> None:
     prefix = f"reviews[{idx}]"
+    source_review_id = _text(review.get("source_review_id"))
+    if not source_review_id:
+        errors.append(f"{prefix}: source_review_id is required; use SRC-001, SRC-002, etc.")
+    elif not SRC_RE.fullmatch(source_review_id):
+        errors.append(f"{prefix}: source_review_id must follow SRC-001 format")
+
     url = _text(review.get("url"))
     if not url:
         errors.append(f"{prefix}: url is required")
@@ -197,6 +247,12 @@ def _validate_review_fields(review: dict[str, Any], idx: int, errors: list[str],
             errors.append(f"{prefix}: invalid evidence_id '{ev_id}'")
     if _review_is_usable(review) and not evidence_ids:
         errors.append(f"{prefix}: usable evidence must list at least one evidence_id")
+    if evidence_ids and not _review_is_usable(review):
+        errors.append(
+            f"{prefix}: evidence_ids are present but usable_as_evidence is false. "
+            "Do not keep EV links while downgrading the source to bypass source archive or evidence checks; "
+            "either make the reviewed source usable with locator/excerpt/archive support, or remove the EV link and downgrade the related FR/research-pack finding."
+        )
     if _review_is_usable(review):
         combined = _combined_review_text(review)
         matched_marker = next((marker for marker in WEAK_SOURCE_MARKERS if marker in combined), "")
@@ -262,7 +318,18 @@ def validate(
 
     by_ev = _review_by_evidence(reviews)
     by_attempt = _review_by_attempt(reviews)
+    by_source_review_id = _review_by_id(reviews)
     review_urls = {_norm_url(_text(review.get("url"))) for review in reviews if _text(review.get("url"))}
+    false_non_user_reviews = [
+        review
+        for review in non_user_reviews
+        if not _review_is_usable(review)
+    ]
+    if len(non_user_reviews) >= 5 and len(false_non_user_reviews) / max(1, len(non_user_reviews)) >= 0.8:
+        warnings.append(
+            "80%+ of non-user source_reviews are marked usable_as_evidence=false. "
+            "This may be legitimate for weak leads, but if formal research selected these sources, repair by reviewing/archiving stronger sources or downgrading FR findings with limitations; do not batch-false sources just to bypass evidence/archive checks."
+        )
 
     if search_log_path and search_log_path.exists():
         try:
@@ -303,6 +370,7 @@ def validate(
             if not isinstance(result, dict):
                 continue
             prefix = result.get("result_id") or f"issue_results[{idx}]"
+            status = _text(result.get("status"))
             for url in [_text(item) for item in _as_list(result.get("selected_source_urls")) if _text(item)]:
                 if not _is_full_url(url):
                     errors.append(f"{prefix}: selected_source_urls contains non-URL value '{url}'")
@@ -311,6 +379,28 @@ def validate(
                     errors.append(f"{prefix}: selected_source_urls must use exact page/report URLs, not root domain: {url}")
                 if _norm_url(url) not in review_urls:
                     errors.append(f"{prefix}: selected_source_url has no matching source_reviews.url: {url}")
+            source_review_ids = [_text(item) for item in _as_list(result.get("source_review_ids")) if _text(item)]
+            missing_reviews = [source_review_id for source_review_id in source_review_ids if source_review_id not in by_source_review_id]
+            if missing_reviews:
+                errors.append(f"{prefix}: source_review_ids not found in source_reviews.json: {', '.join(missing_reviews)}")
+            referenced_reviews = [
+                by_source_review_id[source_review_id]
+                for source_review_id in source_review_ids
+                if source_review_id in by_source_review_id
+            ]
+            usable_referenced_reviews = [review for review in referenced_reviews if _review_is_usable(review)]
+            evidence_ids = [_text(item) for item in _as_list(result.get("evidence_ids")) if _text(item)]
+            metric_ids = [_text(item) for item in _as_list(result.get("metric_ids")) if _text(item)]
+            if status in {"supported", "thin", "conflicting", "not_comparable"} and source_review_ids and not usable_referenced_reviews:
+                errors.append(
+                    f"{prefix}: status={status} references source_review_ids but all referenced reviews are usable_as_evidence=false. "
+                    "This is likely a repair-integrity issue: review/archive a usable source, downgrade the FR status with limitations, or remove unsupported EV/MET claims."
+                )
+            if (evidence_ids or metric_ids) and source_review_ids and not usable_referenced_reviews:
+                errors.append(
+                    f"{prefix}: EV/MET IDs cannot be supported by source reviews all marked unusable. "
+                    "Do not keep evidence/metric IDs while batch-downgrading sources."
+                )
 
     if memo_path and memo_path.exists():
         try:

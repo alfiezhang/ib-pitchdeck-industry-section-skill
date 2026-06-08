@@ -6,6 +6,7 @@
   "required": [
     "schema_version",
     "meta",
+    "llm_definition_draft",
     "scope_summary",
     "market_definitions",
     "ambiguous_boundaries",
@@ -18,6 +19,36 @@
   "properties": {
     "schema_version": { "const": "industry_scope_pack_v1" },
     "meta": { "type": "object", "additionalProperties": true },
+    "llm_definition_draft": {
+      "type": "object",
+      "description": "LLM-only pre-search definition draft. It guides scoping searches and must not contain validated market findings.",
+      "required": [
+        "working_market_draft",
+        "included_segments_draft",
+        "excluded_segments_draft",
+        "adjacent_markets_draft",
+        "ambiguous_boundaries_to_check",
+        "data_scope_questions",
+        "scoping_search_queries"
+      ],
+      "properties": {
+        "purpose": { "type": "string" },
+        "working_market_draft": { "type": "string", "minLength": 2 },
+        "parent_market_draft": { "type": "string" },
+        "broader_market_draft": { "type": "string" },
+        "included_segments_draft": { "type": "array", "items": { "type": "string" } },
+        "excluded_segments_draft": { "type": "array", "items": { "type": "string" } },
+        "adjacent_markets_draft": { "type": "array", "items": { "type": "string" } },
+        "ambiguous_boundaries_to_check": { "type": "array", "items": { "type": "string" } },
+        "data_scope_questions": { "type": "array", "items": { "type": "string" } },
+        "scoping_search_queries": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 6 },
+          "minItems": 2
+        }
+      },
+      "additionalProperties": true
+    },
     "scope_summary": {
       "type": "object",
       "required": ["working_market", "parent_market", "broader_market", "adjacent_markets"],

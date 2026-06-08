@@ -52,6 +52,8 @@ Fixed 8-Slide Structure Preserved:
 > The run must include passing `artifacts/formal_search_plan_validation.json`, `artifacts/formal_research_execution_validation.json`, `artifacts/source_reviews.json`, `artifacts/source_archive/source_archive_index.json`, `artifacts/source_archive_validation.json`, and `artifacts/source_reviews_validation.json`, proving the search plan was executable, formal/latest searches were executed, and the underlying evidence sources were opened/reviewed and archived before research pack synthesis.
 
 Scope Boundary Check:
+- LLM definition draft:
+- Scoping search queries used to verify/refine draft:
 - Relevant market:
 - Parent market:
 - Sub-markets:
@@ -69,6 +71,16 @@ Formal Research Execution Results:
 | Result ID | Issue Area | Subissue | Research Question | Status | Search Attempt IDs | Source Review IDs | Evidence IDs | Metric IDs | Limitations / Research Pack Handling |
 |---|---|---|---|---|---|---|---|---|---|
 | FR-001 | | | | | | | | | |
+
+---
+
+## Formal Research Extracts
+> Preserve the raw research substrate before synthesis. This section is not page strategy and not slide copy.
+> For every material `FR-xxx` and `SRC-xxx`, include the reviewed locator/excerpt, extracted fact, metric candidates, limitations, and whether the item is promoted to EV/MET. This prevents the research pack from becoming an over-compressed memo.
+
+| Result ID | Source Review ID | Search Attempt IDs | Source URL | Locator | Reviewed Excerpt / Paraphrase | Extracted Fact Or Metric Candidate | Status | Promoted EV/MET IDs | Limitations |
+|---|---|---|---|---|---|---|---|---|---|
+| FR-001 | SRC-001 | S-001 | | | | | supported / thin / insufficient | EV-001 / MET-001 | |
 
 ---
 

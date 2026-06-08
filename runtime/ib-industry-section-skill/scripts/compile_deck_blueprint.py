@@ -122,6 +122,15 @@ def _block_target_field(block: dict[str, Any]) -> str:
     return ""
 
 
+def _active_fields_hint(slide_no: int, page_type: str, fields: list[str]) -> str:
+    allowed = ", ".join(fields) if fields else "(none)"
+    return (
+        f"Allowed active body fields: {allowed}. "
+        "Use one of these values, or remove target_field and let the compiler map by role. "
+        f"Inspect with: python scripts/describe_slide_fields.py --slide-no {slide_no} --page-type {page_type}"
+    )
+
+
 def _normalize_field_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
@@ -160,9 +169,17 @@ def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], pa
         if not target:
             continue
         if target not in fields:
-            raise ValueError(f"slide {slide.get('slide_no')}: body block target_field '{target}' is not active for {page_type}")
+            slide_no = int(slide.get("slide_no") or 0)
+            raise ValueError(
+                f"slide {slide_no}: body block target_field '{target}' is not active for {page_type}. "
+                f"{_active_fields_hint(slide_no, page_type, fields)}"
+            )
         if body.get(target):
-            raise ValueError(f"slide {slide.get('slide_no')}: duplicate body block target_field '{target}'")
+            slide_no = int(slide.get("slide_no") or 0)
+            raise ValueError(
+                f"slide {slide_no}: duplicate body block target_field '{target}'. "
+                f"{_active_fields_hint(slide_no, page_type, fields)}"
+            )
         body[target] = _body_text(block)
         assigned_block_indexes.add(idx)
 

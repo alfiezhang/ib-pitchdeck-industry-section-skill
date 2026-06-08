@@ -25,6 +25,7 @@ from gate_names import (
     PRE_PPT,
     RENDERER_SPEC,
     REPLACEMENT_DICT,
+    SOURCE_ARCHIVE,
     SOURCE_REVIEWS,
     FORMAL_RESEARCH_EXECUTION,
     TEMPLATE_REGISTRY,
@@ -247,6 +248,14 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
             "validation": "artifacts/source_reviews_validation.json",
             "gate": SOURCE_REVIEWS,
             "allowed": ["create_source_reviews", "fix_source_reviews", "rerun_source_reviews_validation"],
+            "forbidden": ["write_research_pack", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
+        },
+        {
+            "stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED",
+            "artifact": "artifacts/source_archive/source_archive_index.json",
+            "validation": "artifacts/source_archive_validation.json",
+            "gate": SOURCE_ARCHIVE,
+            "allowed": ["create_source_archive_snapshots", "fix_source_archive_index", "rerun_source_archive_validation"],
             "forbidden": ["write_research_pack", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
         },
         {

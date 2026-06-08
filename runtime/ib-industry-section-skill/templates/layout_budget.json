@@ -1,5 +1,5 @@
 {
-  "_description": "Page-level PPT layout budgets used by renderer-spec prompts and validators. Budgets are intentionally conservative so generated copy fits the fixed template without post-hoc shrinking.",
+  "_description": "Page-level PPT layout budgets used by renderer-spec prompts and validators. Headline and main_message fit is hard-constrained through text-fit rules; body-copy budgets are advisory scanability hints and must not cause content deletion or formal delivery failure by themselves.",
   "global": {
     "main_message": {
       "forbid_terminal_punctuation": true,

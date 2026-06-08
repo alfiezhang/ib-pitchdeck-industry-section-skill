@@ -2,6 +2,7 @@
   "schema_version": "source_archive_index_v1",
   "created_at": "",
   "purpose": "Archive reviewable snapshots for formal usable evidence sources. Broad discovery leads do not require archive entries.",
+  "field_alias_note": "Use canonical entries[]. Validators tolerate archive_entries/snapshot_type/snapshot_path aliases to reduce repair loops, but new artifacts should use entries/archive_status/archive_path.",
   "entries": [
     {
       "source_review_id": "SRC-001",

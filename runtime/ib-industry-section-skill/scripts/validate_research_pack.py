@@ -19,6 +19,7 @@ REQUIRED_SECTIONS = [
     "search plan",
     "Scope Boundary",
     "Scope Pack And Formal Research Execution Summary",
+    "Formal Research Extracts",
     "Deal Context",
     "Target Business Summary",
     "Industry Definition",

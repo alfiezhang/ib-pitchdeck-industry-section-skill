@@ -7,6 +7,18 @@ description: Generate a source-disciplined, issue-analysis-driven investment ban
 
 Generate a high-quality pitchbook industry section. The PPT file is the delivery format, not the objective.
 
+## Stage Stop Rule
+
+Before every downstream transition, run:
+
+```bash
+"$PYTHON_CMD" scripts/workflow.py next --run-dir "$RUN_DIR"
+```
+
+If `status` is `failed`, `missing`, `stale`, or `blocked`, stop at that gate. Do not write downstream artifacts, do not run the PPT pipeline, and do not summarize the project as complete. Report the `blocking_gate`, the first few validation errors, and the smallest repair target.
+
+This is especially important after `source_reviews`, `source_archive`, `research_pack`, and `deck_blueprint`; those failures are not formatting details.
+
 ## Non-Negotiable Agent Rules
 
 If the user provides a project brief and asks to generate a PPT, this is a formal delivery task.
@@ -15,10 +27,10 @@ There is no one-command "brief to PPT" shortcut. `run_pipeline.sh` only turns an
 
 Do:
 1. Create `input_card.json` in transcription mode.
-2. Run broad discovery only for industry scoping.
-3. Create thin `artifacts/industry_scope_pack.json`, validate it, then create `artifacts/formal_search_plan.json`.
-4. Validate `artifacts/formal_search_plan.json`, then execute every planned formal search instruction as a real search, log the resulting `S-xxx` attempts, and write `artifacts/formal_research_execution_report.json`.
-5. Write `artifacts/source_reviews.json` for exact opened/reviewed sources, archive usable evidence snapshots in `artifacts/source_archive/`, and validate them.
+2. Draft the LLM-only industry definition inside `artifacts/industry_scope_pack.json` as `llm_definition_draft`; this uses the brief and model knowledge only and must contain no numbers or conclusions.
+3. Run broad discovery only to verify/refine that definition draft, then complete thin `artifacts/industry_scope_pack.json`, validate it, and create `artifacts/formal_search_plan.json`.
+4. Validate `artifacts/formal_search_plan.json`, then execute every planned formal search instruction as a real search and use `scripts/append_search_attempt.py` to log the resulting `S-xxx` attempts.
+5. Use `scripts/build_formal_research_execution_report_skeleton.py` to create the execution report from `FS-xxx` / `S-xxx`, write `artifacts/source_reviews.json`, rerun the skeleton builder with source reviews to add `SRC-xxx` links and edit judgment fields, then archive usable evidence snapshots with `scripts/build_source_archive.py`.
 6. Write and validate `industry_research_pack.md`.
 7. Write and validate `industry_issue_analysis.json`.
 8. Extract `template_registry.json`, then write and validate `deck_blueprint.json` as the banker page-design artifact.
@@ -48,6 +60,11 @@ Formal research ID discipline:
 - Never mark "formal research execution" complete just because the plan exists. After writing the plan, run the actual WebSearch / search-provider calls for the planned `FS-xxx` instructions, append `S-xxx` entries to `search_log.md`, and only then write the execution report.
 - If validation complains about formal execution, first check whether real `S-xxx` formal searches were performed and logged; do not start by rewriting taxonomy or reshaping JSON.
 
+Broad discovery query discipline:
+- Broad discovery validates the LLM-only `llm_definition_draft`; it does not discover investment conclusions. Query strings should use words like `definition`, `classification`, `included segments`, `adjacent market`, `scope`, `taxonomy`, `value chain boundary`, `metric definition`, or their local-language equivalents.
+- Do not put `market size`, `growth`, `CAGR`, `share`, `ranking`, `valuation`, `M&A`, specific years, or transaction-thesis terms into broad discovery queries. Those belong in formal `FS-xxx` searches after the scope pack.
+- If a scoping search result contains numbers anyway, record them only as `unvalidated_leads`; do not use them as findings.
+
 `--no-research-gate` is reserved only for explicit local template/rendering diagnostics. It requires both `IB_SKILL_ALLOW_PPT_ONLY_DEBUG=1` and `--debug-reason`. The reason must describe a template/rendering diagnostic, not a research, research pack, renderer-spec, schema, or delivery shortcut. A debug PPT is never task completion for a new project brief.
 
 If you cannot complete web research, source review, or issue analysis validation, stop and report the blocked gate. Do not compensate by fabricating "validation-shaped" artifacts.
@@ -64,6 +81,7 @@ After a failed research, research pack, issue-analysis, deck-blueprint, renderer
 - replacing official, filing, company disclosure, regulator, or higher-authority domains with lower-authority media domains;
 - deleting EV/MET/source references instead of adding proper validation or moving them to the correct artifact;
 - relabeling weak or lead-only sources as formal evidence instead of moving them out of the Evidence Ledger.
+- batch-marking `usable_as_evidence=false` while keeping `EV-xxx` / `MET-xxx` links or supported/thin FR findings. If a source is unusable, either find/review/archive a usable source, remove the unsupported EV/MET claim, or downgrade the formal finding with explicit limitations.
 
 For each such edit, restore the stronger evidence path, add the missing formal research execution, or explicitly justify why the edit preserves research integrity. Do not regenerate research pack, deck blueprint, compiled renderer spec, or PPT until this repair-integrity audit is complete.
 
@@ -165,8 +183,8 @@ Formal one-shot sequence:
 
 3. **Search planning and execution**
    - Use `skills/research-pack/SKILL.md`.
-   - Broad discovery is scoping only: industry definition, parent/adjacent market mapping, included/excluded segments, ambiguous boundaries, data hierarchy, unvalidated leads, reconciliation requirements, and seed questions.
-   - Before writing the scope pack, run only 3-6 scoping searches. Keep them industry-neutral and definition-oriented:
+   - First draft `llm_definition_draft` inside `artifacts/industry_scope_pack.json` from the input card and model knowledge only. This is not evidence and cannot be used downstream as a claim.
+   - Use the draft to design 3-6 scoping searches. Keep them industry-neutral and definition-oriented:
      1. industry naming / vocabulary / classification;
      2. parent market, adjacent market, and category hierarchy;
      3. product, service, process, application, or value-chain segment boundaries;
@@ -175,7 +193,7 @@ Formal one-shot sequence:
      6. optional regulatory, technical, capacity, or transaction-context vocabulary when it affects industry definition.
    - Do not let broad discovery become a consumer-goods pattern. For manufacturing, industrials, software, healthcare, services, or infrastructure, adapt the same scoping questions to process steps, equipment categories, end markets, deployment model, contract model, capacity, regulation, and standards.
    - Do not run growth, market share, peer-ranking, valuation, or investment-thesis searches in broad discovery except as unvalidated leads for later formal research.
-   - Write `artifacts/industry_scope_pack.json` from `templates/industry_scope_pack.template.json`.
+   - Complete `artifacts/industry_scope_pack.json` from `templates/industry_scope_pack.template.json` by reconciling the initial `llm_definition_draft` with scoping search results.
    - Do not write confirmed market size, growth rate, market share, channel ranking, competitive landscape, valuation multiples, or page-ready claims in the scope pack. Any numerical or directional finding encountered during broad discovery belongs only in `unvalidated_leads` and cannot be used downstream unless formal research later validates it.
    - Validate:
      ```bash
@@ -192,10 +210,44 @@ Formal one-shot sequence:
        --output artifacts/formal_search_plan_validation.json
      ```
    - Execute the planned `FS-xxx` formal/latest searches as real tool calls and record each real attempt as `S-xxx` in `artifacts/search_log.md`.
+   - Prefer the helper instead of hand-editing search numbering:
+     ```bash
+     "$PYTHON_CMD" scripts/append_search_attempt.py \
+       --search-log "$RUN_DIR/artifacts/search_log.md" \
+       --query "<exact query actually searched>" \
+       --stage formal_research_execution \
+       --fs-id FS-001 \
+       --selected-source "<exact opened/reviewed URL>" \
+       --opened-reviewed yes \
+       --locator-excerpt "<page/section/table plus short excerpt or limitation>"
+     ```
    - Do not move to the execution report until the search log contains real `S-xxx` formal/latest/peer attempts for the retained `FS-xxx` instructions.
-   - Write `artifacts/formal_research_execution_report.json` from the minimal skeleton only after those `S-xxx` attempts exist. Copy `issue_area`, `subissue`, and `research_question` from the owning `formal_search_plan` item for each executed `FS-xxx`; do not reclassify taxonomy in the execution report.
-   - Write `artifacts/source_reviews.json` with exact source URLs, locators, excerpts, linked `S-xxx`, linked `EV-xxx`, and honest `usable_as_evidence` values. Do not set `usable_as_evidence=true` merely to satisfy validation; use false for search-result snippets, weak leads, unavailable reports, root domains, or unreviewed pages.
+   - Build an initial execution-report skeleton from the plan and search log:
+     ```bash
+     "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+       --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+       --search-log "$RUN_DIR/artifacts/search_log.md" \
+       --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+     ```
+   - In the execution report, `selected_source_urls` means exact URLs actually opened/reviewed and represented in `source_reviews.json`; do not list every search-result URL there. Unreviewed or lead-only URLs stay in `search_log.md`.
+   - Write `artifacts/source_reviews.json` from `templates/source_reviews.template.json` with exact source URLs, locators, excerpts, linked `S-xxx`, linked `EV-xxx`, and honest `usable_as_evidence` values. Use canonical fields (`source_review_id`, `url`, `title`, `locator`, `excerpt`); validators tolerate common aliases but new artifacts should not rely on them. Do not set `usable_as_evidence=true` merely to satisfy validation; use false for search-result snippets, weak leads, unavailable reports, root domains, or unreviewed pages.
+   - Rebuild the execution-report skeleton after `source_reviews.json` exists, then edit judgment fields instead of hand-synchronizing IDs:
+     ```bash
+     "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+       --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+       --search-log "$RUN_DIR/artifacts/search_log.md" \
+       --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+       --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+     ```
+     The helper copies `issue_area`, `subissue`, `research_question`, `FS-xxx`, `S-xxx`, and `SRC-xxx` references. You must still review and edit `status`, `findings_summary`, `limitations`, `research_pack_handling`, and EV/MET IDs based on the actual source support.
    - For every non-user source with `usable_as_evidence=true`, create `artifacts/source_archive/source_archive_index.json` and a reviewable snapshot file under `artifacts/source_archive/`. Prefer a saved PDF or clean markdown/text snapshot; if the tool surface cannot download the full source, save an `excerpt_snapshot` markdown file with URL, title, locator, reviewed excerpt, and limitation note. Do not fabricate full-page text.
+   - Prefer the archive helper for excerpt snapshots:
+     ```bash
+     "$PYTHON_CMD" scripts/build_source_archive.py \
+       --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+       --run-dir "$RUN_DIR" \
+       --overwrite
+     ```
    - Validate the pre-research pack gate before writing the research pack.
 
 4. **Research Pack**

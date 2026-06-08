@@ -28,10 +28,11 @@ The final output should look like a finished investment-banking presentation, no
 
 4. **Content density: fill the template, don't just occupy it.**
    - Use the available template capacity fully. Thin copy that barely fills placeholders is as much a quality issue as overflow.
+   - Body fields should be dense but scannable: preserve proof, mechanism, comparison, and implication rather than deleting content to satisfy a character budget.
    - Prefer at most 6-7 bullets in a box.
-   - Prefer each bullet to fit within 2 lines.
+   - Prefer compact body phrasing, but body length is an editorial scanability prompt rather than a hard validation limit. Title and subtitle fields are the hard-fit fields.
    - If copy looks like research pack prose, compress it.
-   - If copy is a single generic sentence, expand it with evidence.
+   - If copy is a single generic sentence, expand it with evidence, mechanism, and transaction implication.
    - See `templates/content_quality_rules.json` for per-field density targets.
 
 5. **Comparisons must read like structured comparisons.**
@@ -48,14 +49,14 @@ The final output should look like a finished investment-banking presentation, no
 
 ## Content Density by Field Type
 
-The following are target character ranges for body_copy fields. They are enforced by `validate_content_quality.py`: short/thin fields are advisory quality warnings, while paragraph-like body fields that threaten PPT readability are blocking layout warnings. See `templates/content_quality_rules.json` and `templates/layout_budget.json` for canonical thresholds.
+The following are target density ranges for body_copy fields. `validate_content_quality.py` treats short/thin or paragraph-like body fields as editorial quality warnings unless they also create a separate evidence, metric, role, or final-render problem. Title and subtitle fit remain hard layout constraints. See `templates/content_quality_rules.json` and `templates/layout_budget.json` for canonical thresholds.
 
 | Field Type | Target Range | Description |
 |---|---|---|
 | title / headline | Must fit one title line | Complete investment insight, not a topic label |
 | main_takeaway | Target one line; hard max two lines | One sentence: opinion + evidence or implication; no terminal punctuation |
-| bullet / card | 45–95 chars, subject to `layout_budget.json` | Label + opinion + data point or implication |
-| panel | 55–105 chars, subject to `layout_budget.json` | Context synthesis + judgment + pitch relevance |
+| bullet / card | Dense but scannable; no hard character cap | Label + opinion + data point or implication |
+| panel | Dense but scannable; no hard character cap | Context synthesis + judgment + pitch relevance |
 | table_row | 30–70 chars; cells must stay compact | Metric-led, label prefix bolded |
 | timeline_stage | 60–100 chars | Event + timeframe + significance |
 | source_footer | 30+ chars | Specific source name or Evidence ID |

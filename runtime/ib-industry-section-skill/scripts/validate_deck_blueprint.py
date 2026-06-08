@@ -124,6 +124,25 @@ def _block_target_field(block: dict[str, Any]) -> str:
     return ""
 
 
+def _active_fields_hint(slide_no: int, page_type: str, fields: list[str]) -> str:
+    allowed = ", ".join(fields) if fields else "(none)"
+    return (
+        f"Allowed active body fields: {allowed}. "
+        "Use one of these values, or remove target_field and let the compiler map by role. "
+        f"Inspect with: python scripts/describe_slide_fields.py --slide-no {slide_no} --page-type {page_type}"
+    )
+
+
+def _registered_page_types_hint(slide_no: int, variants: dict[str, dict[str, Any]]) -> str:
+    if not variants:
+        return f"No registered page types found for slide {slide_no}."
+    formal = sorted(page_type for page_type, variant in variants.items() if variant.get("formal_allowed") is True)
+    all_types = sorted(variants)
+    if formal:
+        return f"Formal-allowed page types for slide {slide_no}: {', '.join(formal)}."
+    return f"Registered page types for slide {slide_no}: {', '.join(all_types)}."
+
+
 def _collect_selected_metric_ids(analyses_by_id: dict[str, dict[str, Any]], issue_ids: list[str]) -> set[str]:
     values: set[str] = set()
     for analysis_id in issue_ids:
@@ -241,11 +260,18 @@ def validate(
         selected_evidence_ids = _collect_selected_evidence_ids(analyses_by_id, issue_ids)
         visual_plan = visual_plan_from_blueprint_slide(slide)
         page_type = str(slide.get("selected_page_type") or "").strip()
-        variant = variants_by_slide.get(slide_no, {}).get(page_type)
+        slide_variants = variants_by_slide.get(slide_no, {})
+        variant = slide_variants.get(page_type)
         if not variant:
-            errors.append(f"{prefix}: selected_page_type '{page_type}' is not registered for this slide")
+            errors.append(
+                f"{prefix}: selected_page_type '{page_type}' is not registered for this slide. "
+                f"{_registered_page_types_hint(slide_no, slide_variants)}"
+            )
         elif variant.get("formal_allowed") is not True:
-            errors.append(f"{prefix}: selected_page_type '{page_type}' is not formal_allowed")
+            errors.append(
+                f"{prefix}: selected_page_type '{page_type}' is not formal_allowed. "
+                f"{_registered_page_types_hint(slide_no, slide_variants)}"
+            )
         required_fields = _required_body_fields_for_variant(variant, page_type, slide)
         targeted_fields: dict[str, int] = {}
         for block_idx, block in enumerate(_body_blocks(slide), start=1):
@@ -254,11 +280,13 @@ def validate(
                 continue
             if target not in required_fields:
                 errors.append(
-                    f"{prefix}: body_blocks[{block_idx}] target_field '{target}' is not active for selected_page_type '{page_type}'"
+                    f"{prefix}: body_blocks[{block_idx}] target_field '{target}' is not active for selected_page_type '{page_type}'. "
+                    f"{_active_fields_hint(slide_no, page_type, required_fields)}"
                 )
             elif target in targeted_fields:
                 errors.append(
-                    f"{prefix}: body_blocks[{block_idx}] duplicates target_field '{target}' already used by body_blocks[{targeted_fields[target]}]"
+                    f"{prefix}: body_blocks[{block_idx}] duplicates target_field '{target}' already used by body_blocks[{targeted_fields[target]}]. "
+                    f"{_active_fields_hint(slide_no, page_type, required_fields)}"
                 )
             else:
                 targeted_fields[target] = block_idx

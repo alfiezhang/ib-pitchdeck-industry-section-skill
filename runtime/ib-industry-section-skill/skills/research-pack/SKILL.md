@@ -13,7 +13,9 @@ This step is intentionally **LLM-driven**. The purpose is not to reduce research
 
 ## Purpose
 
-Produce `industry_research_pack.md` — a comprehensive, source-disciplined research pack covering the industry definition, market sizing, growth drivers, value chain, competitive landscape, trends, and pitch-relevant implications / open questions.
+Produce `industry_research_pack.md` — a comprehensive, source-disciplined research extraction pack covering the industry definition, market sizing, growth drivers, value chain, competitive landscape, trends, and pitch-relevant implications / open questions.
+
+The research pack should preserve source-level findings before synthesis. Do not collapse formal research into a short memo. For every material `FR-xxx` / `SRC-xxx`, leave enough raw extraction detail that issue analysis can see what was searched, what exact source was reviewed, what excerpt/locator supports the fact, what metric candidates were extracted, and what limitations remain.
 
 The research pack is the human-readable source of truth for all facts used downstream. The machine-readable research output from this stage is `industry_issue_analysis.json`; deck blueprint and compiled page evidence contract are downstream artifacts and must trace back to research pack evidence and metrics.
 
@@ -221,7 +223,10 @@ Before research pack synthesis, create:
 Execution order:
 1. Read `templates/source_registry.json` as a source menu only. Do not execute default packs yet.
 2. Create `artifacts/search_log.md` from `references/search_log_template.md` before the first search attempt.
-3. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, scope, source leads, player categories, and unresolved definition questions. This is scoping, not formal research.
+3. Draft `llm_definition_draft` inside `artifacts/industry_scope_pack.json` before searching. Use only the brief and model knowledge. This draft is a definition hypothesis, not an investment hypothesis and not evidence.
+   - It should include likely working market, parent/broader markets, included/excluded segments, adjacent markets, ambiguous boundaries to check, data-scope questions, and 2-6 definition/scope search queries.
+   - It must not include numbers, market size, growth, share, rankings, valuation, M&A conclusions, or page-ready claims.
+4. Run 3-6 unrestricted broad discovery queries from `llm_definition_draft.scoping_search_queries` to verify/refine industry vocabulary, scope, source leads, player categories, and unresolved definition questions. This is scoping, not formal research.
    - Use industry-neutral query intents:
      1. industry naming / vocabulary / classification;
      2. parent market, adjacent market, and category hierarchy;
@@ -232,40 +237,75 @@ Execution order:
    - Adapt these intents to the sector. Manufacturing may require process steps, capacity, equipment categories, materials, OEM/ODM, downstream applications, standards, and regulation. Software may require deployment model, user type, pricing model, and adjacent platform categories. Services may require contract model, customer segment, utilization, and labor/regulatory boundaries.
    - Do not default to consumer-product concepts such as SKU, GMV, platform ranking, creator channels, or brand share unless the project actually requires them.
    - Do not run growth, market-share, peer-ranking, valuation, or investment-thesis searches in broad discovery except as unvalidated leads for later formal research.
-4. Write `artifacts/industry_scope_pack.json` from `templates/industry_scope_pack.template.json`.
+   - Broad-discovery query strings should not contain market-size/growth/share/ranking/valuation/M&A terms or specific years. Use definition/scope terms instead, for example `<industry> definition included segments adjacent categories` or `<industry> metric scope methodology taxonomy`.
+5. Complete `artifacts/industry_scope_pack.json` from `templates/industry_scope_pack.template.json`.
    - This stage is scoping only: define the working market, parent/adjacent markets, narrow/broad category boundaries, ambiguous items, data hierarchy, required reconciliations, unvalidated leads, and formal research seed questions.
    - Do not write confirmed market size, growth rate, share, ranking, competitive landscape, valuation multiples, or page-ready claims.
    - Any number or directional finding encountered during broad discovery belongs only in `unvalidated_leads` with explicit `must_validate[]`.
-5. Validate the scope pack with `scripts/validate_industry_scope_pack.py`.
-6. Write `artifacts/formal_search_plan.json` using `templates/formal_search_plan.template.json`.
-7. Validate the formal search plan with `scripts/validate_formal_search_plan.py`.
-8. The formal search plan must be issue/subissue based. Do not write investment hypotheses, transaction theses, or slide conclusions in the plan.
-9. For each relevant issue/subissue, write a research question and clear executable `search_instructions[]`: `FS-xxx`, exact query string, purpose, and optional source hint. Do not write broad search angles, investment hypotheses, or slide conclusions.
-10. Run formal/latest/peer searches by executing the planned `FS-xxx` instructions as real search tool calls. For each executed instruction:
+6. Validate the scope pack with `scripts/validate_industry_scope_pack.py`.
+7. Write `artifacts/formal_search_plan.json` using `templates/formal_search_plan.template.json`.
+8. Validate the formal search plan with `scripts/validate_formal_search_plan.py`.
+9. The formal search plan must be issue/subissue based. Do not write investment hypotheses, transaction theses, or slide conclusions in the plan.
+10. For each relevant issue/subissue, write a research question and clear executable `search_instructions[]`: `FS-xxx`, exact query string, purpose, and optional source hint. Do not write broad search angles, investment hypotheses, or slide conclusions.
+11. Run formal/latest/peer searches by executing the planned `FS-xxx` instructions as real search tool calls. For each executed instruction:
    - run WebSearch or the configured local search provider using the exact query string or a minimally improved equivalent;
    - append one real `S-xxx` attempt to `search_log.md` immediately;
+   - prefer `scripts/append_search_attempt.py` instead of hand-editing numbering:
+     ```bash
+     "$PYTHON_CMD" scripts/append_search_attempt.py \
+       --search-log "$RUN_DIR/artifacts/search_log.md" \
+       --query "<exact query actually searched>" \
+       --stage formal_research_execution \
+       --fs-id FS-001 \
+       --selected-source "<exact opened/reviewed URL>" \
+       --opened-reviewed yes \
+       --locator-excerpt "<page/section/table plus short excerpt or limitation>"
+     ```
    - set `Search Stage: formal_research_execution`, `latest_check`, or `peer_check`;
    - set `Search Instruction IDs: FS-xxx`;
    - record selected source URLs, opened/reviewed status, and source limitations honestly.
-11. Before writing the execution report, verify every `FS-xxx` kept in `formal_search_plan.json` has at least one real formal/latest/peer `S-xxx` attempt in `search_log.md`, or remove the unexecuted instruction from the plan.
-12. Write `artifacts/formal_research_execution_report.json` from `templates/formal_research_execution_report.skeleton.json`. Do not use a filled template. Add one `issue_results[]` object for each executed `FS-xxx` instruction or unresolved planned issue/subissue.
-   - Do not invent or reclassify `issue_area` / `subissue` in this report.
-   - Copy `issue_area`, `subissue`, and `research_question` from the `formal_search_plan.issue_search_plan[]` item that owns each `FS-xxx`.
-   - Put `FS-xxx` values only in `search_instruction_ids`.
-   - Put actual `S-xxx` values only in `search_attempt_ids`.
-   - If you have not run the search yet, do not create an `FR-xxx` result pretending it was executed; go back and run the search.
-   - The execution report is an execution record: it records what was searched, what was found, what source was reviewed, and what remains thin or unavailable.
-   - If a broad-discovery search only found source leads or vocabulary, keep it in `source_discovery_attempt_ids`; do not move it into `search_attempt_ids`.
-13. Write `artifacts/source_reviews.json` for exact opened/reviewed page/report/PDF URLs.
+12. Before writing the execution report, verify every `FS-xxx` kept in `formal_search_plan.json` has at least one real formal/latest/peer `S-xxx` attempt in `search_log.md`, or remove the unexecuted instruction from the plan.
+13. Build an initial execution-report skeleton from the plan and search log:
+   ```bash
+   "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+     --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+     --search-log "$RUN_DIR/artifacts/search_log.md" \
+     --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+   ```
+14. Write `artifacts/source_reviews.json` from `templates/source_reviews.template.json` for exact opened/reviewed page/report/PDF URLs.
+   - Use canonical field names: `source_review_id`, `url`, `title`, `locator`, `excerpt`, `search_attempt_ids`, `evidence_ids`, and `usable_as_evidence`.
+   - Validators tolerate common aliases to reduce repair loops, but new artifacts should use the template exactly.
    - `usable_as_evidence=true` means the source was actually opened/reviewed and can support a named EV row.
    - Use `usable_as_evidence=false` for search snippets, root domains, unavailable reports, mirrors/reposts without methodology, or pages that only provide a lead.
    - Do not batch-fill missing `usable_as_evidence` values with true. If validation flags missing fields, review each source and decide true/false from the locator, excerpt, source owner, and support for the claim.
-14. Create `artifacts/source_archive/` for every non-user source with `usable_as_evidence=true`.
+15. Rebuild `artifacts/formal_research_execution_report.json` from `templates/formal_research_execution_report.skeleton.json`, but do not hand-synchronize IDs. Use the skeleton builder with `source_reviews.json`, then edit the judgment fields:
+   ```bash
+   "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+     --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+     --search-log "$RUN_DIR/artifacts/search_log.md" \
+     --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+     --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+   ```
+   - The helper copies `issue_area`, `subissue`, and `research_question` from the owning `formal_search_plan.issue_search_plan[]` item.
+   - The helper maps planned `FS-xxx`, executed `S-xxx`, and reviewed `SRC-xxx` references from `search_log.md` and `source_reviews.json`.
+   - You must still review and edit `status`, `findings_summary`, `limitations`, `research_pack_handling`, and EV/MET IDs based on actual support.
+   - Put `FS-xxx` values only in `search_instruction_ids`; put actual `S-xxx` values only in `search_attempt_ids`.
+   - If you have not run the search yet, do not create an `FR-xxx` result pretending it was executed; go back and run the search.
+   - If a broad-discovery search only found source leads or vocabulary, keep it in `source_discovery_attempt_ids`; do not move it into `search_attempt_ids`.
+   - `selected_source_urls` must contain only exact page/report/PDF URLs that were actually opened/reviewed and are represented in `artifacts/source_reviews.json`. Do not copy every search-result URL into this field.
+16. Create `artifacts/source_archive/` for every non-user source with `usable_as_evidence=true`.
    - Write `artifacts/source_archive/source_archive_index.json` from `templates/source_archive_index.template.json`.
    - Save one snapshot file per usable source, usually `artifacts/source_archive/SRC-001.md`.
    - Prefer `saved_pdf` or `saved_text`. Use `excerpt_snapshot` when only reviewed excerpts/locators can be saved from the tool surface. Use `archive_unavailable` only with a specific reason and reviewed excerpt.
    - Snapshot markdown must identify URL, title, source_review_id, captured_at, locator, reviewed excerpt, and limitations. Do not invent full article/report text.
    - Broad discovery leads do not need archive entries unless promoted into formal usable evidence.
+   - Prefer the helper for excerpt snapshots:
+     ```bash
+     "$PYTHON_CMD" scripts/build_source_archive.py \
+       --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+       --run-dir "$RUN_DIR" \
+       --overwrite
+     ```
 
 Validate formal research execution before research pack synthesis:
 
@@ -315,6 +355,8 @@ Do not first rewrite taxonomy or reshape JSON unless the validator specifically 
 
 `industry_research_pack.md` following the structure defined in `references/industry_research_pack_template.md`.
 
+Do not write a custom abbreviated memo. Copy the section structure and table headers from the template. The validators parse exact section names and table headers.
+
 This research pack is the stage contract for downstream reasoning:
 - deck blueprint and compiled renderer spec should not introduce new facts beyond it
 - weak, missing, or conflicting data should be visible here rather than silently corrected later
@@ -324,6 +366,7 @@ Required sections:
 - **search plan** (references to industry scope pack, formal search plan, formal research execution, and selected source rationale; no separate coverage checklist)
 - **Scope Boundary** (confirm pre-mandate transaction-oriented industry section, not generic report / consulting study / company deep dive)
 - **Scope Pack And Formal Research Execution Summary** (project classification, issue/subissue research actually executed, source reviews, limitations)
+- **Formal Research Extracts** (one row or bullet group per material `FR-xxx` / `SRC-xxx`, preserving source locator, reviewed excerpt, extracted fact, metric candidate, status, and limitations)
 - **Source Selection Rationale** (why selected packs/domains are relevant, and what was intentionally excluded)
 - Deal context (why this industry section matters for this transaction)
 - Target business summary

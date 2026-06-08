@@ -32,7 +32,7 @@ Do not wait until after drafting to discover these rules.
 Choose the smallest workflow that satisfies the user request:
 
 1. New industry section from a brief or attachments:
-   - Run full workflow: intake -> scope boundary -> industry scope pack -> lightweight issue/subissue search plan -> formal research execution -> research pack -> gap audit -> supplemental research if needed -> issue analysis -> template registry -> deck blueprint -> compile page evidence contract / renderer spec -> replacement dictionary -> PPT fill -> QC.
+   - Run full workflow: intake -> scope boundary -> industry scope pack -> lightweight issue/subissue search plan -> formal research execution -> source reviews/source archive -> research pack -> gap audit -> supplemental research if needed -> issue analysis -> template registry -> deck blueprint -> compile page evidence contract / renderer spec -> replacement dictionary -> PPT fill -> QC.
 2. Existing industry PPT improvement:
    - Extract current storyline and slide content; audit content gaps, source gaps, metric consistency, and template fit; regenerate only necessary pages unless the user asks for a full rebuild.
 3. Research-only update:
@@ -51,7 +51,9 @@ Maintain this internally for one-shot runs:
 - [ ] Industry scope pack validation
 - [ ] Lightweight issue/subissue search plan
 - [ ] Formal research execution validation
-- [ ] Formal research pack
+- [ ] Source reviews validation
+- [ ] Source archive validation
+- [ ] Pre-research-pack stage gate
 - [ ] research pack validation
 - [ ] Research gap audit
 - [ ] Supplemental research if critical gaps exist
@@ -71,6 +73,7 @@ Run these checks before the artifact is used downstream:
 
 - **Input card gate**: `input_card.json` is a transcription layer. It must not auto-create investment highlights, peers, risks, preferred sources, or research topics unless the user explicitly provided them.
 - **Research freshness gate**: formal research execution needs latest/current checks where the metric is time-sensitive. Do not treat years found in user materials as the current market period.
+- **Research synchronization gate**: after real searches, use `scripts/append_search_attempt.py` for `S-xxx` log entries, `scripts/build_formal_research_execution_report_skeleton.py` for `FS-xxx` / `S-xxx` / `SRC-xxx` alignment, and `scripts/build_source_archive.py` for excerpt snapshot archives. Do not hand-synchronize these IDs unless a helper is unavailable.
 - **Renderer active-layout gate**: after a page type is selected, only fill the `body_copy` fields used by that active layout. Missing, blank, or inactive extra fields must be fixed upstream.
 - **Content density gate**: body copy should be concise PPT bullets with evidence, metrics, or mechanism / implication language. Long research-pack-style bullets should be compressed or split.
 - **Metric and visual consistency gate**: repeated metrics, source notes, chart data, and selected page variants must remain internally consistent before PPT filling.

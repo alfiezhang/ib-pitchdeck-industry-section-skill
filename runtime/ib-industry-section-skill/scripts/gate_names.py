@@ -6,6 +6,7 @@ INDUSTRY_SCOPE_PACK = "industry_scope_pack"
 FORMAL_SEARCH_PLAN = "formal_search_plan"
 FORMAL_RESEARCH_EXECUTION = "formal_research_execution"
 SOURCE_REVIEWS = "source_reviews"
+SOURCE_ARCHIVE = "source_archive"
 PRE_RESEARCH_PACK = "pre_research_pack"
 RESEARCH_PACK = "research_pack"
 ISSUE_ANALYSIS = "issue_analysis"
@@ -26,6 +27,7 @@ CANONICAL_GATES = [
     FORMAL_SEARCH_PLAN,
     FORMAL_RESEARCH_EXECUTION,
     SOURCE_REVIEWS,
+    SOURCE_ARCHIVE,
     PRE_RESEARCH_PACK,
     RESEARCH_PACK,
     ISSUE_ANALYSIS,

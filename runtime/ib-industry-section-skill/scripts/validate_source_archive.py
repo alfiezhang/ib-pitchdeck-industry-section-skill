@@ -48,7 +48,7 @@ def _load_reviews(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
         return [], ["source_reviews.json must be an object with reviews[] or an array"]
     if not isinstance(reviews, list):
         return [], ["source_reviews.json reviews must be an array"]
-    return [item for item in reviews if isinstance(item, dict)], []
+    return [_canonical_review(item) for item in reviews if isinstance(item, dict)], []
 
 
 def _load_archive_entries(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
@@ -59,12 +59,57 @@ def _load_archive_entries(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     if not isinstance(data, dict):
         return [], ["source_archive_index.json must be a JSON object"]
     errors: list[str] = []
-    if data.get("schema_version") != SCHEMA_VERSION:
+    if data.get("schema_version") and data.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"source_archive_index.json schema_version must be {SCHEMA_VERSION}")
     entries = data.get("entries")
+    if entries is None:
+        entries = data.get("archive_entries")
     if not isinstance(entries, list):
         return [], errors + ["source_archive_index.json entries must be an array"]
-    return [item for item in entries if isinstance(item, dict)], errors
+    return [_canonical_archive_entry(item) for item in entries if isinstance(item, dict)], errors
+
+
+def _first_present(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+        if isinstance(value, list) and value:
+            return value
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _canonical_review(review: dict[str, Any]) -> dict[str, Any]:
+    canonical = dict(review)
+    aliases = {
+        "source_review_id": ("source_review_id", "review_id", "source_id", "id"),
+        "url": ("url", "source_url", "source", "source_link"),
+    }
+    for target, keys in aliases.items():
+        if target not in canonical or not _text(canonical.get(target)):
+            value = _first_present(review, keys)
+            if value not in (None, ""):
+                canonical[target] = value
+    return canonical
+
+
+def _canonical_archive_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    canonical = dict(entry)
+    aliases = {
+        "source_review_id": ("source_review_id", "review_id", "archive_id", "source_id"),
+        "archive_status": ("archive_status", "snapshot_type", "status"),
+        "archive_path": ("archive_path", "snapshot_path", "path"),
+        "reviewed_excerpt": ("reviewed_excerpt", "excerpt", "raw_excerpt"),
+        "archive_unavailable_reason": ("archive_unavailable_reason", "unavailable_reason", "reason"),
+    }
+    for target, keys in aliases.items():
+        if target not in canonical or not _text(canonical.get(target)):
+            value = _first_present(entry, keys)
+            if value not in (None, ""):
+                canonical[target] = value
+    return canonical
 
 
 def _review_is_usable(review: dict[str, Any]) -> bool:

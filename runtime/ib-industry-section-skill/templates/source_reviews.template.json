@@ -1,0 +1,24 @@
+{
+  "schema_version": "source_reviews_v1",
+  "purpose": "Audit exact opened/reviewed sources that support formal evidence. Search snippets and broad-discovery leads are not usable evidence.",
+  "reviews": [
+    {
+      "source_review_id": "SRC-001",
+      "url": "https://example.com/exact-report-or-article",
+      "title": "Exact report or article title",
+      "source_type": "official_filing | company_disclosure | industry_report | regulator | business_media | database | user_provided | other",
+      "publisher": "",
+      "source_date": "",
+      "data_period": "",
+      "search_attempt_ids": ["S-001"],
+      "locator": "page/section/table/paragraph/URL anchor used for the reviewed claim",
+      "excerpt": "Short reviewed excerpt or faithful paraphrase with enough context for later audit.",
+      "usable_as_evidence": true,
+      "evidence_ids": ["EV-001"],
+      "limitations": "",
+      "original_url": "",
+      "methodology_locator": ""
+    }
+  ],
+  "field_alias_note": "Validators tolerate common aliases such as review_id/source_url/source_title, but new artifacts should use the canonical field names above."
+}

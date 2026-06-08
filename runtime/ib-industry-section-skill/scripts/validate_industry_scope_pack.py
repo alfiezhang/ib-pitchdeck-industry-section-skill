@@ -35,6 +35,10 @@ NUMERIC_CLAIM_RE = re.compile(
     r"(?:\d+(?:\.\d+)?\s*(?:%|％|亿元|亿|万亿元|万|x|倍|bp|bps)|(?:千亿|百亿|万亿))",
     flags=re.IGNORECASE,
 )
+BROAD_DISCOVERY_QUERY_BAN_RE = re.compile(
+    r"(?:market size|市场规模|规模|growth|增长|CAGR|YoY|同比|share|份额|市占率|ranking|rank|排名|Top\s*\d+|TOP\s*\d+|valuation|估值|M&A|并购|收购|\b20\d{2}\b)",
+    flags=re.IGNORECASE,
+)
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -63,6 +67,7 @@ def _validate_required(data: dict[str, Any]) -> list[str]:
     required = [
         "schema_version",
         "meta",
+        "llm_definition_draft",
         "scope_summary",
         "market_definitions",
         "ambiguous_boundaries",
@@ -79,6 +84,35 @@ def _validate_required(data: dict[str, Any]) -> list[str]:
         errors.append(f"schema_version must be {SCHEMA_VERSION}")
     if data.get("do_not_use_as_claims") is not True:
         errors.append("do_not_use_as_claims must be true")
+
+    draft = data.get("llm_definition_draft")
+    if not isinstance(draft, dict):
+        errors.append("llm_definition_draft is required and must be an object")
+    else:
+        if not str(draft.get("working_market_draft") or "").strip():
+            errors.append("llm_definition_draft.working_market_draft is required")
+        for field in (
+            "included_segments_draft",
+            "excluded_segments_draft",
+            "adjacent_markets_draft",
+            "ambiguous_boundaries_to_check",
+            "data_scope_questions",
+            "scoping_search_queries",
+        ):
+            if not isinstance(draft.get(field), list):
+                errors.append(f"llm_definition_draft.{field} must be an array")
+        if len(_as_list(draft.get("scoping_search_queries"))) < 2:
+            errors.append("llm_definition_draft.scoping_search_queries must include at least 2 definition/scope validation queries")
+        for idx, query in enumerate(_as_list(draft.get("scoping_search_queries")), start=1):
+            query_text = str(query or "").strip()
+            if not query_text:
+                errors.append(f"llm_definition_draft.scoping_search_queries[{idx}] is blank")
+                continue
+            if BROAD_DISCOVERY_QUERY_BAN_RE.search(query_text):
+                errors.append(
+                    f"llm_definition_draft.scoping_search_queries[{idx}] contains formal-research terms; "
+                    "broad discovery must validate definition/scope only"
+                )
 
     scope_summary = data.get("scope_summary")
     if not isinstance(scope_summary, dict):
@@ -124,6 +158,8 @@ def _validate_no_claim_pollution(data: dict[str, Any]) -> tuple[list[str], list[
     allowed_numeric_roots = ("unvalidated_leads",)
     allowed_topic_roots = (
         "scope_stage_instruction",
+        "llm_definition_draft.purpose",
+        "llm_definition_draft.data_scope_questions",
         "data_hierarchy",
         "required_reconciliations",
         "formal_research_seed_questions",

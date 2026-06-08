@@ -51,31 +51,34 @@ Create these artifacts before formal research execution:
 Recommended sequence:
 
 1. Read `templates/source_registry.json` as a source menu only.
-2. Draft 3-6 broad-discovery searches.
-3. Create `artifacts/search_log.md` from
+2. Draft `llm_definition_draft` from the brief and model knowledge only. It is a definition hypothesis, not evidence.
+3. Draft 3-6 broad-discovery searches from `llm_definition_draft.scoping_search_queries`. Query strings should be definition/scope-oriented, not market-answer-oriented.
+4. Create `artifacts/search_log.md` from
    `references/search_log_template.md` before the first search.
-4. Run broad discovery to learn:
+5. Run broad discovery to verify/refine the definition draft and learn:
    - what the industry is called;
    - how narrowly it should be scoped;
    - parent/adjacent markets to exclude;
    - relevant geography and period terms;
    - likely source leads and peer/player categories.
-5. Write `artifacts/industry_scope_pack.json` with:
+   Do not use market-size, growth, CAGR, share, ranking, valuation, M&A, thesis, or specific-year query terms at this stage. Those belong in formal `FS-xxx` searches after the scope pack.
+6. Write `artifacts/industry_scope_pack.json` with:
+   - the original `llm_definition_draft`;
    - working market, parent market, broader market, and adjacent markets;
    - narrow and broad definitions with included/excluded segments;
    - ambiguous category boundaries and how formal research should treat them;
    - data hierarchy and metric scopes that cannot be compared directly;
    - unvalidated numerical/directional leads that require formal validation;
    - required reconciliations and seed questions.
-6. Validate the scope pack:
+7. Validate the scope pack:
    ```bash
    "$PYTHON_CMD" scripts/validate_industry_scope_pack.py \
      --scope-pack artifacts/industry_scope_pack.json \
      --output artifacts/industry_scope_pack_validation.json
    ```
-7. Write `artifacts/formal_search_plan.json` using
+8. Write `artifacts/formal_search_plan.json` using
    `templates/formal_search_plan.template.json`.
-8. Validate `artifacts/formal_search_plan.json` with
+9. Validate `artifacts/formal_search_plan.json` with
    `scripts/validate_formal_search_plan.py` before executing formal searches.
 
 Do not put confirmed market size, growth rate, share, ranking, valuation,
@@ -109,8 +112,42 @@ queries and sources. Record every attempt immediately in `search_log.md`.
 must create a real `S-xxx` search attempt in `search_log.md` before it can appear
 in the execution report. Do not write the execution report from the plan alone.
 
-Then write `artifacts/formal_research_execution_report.json` with one
-`issue_results[]` entry per planned issue/subissue or explicit gap:
+Prefer the append helper instead of hand-editing search numbering:
+
+```bash
+"$PYTHON_CMD" scripts/append_search_attempt.py \
+  --search-log "$RUN_DIR/artifacts/search_log.md" \
+  --query "<exact query actually searched>" \
+  --stage formal_research_execution \
+  --fs-id FS-001 \
+  --selected-source "<exact opened/reviewed URL>" \
+  --opened-reviewed yes \
+  --locator-excerpt "<page/section/table plus short excerpt or limitation>"
+```
+
+First use `scripts/build_formal_research_execution_report_skeleton.py` to create
+an execution-report skeleton from the plan and search log. Then write
+`artifacts/source_reviews.json` for opened/reviewed exact sources. After source
+reviews exist, rerun the skeleton builder with `--source-reviews` so the report
+also carries `SRC-xxx` links. The helper synchronizes `FS-xxx`, `S-xxx`, and
+`SRC-xxx` references; the LLM must still review and edit status, findings,
+limitations, handling, and EV/MET IDs from the actual source support.
+
+```bash
+"$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --search-log "$RUN_DIR/artifacts/search_log.md" \
+  --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+
+"$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --search-log "$RUN_DIR/artifacts/search_log.md" \
+  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+```
+
+The generated/edited report should contain one `issue_results[]` entry per
+executed planned instruction or explicit gap:
 
 - `result_id`: `FR-001`, `FR-002`, ...
 - `issue_area` / `subissue`
@@ -129,8 +166,13 @@ Then write `artifacts/formal_research_execution_report.json` with one
 - `research_pack_handling`
 
 Start from `templates/formal_research_execution_report.skeleton.json` only for
-the root structure. Do not treat it as a fill-all template, and do not create
-results for unresearched issues just to populate the JSON.
+the root structure if the helper cannot be used. Do not treat it as a fill-all
+template, and do not create results for unresearched issues just to populate the
+JSON.
+
+`selected_source_urls` means exact URLs actually opened/reviewed and represented
+in `source_reviews.json`; it is not a list of all search-result URLs. Leave
+unreviewed leads in `search_log.md`.
 
 Do not invent or reclassify `issue_area` / `subissue` in the execution report.
 Copy `issue_area`, `subissue`, and `research_question` from the
@@ -200,13 +242,16 @@ metrics:
 audit cards. Use a root object with `schema_version: source_reviews_v1` and a
 `reviews[]` array. A formal source review should include:
 
-- exact URL;
-- source title;
-- locator (page/table/section/paragraph);
-- short excerpt;
-- linked search attempt IDs;
-- linked EV IDs when applicable;
+- `source_review_id`;
+- `url`;
+- `title`;
+- `locator` (page/table/section/paragraph);
+- `excerpt`;
+- `search_attempt_ids`;
+- `evidence_ids` when applicable;
 - `usable_as_evidence`.
+
+Start from `templates/source_reviews.template.json`. Validators tolerate common aliases such as `review_id`, `source_url`, and `source_title` to reduce repair loops, but new artifacts should use the canonical field names above.
 
 Root domains, search result snippets, or unreviewed pages are not formal
 evidence.
@@ -225,3 +270,12 @@ snapshot under `artifacts/source_archive/` and list it in
 clean markdown/text file. If the tool cannot save the full page/report, save an
 `excerpt_snapshot` markdown file with URL, title, locator, reviewed excerpt, and
 limitations. Do not invent full source text; archive what was actually reviewed.
+
+Prefer the archive helper for excerpt snapshots:
+
+```bash
+"$PYTHON_CMD" scripts/build_source_archive.py \
+  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --run-dir "$RUN_DIR" \
+  --overwrite
+```

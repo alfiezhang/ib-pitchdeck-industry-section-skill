@@ -88,7 +88,9 @@ Good body block = label or role + data/mechanism + why it matters.
 
 Bad body block = raw fact pasted from research pack with no implication.
 
-Do not add weak body blocks just to fill every active template field. A thin page should either choose a simpler page type or leave secondary fields to the compiler/renderer; validator warnings about unused template capacity are not a reason to pad copy.
+Do not add weak body blocks just to fill every active template field, but do not leave a page thin merely to avoid body-copy length warnings. Body copy should be **dense but scannable**: preserve the proof layer, mechanism, comparison, and implication needed for the page thesis. If a page feels empty, first add real evidence-backed content, use a richer visual/table, or return to research; only choose a simpler page type when the argument itself is genuinely narrow.
+
+Title and subtitle fields have hard fit constraints. Body fields do not hard-fail only because they are long; length warnings are editorial scanability prompts, not permission to delete evidence or logic.
 
 Use `target_field` when placement matters. For example, a value-chain page can map `upstream` to `top_left`, `manufacturing` to `top_center`, `brand` to `top_right`, `channel` to `bottom_left`, `profit_pool` to `bottom_center`, and `transaction_implication` to `bottom_right`. If `target_field` is omitted, the compiler will try role-based mapping first and sequence-based fallback last.
 

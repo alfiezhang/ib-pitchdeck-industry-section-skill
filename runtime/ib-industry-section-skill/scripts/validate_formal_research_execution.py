@@ -258,6 +258,7 @@ def validate(
     seen_result_ids: set[str] = set()
     seen_instruction_ids: set[str] = set()
     formal_attempt_referenced = False
+    status_counts: dict[str, int] = {}
 
     for idx, result in enumerate(results, start=1):
         if not isinstance(result, dict):
@@ -291,6 +292,8 @@ def validate(
                 errors.append(f"{prefix}: {field} is required")
 
         status = _text(result.get("status"))
+        if status:
+            status_counts[status] = status_counts.get(status, 0) + 1
         if status not in VALID_RESULT_STATUS:
             errors.append(f"{prefix}: status must be one of {sorted(VALID_RESULT_STATUS)}")
 
@@ -374,6 +377,17 @@ def validate(
 
     if not formal_attempt_referenced:
         errors.append("formal research execution report references no formal/latest/peer search attempts")
+
+    if len(results) >= 5:
+        unresolved_count = sum(status_counts.get(status, 0) for status in UNRESOLVED_STATUSES)
+        if unresolved_count == len(results):
+            warnings.append(
+                "all formal research execution results are unresolved. This may be legitimate, but verify this is not a batch downgrade to pass validation; normally rerun or broaden formal searches before moving to research_pack/deck_blueprint."
+            )
+        elif unresolved_count / len(results) >= 0.8:
+            warnings.append(
+                "80%+ of formal research execution results are unresolved. Treat this as a research-coverage problem, not a JSON-format repair; continue targeted research or keep downstream claims explicitly caveated."
+            )
 
     missing_instructions = sorted(set(planned_instructions) - seen_instruction_ids)
     if missing_instructions:

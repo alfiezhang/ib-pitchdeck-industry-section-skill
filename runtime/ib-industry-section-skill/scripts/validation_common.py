@@ -101,7 +101,12 @@ def layout_budget_findings(
     page_type: str,
     layout_budget: Optional[dict],
 ) -> tuple[list[str], list[str]]:
-    """Return (errors, warnings) for page/slide layout budget checks."""
+    """Return (errors, warnings) for page/slide layout budget checks.
+
+    Body-copy budgets are advisory. Title and subtitle fit are enforced by
+    template text-fit rules elsewhere; body fields should not hard-fail merely
+    because they are content-rich.
+    """
     if not layout_budget:
         return [], []
 
@@ -126,15 +131,14 @@ def layout_budget_findings(
         if not text:
             continue
         if text.count("\n") > max_newlines:
-            errors.append(f"slide {slide_no}: {field_name} contains too many line breaks for a PPT body field")
+            warnings.append(f"slide {slide_no}: {field_name} contains multiple line breaks; verify the body block remains scannable")
         limit = float(field_limits.get(field_name, default_limit))
         units = display_units(text)
         if units > limit:
-            overage = units - limit
-            errors.append(
+            warnings.append(
                 f"slide {slide_no}: {field_name} is {units:.1f} layout units; "
-                f"max for {page_type} is {limit:.1f}; "
-                f"reduce by ~{approx_units_to_chars(overage)} CJK char(s) or move secondary detail to source_note"
+                f"advisory body capacity for {page_type} is {limit:.1f}; "
+                f"review scanability but preserve evidence, mechanism, and implication depth"
             )
         if field_name.lower().startswith("table_") and "row" in field_name.lower():
             cells = split_table_cells(text)
@@ -143,11 +147,10 @@ def layout_budget_findings(
             for idx, cell in enumerate(cells, start=1):
                 cell_units = display_units(cell)
                 if cell_units > table_cell_limit:
-                    overage = cell_units - table_cell_limit
-                    errors.append(
+                    warnings.append(
                         f"slide {slide_no}: {field_name} cell {idx} is {cell_units:.1f} layout units; "
-                        f"max table cell budget is {table_cell_limit:.1f}; "
-                        f"reduce by ~{approx_units_to_chars(overage)} CJK char(s)"
+                        f"advisory table cell budget is {table_cell_limit:.1f}; "
+                        f"review table scanability without deleting material evidence"
                     )
 
     return errors, warnings

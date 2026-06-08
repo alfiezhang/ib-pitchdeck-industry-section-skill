@@ -242,10 +242,11 @@ def check_body_length(
     max_units: float = 95.0,
 ) -> None:
     if display_units(text) > max_units:
-        message = f"slide {slide_no}: '{field_name}' is paragraph-like; split/compress into shorter bullet text"
+        message = (
+            f"slide {slide_no}: '{field_name}' is paragraph-like; review scanability, "
+            "but do not delete evidence, mechanism, or implication depth solely to shorten body copy"
+        )
         warnings.append(message)
-        if blocking_issues is not None:
-            blocking_issues.append(message)
 
 
 def check_argument_density(
@@ -841,8 +842,6 @@ CONTENT_REPAIR_PROFILES: dict[str, dict[str, Any]] = {
         "repair_fields": [
             "slides[].headline",
             "slides[].main_message",
-            "slides[].body_blocks[].copy",
-            "slides[].source_note",
         ],
         "fallback_repair_targets": [],
         "do_not_edit": [
@@ -855,7 +854,7 @@ CONTENT_REPAIR_PROFILES: dict[str, dict[str, Any]] = {
             "scripts/compile_deck_blueprint.py",
             "scripts/validate_content_quality.py",
         ],
-        "repair_hint": "Shorten the specific deck_blueprint field after the claim and evidence scope are correct; do not delete evidence bindings to make text fit.",
+        "repair_hint": "Fix hard title/subtitle fit issues in headline/main_message. Body-copy length findings are advisory scanability prompts; do not delete evidence, mechanism, or implication depth solely to shorten body text.",
     },
     "TARGET_ADVOCACY_OR_OVERCLAIM": {
         "category": "claim_strength",
@@ -2390,7 +2389,7 @@ def validate(
                 if isinstance(field_value, str) and field_value.strip():
                     check_field_density(field_name, field_value, rules, slide_no, density_warnings)
                     if not field_name.lower().startswith(("table_", "matrix_")):
-                        check_body_length(field_value, slide_no, field_name, density_warnings, layout_blocking_issues)
+                        check_body_length(field_value, slide_no, field_name, density_warnings)
                     check_inline_source_references(field_value, slide_no, field_name, source_warnings)
                     check_generic_phrases(
                         field_value, generic_copy, slide_no, field_name,

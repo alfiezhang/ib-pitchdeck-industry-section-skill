@@ -14,6 +14,7 @@
     "artifact_path": "artifacts/industry_scope_pack.json",
     "purpose": "Use the scope pack as a research map: market definition, category boundaries, data hierarchy, required reconciliations, unvalidated leads, and seed questions. Do not convert scope-pack leads into findings here.",
     "scope_inputs_to_use": [
+      "llm_definition_draft",
       "scope_summary",
       "market_definitions",
       "ambiguous_boundaries",
