@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from issue_taxonomy import is_valid_issue_pair
+from issue_taxonomy import ISSUE_TOPICS_BY_AREA, is_valid_issue_pair
 from json_utils import load_json_file
 
 
@@ -81,6 +81,14 @@ def _contains_marker(text: str, markers: tuple[str, ...]) -> str:
     return ""
 
 
+def _taxonomy_hint(issue_area: str) -> str:
+    if issue_area in ISSUE_TOPICS_BY_AREA:
+        valid = ", ".join(sorted(ISSUE_TOPICS_BY_AREA[issue_area]))
+        return f" Valid subissues for '{issue_area}': {valid}."
+    valid_areas = ", ".join(sorted(ISSUE_TOPICS_BY_AREA))
+    return f" Valid issue_area values: {valid_areas}."
+
+
 def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -107,7 +115,10 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
         issue_area = _text(item.get("issue_area"))
         subissue = _text(item.get("subissue"))
         if not is_valid_issue_pair(issue_area, subissue):
-            errors.append(f"{prefix}: invalid issue_area/subissue pair '{issue_area}/{subissue}'")
+            errors.append(
+                f"{prefix}: invalid issue_area/subissue pair '{issue_area}/{subissue}'."
+                f"{_taxonomy_hint(issue_area)} Use scripts/issue_taxonomy.py as the canonical list."
+            )
         else:
             pair = (issue_area, subissue)
             if pair in seen_pairs:
@@ -130,6 +141,12 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
         if not isinstance(instructions, list) or not instructions:
             errors.append(f"{prefix}: search_instructions must be a non-empty array")
             instructions = []
+        elif priority == "high" and len(instructions) < 2:
+            warnings.append(
+                f"{prefix}: high-priority issue has only {len(instructions)} search instruction(s). "
+                "Use 2-3 clear queries when possible: direct category search, authority/source search, "
+                "and reconciliation or counter-check search. Do not add filler queries if the issue is genuinely narrow."
+            )
         for inst_idx, instruction in enumerate(instructions, start=1):
             inst_prefix = f"{prefix}.search_instructions[{inst_idx}]"
             if not isinstance(instruction, dict):

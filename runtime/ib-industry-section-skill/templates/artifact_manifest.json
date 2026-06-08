@@ -40,21 +40,28 @@
       "owner": "llm_source_review_audit",
       "validator": "scripts/validate_source_reviews.py",
       "validation": "artifacts/source_reviews_validation.json",
-      "inputs": ["search_log", "formal_research_execution_report"]
+      "inputs": ["search_log", "formal_research_execution_report", "source_archive"]
+    },
+    "source_archive": {
+      "path": "artifacts/source_archive/source_archive_index.json",
+      "owner": "llm_source_snapshot_audit",
+      "validator": "scripts/validate_source_archive.py",
+      "validation": "artifacts/source_archive_validation.json",
+      "inputs": ["source_reviews"]
     },
     "pre_research_pack_gate": {
       "path": "artifacts/stage_gate_pre_research_pack_validation.json",
       "owner": "script",
       "validator": "scripts/validate_stage_gate.py --stage pre_research_pack",
       "validation": "artifacts/stage_gate_pre_research_pack_validation.json",
-      "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews"]
+      "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
     },
     "research_pack": {
       "path": "industry_research_pack.md",
       "owner": "llm",
       "validator": "scripts/validate_research_pack.py",
       "validation": "artifacts/research_pack_validation.json",
-      "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews"]
+      "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
     },
     "issue_analysis": {
       "path": "industry_issue_analysis.json",
@@ -113,7 +120,7 @@
       "owner": "script",
       "validator": "scripts/validate_stage_gate.py --stage pre_ppt",
       "validation": "artifacts/stage_gate_pre_ppt_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "chart_metric_binding", "content_quality"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "chart_metric_binding", "content_quality"]
     },
     "replacement_dict": {
       "path": "replacement_dict.json",
@@ -136,7 +143,7 @@
       "owner": "script",
       "validator": "scripts/validate_final_delivery.py",
       "validation": "artifacts/final_delivery_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "replacement_dict", "filled_ppt"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "replacement_dict", "filled_ppt"]
     }
   },
   "gates": [

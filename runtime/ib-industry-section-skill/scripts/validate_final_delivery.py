@@ -42,6 +42,18 @@ BENIGN_FINAL_WARNING_FRAGMENTS = (
 )
 
 
+def unique_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        text = str(item)
+        if text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
 def json_files_under(run_dir: Path) -> list[Path]:
     return sorted(path for path in run_dir.rglob("*.json") if "__pycache__" not in path.parts)
 
@@ -114,6 +126,7 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
         "artifacts/renderer_spec_validation.json": ["renderer_spec", "template_registry", "deck_blueprint", "page_contract"],
         "artifacts/research_pack_validation.json": ["research_pack", "run_dir"],
         "artifacts/source_reviews_validation.json": ["source_reviews"],
+        "artifacts/source_archive_validation.json": ["source_archive_index"],
         "artifacts/formal_research_execution_validation.json": ["formal_research_execution_report", "formal_search_plan", "search_log"],
         "artifacts/stage_gate_pre_research_pack_validation.json": ["run_dir"],
         "artifacts/issue_analysis_validation.json": ["issue_analysis"],
@@ -149,9 +162,14 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
         ],
         "artifacts/source_reviews_validation.json": [
             run_dir / "artifacts" / "source_reviews.json",
+            run_dir / "artifacts" / "source_archive" / "source_archive_index.json",
             run_dir / "artifacts" / "search_log.md",
             run_dir / "artifacts" / "formal_research_execution_report.json",
             run_dir / "industry_research_pack.md",
+        ],
+        "artifacts/source_archive_validation.json": [
+            run_dir / "artifacts" / "source_reviews.json",
+            run_dir / "artifacts" / "source_archive" / "source_archive_index.json",
         ],
         "artifacts/formal_research_execution_validation.json": [
             run_dir / "artifacts" / "formal_research_execution_report.json",
@@ -615,11 +633,14 @@ def validate_source_reviews_artifact(run_dir: Path) -> tuple[list[str], list[str
     errors: list[str] = []
     warnings: list[str] = []
     source_reviews_path = run_dir / "artifacts/source_reviews.json"
+    source_archive_index_path = run_dir / "artifacts/source_archive/source_archive_index.json"
     result = validate_source_reviews_data(
         source_reviews_path,
         search_log_path=run_dir / "artifacts/search_log.md",
         formal_research_execution_report_path=run_dir / "artifacts/formal_research_execution_report.json",
         memo_path=run_dir / "industry_research_pack.md",
+        source_archive_index_path=source_archive_index_path,
+        run_dir=run_dir,
     )
     if result.get("is_valid") is False:
         errors.append("current source review validation failed")
@@ -637,6 +658,17 @@ def validate_source_reviews_artifact(run_dir: Path) -> tuple[list[str], list[str
                 errors.append("source_reviews_validation.json is_valid=false")
     else:
         errors.append("missing source_reviews_validation.json")
+    archive_artifact_path = run_dir / "artifacts/source_archive_validation.json"
+    if archive_artifact_path.exists():
+        try:
+            archive_artifact = load_json_file(archive_artifact_path)
+        except Exception as exc:
+            errors.append(f"cannot read source_archive_validation.json: {exc}")
+        else:
+            if archive_artifact.get("is_valid") is False:
+                errors.append("source_archive_validation.json is_valid=false")
+    else:
+        errors.append("missing source_archive_validation.json")
     return errors, warnings
 
 
@@ -812,6 +844,8 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
         any(term.lower() in str(error).lower() for term in research_error_terms)
         for error in errors
     )
+    errors = unique_preserve_order(errors)
+    warnings = unique_preserve_order(warnings)
     client_ready = technical_delivery_valid and research_evidence_valid and not errors
 
     return {

@@ -28,7 +28,10 @@ FULL_URL_RE = re.compile(r"^https?://[^\s\]|)）>]+$", flags=re.IGNORECASE)
 FIELD_LINE_RE = re.compile(
     r"^\s*(?:[-*]\s*)?(?:\*\*)?([^:*#][^:]*?)(?:\*\*)?\s*:\s*(.*?)\s*$"
 )
-SEARCH_HEADING_RE = re.compile(r"^###\s+Search\s+#?(\d+).*?$", flags=re.MULTILINE)
+SEARCH_HEADING_RE = re.compile(
+    r"^###\s+(?:Search\s+)?(?:#?\s*)?(?:S-?)?(\d+)\b.*?$",
+    flags=re.MULTILINE | re.IGNORECASE,
+)
 FORMAL_STAGES = {
     "formal_research",
     "formal research",

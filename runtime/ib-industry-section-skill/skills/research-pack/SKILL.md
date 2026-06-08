@@ -216,11 +216,22 @@ Before research pack synthesis, create:
 - `artifacts/industry_scope_pack_validation.json`
 - `artifacts/formal_search_plan.json`
 - `artifacts/search_log.md`
+- `artifacts/source_archive/source_archive_index.json`
 
 Execution order:
 1. Read `templates/source_registry.json` as a source menu only. Do not execute default packs yet.
 2. Create `artifacts/search_log.md` from `references/search_log_template.md` before the first search attempt.
-3. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, scope, source leads, player categories, and unresolved definition questions.
+3. Run 3-6 unrestricted broad discovery queries to learn industry vocabulary, scope, source leads, player categories, and unresolved definition questions. This is scoping, not formal research.
+   - Use industry-neutral query intents:
+     1. industry naming / vocabulary / classification;
+     2. parent market, adjacent market, and category hierarchy;
+     3. product, service, process, application, or value-chain segment boundaries;
+     4. customer / end-market / channel / business-model boundary if relevant;
+     5. metric scope and methodology terms used by sources;
+     6. optional regulatory, technical, capacity, or transaction-context vocabulary when it affects industry definition.
+   - Adapt these intents to the sector. Manufacturing may require process steps, capacity, equipment categories, materials, OEM/ODM, downstream applications, standards, and regulation. Software may require deployment model, user type, pricing model, and adjacent platform categories. Services may require contract model, customer segment, utilization, and labor/regulatory boundaries.
+   - Do not default to consumer-product concepts such as SKU, GMV, platform ranking, creator channels, or brand share unless the project actually requires them.
+   - Do not run growth, market-share, peer-ranking, valuation, or investment-thesis searches in broad discovery except as unvalidated leads for later formal research.
 4. Write `artifacts/industry_scope_pack.json` from `templates/industry_scope_pack.template.json`.
    - This stage is scoping only: define the working market, parent/adjacent markets, narrow/broad category boundaries, ambiguous items, data hierarchy, required reconciliations, unvalidated leads, and formal research seed questions.
    - Do not write confirmed market size, growth rate, share, ranking, competitive landscape, valuation multiples, or page-ready claims.
@@ -249,6 +260,12 @@ Execution order:
    - `usable_as_evidence=true` means the source was actually opened/reviewed and can support a named EV row.
    - Use `usable_as_evidence=false` for search snippets, root domains, unavailable reports, mirrors/reposts without methodology, or pages that only provide a lead.
    - Do not batch-fill missing `usable_as_evidence` values with true. If validation flags missing fields, review each source and decide true/false from the locator, excerpt, source owner, and support for the claim.
+14. Create `artifacts/source_archive/` for every non-user source with `usable_as_evidence=true`.
+   - Write `artifacts/source_archive/source_archive_index.json` from `templates/source_archive_index.template.json`.
+   - Save one snapshot file per usable source, usually `artifacts/source_archive/SRC-001.md`.
+   - Prefer `saved_pdf` or `saved_text`. Use `excerpt_snapshot` when only reviewed excerpts/locators can be saved from the tool surface. Use `archive_unavailable` only with a specific reason and reviewed excerpt.
+   - Snapshot markdown must identify URL, title, source_review_id, captured_at, locator, reviewed excerpt, and limitations. Do not invent full article/report text.
+   - Broad discovery leads do not need archive entries unless promoted into formal usable evidence.
 
 Validate formal research execution before research pack synthesis:
 
@@ -267,7 +284,15 @@ Validate formal research execution before research pack synthesis:
   --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+  --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_reviews_validation.json"
+
+"$PYTHON_CMD" scripts/validate_source_archive.py \
+  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+  --run-dir "$RUN_DIR" \
+  --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
 "$PYTHON_CMD" scripts/validate_stage_gate.py \
   --stage pre_research_pack \

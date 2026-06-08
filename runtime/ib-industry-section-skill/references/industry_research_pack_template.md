@@ -49,7 +49,7 @@ Fixed 8-Slide Structure Preserved:
 
 ## Scope Pack And Formal Research Execution Summary
 > Summarize `artifacts/industry_scope_pack.json`, `artifacts/formal_search_plan.json`, and `artifacts/formal_research_execution_report.json`. Use the scope pack only for industry boundary, category-definition risk, data hierarchy, and reconciliation requirements. Do not treat scope-pack leads as validated facts. Do not invent a separate issue tree in the research pack. The research pack should reflect the issue/subissue research actually executed and the source reviews completed before synthesis.
-> The run must include passing `artifacts/formal_search_plan_validation.json`, `artifacts/formal_research_execution_validation.json`, `artifacts/source_reviews.json`, and `artifacts/source_reviews_validation.json`, proving the search plan was executable, formal/latest searches were executed, and the underlying evidence sources were opened/reviewed before research pack synthesis.
+> The run must include passing `artifacts/formal_search_plan_validation.json`, `artifacts/formal_research_execution_validation.json`, `artifacts/source_reviews.json`, `artifacts/source_archive/source_archive_index.json`, `artifacts/source_archive_validation.json`, and `artifacts/source_reviews_validation.json`, proving the search plan was executable, formal/latest searches were executed, and the underlying evidence sources were opened/reviewed and archived before research pack synthesis.
 
 Scope Boundary Check:
 - Relevant market:
@@ -224,6 +224,7 @@ Before using this research pack downstream, the run must already have passed:
 - `artifacts/formal_search_plan_validation.json` via `scripts/validate_formal_search_plan.py`
 - `artifacts/formal_research_execution_validation.json` via `scripts/validate_formal_research_execution.py`
 - `artifacts/source_reviews_validation.json` via `scripts/validate_source_reviews.py`
+- `artifacts/source_archive_validation.json` via `scripts/validate_source_archive.py`
 - `artifacts/stage_gate_pre_research_pack_validation.json` via `scripts/validate_stage_gate.py --stage pre_research_pack`
 - `artifacts/research_pack_validation.json` via `scripts/validate_research_pack.py`
 
@@ -258,6 +259,7 @@ CAGR Endpoint IDs: MET-IDs of begin/end value metrics for CAGR validation
 Key rules:
 - Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
 - Every MET-ID used in Key Data Points, Chart-ready Data, page evidence contract, or renderer spec must first be populated here.
+- For every metric likely to appear in a PPT visual, add a short note using `chart_ready: true` or `chart_ready: false` immediately after the table or in the metric notes. Use `chart_ready: true` only when scope, unit, period, and source quality are clean enough for charting.
 - CAGR rows must include exactly two ordered `CAGR Endpoint IDs`: begin MET-ID, end MET-ID. Both endpoint rows must be existing numeric `MET-###` rows and must share the same Metric Type, Market Definition, Channel Scope, Geography, and Unit. Do not use `MET-BGN`, `MET-END`, `METBGN`, or `METEND`.
 - `Comparable With` is not a substitute for CAGR endpoint rows. Do not calculate or cite CAGR when the endpoints are missing, stale, or not comparable.
 - Different channel_scope values must not be auto-summed or subtracted

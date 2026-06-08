@@ -763,6 +763,7 @@ CONTENT_REPAIR_PROFILES: dict[str, dict[str, Any]] = {
         "fallback_repair_targets": [
             "industry_research_pack.md",
             "artifacts/source_reviews.json",
+            "artifacts/source_archive/source_archive_index.json",
         ],
         "do_not_edit": [
             "renderer_spec.json",
@@ -774,7 +775,7 @@ CONTENT_REPAIR_PROFILES: dict[str, dict[str, Any]] = {
             "scripts/compile_deck_blueprint.py",
             "scripts/validate_content_quality.py",
         ],
-        "repair_hint": "Replace generic source notes with specific EV IDs and source locators; if the EV/source is missing, repair the research pack or source reviews first.",
+        "repair_hint": "Replace generic source notes with specific EV IDs and source locators; if the EV/source is missing or not auditable, repair the research pack, source reviews, or source archive first.",
     },
     "EVIDENCE_LINKAGE": {
         "category": "source_traceability",
@@ -789,6 +790,8 @@ CONTENT_REPAIR_PROFILES: dict[str, dict[str, Any]] = {
         "fallback_repair_targets": [
             "industry_research_pack.md",
             "industry_issue_analysis.json",
+            "artifacts/source_reviews.json",
+            "artifacts/source_archive/source_archive_index.json",
         ],
         "do_not_edit": [
             "renderer_spec.json",
@@ -801,7 +804,7 @@ CONTENT_REPAIR_PROFILES: dict[str, dict[str, Any]] = {
             "scripts/compile_deck_blueprint.py",
             "scripts/validate_content_quality.py",
         ],
-        "repair_hint": "Make slide evidence IDs and the research pack Evidence Ledger consistent; downgrade or caveat claims when evidence remains thin.",
+        "repair_hint": "Make slide evidence IDs, source reviews, source archive, and the research pack Evidence Ledger consistent; downgrade or caveat claims when evidence remains thin.",
     },
     "TRANSACTION_EVIDENCE_TOO_THIN": {
         "category": "transaction_evidence",

@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 from json_utils import load_json_file
 from validate_research_pack import evidence_ledger_rows
 from validate_formal_research_execution import parse_search_attempts
+from validate_source_archive import validate as validate_source_archive
 
 
 FULL_URL_RE = re.compile(r"^https?://[^\s\]|)）>]+$", flags=re.IGNORECASE)
@@ -217,6 +218,8 @@ def validate(
     search_log_path: Path | None = None,
     formal_research_execution_report_path: Path | None = None,
     memo_path: Path | None = None,
+    source_archive_index_path: Path | None = None,
+    run_dir: Path | None = None,
 ) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -280,7 +283,7 @@ def validate(
                     f"{attempt_id}: search_log marks Opened/Reviewed=yes for formal stage '{stage}', "
                     "but no source_reviews entry references this search_attempt_id"
                 )
-            elif not has_review:
+            elif not has_review and stage and stage not in {"broad_discovery", "broad discovery", "industry_scope", "scoping"}:
                 warnings.append(
                     f"{attempt_id}: search_log marks Opened/Reviewed=yes but no source_reviews entry references it"
                 )
@@ -335,6 +338,17 @@ def validate(
             if not usable:
                 errors.append(f"{ev_id}: linked source_reviews entries are not usable_as_evidence=true")
 
+    if source_archive_index_path is not None:
+        archive_result = validate_source_archive(
+            source_reviews_path=source_reviews_path,
+            source_archive_index_path=source_archive_index_path,
+            run_dir=run_dir,
+        )
+        if archive_result.get("is_valid") is False:
+            errors.append("current source archive validation failed")
+            errors.extend(str(item) for item in archive_result.get("errors", []))
+        warnings.extend(str(item) for item in archive_result.get("warnings", []))
+
     return {
         "is_valid": not errors,
         "error_count": len(errors),
@@ -352,6 +366,8 @@ def main() -> int:
     parser.add_argument("--search-log")
     parser.add_argument("--formal-research-execution-report")
     parser.add_argument("--research-pack")
+    parser.add_argument("--source-archive-index")
+    parser.add_argument("--run-dir")
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -360,6 +376,8 @@ def main() -> int:
         search_log_path=Path(args.search_log) if args.search_log else None,
         formal_research_execution_report_path=Path(args.formal_research_execution_report) if args.formal_research_execution_report else None,
         memo_path=Path(args.research_pack) if args.research_pack else None,
+        source_archive_index_path=Path(args.source_archive_index) if args.source_archive_index else None,
+        run_dir=Path(args.run_dir) if args.run_dir else None,
     )
     if args.output:
         output_path = Path(args.output)

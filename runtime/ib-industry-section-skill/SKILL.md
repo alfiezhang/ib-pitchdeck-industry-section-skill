@@ -18,7 +18,7 @@ Do:
 2. Run broad discovery only for industry scoping.
 3. Create thin `artifacts/industry_scope_pack.json`, validate it, then create `artifacts/formal_search_plan.json`.
 4. Validate `artifacts/formal_search_plan.json`, then execute every planned formal search instruction as a real search, log the resulting `S-xxx` attempts, and write `artifacts/formal_research_execution_report.json`.
-5. Write `artifacts/source_reviews.json` for exact opened/reviewed sources and validate it.
+5. Write `artifacts/source_reviews.json` for exact opened/reviewed sources, archive usable evidence snapshots in `artifacts/source_archive/`, and validate them.
 6. Write and validate `industry_research_pack.md`.
 7. Write and validate `industry_issue_analysis.json`.
 8. Extract `template_registry.json`, then write and validate `deck_blueprint.json` as the banker page-design artifact.
@@ -166,6 +166,15 @@ Formal one-shot sequence:
 3. **Search planning and execution**
    - Use `skills/research-pack/SKILL.md`.
    - Broad discovery is scoping only: industry definition, parent/adjacent market mapping, included/excluded segments, ambiguous boundaries, data hierarchy, unvalidated leads, reconciliation requirements, and seed questions.
+   - Before writing the scope pack, run only 3-6 scoping searches. Keep them industry-neutral and definition-oriented:
+     1. industry naming / vocabulary / classification;
+     2. parent market, adjacent market, and category hierarchy;
+     3. product, service, process, application, or value-chain segment boundaries;
+     4. customer / end-market / channel / business-model boundary if relevant;
+     5. metric scope and methodology terms used by sources;
+     6. optional regulatory, technical, capacity, or transaction-context vocabulary when it affects industry definition.
+   - Do not let broad discovery become a consumer-goods pattern. For manufacturing, industrials, software, healthcare, services, or infrastructure, adapt the same scoping questions to process steps, equipment categories, end markets, deployment model, contract model, capacity, regulation, and standards.
+   - Do not run growth, market share, peer-ranking, valuation, or investment-thesis searches in broad discovery except as unvalidated leads for later formal research.
    - Write `artifacts/industry_scope_pack.json` from `templates/industry_scope_pack.template.json`.
    - Do not write confirmed market size, growth rate, market share, channel ranking, competitive landscape, valuation multiples, or page-ready claims in the scope pack. Any numerical or directional finding encountered during broad discovery belongs only in `unvalidated_leads` and cannot be used downstream unless formal research later validates it.
    - Validate:
@@ -186,6 +195,7 @@ Formal one-shot sequence:
    - Do not move to the execution report until the search log contains real `S-xxx` formal/latest/peer attempts for the retained `FS-xxx` instructions.
    - Write `artifacts/formal_research_execution_report.json` from the minimal skeleton only after those `S-xxx` attempts exist. Copy `issue_area`, `subissue`, and `research_question` from the owning `formal_search_plan` item for each executed `FS-xxx`; do not reclassify taxonomy in the execution report.
    - Write `artifacts/source_reviews.json` with exact source URLs, locators, excerpts, linked `S-xxx`, linked `EV-xxx`, and honest `usable_as_evidence` values. Do not set `usable_as_evidence=true` merely to satisfy validation; use false for search-result snippets, weak leads, unavailable reports, root domains, or unreviewed pages.
+   - For every non-user source with `usable_as_evidence=true`, create `artifacts/source_archive/source_archive_index.json` and a reviewable snapshot file under `artifacts/source_archive/`. Prefer a saved PDF or clean markdown/text snapshot; if the tool surface cannot download the full source, save an `excerpt_snapshot` markdown file with URL, title, locator, reviewed excerpt, and limitation note. Do not fabricate full-page text.
    - Validate the pre-research pack gate before writing the research pack.
 
 4. **Research Pack**
@@ -247,7 +257,9 @@ A formal delivery run should include:
 - `artifacts/formal_search_plan_validation.json`
 - `artifacts/search_log.md`
 - `artifacts/source_reviews.json`
+- `artifacts/source_archive/source_archive_index.json`
 - `artifacts/source_reviews_validation.json`
+- `artifacts/source_archive_validation.json`
 - `artifacts/formal_research_execution_report.json`
 - `artifacts/formal_research_execution_validation.json`
 - `artifacts/stage_gate_pre_research_pack_validation.json`

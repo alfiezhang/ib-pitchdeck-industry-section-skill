@@ -287,6 +287,18 @@ if errors:
     raise SystemExit("thin deck_blueprint should warn, not fail: " + json.dumps(errors, ensure_ascii=False))
 if not any("body_blocks has" in warning for warning in warnings):
     raise SystemExit("thin deck_blueprint should produce template-capacity warning")
+
+natural = json.loads((tmp / "deck_blueprint.json").read_text(encoding="utf-8"))
+natural["slides"][7]["headline"] = "控股权出售应聚焦可验证增长质量"
+errors, warnings = validate(
+    natural,
+    load_json_file(Path(os.environ["FIXTURES_DIR"]) / "valid_issue_analysis.json"),
+    load_json_file(tmp / "template_registry.json"),
+)
+if errors:
+    raise SystemExit("natural conclusion-led Chinese headline should remain valid: " + json.dumps(errors, ensure_ascii=False))
+if any("headline may be a label" in warning for warning in warnings):
+    raise SystemExit("natural conclusion-led Chinese headline should not trigger label warning: " + json.dumps(warnings, ensure_ascii=False))
 PY
 
 "$PYTHON_CMD" scripts/compile_deck_blueprint.py \
@@ -662,6 +674,7 @@ from pathlib import Path
 from validate_formal_research_execution import validate as validate_formal_research_execution
 from validate_formal_search_plan import validate as validate_formal_search_plan
 from validate_industry_scope_pack import validate as validate_industry_scope_pack
+from validate_source_archive import validate as validate_source_archive
 from validate_source_reviews import validate as validate_source_reviews
 from validate_stage_gate import validate_stage
 from validate_run_state import validate_run_state
@@ -774,6 +787,7 @@ with tempfile.TemporaryDirectory() as tmp:
     (artifacts / "formal_search_plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     plan_errors, plan_warnings = validate_formal_search_plan(plan)
     assert not plan_errors, plan_errors
+    assert any("high-priority issue has only" in item for item in plan_warnings), plan_warnings
     (artifacts / "formal_search_plan_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": plan_warnings}, ensure_ascii=False), encoding="utf-8")
     invalid_plan = json.loads(json.dumps(plan))
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["instruction_id"] = "FS-001"
@@ -781,6 +795,10 @@ with tempfile.TemporaryDirectory() as tmp:
     plan_errors, _ = validate_formal_search_plan(invalid_plan)
     assert any("duplicate instruction_id" in item for item in plan_errors), plan_errors
     assert any("placeholder" in item for item in plan_errors), plan_errors
+    bad_taxonomy_plan = json.loads(json.dumps(plan))
+    bad_taxonomy_plan["issue_search_plan"][0]["subissue"] = "made_up_subissue"
+    plan_errors, _ = validate_formal_search_plan(bad_taxonomy_plan)
+    assert any("Valid subissues for 'market_size_growth'" in item for item in plan_errors), plan_errors
     (artifacts / "search_log.md").write_text(
         """# Search Log
 
@@ -807,7 +825,7 @@ with tempfile.TemporaryDirectory() as tmp:
 - Opened / Reviewed: yes
 - Source Locator / Raw Excerpt: table 2 contains current market size and scope definition.
 
-### Search 3
+### S-003
 - Query: sector value chain formal source
 - Provider: WebSearch
 - Search Stage: formal_research_execution
@@ -828,6 +846,25 @@ with tempfile.TemporaryDirectory() as tmp:
         ],
     }
     (artifacts / "source_reviews.json").write_text(json.dumps(source_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
+    archive_dir = artifacts / "source_archive"
+    archive_dir.mkdir()
+    (archive_dir / "SRC-001.md").write_text(
+        "# SRC-001 Snapshot\n\nURL: https://example.com/market-size\n\nLocator: table 2.\n\nReviewed excerpt: The report gives a current market-size datapoint with geography and source scope; this snapshot preserves the reviewed table context for audit.\n",
+        encoding="utf-8",
+    )
+    (archive_dir / "SRC-002.md").write_text(
+        "# SRC-002 Snapshot\n\nURL: https://example.com/value-chain\n\nLocator: section 3.\n\nReviewed excerpt: The source describes where value accrues across the example industry chain and supports a caveated value-chain finding.\n",
+        encoding="utf-8",
+    )
+    source_archive_index = {
+        "schema_version": "source_archive_index_v1",
+        "created_at": "2026-06-07T10:10:00",
+        "entries": [
+            {"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-001.md", "captured_at": "2026-06-07T10:10:00", "locator": "table 2", "reviewed_excerpt": "The report gives a current market-size datapoint with geography and scope."},
+            {"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-002.md", "captured_at": "2026-06-07T10:11:00", "locator": "section 3", "reviewed_excerpt": "The source describes where value accrues across the example industry chain."},
+        ],
+    }
+    (archive_dir / "source_archive_index.json").write_text(json.dumps(source_archive_index, ensure_ascii=False, indent=2), encoding="utf-8")
     report = {
         "schema_version": "formal_research_execution_report_v1",
         "formal_research_completed_at": "2026-06-07T10:00:00",
@@ -842,22 +879,26 @@ with tempfile.TemporaryDirectory() as tmp:
     errors, warnings = validate_formal_research_execution(report, plan, artifacts / "search_log.md")
     assert not errors, errors
     (artifacts / "formal_research_execution_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": warnings}, ensure_ascii=False), encoding="utf-8")
-    source_result = validate_source_reviews(artifacts / "source_reviews.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json")
+    archive_result = validate_source_archive(source_reviews_path=artifacts / "source_reviews.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
+    assert archive_result["is_valid"], archive_result
+    (artifacts / "source_archive_validation.json").write_text(json.dumps(archive_result, ensure_ascii=False), encoding="utf-8")
+    source_result = validate_source_reviews(artifacts / "source_reviews.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert source_result["is_valid"], source_result
+    assert not any("S-001" in item for item in source_result["warnings"]), source_result
     weak_reviews = json.loads(json.dumps(source_reviews))
     weak_reviews["reviews"][0]["limitations"] = ["This page is a repost without methodology and should remain lead-only."]
     (artifacts / "source_reviews_weak.json").write_text(json.dumps(weak_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
-    weak_result = validate_source_reviews(artifacts / "source_reviews_weak.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json")
+    weak_result = validate_source_reviews(artifacts / "source_reviews_weak.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert not weak_result["is_valid"], weak_result
     assert any("weak-source marker" in item for item in weak_result["errors"]), weak_result
     weak_reviews["reviews"][0]["methodology_locator"] = "Original report methodology and table 2 were reviewed directly."
     (artifacts / "source_reviews_weak_with_original.json").write_text(json.dumps(weak_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
-    recovered_result = validate_source_reviews(artifacts / "source_reviews_weak_with_original.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json")
+    recovered_result = validate_source_reviews(artifacts / "source_reviews_weak_with_original.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert recovered_result["is_valid"], recovered_result
     alias_reviews = json.loads(json.dumps(source_reviews))
     alias_reviews["source_reviews"] = alias_reviews.pop("reviews")
     (artifacts / "source_reviews_alias.json").write_text(json.dumps(alias_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
-    alias_result = validate_source_reviews(artifacts / "source_reviews_alias.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json")
+    alias_result = validate_source_reviews(artifacts / "source_reviews_alias.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert alias_result["is_valid"], alias_result
     assert alias_result["review_count"] == 2, alias_result
     (artifacts / "source_reviews_validation.json").write_text(json.dumps(source_result, ensure_ascii=False), encoding="utf-8")

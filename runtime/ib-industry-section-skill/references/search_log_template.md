@@ -5,7 +5,7 @@
 > Search log records execution. `artifacts/formal_search_plan.json` is the control record: `FS-xxx` IDs are planned search instructions, not executed searches.
 > After the formal search plan is written, run the actual formal/latest searches first. Each real tool call must create one `S-xxx` entry here before it can be referenced by `artifacts/formal_research_execution_report.json`.
 > In the execution report, `search_instruction_ids` uses `FS-xxx`; `search_attempt_ids` uses actual `S-xxx` entries from this log. Never put `FS-xxx` in `search_attempt_ids`.
-> Also write `artifacts/source_reviews.json` for every opened/reviewed formal source. research pack synthesis is blocked until formal research execution, source review validation, and `scripts/validate_stage_gate.py --stage pre_research_pack` pass.
+> Also write `artifacts/source_reviews.json` for every opened/reviewed formal source and archive usable formal evidence in `artifacts/source_archive/`. research pack synthesis is blocked until formal research execution, source archive/source review validation, and `scripts/validate_stage_gate.py --stage pre_research_pack` pass.
 > Low-provenance discovery leads are lead-only by default. Put search snippets, reposts,
 > unsourced summaries, generic profile pages, document mirrors, and pages without a
 > clear original publisher/methodology in Rejected Sources or Lead-only Sources unless
@@ -40,6 +40,9 @@ Source Selection Rationale:
 
 ## Search Attempts
 
+Use `### Search N` as the canonical heading. The validator also accepts
+`### S-00N` as an alias and normalizes both to `S-00N`.
+
 ### Search 1
 - **Query**:
 - **Provider**: # built-in WebSearch | Tavily | DuckDuckGo
@@ -55,6 +58,7 @@ Source Selection Rationale:
 - **Opened / Reviewed**: # yes/no; formal evidence requires opening the underlying page/report/PDF
 - **Source Locator / Raw Excerpt**: # page/section/table/paragraph/URL anchor plus short excerpt or limitation note
 - **Source Review IDs**: # SRC-xxx rows in artifacts/source_reviews.json for formal opened/reviewed sources
+- **Source Archive IDs / Paths**: # artifacts/source_archive/SRC-xxx.md or PDF for usable formal evidence; blank for broad_discovery leads
 - **Lead-only Sources**:
 - **Rejected Sources** (with reason):
 - **Notes**:

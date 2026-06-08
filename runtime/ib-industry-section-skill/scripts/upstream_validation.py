@@ -11,6 +11,7 @@ BASE_RESEARCH_VALIDATIONS = (
     "artifacts/industry_scope_pack_validation.json",
     "artifacts/formal_search_plan_validation.json",
     "artifacts/formal_research_execution_validation.json",
+    "artifacts/source_archive_validation.json",
     "artifacts/source_reviews_validation.json",
     "artifacts/stage_gate_pre_research_pack_validation.json",
     "artifacts/research_pack_validation.json",

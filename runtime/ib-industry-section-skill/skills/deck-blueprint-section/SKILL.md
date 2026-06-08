@@ -92,6 +92,21 @@ Do not add weak body blocks just to fill every active template field. A thin pag
 
 Use `target_field` when placement matters. For example, a value-chain page can map `upstream` to `top_left`, `manufacturing` to `top_center`, `brand` to `top_right`, `channel` to `bottom_left`, `profit_pool` to `bottom_center`, and `transaction_implication` to `bottom_right`. If `target_field` is omitted, the compiler will try role-based mapping first and sequence-based fallback last.
 
+For visible numeric claims, bind the number at the exact field/location where it appears. Use `metric_ids` as an array; do not maintain a separate single `metric_id` field in the blueprint:
+
+```json
+{
+  "location": "body_copy.bullet_2",
+  "display_text": "2024年市场规模约937亿元，已具备平台型并购讨论基础",
+  "metric_ids": ["MET-001"],
+  "evidence_ids": ["EV-001"],
+  "usage_type": "direct_display",
+  "basis_note": "All-channel retail sales, China, 2024"
+}
+```
+
+`scripts/repair_visible_metric_claims.py` repairs compiled `renderer_spec.json` only. If content-quality validation points to a blueprint problem, edit `deck_blueprint.json` and recompile instead of running the repair script directly on the blueprint.
+
 ## Fixed Slide Roles
 
 - Slide 1: `industry_overview`
