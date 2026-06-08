@@ -23,6 +23,16 @@
       "formal_research_seed_questions"
     ]
   },
+  "allowed_issue_taxonomy": {
+    "instruction": "Use only these issue_area/subissue pairs. Do not invent new subissue names; if a topic does not fit, choose the closest valid subissue and note the limitation in research_question.",
+    "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],
+    "demand_customer_logic": ["customer_segments", "demand_drivers", "willingness_to_pay", "repeat_or_replacement", "channel_behavior", "unmet_needs"],
+    "industry_structure": ["concentration", "value_chain", "profit_pool", "business_models", "barriers_to_entry", "supplier_customer_power"],
+    "key_trends_drivers": ["secular_tailwinds", "headwinds_and_risks", "technology_disruption", "regulatory_developments", "channel_or_go_to_market_shift", "mna_and_consolidation"],
+    "competitive_landscape": ["peer_universe", "competitor_profiles", "peer_financials", "strategic_positioning", "product_or_service_focus", "channel_footprint", "recent_developments", "valuation_snapshot_peer_fact"],
+    "competitive_dynamics": ["basis_of_competition", "winners_losers", "new_entrants", "substitutes_or_adjacent_risk", "differentiation_durability", "consolidation_logic"],
+    "pitch_relevance_target_context": ["why_sector_relevant", "target_context_fit", "evidence_limits", "discussion_implications"]
+  },
   "planning_instruction": "Create only the relevant issue/subissue entries after reading industry_scope_pack.json. For each entry, write clear executable search instructions: exact query strings the next step should actually run. Cover required reconciliations and important unvalidated leads. Do not write investment hypotheses, validated findings, slide conclusions, or page plans.",
   "issue_search_plan": [
     {

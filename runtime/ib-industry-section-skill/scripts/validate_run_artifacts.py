@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from json_utils import load_json_file
+from validate_formal_research_execution import parse_search_attempts
 
 
 REQUIRED_CORE_FILES = [
@@ -41,6 +42,8 @@ REQUIRED_RESEARCH_FILES = [
     "artifacts/search_log.md",
     "artifacts/source_reviews.json",
     "artifacts/source_reviews_validation.json",
+    "artifacts/source_archive/source_archive_index.json",
+    "artifacts/source_archive_validation.json",
     "industry_issue_analysis.json",
     "template_registry.json",
     "page_evidence_contract.json",
@@ -56,11 +59,6 @@ RAW_CONTEXT_RE = re.compile(
     flags=re.IGNORECASE,
 )
 TEMPLATE_PLACEHOLDER_RE = re.compile(r"^\s*(?:#.*)?$", flags=re.IGNORECASE)
-FIELD_LINE_RE = re.compile(
-    r"^\s*(?:[-*]\s*)?(?:\*\*)?([^:*#][^:]*?)(?:\*\*)?\s*:\s*(.*?)\s*$"
-)
-
-
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
@@ -97,18 +95,14 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
     errors = []
     warnings = []
     text = read_text(path)
-    attempts = re.split(r"^###\s+Search\s+#?\d+.*$", text, flags=re.MULTILINE)[1:]
     filled_attempts = []
-    for block in attempts:
+    try:
+        attempts = parse_search_attempts(path)
+    except Exception as exc:
+        return [f"cannot parse search_log.md: {exc}"], warnings
+    for attempt_id in sorted(attempts):
+        lines_by_field = attempts[attempt_id]
         fields: dict[str, str] = {}
-        lines_by_field: dict[str, str] = {}
-        for line in block.splitlines():
-            match = FIELD_LINE_RE.match(line)
-            if not match:
-                continue
-            key = re.sub(r"\s+", " ", match.group(1).strip().strip("*")).strip()
-            value = match.group(2).strip()
-            lines_by_field[key.lower()] = value
         for field in (
             "Query",
             "Provider",

@@ -184,16 +184,21 @@ def validate_source_reviews_gate(
     artifacts = run_dir / "artifacts"
     source_reviews_path = artifacts / "source_reviews.json"
     validation_path = artifacts / "source_reviews_validation.json"
+    archive_validation_path = artifacts / "source_archive_validation.json"
     search_log_path = artifacts / "search_log.md"
     report_path = artifacts / "formal_research_execution_report.json"
     memo_path = run_dir / "industry_research_pack.md"
+    archive_index_path = run_dir / "artifacts" / "source_archive" / "source_archive_index.json"
 
     require_valid_artifact(validation_path, errors, warnings)
+    require_valid_artifact(archive_validation_path, errors, warnings)
     result = validate_source_reviews(
         source_reviews_path,
         search_log_path=search_log_path if search_log_path.exists() else None,
         formal_research_execution_report_path=report_path if report_path.exists() else None,
         memo_path=memo_path if require_memo_binding and memo_path.exists() else None,
+        source_archive_index_path=archive_index_path,
+        run_dir=run_dir,
     )
     if result.get("is_valid") is False:
         errors.append("current source review validation failed")

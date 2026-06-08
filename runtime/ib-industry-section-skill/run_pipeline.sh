@@ -400,6 +400,15 @@ stage_optional_artifact_from_any() {
   done
 }
 
+stage_optional_dir() {
+  local src_dir="$1"
+  local rel="$2"
+  if [[ -d "$src_dir/$rel" ]]; then
+    mkdir -p "$OUTPUT_DIR/$rel"
+    cp -R "$src_dir/$rel/." "$OUTPUT_DIR/$rel/"
+  fi
+}
+
 require_artifact_from_any() {
   local rel="$1"
   shift
@@ -432,6 +441,7 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
   require_research_artifact "$INPUT_DIR" "artifacts/formal_search_plan.json"
   require_research_artifact "$INPUT_DIR" "artifacts/search_log.md"
   require_research_artifact "$INPUT_DIR" "artifacts/source_reviews.json"
+  require_research_artifact "$INPUT_DIR" "artifacts/source_archive/source_archive_index.json"
   require_research_artifact "$INPUT_DIR" "artifacts/formal_research_execution_report.json"
   require_research_artifact "$INPUT_DIR" "artifacts/formal_research_execution_validation.json"
   require_research_artifact "$INPUT_DIR" "industry_research_pack.md"
@@ -449,6 +459,8 @@ stage_optional_artifact "$INPUT_DIR" "artifacts/formal_search_plan_validation.js
 stage_optional_artifact "$INPUT_DIR" "artifacts/search_log.md"
 stage_optional_artifact "$INPUT_DIR" "artifacts/source_reviews.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/source_reviews_validation.json"
+stage_optional_dir "$INPUT_DIR" "artifacts/source_archive"
+stage_optional_artifact "$INPUT_DIR" "artifacts/source_archive_validation.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/formal_research_execution_report.json"
 stage_optional_artifact "$INPUT_DIR" "artifacts/formal_research_execution_validation.json"
 stage_optional_artifact "$INPUT_DIR" "industry_issue_analysis.json"
@@ -501,11 +513,20 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
     --output "$OUTPUT_DIR/artifacts/formal_research_execution_validation.json"
 
   echo "[bootstrap] validating source reviews..."
+  run_validation_gate "source_archive" "$OUTPUT_DIR/artifacts/source_archive_validation.json" \
+  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_source_archive.py" \
+    --source-reviews "$OUTPUT_DIR/artifacts/source_reviews.json" \
+    --source-archive-index "$OUTPUT_DIR/artifacts/source_archive/source_archive_index.json" \
+    --run-dir "$OUTPUT_DIR" \
+    --output "$OUTPUT_DIR/artifacts/source_archive_validation.json"
+
   run_validation_gate "source_reviews" "$OUTPUT_DIR/artifacts/source_reviews_validation.json" \
   "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_source_reviews.py" \
     --source-reviews "$OUTPUT_DIR/artifacts/source_reviews.json" \
     --search-log "$OUTPUT_DIR/artifacts/search_log.md" \
     --formal-research-execution-report "$OUTPUT_DIR/artifacts/formal_research_execution_report.json" \
+    --source-archive-index "$OUTPUT_DIR/artifacts/source_archive/source_archive_index.json" \
+    --run-dir "$OUTPUT_DIR" \
     --output "$OUTPUT_DIR/artifacts/source_reviews_validation.json"
 
   echo "[bootstrap] validating pre-research pack stage gate..."
@@ -531,6 +552,8 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
     --search-log "$OUTPUT_DIR/artifacts/search_log.md" \
     --formal-research-execution-report "$OUTPUT_DIR/artifacts/formal_research_execution_report.json" \
     --research-pack "$STAGED_RESEARCH_PACK" \
+    --source-archive-index "$OUTPUT_DIR/artifacts/source_archive/source_archive_index.json" \
+    --run-dir "$OUTPUT_DIR" \
     --output "$OUTPUT_DIR/artifacts/source_reviews_validation.json"
 
   echo "[bootstrap] validating issue analysis..."
@@ -786,6 +809,10 @@ Fix the upstream page-editor, renderer, replacement, PPT validation, or final de
 EOF
   exit 1
 fi
+
+rm -f "$OUTPUT_DIR/NOT_CLIENT_READY_$CLEAN_PPT_NAME" \
+      "$OUTPUT_DIR/NOT_CLIENT_READY_$FILLED_PPT_NAME" \
+      "$OUTPUT_DIR/NOT_CLIENT_READY_OUTPUT.txt"
 
 "$PYTHON_CMD" "$SCRIPT_DIR/scripts/generate_run_quality_summary.py" \
   --run-dir "$OUTPUT_DIR"

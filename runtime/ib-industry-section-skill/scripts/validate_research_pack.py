@@ -885,6 +885,8 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None, source_registry_pa
             "artifacts/formal_search_plan_validation.json",
             "artifacts/search_log.md",
             "artifacts/source_reviews.json",
+            "artifacts/source_archive/source_archive_index.json",
+            "artifacts/source_archive_validation.json",
             "artifacts/source_reviews_validation.json",
             "artifacts/formal_research_execution_report.json",
             "artifacts/formal_research_execution_validation.json",

@@ -39,6 +39,36 @@ BLOCKED_MARKERS = (
     "{{",
     "}}",
 )
+CONCLUSION_MARKERS = (
+    "看",
+    "来自",
+    "聚焦",
+    "考验",
+    "应",
+    "需",
+    "支撑",
+    "决定",
+    "驱动",
+    "改变",
+    "重塑",
+    "验证",
+    "取决",
+    "打开",
+    "形成",
+    "升级",
+    "放大",
+    "收敛",
+    "凸显",
+    "anchors",
+    "anchored",
+    "driven",
+    "requires",
+    "depends",
+    "supports",
+    "reshapes",
+    "creates",
+    "captures",
+)
 
 
 def _usage(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -54,6 +84,16 @@ def _contains_marker(value: Any) -> bool:
     if isinstance(value, str):
         return any(marker.lower() in value.lower() for marker in BLOCKED_MARKERS)
     return False
+
+
+def _looks_like_conclusion_headline(headline: str) -> bool:
+    normalized = normalize_text(headline)
+    if any(token in headline for token in ("，", "：", "；", ",", ":", ";")):
+        return True
+    if any(ch.isdigit() for ch in headline):
+        return True
+    lowered = normalized.lower()
+    return any(marker.lower() in lowered for marker in CONCLUSION_MARKERS)
 
 
 def _body_blocks(slide: dict[str, Any]) -> list[dict[str, Any]]:
@@ -128,7 +168,7 @@ def _check_text_quality(slide: dict[str, Any], prefix: str, errors: list[str], w
         warnings.append(f"{prefix}: headline duplicates page_thesis; rewrite headline as client-facing page copy")
     if headline and len(normalize_text(headline)) < 10:
         warnings.append(f"{prefix}: headline looks too thin to carry an IB page argument")
-    if not any(token in headline for token in ("，", "：", "；", ",", ":", ";")) and not any(ch.isdigit() for ch in headline):
+    if headline and not _looks_like_conclusion_headline(headline):
         warnings.append(f"{prefix}: headline may be a label rather than a conclusion-led title")
 
     body_norms: dict[str, int] = {}

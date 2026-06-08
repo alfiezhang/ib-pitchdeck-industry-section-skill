@@ -163,7 +163,15 @@ Validate formal execution and source reviews before writing the research pack:
   --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+  --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_reviews_validation.json"
+
+"$PYTHON_CMD" scripts/validate_source_archive.py \
+  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+  --run-dir "$RUN_DIR" \
+  --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
 "$PYTHON_CMD" scripts/validate_stage_gate.py \
   --stage pre_research_pack \
@@ -210,3 +218,10 @@ strength. Set it to false for search snippets, root domains, unavailable
 reports, weak mirrors/reposts without methodology, and pages that only identify
 a lead for later research. Do not batch-convert missing values to true merely to
 pass validation.
+
+For every non-user source with `usable_as_evidence=true`, archive a reviewable
+snapshot under `artifacts/source_archive/` and list it in
+`artifacts/source_archive/source_archive_index.json`. Prefer a saved PDF or
+clean markdown/text file. If the tool cannot save the full page/report, save an
+`excerpt_snapshot` markdown file with URL, title, locator, reviewed excerpt, and
+limitations. Do not invent full source text; archive what was actually reviewed.
