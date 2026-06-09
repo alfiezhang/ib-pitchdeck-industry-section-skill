@@ -18,7 +18,8 @@
     },
     "formal_search_plan": {
       "path": "artifacts/formal_search_plan.json",
-      "owner": "llm_lightweight_planning",
+      "owner": "script_skeleton_llm_query_planning",
+      "builder": "scripts/build_formal_search_plan_skeleton.py",
       "validator": "scripts/validate_formal_search_plan.py",
       "validation": "artifacts/formal_search_plan_validation.json",
       "inputs": ["input_card", "industry_scope_pack"]
@@ -31,16 +32,24 @@
     "formal_research_execution_report": {
       "path": "artifacts/formal_research_execution_report.json",
       "owner": "script_skeleton_llm_judgment",
+      "builder": "scripts/build_formal_research_execution_report_skeleton.py",
       "validator": "scripts/validate_formal_research_execution.py",
       "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": ["formal_search_plan", "search_log"]
     },
     "source_reviews": {
       "path": "artifacts/source_reviews.json",
-      "owner": "llm_source_review_audit",
+      "owner": "script_skeleton_llm_source_review_audit",
+      "builder": "scripts/build_source_reviews_skeleton.py",
       "validator": "scripts/validate_source_reviews.py",
       "validation": "artifacts/source_reviews_validation.json",
       "inputs": ["search_log", "formal_research_execution_report"]
+    },
+    "evidence_candidate_skeleton": {
+      "path": "artifacts/evidence_candidate_skeleton.json",
+      "owner": "script_candidate_workspace",
+      "builder": "scripts/build_evidence_candidate_skeleton.py",
+      "inputs": ["formal_research_execution_report", "source_reviews"]
     },
     "source_archive": {
       "path": "artifacts/source_archive/source_archive_index.json",
@@ -58,14 +67,16 @@
     },
     "research_pack": {
       "path": "industry_research_pack.md",
-      "owner": "llm",
+      "owner": "script_skeleton_llm_evidence_extraction",
+      "builder": "scripts/build_research_evidence_pack_skeleton.py",
       "validator": "scripts/validate_research_pack.py",
       "validation": "artifacts/research_pack_validation.json",
       "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
     },
     "issue_analysis": {
       "path": "industry_issue_analysis.json",
-      "owner": "llm",
+      "owner": "script_skeleton_llm_issue_analysis",
+      "builder": "scripts/build_issue_analysis_skeleton.py",
       "validator": "scripts/validate_issue_analysis.py",
       "validation": "artifacts/issue_analysis_validation.json",
       "inputs": ["research_pack"]
@@ -115,6 +126,24 @@
       "validation": "artifacts/content_quality_validation.json",
       "inputs": ["research_pack", "page_evidence_contract", "renderer_spec"]
     },
+    "banker_review_report": {
+      "path": "artifacts/banker_review_report.json",
+      "owner": "script_skeleton_llm_banker_review",
+      "builder": "scripts/build_banker_review_report_skeleton.py",
+      "inputs": ["deck_blueprint", "page_evidence_contract", "renderer_spec"]
+    },
+    "agent_handoff": {
+      "path": "artifacts/agent_handoff/agent_handoff_index.json",
+      "owner": "script_role_handoff",
+      "builder": "scripts/build_agent_handoff.py",
+      "inputs": ["input_card", "research_pack", "issue_analysis", "deck_blueprint", "renderer_spec"]
+    },
+    "run_quality_summary": {
+      "path": "artifacts/run_quality_summary.json",
+      "owner": "script",
+      "builder": "scripts/generate_run_quality_summary.py",
+      "inputs": ["source_reviews", "research_pack", "issue_analysis", "deck_blueprint", "renderer_spec", "filled_ppt", "final_delivery"]
+    },
     "pre_ppt_gate": {
       "path": "artifacts/stage_gate_pre_ppt_validation.json",
       "owner": "script",
@@ -133,7 +162,7 @@
     "filled_ppt": {
       "path": "industry_section_filled_clean.pptx",
       "owner": "script",
-      "builder": "run_pipeline.sh",
+      "builder": "scripts/pipeline.py render",
       "validator": "scripts/validate_filled_ppt.py",
       "validation": "filled_ppt_validation.json",
       "inputs": ["renderer_spec", "page_evidence_contract", "pre_ppt_gate", "replacement_dict"]

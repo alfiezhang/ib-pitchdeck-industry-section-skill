@@ -11,6 +11,167 @@ from typing import Any
 from validate_run_state import validate_run_state
 
 
+def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
+    """Return concrete next commands for common gate states.
+
+    These commands are advisory and use the formal run directory as package of
+    record. They are intentionally explicit so agents do not improvise ad-hoc
+    repair scripts or bypass the validated path.
+    """
+    run_dir = state["run_dir"]
+    stage = state["current_stage"]
+    py = '"$PYTHON_CMD"'
+    commands_by_stage: dict[str, list[dict[str, str]]] = {
+        "INPUT_CARD_MISSING": [
+            {
+                "purpose": "validate input card after transcription-only creation",
+                "command": f"{py} scripts/validate_input_card.py --input-card {run_dir}/input_card.json --output {run_dir}/artifacts/input_card_validation.json",
+            }
+        ],
+        "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED": [
+            {
+                "purpose": "validate scope pack after definition/scoping repair",
+                "command": f"{py} scripts/validate_industry_scope_pack.py --scope-pack {run_dir}/artifacts/industry_scope_pack.json --output {run_dir}/artifacts/industry_scope_pack_validation.json",
+            }
+        ],
+        "FORMAL_SEARCH_PLAN_MISSING": [
+            {
+                "purpose": "build full-taxonomy formal search plan skeleton",
+                "command": f"{py} scripts/build_formal_search_plan_skeleton.py --input-card {run_dir}/input_card.json --scope-pack {run_dir}/artifacts/industry_scope_pack.json --output {run_dir}/artifacts/formal_search_plan.json",
+            },
+            {
+                "purpose": "validate formal search plan after editing executable queries",
+                "command": f"{py} scripts/validate_formal_search_plan.py --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --output {run_dir}/artifacts/formal_search_plan_validation.json",
+            },
+        ],
+        "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
+            {
+                "purpose": "append each real formal search attempt; repeat per FS-xxx",
+                "command": f"{py} scripts/append_search_attempt.py --search-log {run_dir}/artifacts/search_log.md --query '<exact query searched>' --stage formal_research_execution --fs-id FS-001 --selected-source '<exact reviewed URL>' --opened-reviewed yes --locator-excerpt '<page/section/table and short excerpt or limitation>'",
+            },
+            {
+                "purpose": "rebuild execution report skeleton from plan/log/reviews",
+                "command": f"{py} scripts/build_formal_research_execution_report_skeleton.py --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --search-log {run_dir}/artifacts/search_log.md --source-reviews {run_dir}/artifacts/source_reviews.json --include-unexecuted --output {run_dir}/artifacts/formal_research_execution_report.json",
+            },
+            {
+                "purpose": "validate formal research execution",
+                "command": f"{py} scripts/validate_formal_research_execution.py --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/formal_research_execution_validation.json",
+            },
+        ],
+        "SOURCE_REVIEWS_MISSING_OR_FAILED": [
+            {
+                "purpose": "build source review skeleton from search log selected URLs",
+                "command": f"{py} scripts/build_source_reviews_skeleton.py --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/source_reviews.json",
+            },
+            {
+                "purpose": "validate reviewed sources after LLM fills locator/excerpt/use decisions",
+                "command": f"{py} scripts/validate_source_reviews.py --source-reviews {run_dir}/artifacts/source_reviews.json --search-log {run_dir}/artifacts/search_log.md --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --output {run_dir}/artifacts/source_reviews_validation.json",
+            },
+        ],
+        "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
+            {
+                "purpose": "build source archive from source reviews",
+                "command": f"{py} scripts/build_source_archive.py --source-reviews {run_dir}/artifacts/source_reviews.json --output-dir {run_dir}/artifacts/source_archive",
+            }
+        ],
+        "PRE_RESEARCH_PACK_GATE_FAILED": [
+            {
+                "purpose": "rerun pre-research-pack gate after repairing execution/source/archive artifacts",
+                "command": f"{py} scripts/validate_stage_gate.py --stage pre_research_pack --run-dir {run_dir} --output {run_dir}/artifacts/stage_gate_pre_research_pack_validation.json",
+            }
+        ],
+        "RESEARCH_PACK_MISSING_OR_FAILED": [
+            {
+                "purpose": "build research evidence pack skeleton",
+                "command": f"{py} scripts/build_research_evidence_pack_skeleton.py --input-card {run_dir}/input_card.json --scope-pack {run_dir}/artifacts/industry_scope_pack.json --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --source-reviews {run_dir}/artifacts/source_reviews.json --output {run_dir}/industry_research_pack.md",
+            },
+            {
+                "purpose": "build optional EV/MET candidate skeleton for extraction",
+                "command": f"{py} scripts/build_evidence_candidate_skeleton.py --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --source-reviews {run_dir}/artifacts/source_reviews.json --output {run_dir}/artifacts/evidence_candidate_skeleton.json",
+            },
+            {
+                "purpose": "validate research evidence pack after LLM fills extracts/EV/MET ledgers",
+                "command": f"{py} scripts/validate_research_pack.py --research-pack {run_dir}/industry_research_pack.md --run-dir {run_dir} --output {run_dir}/artifacts/research_pack_validation.json",
+            },
+        ],
+        "ISSUE_ANALYSIS_MISSING_OR_FAILED": [
+            {
+                "purpose": "build issue analysis skeleton from research-pack inventory",
+                "command": f"{py} scripts/build_issue_analysis_skeleton.py --research-pack {run_dir}/industry_research_pack.md --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --output {run_dir}/industry_issue_analysis.json",
+            },
+            {
+                "purpose": "normalize common LLM-shaped issue analysis aliases",
+                "command": f"{py} scripts/normalize_issue_analysis.py --input {run_dir}/industry_issue_analysis.json --output {run_dir}/industry_issue_analysis.json --report {run_dir}/artifacts/issue_analysis_normalization.json",
+            },
+            {
+                "purpose": "validate issue analysis after replacing skeleton placeholders with substantive analysis",
+                "command": f"{py} scripts/validate_issue_analysis.py --issue-analysis {run_dir}/industry_issue_analysis.json --research-pack {run_dir}/industry_research_pack.md --output {run_dir}/artifacts/issue_analysis_validation.json",
+            },
+        ],
+        "TEMPLATE_REGISTRY_MISSING_OR_FAILED": [
+            {
+                "purpose": "extract template registry",
+                "command": f"{py} scripts/extract_template_registry.py --output {run_dir}/template_registry.json",
+            },
+            {
+                "purpose": "validate template registry",
+                "command": f"{py} scripts/validate_template_registry.py --template-registry {run_dir}/template_registry.json --slide-registry templates/slide_registry.json --output {run_dir}/artifacts/template_registry_validation.json",
+            }
+        ],
+        "DECK_BLUEPRINT_MISSING_OR_FAILED": [
+            {
+                "purpose": "validate deck blueprint after page-editor repair",
+                "command": f"{py} scripts/validate_deck_blueprint.py --deck-blueprint {run_dir}/deck_blueprint.json --issue-analysis {run_dir}/industry_issue_analysis.json --template-registry {run_dir}/template_registry.json --output {run_dir}/artifacts/deck_blueprint_validation.json",
+            }
+        ],
+        "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": [
+            {
+                "purpose": "compile blueprint into deterministic downstream artifacts",
+                "command": f"{py} scripts/compile_deck_blueprint.py --issue-analysis {run_dir}/industry_issue_analysis.json --deck-blueprint {run_dir}/deck_blueprint.json --template-registry {run_dir}/template_registry.json --page-contract-output {run_dir}/page_evidence_contract.json --renderer-spec-output {run_dir}/renderer_spec.json",
+            }
+        ],
+        "RENDERER_SPEC_MISSING_OR_FAILED": [
+            {
+                "purpose": "recompile renderer spec from repaired deck blueprint",
+                "command": f"{py} scripts/compile_deck_blueprint.py --issue-analysis {run_dir}/industry_issue_analysis.json --deck-blueprint {run_dir}/deck_blueprint.json --template-registry {run_dir}/template_registry.json --page-contract-output {run_dir}/page_evidence_contract.json --renderer-spec-output {run_dir}/renderer_spec.json",
+            }
+        ],
+        "CONTENT_QUALITY_FAILED": [
+            {
+                "purpose": "build non-blocking banker review packet before repairing blueprint/content",
+                "command": f"{py} scripts/build_banker_review_packet.py --deck-blueprint {run_dir}/deck_blueprint.json --page-contract {run_dir}/page_evidence_contract.json --renderer-spec {run_dir}/renderer_spec.json --output {run_dir}/artifacts/banker_review_packet.md",
+            },
+            {
+                "purpose": "build structured banker review report skeleton",
+                "command": f"{py} scripts/build_banker_review_report_skeleton.py --deck-blueprint {run_dir}/deck_blueprint.json --page-contract {run_dir}/page_evidence_contract.json --renderer-spec {run_dir}/renderer_spec.json --output {run_dir}/artifacts/banker_review_report.json",
+            },
+            {
+                "purpose": "rerun content quality after repairing deck_blueprint/recompiling",
+                "command": f"{py} scripts/validate_content_quality.py --renderer-spec {run_dir}/renderer_spec.json --research-pack {run_dir}/industry_research_pack.md --rules templates/content_quality_rules.json --text-fit-rules templates/text_fit_rules.json --layout-budget templates/layout_budget.json --output {run_dir}/artifacts/content_quality_validation.json",
+            },
+        ],
+        "PRE_PPT_GATE_FAILED": [
+            {
+                "purpose": "run deterministic PPT pipeline after upstream repairs; it refreshes pre-PPT gate first",
+                "command": f"{py} scripts/pipeline.py render --run-dir {run_dir}",
+            }
+        ],
+        "REPLACEMENT_DICT_MISSING_OR_FAILED": [
+            {
+                "purpose": "run formal PPT pipeline in the current package-of-record attempt",
+                "command": f"{py} scripts/pipeline.py render --run-dir {run_dir}",
+            }
+        ],
+        "FINAL_DELIVERY_NOT_READY": [
+            {
+                "purpose": "rerun final delivery gate and run quality summary after technical/research blockers are fixed",
+                "command": f"{py} scripts/pipeline.py finalize --run-dir {run_dir} --require-client-ready",
+            }
+        ],
+    }
+    return commands_by_stage.get(stage, [])
+
+
 def status_payload(run_dir: Path) -> dict[str, Any]:
     return validate_run_state(run_dir)
 
@@ -31,6 +192,7 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "stale_validations": state.get("stale_validations", []),
         "retry_state": state.get("retry_state", {}),
         "allowed_next_actions": state["allowed_next_actions"],
+        "recommended_next_commands": recommended_commands(state),
         "forbidden_actions": state["forbidden_actions"],
         "debug_only": state["debug_only"],
         "final_delivery_valid": state["final_delivery_valid"],

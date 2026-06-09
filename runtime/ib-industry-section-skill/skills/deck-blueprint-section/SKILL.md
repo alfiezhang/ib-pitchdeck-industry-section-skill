@@ -130,6 +130,10 @@ Do not force target promotion. Target context should be selective, evidence-base
 - Body blocks must be distinct; do not fill multiple fields with the same metric.
 - Body block count does not need to equal template field count. Use as many blocks as the page argument genuinely needs.
 - When a block has a deliberate placement, set `target_field`; do not rely on array order for semantically different template regions.
+- For `compare_table_page`, put table headers/rows only in `compare_table_data`.
+  Do not duplicate `table_header` or `table_row_*` as `body_blocks`; those fields
+  are rendered as the native table and the active body fields are the surrounding
+  analysis panels.
 - A chart must serve the headline. Do not add charts just because the template can display one.
 - Every material number in headline, main message, body block, chart, table, or metric card must bind to allowed MET IDs.
 - Every body claim must bind to EV IDs from selected issue analyses.
@@ -148,6 +152,13 @@ Do not force target promotion. Target context should be selective, evidence-base
 
 If this fails, repair `deck_blueprint.json` or go back to `industry_issue_analysis.json` / research when the evidence is genuinely insufficient. Do not patch downstream compiled files.
 
+If it passes with warnings, read `artifacts/deck_blueprint_validation.json`.
+Warnings such as "headline may be a label rather than a conclusion-led title"
+are not formatting noise: they usually explain why a valid deck feels thin or
+mechanical. Use `warning_repair_plan.targets[]` to repair the named
+`deck_blueprint.json` fields before compiling unless the warning is plainly
+irrelevant for the selected page.
+
 ## Step 4: Compile Derived Artifacts
 
 ```bash
@@ -163,7 +174,44 @@ This compiler creates:
 - `page_evidence_contract.json`;
 - `renderer_spec.json`.
 
-## Step 5: Validate Compiled Artifacts
+## Step 5: Banker Review Packet (Non-Blocking)
+
+Before final content-quality validation, build a compact review packet and read
+it like a banker reviewer. This is not a gate and not another JSON artifact to
+fill. It helps the LLM focus on page quality instead of schema repair.
+
+```bash
+"$PYTHON_CMD" scripts/build_banker_review_packet.py \
+  --deck-blueprint deck_blueprint.json \
+  --page-contract page_evidence_contract.json \
+  --renderer-spec renderer_spec.json \
+  --output artifacts/banker_review_packet.md
+
+"$PYTHON_CMD" scripts/build_banker_review_report_skeleton.py \
+  --deck-blueprint deck_blueprint.json \
+  --page-contract page_evidence_contract.json \
+  --renderer-spec renderer_spec.json \
+  --output artifacts/banker_review_report.json
+```
+
+Review:
+- Does each page answer one investor question?
+- Is the headline a point of view rather than a metric label?
+- Does body copy have enough evidence, mechanism, comparison, or implication?
+- Does the visual support the headline?
+- Are thin/proxy/user-provided facts caveated?
+- Are adjacent pages non-duplicative?
+
+If review finds issues, repair `deck_blueprint.json`, then revalidate and
+recompile. Do not patch `renderer_spec.json` or PPT output directly.
+
+`banker_review_report.json` is a structured workspace for the LLM reviewer. It
+is not a gate, but it makes repair targets explicit: page quality, evidence
+support, copy density, visual support, and the upstream file to edit. Fill the
+judgment fields if useful, then repair `deck_blueprint.json` or upstream
+research artifacts.
+
+## Step 6: Validate Compiled Artifacts
 
 ```bash
 "$PYTHON_CMD" scripts/validate_page_evidence_contract.py \
@@ -209,7 +257,7 @@ missing or too thin. Do not patch `renderer_spec.json`, `replacement_dict.json`,
 or PPT files to silence content-quality findings unless a deterministic compiler
 bug is confirmed.
 
-## Step 6: Pre-PPT Gate
+## Step 7: Pre-PPT Gate
 
 ```bash
 "$PYTHON_CMD" scripts/validate_stage_gate.py \

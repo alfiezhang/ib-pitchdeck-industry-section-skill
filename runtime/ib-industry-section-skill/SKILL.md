@@ -15,28 +15,37 @@ Before every downstream transition, run:
 "$PYTHON_CMD" scripts/workflow.py next --run-dir "$RUN_DIR"
 ```
 
-If `status` is `failed`, `missing`, `stale`, or `blocked`, stop at that gate. Do not write downstream artifacts, do not run the PPT pipeline, and do not summarize the project as complete. Report the `blocking_gate`, the first few validation errors, and the smallest repair target.
+If `status` is `failed`, `missing`, `stale`, or `blocked`, stop downstream movement at that gate. Do not write downstream artifacts, do not run the PPT pipeline, and do not summarize the project as complete.
 
 This is especially important after `source_reviews`, `source_archive`, `research_pack`, and `deck_blueprint`; those failures are not formatting details.
+
+For one-shot formal PPT requests, stopping downstream movement does **not** mean
+stopping the task. Repair the current gate in the same `RUN_DIR`, rerun its
+validator, and continue only after `workflow.py next` advances. Report a blocked
+state only when the workflow reports `repair_limit_exceeded` / `blocked`, when
+research is genuinely unavailable, or when user input is required. Never ask the
+user whether to skip validation, manually compile a PPT, or continue with a
+degraded deck during a formal delivery run.
 
 ## Non-Negotiable Agent Rules
 
 If the user provides a project brief and asks to generate a PPT, this is a formal delivery task.
 
-There is no one-command "brief to PPT" shortcut. `run_pipeline.sh` only turns an already validated formal run package into a deck.
+There is no one-command "brief to PPT" shortcut. `scripts/pipeline.py render --run-dir "$RUN_DIR"` only turns an already validated formal run package into a deck inside the current attempt. `run_pipeline.sh` is compatibility-only.
 
 Do:
 1. Create `input_card.json` in transcription mode.
 2. Draft the LLM-only industry definition inside `artifacts/industry_scope_pack.json` as `llm_definition_draft`; this uses the brief and model knowledge only and must contain no numbers or conclusions.
-3. Run broad discovery only to verify/refine that definition draft, then complete thin `artifacts/industry_scope_pack.json`, validate it, and create `artifacts/formal_search_plan.json`.
+3. Run broad discovery only to verify/refine that definition draft, then complete thin `artifacts/industry_scope_pack.json`, validate it, and build a full-taxonomy `artifacts/formal_search_plan.json` skeleton.
 4. Validate `artifacts/formal_search_plan.json`, then execute every planned formal search instruction as a real search and use `scripts/append_search_attempt.py` to log the resulting `S-xxx` attempts.
-5. Use `scripts/build_formal_research_execution_report_skeleton.py` to create the execution report from `FS-xxx` / `S-xxx`, write `artifacts/source_reviews.json`, rerun the skeleton builder with source reviews to add `SRC-xxx` links and edit judgment fields, then archive usable evidence snapshots with `scripts/build_source_archive.py`.
-6. Write and validate `industry_research_pack.md`.
-7. Write and validate `industry_issue_analysis.json`.
-8. Extract `template_registry.json`, then write and validate `deck_blueprint.json` as the banker page-design artifact.
-9. Compile `deck_blueprint.json` into `page_evidence_contract.json` and `renderer_spec.json`; do not hand-write those derived files.
-10. Run the formal PPT pipeline, including replacement-dictionary semantic validation.
-11. Deliver only when final delivery validation is client-ready.
+5. Use `scripts/build_source_reviews_skeleton.py` to create `SRC-xxx` review cards from selected `S-xxx` URLs, then have the LLM review exact sources, locators, excerpts, and usability.
+6. Use `scripts/build_formal_research_execution_report_skeleton.py` to create the execution report from `FS-xxx` / `S-xxx` / `SRC-xxx`, edit judgment fields, then archive usable evidence snapshots with `scripts/build_source_archive.py`.
+7. Use `scripts/build_research_evidence_pack_skeleton.py` and optional `scripts/build_evidence_candidate_skeleton.py`, then complete and validate `industry_research_pack.md` as a research evidence binder.
+8. Use `scripts/build_issue_analysis_skeleton.py` to create the mechanical structure, replace all skeleton/TODO text with substantive issue analysis, then validate `industry_issue_analysis.json`.
+9. Extract `template_registry.json`, then write and validate `deck_blueprint.json` as the banker page-design artifact.
+10. Compile `deck_blueprint.json` into `page_evidence_contract.json` and `renderer_spec.json`; do not hand-write those derived files.
+11. Build the non-blocking banker review packet/report, repair `deck_blueprint.json` if page quality is thin, then run formal content/replacement/PPT validation.
+12. Render and finalize from the same attempt with `scripts/pipeline.py render --run-dir "$RUN_DIR"`. Deliver only when final delivery validation is client-ready.
 
 Do not:
 - start from `run_pipeline.sh` when starting from a brief;
@@ -48,8 +57,9 @@ Do not:
 - hand-write `replacement_dict.json`;
 - provide or repair a separate PPT-copy JSON path;
 - patch the final PPT manually to hide upstream failures;
-- create a custom PPT-generation script such as `generate_ppt.py`, or use ad-hoc `python-pptx`, PptxGenJS, LibreOffice, Keynote, or manual drawing to bypass `run_pipeline.sh`;
+- create a custom PPT-generation script such as `generate_ppt.py`, or use ad-hoc `python-pptx`, PptxGenJS, LibreOffice, Keynote, or manual drawing to bypass the packaged deterministic pipeline;
 - call a hand-built PPT `industry_section_filled_clean.pptx` or a completed delivery when the formal pipeline/final gate failed;
+- offer validation-bypass choices such as "fix issue_analysis or manually build PPT"; formal delivery has only the validated pipeline path;
 - treat "generate PPT" as "make any PPT file."
 
 Formal research ID discipline:
@@ -67,7 +77,7 @@ Broad discovery query discipline:
 
 `--no-research-gate` is reserved only for explicit local template/rendering diagnostics. It requires both `IB_SKILL_ALLOW_PPT_ONLY_DEBUG=1` and `--debug-reason`. The reason must describe a template/rendering diagnostic, not a research, research pack, renderer-spec, schema, or delivery shortcut. A debug PPT is never task completion for a new project brief.
 
-If you cannot complete web research, source review, or issue analysis validation, stop and report the blocked gate. Do not compensate by fabricating "validation-shaped" artifacts.
+If you cannot complete web research, source review, or issue analysis validation after honest repair attempts, report the blocked gate and preserve the run directory. Do not compensate by fabricating "validation-shaped" artifacts.
 
 ## Repair Integrity
 
@@ -93,7 +103,7 @@ Wrong path:
 
 Correct path:
 
-`brief -> industry scope pack -> issue/subissue search plan -> formal research execution -> research pack -> issue analysis -> template registry -> deck blueprint -> compiled evidence contract/renderer spec -> replacement audit -> formal pipeline -> final delivery gate`
+`brief -> industry scope pack -> full-taxonomy issue/subissue search plan -> formal research execution -> research pack -> issue analysis -> template registry -> deck blueprint -> compiled evidence contract/renderer spec -> replacement audit -> formal pipeline -> final delivery gate`
 
 Schema files define shape only. Test fixtures prove validators work. Neither is evidence, research, or a substitute for the formal workflow.
 
@@ -158,6 +168,16 @@ Before moving downstream, run `scripts/workflow.py next --run-dir <run_dir>`.
 If it returns `STOP_AND_REPORT`, stop generating downstream artifacts and report
 the blocker; do not continue patching JSON to chase validators.
 
+When a run becomes hard to reason about, or when handing work across model
+sessions, generate role-specific packets instead of rereading the whole skill:
+
+```bash
+"$PYTHON_CMD" scripts/build_agent_handoff.py --run-dir "$RUN_DIR"
+```
+
+These packets are local coordination aids. They do not replace validators or
+authorize a downstream role to fabricate missing upstream artifacts.
+
 All JSON artifacts must be written with ASCII JSON string delimiters (`"`), not
 smart/Chinese quotes (`“”`). Generate JSON through `json.dump(...,
 ensure_ascii=False, indent=2)` or an equivalent structured writer. If validation
@@ -201,15 +221,22 @@ Formal one-shot sequence:
        --scope-pack artifacts/industry_scope_pack.json \
        --output artifacts/industry_scope_pack_validation.json
      ```
-   - After the scope pack passes, write `artifacts/formal_search_plan.json` as a lightweight issue/subissue research plan.
-   - Do not write issue hypotheses in the search plan. The search-plan gate is lightweight and checks only execution readiness: valid taxonomy, unique `FS-xxx` IDs, executable queries, and no page/deck conclusions.
+   - After the scope pack passes, build `artifacts/formal_search_plan.json` as a full-taxonomy issue/subissue research plan. Use the builder first so taxonomy coverage and `FS-xxx` numbering are mechanical:
+     ```bash
+     "$PYTHON_CMD" scripts/build_formal_search_plan_skeleton.py \
+       --input-card "$RUN_DIR/input_card.json" \
+       --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+       --output "$RUN_DIR/artifacts/formal_search_plan.json"
+     ```
+   - Then edit the generated `research_question`, `query`, `purpose`, and `source_hint` fields to fit the scoped industry. Do not delete issue/subissue rows. The formal plan must cover every canonical subissue because thin upstream search produces thin issue analysis and thin PPT pages.
+   - Do not write issue hypotheses in the search plan. The search-plan gate checks execution readiness and coverage: valid taxonomy, every canonical issue/subissue present, unique `FS-xxx` IDs, executable queries, and no page/deck conclusions.
    - Validate:
      ```bash
      "$PYTHON_CMD" scripts/validate_formal_search_plan.py \
        --formal-search-plan artifacts/formal_search_plan.json \
        --output artifacts/formal_search_plan_validation.json
      ```
-   - Execute the planned `FS-xxx` formal/latest searches as real tool calls and record each real attempt as `S-xxx` in `artifacts/search_log.md`.
+   - Execute every planned `FS-xxx` formal/latest/peer search as a real tool call and record each real attempt as `S-xxx` in `artifacts/search_log.md`. If evidence is unavailable, keep the `FS-xxx` row, run a reasonable search, and later mark the `FR-xxx` result `thin`, `insufficient`, or `unavailable_after_research` with limitations; do not delete the subissue from the plan to make validation easier.
    - Prefer the helper instead of hand-editing search numbering:
      ```bash
      "$PYTHON_CMD" scripts/append_search_attempt.py \
@@ -222,21 +249,28 @@ Formal one-shot sequence:
        --locator-excerpt "<page/section/table plus short excerpt or limitation>"
      ```
    - Do not move to the execution report until the search log contains real `S-xxx` formal/latest/peer attempts for the retained `FS-xxx` instructions.
-   - Build an initial execution-report skeleton from the plan and search log:
+   - Build an initial execution-report skeleton from the plan and search log. This proves `FS-xxx` has real `S-xxx` execution before any source promotion:
      ```bash
      "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
        --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
        --search-log "$RUN_DIR/artifacts/search_log.md" \
+       --include-unexecuted \
        --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
      ```
-   - In the execution report, `selected_source_urls` means exact URLs actually opened/reviewed and represented in `source_reviews.json`; do not list every search-result URL there. Unreviewed or lead-only URLs stay in `search_log.md`.
-   - Write `artifacts/source_reviews.json` from `templates/source_reviews.template.json` with exact source URLs, locators, excerpts, linked `S-xxx`, linked `EV-xxx`, and honest `usable_as_evidence` values. Use canonical fields (`source_review_id`, `url`, `title`, `locator`, `excerpt`); validators tolerate common aliases but new artifacts should not rely on them. Do not set `usable_as_evidence=true` merely to satisfy validation; use false for search-result snippets, weak leads, unavailable reports, root domains, or unreviewed pages.
+   - Build source-review skeletons from selected URLs so the LLM does not hand-maintain `SRC-xxx` numbering:
+     ```bash
+     "$PYTHON_CMD" scripts/build_source_reviews_skeleton.py \
+       --search-log "$RUN_DIR/artifacts/search_log.md" \
+       --output "$RUN_DIR/artifacts/source_reviews.json"
+     ```
+   - Then open/review each exact source and edit `source_reviews.json`: exact URL, locator, excerpt/paraphrase, linked `S-xxx`, source-use tier, claim-use scope, linked `EV-xxx`, and honest `usable_as_evidence` values. Use canonical fields (`source_review_id`, `url`, `title`, `locator`, `excerpt`, `evidence_use_tier`, `claim_use_scope`); validators tolerate common aliases but new artifacts should not rely on them. Decide `evidence_use_tier` before the boolean: `core_evidence` and `contextual_evidence` may support EV rows within a narrow `claim_use_scope`; `directional_only`, `lead_only`, and `rejected` should not feed formal EV/MET rows. Do not batch-fill `usable_as_evidence=true` or `false` merely to satisfy validation; use false for search-result snippets, weak leads, unavailable reports, root domains, or unreviewed pages.
    - Rebuild the execution-report skeleton after `source_reviews.json` exists, then edit judgment fields instead of hand-synchronizing IDs:
      ```bash
      "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
        --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
        --search-log "$RUN_DIR/artifacts/search_log.md" \
        --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+       --include-unexecuted \
        --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
      ```
      The helper copies `issue_area`, `subissue`, `research_question`, `FS-xxx`, `S-xxx`, and `SRC-xxx` references. You must still review and edit `status`, `findings_summary`, `limitations`, `research_pack_handling`, and EV/MET IDs based on the actual source support.
@@ -250,21 +284,44 @@ Formal one-shot sequence:
      ```
    - Validate the pre-research pack gate before writing the research pack.
 
-4. **Research Pack**
-   - Write `industry_research_pack.md`.
-   - Include Evidence Ledger, Metric Reconciliation, IB Issue Fact Inventory, and Research Gap Audit.
+4. **Research Evidence Pack**
+   - Build `industry_research_pack.md` from the evidence-pack skeleton:
+     ```bash
+     "$PYTHON_CMD" scripts/build_research_evidence_pack_skeleton.py \
+       --input-card "$RUN_DIR/input_card.json" \
+       --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+       --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+       --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+       --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+       --output "$RUN_DIR/industry_research_pack.md"
+     ```
+   - Complete it as an evidence binder, not a narrative memo: fill Formal Research Extracts, Evidence Ledger, Metric Reconciliation, IB Issue Fact Inventory, and Research Gap Audit from reviewed source rows.
+   - The skeleton is not final. It should fail validation until source-faithful EV/MET extraction, fact inventory updates, and gap audit are complete.
    - Do not build the formal page evidence contract in the research pack; `deck_blueprint.json` and `scripts/compile_deck_blueprint.py` own that boundary.
    - Validate `artifacts/research_pack_validation.json`.
 
 5. **Issue Analysis**
-   - Write:
-     - `industry_issue_analysis.json`
+   - Build the mechanical issue-analysis skeleton from the validated research pack:
+     ```bash
+     "$PYTHON_CMD" scripts/build_issue_analysis_skeleton.py \
+       --research-pack "$RUN_DIR/industry_research_pack.md" \
+       --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+       --output "$RUN_DIR/industry_issue_analysis.json"
+     ```
+   - Replace every `TODO_REPLACE...` / skeleton placeholder with substantive banker analysis from the research evidence pack. The validator intentionally blocks helper placeholder text.
    - Validate it before deck blueprint.
    - Issue analysis is for issue-by-issue industry analysis only: each block covers one IB industry subissue with a substantive paragraph, supporting points, evidence sufficiency, EV/MET IDs, limitations, and downstream permissions.
    - Do not create a one-line idea list. If a subissue lacks support, put it in `research_backlog` with the needed evidence and research action.
    - Do not decide slide numbers, template variants, headline claims, or chart contracts in issue analysis.
    - Rejected analyses must not flow into slides.
    - Unverified or insufficient analyses may only flow into caveats/open questions when deck blueprint allows it.
+   - If validation fails, first run `scripts/normalize_issue_analysis.py` for
+     mechanical cleanup, then read
+     `artifacts/issue_analysis_validation.json.repair_plan`. Repair the named
+     fields in `industry_issue_analysis.json` / `industry_research_pack.md` and
+     rerun validation. Do not create an empty `issue_analyses` array, do not
+     move to deck blueprint, and do not offer a manual-PPT bypass while this
+     gate is invalid.
 
 6. **Template Registry And Deck Blueprint**
    - Use `skills/deck-blueprint-section/SKILL.md`.
@@ -274,6 +331,7 @@ Formal one-shot sequence:
    - Do not write slide content as research notes. Each body block should be PPT copy with a label + data/mechanism + why it matters.
    - Validate `deck_blueprint.json`.
    - Compile `page_evidence_contract.json` and `renderer_spec.json` from the blueprint with `scripts/compile_deck_blueprint.py`; do not hand-write or patch the derived files unless you also update the blueprint and recompile.
+   - Build `artifacts/banker_review_packet.md` with `scripts/build_banker_review_packet.py` and review page quality before treating content-quality validation as a formatting exercise.
    - Validate `template_registry`, `deck_blueprint`, `page_evidence_contract`, and `renderer_spec`.
 
 7. **Renderer Spec**
@@ -286,13 +344,18 @@ Formal one-shot sequence:
 
 8. **PPT**
    - Use `skills/fill-ppt/SKILL.md`.
-   - Prefer `run_pipeline.sh` after all formal upstream artifacts exist.
+   - Prefer the Python orchestrator after all formal upstream artifacts exist:
+     ```bash
+     "$PYTHON_CMD" scripts/pipeline.py render --run-dir "$RUN_DIR"
+     ```
+   - `run_pipeline.sh` remains a compatibility wrapper for older automation. Do not start from it when an existing attempt already contains validated upstream artifacts.
    - PPT generation uses PPT/runtime dependencies only; search-provider availability belongs to the research stage, not the fill pipeline.
    - The pipeline must pass `pre_ppt` stage gate before filling PPT.
    - Only final delivery validation can mark the deck complete.
 
 9. **Final report**
    - Report the run directory.
+   - Run quality summary is written to `artifacts/run_quality_summary.md` and `artifacts/run_quality_summary.json`.
    - Report the final PPT path only if final delivery validation passes.
    - Summarize validation status and warnings.
    - If blocked, report the failed gate and smallest next fix.
@@ -332,15 +395,28 @@ A formal delivery run should include:
 - `artifacts/stage_gate_pre_ppt_validation.json`
 - `replacement_dict.json`
 - `artifacts/replacement_dict_validation.json`
+- `industry_section_filled.pptx`
 - `industry_section_filled_clean.pptx`
 - `filled_ppt_validation.json`
+- `artifacts/banker_review_report.json`
 - `artifacts/final_delivery_validation.json`
+- `artifacts/run_quality_summary.json`
 
 Missing upstream artifacts mean the run is not formal delivery.
 
 ## Pipeline Use
 
-For formal PPT generation, run the packaged pipeline only after the formal upstream artifacts exist:
+For formal PPT generation from an existing validated attempt, use the Python orchestrator:
+
+```bash
+"$PYTHON_CMD" scripts/pipeline.py render --run-dir "$RUN_DIR"
+```
+
+This command operates on the current `attempt_*` directory. It does not create a new attempt, does not perform research, and does not write page judgments. It runs pre-PPT checks, replacement generation, PPT fill/clean/postprocess, filled-PPT validation, final delivery validation, run quality summary, and latest-run index updates.
+
+Use `scripts/pipeline.py status --run-dir "$RUN_DIR"` or `scripts/pipeline.py next --run-dir "$RUN_DIR"` when you need the current run state.
+
+`run_pipeline.sh` is retained for compatibility with older command surfaces:
 
 ```bash
 ./run_pipeline.sh \
@@ -355,6 +431,8 @@ If `--deck-blueprint` is already inside an `attempt_*` directory, the pipeline k
 that attempt as the package of record by default. Use `--new-attempt`,
 `--resume-active`, `--attempt-name`, or `--output-dir` only when intentionally
 creating or selecting a different attempt.
+
+During normal agent execution, do not choose `--new-attempt` or create a fresh attempt to escape stale or failed validation. Repair the current package-of-record attempt unless the user explicitly asks for a new attempt.
 
 ## Debug Mode
 
@@ -386,7 +464,7 @@ Debug reason examples that must be rejected:
 Formal delivery requires:
 
 - input card validation passing;
-- formal search plan validation passing as a lightweight issue/subissue research plan;
+- formal search plan validation passing as a full-taxonomy issue/subissue research plan;
 - formal research execution report passing;
 - pre-research pack gate passing;
 - research pack validation passing;
@@ -462,4 +540,4 @@ When blocked, preserve the attempt directory and report:
 
 Only report a final PPT from `LATEST_FINAL_PPT.txt` or from a run whose `artifacts/final_delivery_validation.json` is valid/client-ready.
 If `report_run_status.py` says `client_ready=false`, call the output a blocked run or debug artifact, never a completed delivery.
-If a PPT file exists but was not produced by `run_pipeline.sh` and validated by final delivery, mention it only as an invalid bypass artifact.
+If a PPT file exists but was not produced by the packaged deterministic pipeline and validated by final delivery, mention it only as an invalid bypass artifact.

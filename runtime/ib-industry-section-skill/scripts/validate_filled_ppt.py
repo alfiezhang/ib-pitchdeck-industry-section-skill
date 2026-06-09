@@ -55,6 +55,21 @@ DISALLOWED_VISIBLE_LABELS = {
     "SECONDARY TREND",
     "INDUSTRY ATTRACTIVENESS",
     "KEY INDUSTRY CHANGES BENEFITING TARGET",
+    "KEY MESSAGES",
+    "TARGET RELATIVE POSITIONING",
+    "WATCHLIST",
+    "OPEN DD QUESTIONS",
+    "UPSTREAM",
+    "MIDSTREAM",
+    "DOWNSTREAM",
+    "PROFIT POOL",
+    "KEY BARRIERS",
+    "TARGET POSITIONING",
+    "BUYER LOGIC",
+    "DILIGENCE FOCUS",
+    "EVIDENCE GAPS",
+    "KEY TAKEAWAYS",
+    "KEY TAKEAWAYS FOR TARGET",
     "SUMMARY_PAGE",
     "CHART_PAGE",
     "CHART_PLUS_MINI_TABLE_PAGE",
@@ -91,6 +106,8 @@ def is_disallowed_visible_label(text: str) -> bool:
     if upper.endswith("_PAGE"):
         return True
     if upper in DISALLOWED_VISIBLE_LABELS:
+        return True
+    if re.fullmatch(r"[a-z][a-z0-9]+(?:_[a-z0-9]+){1,5}", normalized):
         return True
     if re.fullmatch(r"(SUMMARY|CHART|DRIVER_CARD|VALUE_CHAIN|MOAT|COMPARE_TABLE|MATRIX|TREND|TIMELINE)_PAGE", upper):
         return True

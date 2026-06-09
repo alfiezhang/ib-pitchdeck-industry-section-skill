@@ -66,7 +66,7 @@ brief
 → final delivery validation
 ```
 
-`run_pipeline.sh` 不是从 brief 到 PPT 的一键入口。它只负责把已经通过正式研究和上游校验的 run package 渲染成 PPT。
+`scripts/pipeline.py render --run-dir <attempt_dir>` 是正式 PPT 渲染和 final gate 的首选入口。它只处理已经通过正式研究和上游校验的 run package，不从 brief 开始做研究，也不创建新的 attempt。`run_pipeline.sh` 保留为旧自动化兼容入口。
 
 ### 开发与测试
 
@@ -151,7 +151,7 @@ brief
 → final delivery validation
 ```
 
-`run_pipeline.sh` is not a one-command brief-to-PPT entrypoint. It only renders a run package that has already passed formal research and upstream validation.
+`scripts/pipeline.py render --run-dir <attempt_dir>` is the preferred entrypoint for formal PPT rendering and final delivery gates. It only operates on a run package that has already passed formal research and upstream validation; it does not start research from a brief or create a new attempt. `run_pipeline.sh` remains as a compatibility entrypoint for older automation.
 
 ### Development And Tests
 

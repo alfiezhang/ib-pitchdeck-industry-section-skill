@@ -11,14 +11,14 @@ This sub-skill is **not** an entrypoint for a new project brief. If the user pro
 
 This is a **deterministic script-driven step**. The LLM does not hand-write `replacement_dict.json`. It orchestrates the existing script pipeline and reports results.
 
-Formal delivery has exactly one PPT generation path: `run_pipeline.sh` using the
+Formal delivery has exactly one PPT generation path: the packaged deterministic pipeline using the
 compiled `renderer_spec.json`, `page_evidence_contract.json`, bundled template,
 and final delivery validator. Do not create `generate_ppt.py`, do not use
 ad-hoc `python-pptx` / PptxGenJS / LibreOffice / Keynote drawing scripts, and do
 not hand-build a PPT when the formal pipeline fails. A custom PPT file is a
 bypass artifact, not a skill delivery.
 
-Default interpreter: the single Python selected by `scripts/bootstrap_runtime.py`. `run_pipeline.sh` calls bootstrap automatically; do not manually run different pipeline steps with different Python interpreters.
+Default interpreter: the single Python selected by `scripts/bootstrap_runtime.py`. Set `PYTHON_CMD` once and pass the same interpreter to `scripts/pipeline.py`; do not manually run different pipeline steps with different Python interpreters.
 
 This step should require only PPT/runtime dependencies (`python-pptx`, `lxml`, etc.). Web-search providers are research-stage dependencies and must not block an already validated PPT package from rendering.
 
@@ -58,7 +58,16 @@ Use these markers sparingly for key numbers, one short takeaway phrase, or a sin
 
 ## Script Order
 
-For one-shot or delivery runs, use only the packaged pipeline:
+For one-shot or delivery runs with an existing validated attempt, use only the Python orchestrator:
+
+```bash
+"$PYTHON_CMD" scripts/pipeline.py render --run-dir "$RUN_DIR"
+```
+
+This operates inside the current attempt directory. It does not create a new
+attempt, does not perform research, and does not write page judgments.
+
+`run_pipeline.sh` remains a compatibility wrapper for older command surfaces:
 
 ```bash
 /path/to/skill/run_pipeline.sh \
@@ -67,7 +76,7 @@ For one-shot or delivery runs, use only the packaged pipeline:
   --deck-blueprint /path/to/run/deck_blueprint.json
 ```
 
-`run_pipeline.sh` owns the PPT stage sequence:
+The deterministic pipeline owns the PPT stage sequence:
 
 1. refresh upstream validations;
 2. run the pre-PPT stage gate;
@@ -82,9 +91,9 @@ Do not manually reproduce these steps during formal delivery. Direct script call
 are diagnostic only, because they are easy to run from the wrong working
 directory or with stale relative paths. If a direct script is used for diagnosis,
 run exactly one failing step, use absolute paths, write outputs under a temporary
-diagnostic directory, and return to `run_pipeline.sh` for the formal rerun.
+diagnostic directory, and return to `scripts/pipeline.py render --run-dir "$RUN_DIR"` for the formal rerun.
 
-If `run_pipeline.sh` exits non-zero, stop at the failed gate and report the
+If the packaged pipeline exits non-zero, stop at the failed gate and report the
 error. Do not continue with later scripts, do not create an `artifacts/`
 validation file by hand, and do not describe any generated PPT as complete. In
 formal mode, failed PPT outputs are renamed with `NOT_CLIENT_READY_`.
@@ -144,7 +153,13 @@ next action.
 
 ## Run Directory Convention
 
-Prefer running the packaged pipeline instead of invoking the seven scripts manually:
+Prefer running the Python orchestrator instead of invoking the seven scripts manually:
+
+```bash
+"$PYTHON_CMD" scripts/pipeline.py render --run-dir "$RUN_DIR"
+```
+
+If an older command surface requires the shell wrapper, pass an explicit package-of-record attempt:
 
 ```bash
 /path/to/skill/run_pipeline.sh \
@@ -153,7 +168,7 @@ Prefer running the packaged pipeline instead of invoking the seven scripts manua
   --deck-blueprint /path/to/work/deck_blueprint.json
 ```
 
-If `--deck-blueprint` is already inside an `attempt_*` directory, the pipeline keeps that attempt as the package of record by default. Otherwise, if no explicit output directory is provided, it writes generated artifacts under `<work_root>/runs/<case_slug>/attempt_<timestamp>/`. Pass `--case-name` when using a shared workspace so multiple projects do not mix under one top-level `runs` folder. Use `--new-attempt`, `--resume-active`, `--attempt-name`, or `--output-dir` only when intentionally creating, continuing, or selecting a different attempt.
+If `--deck-blueprint` is already inside an `attempt_*` directory, the shell wrapper keeps that attempt as the package of record by default. Otherwise, if no explicit output directory is provided, it writes generated artifacts under `<work_root>/runs/<case_slug>/attempt_<timestamp>/`. Pass `--case-name` when using a shared workspace so multiple projects do not mix under one top-level `runs` folder. Use `--new-attempt`, `--resume-active`, `--attempt-name`, or `--output-dir` only when intentionally creating, continuing, or selecting a different attempt.
 
 The pipeline writes `artifacts/stage_gate_pre_ppt_validation.json` and exits
 before PPT generation when the formal search plan, research pack, renderer spec, content

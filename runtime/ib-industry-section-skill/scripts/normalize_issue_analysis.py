@@ -280,13 +280,20 @@ def normalize(pool: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
             continue
         subissue = _normalize_subissue(raw.get("subissue", raw.get("issue_topic")), str(raw.get("issue_area") or ""))
         issue_area = _normalize_issue_area(raw.get("issue_area"), subissue)
+        attempted_statement = str(raw.get("attempted_statement") or raw.get("attempted_judgment") or "").strip()
+        reason = str(raw.get("reason") or "").strip()
+        if not reason:
+            reason = "Current research pack does not provide sufficient EV/MET support for a confident issue analysis."
+        needed_evidence = [str(item).strip() for item in _as_list(raw.get("needed_evidence")) if str(item).strip()]
+        if not needed_evidence:
+            needed_evidence = [f"Additional reviewed evidence for {issue_area}/{subissue} with clear source locator and scope."]
         normalized["research_backlog"].append(
             {
                 "issue_area": issue_area,
                 "subissue": _normalize_subissue(raw.get("subissue", raw.get("issue_topic")), issue_area),
-                "attempted_statement": str(raw.get("attempted_statement") or raw.get("attempted_judgment") or "").strip(),
-                "reason": str(raw.get("reason") or "").strip(),
-                "needed_evidence": [str(item).strip() for item in _as_list(raw.get("needed_evidence")) if str(item).strip()],
+                "attempted_statement": attempted_statement,
+                "reason": reason,
+                "needed_evidence": needed_evidence,
                 "research_action": str(raw.get("research_action") or "run_targeted_search").strip()
                 if str(raw.get("research_action") or "run_targeted_search").strip() in VALID_RESEARCH_ACTIONS
                 else "run_targeted_search",

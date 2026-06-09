@@ -538,6 +538,25 @@ PY
   --page-contract "$TMP_DIR/page_evidence_contract.json" \
   --output "$TMP_DIR/renderer_spec_validation.json" >/dev/null
 
+"$PYTHON_CMD" scripts/build_banker_review_report_skeleton.py \
+  --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
+  --page-contract "$TMP_DIR/page_evidence_contract.json" \
+  --renderer-spec "$TMP_DIR/renderer_spec.json" \
+  --output "$TMP_DIR/banker_review_report.json" >/dev/null
+
+"$PYTHON_CMD" - <<'PY'
+import json
+import os
+from pathlib import Path
+
+tmp = Path(os.environ["TMP_DIR"])
+report = json.loads((tmp / "banker_review_report.json").read_text(encoding="utf-8"))
+assert report["schema_version"] == "banker_review_report_skeleton_v1", report
+assert len(report["slide_reviews"]) == 8, report
+assert report["slide_reviews"][0]["repair_target"] == "deck_blueprint.json", report["slide_reviews"][0]
+assert report["slide_reviews"][0]["review_status"] == "pending_llm_banker_review", report["slide_reviews"][0]
+PY
+
 "$PYTHON_CMD" - <<'PY'
 import json
 import os
@@ -742,8 +761,16 @@ import sys
 import tempfile
 from pathlib import Path
 
+from build_formal_search_plan_skeleton import build_plan as build_formal_search_plan_skeleton
+from build_banker_review_report_skeleton import build_report as build_banker_review_report_skeleton
+from build_evidence_candidate_skeleton import build_candidates as build_evidence_candidate_skeleton
 from build_formal_research_execution_report_skeleton import build_report as build_formal_execution_skeleton
+from build_issue_analysis_skeleton import build_issue_analysis_skeleton
+from build_research_evidence_pack_skeleton import build_pack as build_research_evidence_pack_skeleton
+from build_source_reviews_skeleton import build_source_reviews as build_source_reviews_skeleton
 from build_source_archive import build_archive as build_source_archive
+from build_agent_handoff import build_handoff
+from generate_run_quality_summary import build_summary_payload
 from validate_formal_research_execution import validate as validate_formal_research_execution
 from validate_formal_research_execution import parse_search_attempts
 from validate_formal_search_plan import validate as validate_formal_search_plan
@@ -752,6 +779,7 @@ from validate_source_archive import validate as validate_source_archive
 from validate_source_reviews import validate as validate_source_reviews
 from validate_stage_gate import validate_stage
 from validate_run_state import validate_run_state
+from workflow import recommended_commands
 
 with tempfile.TemporaryDirectory() as tmp:
     run_dir = Path(tmp)
@@ -911,31 +939,21 @@ with tempfile.TemporaryDirectory() as tmp:
     assert any("scope_confidence_rationale" in item for item in missing_policy_errors), missing_policy_errors
     assert any("reconciliation_policy" in item for item in missing_policy_errors), missing_policy_errors
 
-    plan = {
-        "schema_version": "formal_search_plan_v1",
-        "meta": {"industry": "example"},
-        "industry_scope_pack": {"artifact_path": "artifacts/industry_scope_pack.json"},
-        "issue_search_plan": [
-            {
-                "issue_area": "market_size_growth",
-                "subissue": "current_market_size",
-                "research_question": "What is the current market size?",
-                "priority": "high",
-                "search_instructions": [{"instruction_id": "FS-001", "query": "sector market size formal source", "purpose": "Find a current market-size source."}],
-            },
-            {
-                "issue_area": "industry_structure",
-                "subissue": "value_chain",
-                "research_question": "Where does value accrue?",
-                "priority": "high",
-                "search_instructions": [{"instruction_id": "FS-002", "query": "sector value chain formal source", "purpose": "Find value-chain economics support."}],
-            },
-        ],
-    }
+    plan = build_formal_search_plan_skeleton(
+        {"industry": "sample sector", "geography": "Samplestan"},
+        {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
+    )
+    def fs_for(area, subissue):
+        for row in plan["issue_search_plan"]:
+            if row["issue_area"] == area and row["subissue"] == subissue:
+                return row["search_instructions"][0]["instruction_id"]
+        raise AssertionError(f"missing {area}/{subissue}")
+    market_fs = fs_for("market_size_growth", "current_market_size")
+    value_fs = fs_for("industry_structure", "value_chain")
     (artifacts / "formal_search_plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     plan_errors, plan_warnings = validate_formal_search_plan(plan)
     assert not plan_errors, plan_errors
-    assert any("high-priority issue has only" in item for item in plan_warnings), plan_warnings
+    assert len(plan["issue_search_plan"]) >= 40, len(plan["issue_search_plan"])
     (artifacts / "formal_search_plan_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": plan_warnings}, ensure_ascii=False), encoding="utf-8")
     invalid_plan = json.loads(json.dumps(plan))
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["instruction_id"] = "FS-001"
@@ -947,51 +965,80 @@ with tempfile.TemporaryDirectory() as tmp:
     bad_taxonomy_plan["issue_search_plan"][0]["subissue"] = "made_up_subissue"
     plan_errors, _ = validate_formal_search_plan(bad_taxonomy_plan)
     assert any("Valid subissues for 'market_size_growth'" in item for item in plan_errors), plan_errors
-    (artifacts / "search_log.md").write_text(
-        """# Search Log
-
-## Search Attempts
-
-### Search 1
-- Query: example industry definition
-- Provider: WebSearch
-- Search Stage: broad_discovery
-- Result Count: 5
-- Selected Sources: https://example.com/scope
-- Dimension: industry_definition_scope
-- Opened / Reviewed: yes
-- Source Locator / Raw Excerpt: section 1 explains the relevant industry boundary and source leads.
-
-### Search 2
-- Query: sector market size formal source
-- Provider: WebSearch
-- Search Stage: formal_research_execution
-- Search Instruction IDs: FS-001
-- Result Count: 4
-- Selected Sources: https://example.com/market-size
-- Dimension: market_size_growth
-- Opened / Reviewed: yes
-- Source Locator / Raw Excerpt: table 2 contains current market size and scope definition.
-
-### S-003
-- Query: sector value chain formal source
-- Provider: WebSearch
-- Search Stage: formal_research_execution
-- Search Instruction IDs: FS-002
-- Result Count: 4
-- Selected Sources: https://example.com/value-chain
-- Dimension: industry_structure
-- Opened / Reviewed: yes
-- Source Locator / Raw Excerpt: section 3 describes value chain economics and margin pools.
-""",
-        encoding="utf-8",
-    )
+    fs_to_attempt = {}
+    log_lines = [
+        "# Search Log",
+        "",
+        "## Search Attempts",
+        "",
+        "### Search 1",
+        "- Query: example industry definition",
+        "- Provider: WebSearch",
+        "- Search Stage: broad_discovery",
+        "- Result Count: 5",
+        "- Selected Sources: https://example.com/scope",
+        "- Dimension: industry_definition_scope",
+        "- Opened / Reviewed: yes",
+        "- Source Locator / Raw Excerpt: section 1 explains the relevant industry boundary and source leads.",
+        "",
+    ]
+    attempt_no = 2
+    for row in plan["issue_search_plan"]:
+        instruction = row["search_instructions"][0]
+        fs_id = instruction["instruction_id"]
+        attempt_id = f"S-{attempt_no:03d}"
+        fs_to_attempt[fs_id] = attempt_id
+        if fs_id == market_fs:
+            selected_sources = "https://example.com/market-size"
+            opened_reviewed = "yes"
+            excerpt = "table 2 contains current market size and scope definition."
+        elif fs_id == value_fs:
+            selected_sources = "https://example.com/value-chain"
+            opened_reviewed = "yes"
+            excerpt = "section 3 describes value chain economics and margin pools."
+        else:
+            selected_sources = f"https://example.com/research/{fs_id.lower()}"
+            opened_reviewed = "yes"
+            excerpt = "Reviewed synthetic contract-test page; no usable evidence was identified for promotion."
+        log_lines.extend(
+            [
+                f"### {attempt_id}",
+                f"- Query: {instruction['query']}",
+                "- Provider: WebSearch",
+                "- Search Stage: formal_research_execution",
+                f"- Search Instruction IDs: {fs_id}",
+                "- Result Count: 4",
+                f"- Selected Sources: {selected_sources}",
+                f"- Dimension: {row['issue_area']}",
+                f"- Opened / Reviewed: {opened_reviewed}",
+                f"- Source Locator / Raw Excerpt: {excerpt}",
+                "",
+            ]
+        )
+        attempt_no += 1
+    (artifacts / "search_log.md").write_text("\n".join(log_lines), encoding="utf-8")
+    source_reviews_skeleton = build_source_reviews_skeleton(artifacts / "search_log.md", formal_only=True)
+    assert source_reviews_skeleton["source_reviews"], source_reviews_skeleton
+    assert source_reviews_skeleton["source_reviews"][0]["source_review_id"] == "SRC-001", source_reviews_skeleton
+    assert source_reviews_skeleton["source_reviews"][0]["usable_as_evidence"] is False, source_reviews_skeleton
+    assert source_reviews_skeleton["source_reviews"][0]["evidence_use_tier"] == "lead_only", source_reviews_skeleton
+    skeleton_path = artifacts / "source_reviews_skeleton.json"
+    skeleton_path.write_text(json.dumps(source_reviews_skeleton, ensure_ascii=False, indent=2), encoding="utf-8")
+    skeleton_source_result = validate_source_reviews(skeleton_path, search_log_path=artifacts / "search_log.md")
+    assert skeleton_source_result["is_valid"], skeleton_source_result
+    reviews = []
+    for idx, row in enumerate(plan["issue_search_plan"], start=1):
+        instruction = row["search_instructions"][0]
+        fs_id = instruction["instruction_id"]
+        if fs_id == market_fs:
+            reviews.append({"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "locator": "table 2, current market-size row with geography and scope columns", "excerpt": "The report gives a current market-size datapoint with geography and scope.", "search_attempt_ids": [fs_to_attempt[market_fs]], "evidence_ids": ["EV-001"], "evidence_use_tier": "core_evidence", "claim_use_scope": "current market-size test fixture only", "usable_as_evidence": True})
+        elif fs_id == value_fs:
+            reviews.append({"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "locator": "section 3, value-chain economics paragraph and margin-pool discussion", "excerpt": "The source describes where value accrues across the example industry chain.", "search_attempt_ids": [fs_to_attempt[value_fs]], "evidence_ids": ["EV-002"], "evidence_use_tier": "contextual_evidence", "claim_use_scope": "value-chain directional test fixture only", "usable_as_evidence": True})
+        else:
+            reviews.append({"source_review_id": f"SRC-{idx + 100:03d}", "url": f"https://example.com/research/{fs_id.lower()}", "title": f"Synthetic review for {fs_id}", "locator": "contract-test reviewed page", "excerpt": "Reviewed synthetic contract-test page; no usable evidence was identified for promotion.", "search_attempt_ids": [fs_to_attempt[fs_id]], "evidence_ids": [], "evidence_use_tier": "lead_only", "claim_use_scope": "no formal claim support; keep as research gap", "usable_as_evidence": False})
     source_reviews = {
         "schema_version": "source_reviews_v1",
-        "reviews": [
-            {"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "locator": "table 2, current market-size row with geography and scope columns", "excerpt": "The report gives a current market-size datapoint with geography and scope.", "search_attempt_ids": ["S-002"], "evidence_ids": ["EV-001"], "usable_as_evidence": True},
-            {"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "locator": "section 3, value-chain economics paragraph and margin-pool discussion", "excerpt": "The source describes where value accrues across the example industry chain.", "search_attempt_ids": ["S-003"], "evidence_ids": ["EV-002"], "usable_as_evidence": True},
-        ],
+        "reviews": reviews,
     }
     (artifacts / "source_reviews.json").write_text(json.dumps(source_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
     archive_dir = artifacts / "source_archive"
@@ -1013,17 +1060,51 @@ with tempfile.TemporaryDirectory() as tmp:
         ],
     }
     (archive_dir / "source_archive_index.json").write_text(json.dumps(source_archive_index, ensure_ascii=False, indent=2), encoding="utf-8")
-    report = {
-        "schema_version": "formal_research_execution_report_v1",
-        "formal_research_completed_at": "2026-06-07T10:00:00",
-        "search_log": "artifacts/search_log.md",
-        "issue_results": [
-            {"result_id": "FR-001", "issue_area": "market_size_growth", "subissue": "current_market_size", "research_question": "What is the current market size?", "status": "supported", "search_instruction_ids": ["FS-001"], "search_attempt_ids": ["S-002"], "source_discovery_attempt_ids": ["S-001"], "selected_source_urls": ["https://example.com/market-size"], "source_review_ids": ["SRC-001"], "evidence_ids": ["EV-001"], "metric_ids": ["MET-001"], "findings_summary": "Current market size is source-backed with explicit scope.", "limitations": [], "research_pack_handling": "Promote to Evidence Ledger and Metric Reconciliation."},
-            {"result_id": "FR-002", "issue_area": "industry_structure", "subissue": "value_chain", "research_question": "Where does value accrue?", "status": "thin", "search_instruction_ids": ["FS-002"], "search_attempt_ids": ["S-003"], "source_discovery_attempt_ids": ["S-001"], "selected_source_urls": ["https://example.com/value-chain"], "source_review_ids": ["SRC-002"], "evidence_ids": ["EV-002"], "metric_ids": [], "findings_summary": "Value-chain economics are directionally supported.", "limitations": ["Quantified profit-pool data is not available."], "research_pack_handling": "Use as a caveated industry structure finding."},
-        ],
-        "coverage_summary": {"covered_issue_areas": ["market_size_growth", "industry_structure"], "thin_or_unresolved_subissues": ["industry_structure/value_chain"]},
-    }
+    report = build_formal_execution_skeleton(
+        plan=plan,
+        search_log_path=artifacts / "search_log.md",
+        reviews=source_reviews["reviews"],
+        search_log_ref="artifacts/search_log.md",
+        include_unexecuted=False,
+    )
+    for result in report["issue_results"]:
+        fs_id = result["search_instruction_ids"][0]
+        result["source_discovery_attempt_ids"] = ["S-001"]
+        if fs_id == market_fs:
+            result.update(
+                {
+                    "status": "supported",
+                    "selected_source_urls": ["https://example.com/market-size"],
+                    "source_review_ids": ["SRC-001"],
+                    "evidence_ids": ["EV-001"],
+                    "metric_ids": ["MET-001"],
+                    "findings_summary": "Current market size is source-backed with explicit scope.",
+                    "limitations": [],
+                    "research_pack_handling": "Promote to Evidence Ledger and Metric Reconciliation.",
+                }
+            )
+        elif fs_id == value_fs:
+            result.update(
+                {
+                    "status": "thin",
+                    "selected_source_urls": ["https://example.com/value-chain"],
+                    "source_review_ids": ["SRC-002"],
+                    "evidence_ids": ["EV-002"],
+                    "metric_ids": [],
+                    "findings_summary": "Value-chain economics are directionally supported.",
+                    "limitations": ["Quantified profit-pool data is not available."],
+                    "research_pack_handling": "Use as a caveated industry structure finding.",
+                }
+            )
+        else:
+            result["research_pack_handling"] = "Keep as a research gap/backlog unless later searches produce usable evidence."
     (artifacts / "formal_research_execution_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    candidate_skeleton = build_evidence_candidate_skeleton(report, source_reviews)
+    assert candidate_skeleton["evidence_candidates"], candidate_skeleton
+    assert any(item["candidate_evidence_id"] == "EV-001" for item in candidate_skeleton["evidence_candidates"]), candidate_skeleton
+    assert candidate_skeleton["metric_candidates"], candidate_skeleton
+    assert candidate_skeleton["metric_candidates"][0]["promotion_decision"] == "pending_llm_review", candidate_skeleton
+    (artifacts / "evidence_candidate_skeleton.json").write_text(json.dumps(candidate_skeleton, ensure_ascii=False, indent=2), encoding="utf-8")
     errors, warnings = validate_formal_research_execution(report, plan, artifacts / "search_log.md")
     assert not errors, errors
     (artifacts / "formal_research_execution_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": warnings}, ensure_ascii=False), encoding="utf-8")
@@ -1036,10 +1117,10 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     skeleton_errors, _ = validate_formal_research_execution(skeleton_report, plan, artifacts / "search_log.md")
     assert not skeleton_errors, skeleton_errors
-    assert skeleton_report["issue_results"][0]["search_instruction_ids"] == ["FS-001"], skeleton_report
-    assert skeleton_report["issue_results"][0]["search_attempt_ids"] == ["S-002"], skeleton_report
-    assert skeleton_report["issue_results"][0]["source_review_ids"] == ["SRC-001"], skeleton_report
-    assert skeleton_report["issue_results"][0]["status"] == "thin", skeleton_report
+    skeleton_by_fs = {item["search_instruction_ids"][0]: item for item in skeleton_report["issue_results"]}
+    assert skeleton_by_fs[market_fs]["search_attempt_ids"] == [fs_to_attempt[market_fs]], skeleton_report
+    assert skeleton_by_fs[market_fs]["source_review_ids"] == ["SRC-001"], skeleton_report
+    assert skeleton_by_fs[market_fs]["status"] == "thin", skeleton_report
     archive_result = validate_source_archive(source_reviews_path=artifacts / "source_reviews.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert archive_result["is_valid"], archive_result
     (artifacts / "source_archive_validation.json").write_text(json.dumps(archive_result, ensure_ascii=False), encoding="utf-8")
@@ -1080,13 +1161,23 @@ with tempfile.TemporaryDirectory() as tmp:
     (artifacts / "source_reviews_alias.json").write_text(json.dumps(alias_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
     alias_result = validate_source_reviews(artifacts / "source_reviews_alias.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert alias_result["is_valid"], alias_result
-    assert alias_result["review_count"] == 2, alias_result
-    field_alias_reviews = {
-        "source_reviews": [
-            {"review_id": "SRC-001", "source_url": "https://example.com/market-size", "source_title": "Example market size report", "source_locator": "table 2, current market-size row with geography and scope columns", "raw_excerpt": "The report gives a current market-size datapoint with geography and scope.", "search_attempt_ids": ["S-002"], "evidence_ids": ["EV-001"], "usable_as_evidence": True},
-            {"review_id": "SRC-002", "source_url": "https://example.com/value-chain", "source_title": "Example value chain report", "source_locator": "section 3, value-chain economics paragraph and margin-pool discussion", "raw_excerpt": "The source describes where value accrues across the example industry chain.", "search_attempt_ids": ["S-003"], "evidence_ids": ["EV-002"], "usable_as_evidence": True},
-        ]
-    }
+    assert alias_result["review_count"] == len(source_reviews["reviews"]), alias_result
+    field_alias_reviews = {"source_reviews": []}
+    for review in source_reviews["reviews"]:
+        field_alias_reviews["source_reviews"].append(
+            {
+                "review_id": review["source_review_id"],
+                "source_url": review["url"],
+                "source_title": review["title"],
+                "source_locator": review["locator"],
+                "raw_excerpt": review["excerpt"],
+                "search_attempt_ids": review["search_attempt_ids"],
+                "evidence_ids": review["evidence_ids"],
+                "evidence_use_tier": review["evidence_use_tier"],
+                "claim_use_scope": review["claim_use_scope"],
+                "usable_as_evidence": review["usable_as_evidence"],
+            }
+        )
     (artifacts / "source_reviews_field_alias.json").write_text(json.dumps(field_alias_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
     field_alias_result = validate_source_reviews(artifacts / "source_reviews_field_alias.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
     assert field_alias_result["is_valid"], field_alias_result
@@ -1103,6 +1194,38 @@ with tempfile.TemporaryDirectory() as tmp:
     stage_result = validate_stage("pre_research_pack", run_dir, None)
     assert stage_result["is_valid"], stage_result
     (artifacts / "stage_gate_pre_research_pack_validation.json").write_text(json.dumps(stage_result, ensure_ascii=False), encoding="utf-8")
+    evidence_pack_skeleton = build_research_evidence_pack_skeleton(
+        input_card={"industry": "sample sector", "geography": "Samplestan"},
+        scope_pack=scope_pack,
+        formal_search_plan=plan,
+        execution_report=report,
+        source_reviews=source_reviews,
+    )
+    assert "# industry research evidence pack" in evidence_pack_skeleton, evidence_pack_skeleton[:200]
+    assert "## Formal Research Extracts" in evidence_pack_skeleton, evidence_pack_skeleton[:500]
+    assert "LLM must extract the exact fact/metric candidate" in evidence_pack_skeleton, evidence_pack_skeleton[:1000]
+    assert "market_size_growth | current_market_size" in evidence_pack_skeleton, evidence_pack_skeleton[:2000]
+    research_pack_skeleton_path = run_dir / "industry_research_pack_skeleton.md"
+    research_pack_skeleton_path.write_text(evidence_pack_skeleton, encoding="utf-8")
+    issue_skeleton = build_issue_analysis_skeleton(research_pack_skeleton_path, report)
+    assert issue_skeleton["issue_analyses"], issue_skeleton
+    assert issue_skeleton["research_backlog"], issue_skeleton
+    issue_skeleton_path = run_dir / "industry_issue_analysis_skeleton.json"
+    issue_skeleton_path.write_text(json.dumps(issue_skeleton, ensure_ascii=False, indent=2), encoding="utf-8")
+    issue_skeleton_result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/validate_issue_analysis.py",
+            "--issue-analysis",
+            str(issue_skeleton_path),
+            "--research-pack",
+            str(research_pack_skeleton_path),
+        ],
+        text=True,
+        capture_output=True,
+    )
+    assert issue_skeleton_result.returncode != 0, issue_skeleton_result.stdout
+    assert "skeleton placeholder" in issue_skeleton_result.stdout, issue_skeleton_result.stdout
     state = validate_run_state(run_dir)
     assert state["current_stage"] == "RESEARCH_PACK_MISSING_OR_FAILED", state
     (run_dir / "industry_research_pack.md").write_text("validated research pack body", encoding="utf-8")
@@ -1129,6 +1252,25 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     state = validate_run_state(run_dir)
     assert state["current_stage"] == "TEMPLATE_REGISTRY_MISSING_OR_FAILED", state
+    handoff = build_handoff(run_dir, artifacts / "agent_handoff")
+    assert handoff["schema_version"] == "agent_handoff_index_v1", handoff
+    assert len(handoff["roles"]) == 7, handoff
+    assert (artifacts / "agent_handoff" / "format_qc.md").exists(), handoff
+    quality_payload = build_summary_payload(run_dir)
+    assert quality_payload["schema_version"] == "run_quality_summary_v2", quality_payload
+    assert quality_payload["verdict"] == "NOT_CLIENT_READY", quality_payload
+    assert quality_payload["next_repair_targets"], quality_payload
+    render_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "REPLACEMENT_DICT_MISSING_OR_FAILED"})
+    assert render_commands and "scripts/pipeline.py render" in render_commands[0]["command"], render_commands
+    final_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "FINAL_DELIVERY_NOT_READY"})
+    assert final_commands and "scripts/pipeline.py finalize" in final_commands[0]["command"], final_commands
+    pipeline_status = subprocess.run(
+        [sys.executable, "scripts/pipeline.py", "status", "--run-dir", str(run_dir)],
+        text=True,
+        capture_output=True,
+    )
+    assert pipeline_status.returncode == 0, pipeline_status.stderr
+    assert '"current_stage": "TEMPLATE_REGISTRY_MISSING_OR_FAILED"' in pipeline_status.stdout, pipeline_status.stdout
 
     invalid_report = json.loads(json.dumps(report))
     invalid_report["issue_results"][0]["search_attempt_ids"] = ["S-001"]

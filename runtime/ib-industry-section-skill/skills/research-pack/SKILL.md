@@ -31,7 +31,7 @@ Also read `references/execution_discipline.md` at task start. Apply its data con
 | User attachments | No | Pitchbook drafts, CIM extracts, equity research, consultant reports |
 | Existing `industry_research_pack.md` | No | If provided, this becomes expansion mode (refresh and deepen, don't start from scratch) |
 | `templates/source_registry.json` | Optional | Source packs and domains for explicit priority search |
-| `templates/formal_search_plan.template.json` | Yes | Planning artifact for executable formal research searches after thin industry scoping |
+| `templates/formal_search_plan.template.json` | Yes | Field reference for executable formal research searches after thin industry scoping; build the full taxonomy skeleton with `scripts/build_formal_search_plan_skeleton.py` first |
 | `templates/formal_research_execution_report.skeleton.json` | Yes | Minimal root structure for execution reporting; do not treat it as a fill-all template |
 
 ## Issue Analysis Artifact
@@ -52,6 +52,66 @@ Generate issue analyses by transforming research pack facts into industry issue 
 Rejected analyses must not flow into deck blueprint. Weak or single-source analyses may appear in body copy with caveats, but must not become confident headlines or chart anchors unless their `downstream_permission` allows it.
 
 Do not use issue analysis to decide slide numbers, page layout, template variants, headline claims, or visual composition. The research layer may say whether an analysis is chart/headline/body eligible; deck blueprint is responsible for page allocation and drafting.
+
+## Mechanical Skeleton Helpers
+
+Use scripts for mechanical ID and structure work before asking the LLM to make
+judgments:
+
+1. Build source reviews from search log selected URLs:
+   ```bash
+   "$PYTHON_CMD" scripts/build_source_reviews_skeleton.py \
+     --search-log "$RUN_DIR/artifacts/search_log.md" \
+     --output "$RUN_DIR/artifacts/source_reviews.json"
+   ```
+   Then the LLM reviews exact sources and fills locator, excerpt/paraphrase,
+   evidence tier, claim-use scope, and usability. The skeleton defaults to
+   `usable_as_evidence=false` and `lead_only`; this is not a judgment.
+
+2. Build formal research execution from plan/log/reviews:
+   ```bash
+   "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+     --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+     --search-log "$RUN_DIR/artifacts/search_log.md" \
+     --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+     --include-unexecuted \
+     --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+   ```
+   The LLM edits only judgment fields: `status`, `findings_summary`,
+   `limitations`, `research_pack_handling`, and any real EV/MET links.
+
+3. Build EV/MET candidate skeleton after source reviews:
+   ```bash
+   "$PYTHON_CMD" scripts/build_evidence_candidate_skeleton.py \
+     --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+     --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+     --output "$RUN_DIR/artifacts/evidence_candidate_skeleton.json"
+   ```
+   Candidate IDs are workspaces only. Promote rows into Evidence Ledger /
+   Metric Reconciliation only after source-faithful extraction and scope
+   reconciliation.
+
+4. Build research evidence pack skeleton:
+   ```bash
+   "$PYTHON_CMD" scripts/build_research_evidence_pack_skeleton.py \
+     --input-card "$RUN_DIR/input_card.json" \
+     --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+     --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+     --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+     --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+     --output "$RUN_DIR/industry_research_pack.md"
+   ```
+
+5. Build issue analysis skeleton after research pack validation:
+   ```bash
+   "$PYTHON_CMD" scripts/build_issue_analysis_skeleton.py \
+     --research-pack "$RUN_DIR/industry_research_pack.md" \
+     --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+     --output "$RUN_DIR/industry_issue_analysis.json"
+   ```
+   The generated file contains `TODO_REPLACE...` placeholders that are blocked
+   by `validate_issue_analysis.py`. Replace them with substantive issue
+   paragraphs from the evidence pack before validation.
 
 ### Issue Analysis Contract
 
@@ -133,6 +193,26 @@ before validation:
   --output industry_issue_analysis.json \
   --report artifacts/issue_analysis_normalization.json
 ```
+
+After normalization, always rerun `scripts/validate_issue_analysis.py`. If it
+still fails, read `artifacts/issue_analysis_validation.json.repair_plan` and
+repair by issue class:
+
+- `thin_analysis_text`: expand `analysis_text` from the research pack; include
+  evidence, mechanism, limitation, and pitch relevance.
+- `uncited_supporting_point`: add existing EV/MET IDs or turn the point into
+  `caveat` / `open_gap`.
+- `invalid_downstream_permission`: set `chart_allowed` / `headline_allowed`
+  false unless existing chart-ready MET IDs and sufficient support exist.
+- `missing_issue_coverage`: add a real analysis block or a complete
+  `research_backlog` item; do not invent unsupported analysis just to cover a
+  taxonomy row.
+- `backlog_shape`: fill `reason`, `needed_evidence`, `research_action`, and
+  `downstream_permission`.
+
+Do not create `deck_blueprint.json` until issue analysis validation passes.
+Do not replace a failed issue analysis with an empty array, and do not ask the
+user whether to bypass validation in a formal delivery run.
 
 ## Starting Modes
 
@@ -243,10 +323,16 @@ Execution order:
    - Do not write confirmed market size, growth rate, share, ranking, competitive landscape, valuation multiples, or page-ready claims.
    - Any number or directional finding encountered during broad discovery belongs only in `unvalidated_leads` with explicit `must_validate[]`.
 6. Validate the scope pack with `scripts/validate_industry_scope_pack.py`.
-7. Write `artifacts/formal_search_plan.json` using `templates/formal_search_plan.template.json`.
+7. Build `artifacts/formal_search_plan.json` with the full-taxonomy skeleton builder, then edit the generated research questions and queries:
+   ```bash
+   "$PYTHON_CMD" scripts/build_formal_search_plan_skeleton.py \
+     --input-card "$RUN_DIR/input_card.json" \
+     --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+     --output "$RUN_DIR/artifacts/formal_search_plan.json"
+   ```
 8. Validate the formal search plan with `scripts/validate_formal_search_plan.py`.
-9. The formal search plan must be issue/subissue based. Do not write investment hypotheses, transaction theses, or slide conclusions in the plan.
-10. For each relevant issue/subissue, write a research question and clear executable `search_instructions[]`: `FS-xxx`, exact query string, purpose, and optional source hint. Do not write broad search angles, investment hypotheses, or slide conclusions.
+9. The formal search plan must be issue/subissue based and must cover every canonical issue/subissue. Do not write investment hypotheses, transaction theses, or slide conclusions in the plan.
+10. For each issue/subissue, write or refine a research question and clear executable `search_instructions[]`: `FS-xxx`, exact query string, purpose, and optional source hint. Do not delete low-relevance subissues; execute them and downgrade weak results later in `formal_research_execution_report.json`.
 11. Run formal/latest/peer searches by executing the planned `FS-xxx` instructions as real search tool calls. For each executed instruction:
    - run WebSearch or the configured local search provider using the exact query string or a minimally improved equivalent;
    - append one real `S-xxx` attempt to `search_log.md` immediately;
@@ -264,7 +350,7 @@ Execution order:
    - set `Search Stage: formal_research_execution`, `latest_check`, or `peer_check`;
    - set `Search Instruction IDs: FS-xxx`;
    - record selected source URLs, opened/reviewed status, and source limitations honestly.
-12. Before writing the execution report, verify every `FS-xxx` kept in `formal_search_plan.json` has at least one real formal/latest/peer `S-xxx` attempt in `search_log.md`, or remove the unexecuted instruction from the plan.
+12. Before writing the execution report, verify every `FS-xxx` in `formal_search_plan.json` has at least one real formal/latest/peer `S-xxx` attempt in `search_log.md`. Do not remove unexecuted instructions from the plan to reduce coverage; run the search, then mark unavailable or insufficient only after execution.
 13. Build an initial execution-report skeleton from the plan and search log:
    ```bash
    "$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
@@ -273,10 +359,12 @@ Execution order:
      --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
    ```
 14. Write `artifacts/source_reviews.json` from `templates/source_reviews.template.json` for exact opened/reviewed page/report/PDF URLs.
-   - Use canonical field names: `source_review_id`, `url`, `title`, `locator`, `excerpt`, `search_attempt_ids`, `evidence_ids`, and `usable_as_evidence`.
+   - Use canonical field names: `source_review_id`, `url`, `title`, `locator`, `excerpt`, `search_attempt_ids`, `evidence_use_tier`, `claim_use_scope`, `evidence_ids`, and `usable_as_evidence`.
    - Validators tolerate common aliases to reduce repair loops, but new artifacts should use the template exactly.
-   - `usable_as_evidence=true` means the source was actually opened/reviewed and can support a named EV row.
-   - Use `usable_as_evidence=false` for search snippets, root domains, unavailable reports, mirrors/reposts without methodology, or pages that only provide a lead.
+   - First assign `evidence_use_tier`: `core_evidence`, `contextual_evidence`, `directional_only`, `lead_only`, or `rejected`.
+   - Then write `claim_use_scope`: the narrow downstream use this source can support, such as "online GMV proxy only" or "peer disclosure, not target verification".
+   - `usable_as_evidence=true` means the source was actually opened/reviewed, has a locator/excerpt, and can support a named EV row within its `claim_use_scope`.
+   - Use `usable_as_evidence=false` for search snippets, root domains, unavailable reports, mirrors/reposts without methodology, or pages that only provide a lead. Use `directional_only` or `lead_only` when the source helps research but should not directly feed EV/MET rows.
    - Do not batch-fill missing `usable_as_evidence` values with true. If validation flags missing fields, review each source and decide true/false from the locator, excerpt, source owner, and support for the claim.
 15. Rebuild `artifacts/formal_research_execution_report.json` from `templates/formal_research_execution_report.skeleton.json`, but do not hand-synchronize IDs. Use the skeleton builder with `source_reviews.json`, then edit the judgment fields:
    ```bash
@@ -355,18 +443,39 @@ Do not first rewrite taxonomy or reshape JSON unless the validator specifically 
 
 `industry_research_pack.md` following the structure defined in `references/industry_research_pack_template.md`.
 
-Do not write a custom abbreviated memo. Copy the section structure and table headers from the template. The validators parse exact section names and table headers.
+Do not write a custom abbreviated memo. Treat `industry_research_pack.md` as a research evidence binder: source-level extracts, EV/MET candidates, scope limitations, issue fact status, and gap audit. Copy the section structure and table headers from the template. The validators parse exact section names and table headers.
 
 This research pack is the stage contract for downstream reasoning:
 - deck blueprint and compiled renderer spec should not introduce new facts beyond it
 - weak, missing, or conflicting data should be visible here rather than silently corrected later
+
+Start the pack from the script skeleton so FR/SRC/issue taxonomy wiring is mechanical:
+
+```bash
+"$PYTHON_CMD" scripts/build_research_evidence_pack_skeleton.py \
+  --input-card "$RUN_DIR/input_card.json" \
+  --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --output "$RUN_DIR/industry_research_pack.md"
+```
+
+Then perform the LLM evidence-extraction pass:
+- replace each `Formal Research Extracts` placeholder with the actual fact or metric candidate from the reviewed source;
+- promote only source-supported facts into `Evidence Ledger` rows;
+- promote only scoped quantitative facts into `Metric Reconciliation` rows;
+- update `IB Issue Fact Inventory` statuses and EV/MET IDs from those ledgers;
+- complete `Research Gap Audit` from unresolved/thin FR rows and metric conflicts.
+
+The skeleton is not a valid final pack until these extraction fields are completed and validation passes.
 
 Required sections:
 - Project meta (target, industry, geography, transaction type, date)
 - **search plan** (references to industry scope pack, formal search plan, formal research execution, and selected source rationale; no separate coverage checklist)
 - **Scope Boundary** (confirm pre-mandate transaction-oriented industry section, not generic report / consulting study / company deep dive)
 - **Scope Pack And Formal Research Execution Summary** (project classification, issue/subissue research actually executed, source reviews, limitations)
-- **Formal Research Extracts** (one row or bullet group per material `FR-xxx` / `SRC-xxx`, preserving source locator, reviewed excerpt, extracted fact, metric candidate, status, and limitations)
+- **Formal Research Extracts** (one row or bullet group per material `FR-xxx` / `SRC-xxx`, preserving source locator, reviewed excerpt, extracted fact, metric candidate, status, and limitations; this is the evidence-extraction workspace, not narrative)
 - **Source Selection Rationale** (why selected packs/domains are relevant, and what was intentionally excluded)
 - Deal context (why this industry section matters for this transaction)
 - Target business summary

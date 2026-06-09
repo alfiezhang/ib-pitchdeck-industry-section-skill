@@ -202,6 +202,72 @@ def _check_text_quality(slide: dict[str, Any], prefix: str, errors: list[str], w
         errors.append(f"{prefix}: duplicate body block copy; each active field needs a distinct page role")
 
 
+def build_warning_repair_plan(warnings: list[str]) -> dict[str, Any]:
+    targets: list[dict[str, Any]] = []
+    for warning in warnings:
+        warning_text = str(warning)
+        if "headline may be a label" in warning_text:
+            targets.append(
+                {
+                    "warning": warning_text,
+                    "repair_target": "deck_blueprint.json",
+                    "repair_fields": ["slides[].headline", "slides[].page_thesis", "slides[].main_message"],
+                    "repair_hint": (
+                        "Rewrite the headline as a client-facing conclusion with implication, not a topic label. "
+                        "Use the structure: judgment + quantified support or transaction relevance. "
+                        "Example: replace 'Competitive Landscape' with 'Fragmented competition leaves room for specialist base-makeup brands if channel economics hold'."
+                    ),
+                }
+            )
+        elif "headline looks too thin" in warning_text:
+            targets.append(
+                {
+                    "warning": warning_text,
+                    "repair_target": "deck_blueprint.json",
+                    "repair_fields": ["slides[].headline"],
+                    "repair_hint": "Expand the headline enough to carry the page argument; do not use a short label or isolated metric.",
+                }
+            )
+        elif "headline duplicates page_thesis" in warning_text:
+            targets.append(
+                {
+                    "warning": warning_text,
+                    "repair_target": "deck_blueprint.json",
+                    "repair_fields": ["slides[].headline", "slides[].page_thesis"],
+                    "repair_hint": "Keep page_thesis as the planning statement and rewrite headline as polished PPT copy.",
+                }
+            )
+        elif "target_field" in warning_text or "active field" in warning_text:
+            targets.append(
+                {
+                    "warning": warning_text,
+                    "repair_target": "deck_blueprint.json",
+                    "repair_fields": ["slides[].body_blocks[].target_field"],
+                    "repair_hint": "Use only active fields listed in the validator message or describe_slide_fields.py for the selected page type.",
+                }
+            )
+    if not targets:
+        return {
+            "status": "no_warning_repairs_required",
+            "targets": [],
+            "instruction": "No deck-blueprint warnings require structured repair.",
+        }
+    return {
+        "status": "advisory_repair_recommended",
+        "instruction": (
+            "Warnings are not schema failures, but they often explain why a technically valid deck feels thin or mechanical. "
+            "Repair the listed deck_blueprint fields before compiling when the warning affects client-facing page quality."
+        ),
+        "targets": targets,
+        "rerun_steps": [
+            "scripts/validate_deck_blueprint.py",
+            "scripts/compile_deck_blueprint.py",
+            "scripts/validate_renderer_spec.py",
+            "scripts/validate_content_quality.py",
+        ],
+    }
+
+
 def validate(
     deck_blueprint: dict[str, Any],
     issue_analysis: dict[str, Any],
@@ -412,6 +478,7 @@ def main() -> int:
         "warning_count": len(warnings),
         "errors": errors,
         "warnings": warnings,
+        "warning_repair_plan": build_warning_repair_plan(warnings),
     }
     text = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:

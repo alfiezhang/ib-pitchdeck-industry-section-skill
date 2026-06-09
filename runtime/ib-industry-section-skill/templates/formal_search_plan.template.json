@@ -24,6 +24,7 @@
       "formal_research_seed_questions"
     ]
   },
+  "builder_instruction": "Do not copy this template as a final plan. First run scripts/build_formal_search_plan_skeleton.py to generate one issue_search_plan row for every canonical issue_area/subissue, then edit the generated research questions, queries, purposes, and source hints. The validator requires full taxonomy coverage.",
   "allowed_issue_taxonomy": {
     "instruction": "Use only these issue_area/subissue pairs. Do not invent new subissue names; if a topic does not fit, choose the closest valid subissue and note the limitation in research_question.",
     "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],
@@ -34,7 +35,7 @@
     "competitive_dynamics": ["basis_of_competition", "winners_losers", "new_entrants", "substitutes_or_adjacent_risk", "differentiation_durability", "consolidation_logic"],
     "pitch_relevance_target_context": ["why_sector_relevant", "target_context_fit", "evidence_limits", "discussion_implications"]
   },
-  "planning_instruction": "Create only the relevant issue/subissue entries after reading industry_scope_pack.json. For each entry, write clear executable search instructions: exact query strings the next step should actually run. Cover required reconciliations and important unvalidated leads. Do not write investment hypotheses, validated findings, slide conclusions, or page plans.",
+  "planning_instruction": "Cover every canonical issue_area/subissue after reading industry_scope_pack.json. For each entry, write clear executable search instructions: exact query strings the next step should actually run. Cover required reconciliations and important unvalidated leads. Do not write investment hypotheses, validated findings, slide conclusions, or page plans. Do not delete low-relevance subissues; execute them and later mark findings thin/insufficient/unavailable if evidence is weak.",
   "issue_search_plan": [
     {
       "issue_area": "market_size_growth",

@@ -1,4 +1,8 @@
-# industry research pack
+# industry research evidence pack
+
+> Evidence binder, not a narrative memo. Preserve source-level extracts,
+> candidate facts/metrics, limitations, EV/MET promotion decisions, issue fact
+> status, and research gaps. Do not write page strategy or slide copy here.
 
 ## Project Meta
 Target Company:
@@ -77,6 +81,7 @@ Formal Research Execution Results:
 ## Formal Research Extracts
 > Preserve the raw research substrate before synthesis. This section is not page strategy and not slide copy.
 > For every material `FR-xxx` and `SRC-xxx`, include the reviewed locator/excerpt, extracted fact, metric candidates, limitations, and whether the item is promoted to EV/MET. This prevents the research pack from becoming an over-compressed memo.
+> Start from `scripts/build_research_evidence_pack_skeleton.py`; then replace extraction placeholders with source-faithful facts/metrics. Do not delete thin or insufficient rows to make the file shorter.
 
 | Result ID | Source Review ID | Search Attempt IDs | Source URL | Locator | Reviewed Excerpt / Paraphrase | Extracted Fact Or Metric Candidate | Status | Promoted EV/MET IDs | Limitations |
 |---|---|---|---|---|---|---|---|---|---|

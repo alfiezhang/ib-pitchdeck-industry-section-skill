@@ -32,7 +32,7 @@ Do not wait until after drafting to discover these rules.
 Choose the smallest workflow that satisfies the user request:
 
 1. New industry section from a brief or attachments:
-   - Run full workflow: intake -> scope boundary -> industry scope pack -> lightweight issue/subissue search plan -> formal research execution -> source reviews/source archive -> research pack -> gap audit -> supplemental research if needed -> issue analysis -> template registry -> deck blueprint -> compile page evidence contract / renderer spec -> replacement dictionary -> PPT fill -> QC.
+   - Run full workflow: intake -> scope boundary -> industry scope pack -> full-taxonomy issue/subissue search plan -> formal research execution -> source reviews/source archive -> research pack -> gap audit -> supplemental research if needed -> issue analysis -> template registry -> deck blueprint -> compile page evidence contract / renderer spec -> replacement dictionary -> PPT fill -> QC.
 2. Existing industry PPT improvement:
    - Extract current storyline and slide content; audit content gaps, source gaps, metric consistency, and template fit; regenerate only necessary pages unless the user asks for a full rebuild.
 3. Research-only update:
@@ -49,7 +49,7 @@ Maintain this internally for one-shot runs:
 - [ ] Intake and input-card validation
 - [ ] Scope boundary read
 - [ ] Industry scope pack validation
-- [ ] Lightweight issue/subissue search plan
+- [ ] Full-taxonomy issue/subissue search plan
 - [ ] Formal research execution validation
 - [ ] Source reviews validation
 - [ ] Source archive validation

@@ -61,6 +61,21 @@ SCAFFOLD_LABELS = {
     "SECONDARY TREND",
     "INDUSTRY ATTRACTIVENESS",
     "KEY INDUSTRY CHANGES BENEFITING TARGET",
+    "KEY MESSAGES",
+    "TARGET RELATIVE POSITIONING",
+    "WATCHLIST",
+    "OPEN DD QUESTIONS",
+    "UPSTREAM",
+    "MIDSTREAM",
+    "DOWNSTREAM",
+    "PROFIT POOL",
+    "KEY BARRIERS",
+    "TARGET POSITIONING",
+    "BUYER LOGIC",
+    "DILIGENCE FOCUS",
+    "EVIDENCE GAPS",
+    "KEY TAKEAWAYS",
+    "KEY TAKEAWAYS FOR TARGET",
     "DRIVER 1",
     "DRIVER 2",
     "DRIVER 3",
@@ -84,6 +99,7 @@ SCAFFOLD_LABELS = {
     "competitive_landscape",
     "industry_trends_future_evolution",
     "transaction_implications",
+    "key_takeaways_for_target",
 }
 
 DEFAULT_RENDER_LAYOUTS_PATH = Path(__file__).resolve().parents[1] / "templates" / "render_layouts.json"
@@ -211,6 +227,21 @@ def set_single_paragraph(shape, text: str) -> None:
     run.font.name = BODY_FONT
 
 
+def is_scaffold_label(text: str) -> bool:
+    stripped = " ".join(str(text or "").strip().split())
+    if not stripped:
+        return False
+    upper = stripped.upper()
+    scaffold_upper = {label.upper() for label in SCAFFOLD_LABELS}
+    if stripped in SCAFFOLD_LABELS or upper in scaffold_upper:
+        return True
+    if upper.endswith("_PAGE"):
+        return True
+    if re.fullmatch(r"[a-z][a-z0-9]+(?:_[a-z0-9]+){1,5}", stripped):
+        return True
+    return False
+
+
 def remove_scaffold_labels(prs: Presentation) -> list[dict]:
     removed = []
     for slide_idx, slide in enumerate(prs.slides, start=1):
@@ -218,7 +249,7 @@ def remove_scaffold_labels(prs: Presentation) -> list[dict]:
             if not hasattr(shape, "text"):
                 continue
             text = shape.text.strip()
-            if text in SCAFFOLD_LABELS or text.upper().endswith("_PAGE"):
+            if is_scaffold_label(text):
                 clear_text(shape)
                 removed.append({"slide_no": slide_idx, "label": text, "shape_name": shape.name})
     return removed
@@ -1430,7 +1461,7 @@ def main() -> None:
             "output_ppt": args.output,
             "is_valid": False,
             "error": f"{type(exc).__name__}: {exc}",
-            "repair_hint": "Run via run_pipeline.sh or pass absolute --input-ppt, --renderer-spec, --output, and --render-layouts paths. Use templates/render_layouts.json, not template_registry.json.",
+            "repair_hint": "Run via scripts/pipeline.py render --run-dir <attempt_dir>, or pass absolute --input-ppt, --renderer-spec, --output, and --render-layouts paths for a single diagnostic step. Use templates/render_layouts.json, not template_registry.json.",
             "chart_rendering": [],
         }
         if args.log:

@@ -24,7 +24,8 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
   vocabulary, category boundaries, data hierarchy, reconciliation risks, and
   unvalidated source leads.
 - Formal research execution is the research gate. The search plan itself is not
-  a hypothesis gate.
+  a hypothesis gate, but it must cover every canonical issue/subissue so
+  downstream issue analysis is not starved of source material.
 
 ## Source Priority
 
@@ -76,8 +77,16 @@ Recommended sequence:
      --scope-pack artifacts/industry_scope_pack.json \
      --output artifacts/industry_scope_pack_validation.json
    ```
-8. Write `artifacts/formal_search_plan.json` using
-   `templates/formal_search_plan.template.json`.
+8. Build `artifacts/formal_search_plan.json` from the full-taxonomy skeleton,
+   then edit queries using the scope pack:
+   ```bash
+   "$PYTHON_CMD" scripts/build_formal_search_plan_skeleton.py \
+     --input-card "$RUN_DIR/input_card.json" \
+     --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+     --output "$RUN_DIR/artifacts/formal_search_plan.json"
+   ```
+   Use `templates/formal_search_plan.template.json` for field meaning, not as a
+   final copy/paste artifact.
 9. Validate `artifacts/formal_search_plan.json` with
    `scripts/validate_formal_search_plan.py` before executing formal searches.
 
@@ -86,8 +95,8 @@ competitive landscape, or page-ready claims in the scope pack. Any number found
 during broad discovery is an unvalidated lead until formal research execution
 promotes it.
 
-The search plan must be issue/subissue based. Reuse the same issue taxonomy as
-`industry_issue_analysis.json`:
+The search plan must be issue/subissue based and must include every canonical
+subissue from the same taxonomy used by `industry_issue_analysis.json`:
 
 - `market_size_growth`
 - `demand_customer_logic`
@@ -97,12 +106,13 @@ The search plan must be issue/subissue based. Reuse the same issue taxonomy as
 - `competitive_dynamics`
 - `pitch_relevance_target_context`
 
-Do not write investment hypotheses in the search plan. For each relevant
+Do not write investment hypotheses in the search plan. For every
 issue/subissue, write a research question and one or more executable
 `search_instructions[]` with exact query strings the next step should actually
-run. The plan can be incomplete when an issue is not relevant, but every planned
-`FS-xxx` instruction must be executed or removed before formal research
-validation.
+run. Do not delete low-relevance subissues. If a subissue turns out to be weak,
+irrelevant, unavailable, or not comparable after real searching, keep it in the
+formal execution report with `thin`, `insufficient`, or
+`unavailable_after_research` status and limitations.
 
 ## Formal Research Execution
 
@@ -147,7 +157,9 @@ limitations, handling, and EV/MET IDs from the actual source support.
 ```
 
 The generated/edited report should contain one `issue_results[]` entry per
-executed planned instruction or explicit gap:
+planned instruction. Since the formal search plan covers the full taxonomy,
+this report is where weak or unavailable topics are downgraded; do not remove
+them from the plan to avoid work:
 
 - `result_id`: `FR-001`, `FR-002`, ...
 - `issue_area` / `subissue`
@@ -167,8 +179,8 @@ executed planned instruction or explicit gap:
 
 Start from `templates/formal_research_execution_report.skeleton.json` only for
 the root structure if the helper cannot be used. Do not treat it as a fill-all
-template, and do not create results for unresearched issues just to populate the
-JSON.
+template. If an issue was weak, perform the search and mark it weak; do not
+pretend unsearched issues were researched.
 
 `selected_source_urls` means exact URLs actually opened/reviewed and represented
 in `source_reviews.json`; it is not a list of all search-result URLs. Leave
@@ -223,7 +235,22 @@ Validate formal execution and source reviews before writing the research pack:
 ```
 
 Do not write `industry_research_pack.md` until this pre-research-pack gate
-passes.
+passes. After it passes, build the evidence-pack skeleton first:
+
+```bash
+"$PYTHON_CMD" scripts/build_research_evidence_pack_skeleton.py \
+  --input-card "$RUN_DIR/input_card.json" \
+  --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --output "$RUN_DIR/industry_research_pack.md"
+```
+
+The skeleton is a research evidence binder scaffold, not a narrative memo and
+not a valid final pack by itself. The LLM must then extract facts/metrics from
+reviewed source rows, promote supported items into EV/MET ledgers, update issue
+fact status, and complete the gap audit before validation.
 
 ## Data Conflicts
 
@@ -249,6 +276,8 @@ audit cards. Use a root object with `schema_version: source_reviews_v1` and a
 - `excerpt`;
 - `search_attempt_ids`;
 - `evidence_ids` when applicable;
+- `evidence_use_tier`;
+- `claim_use_scope`;
 - `usable_as_evidence`.
 
 Start from `templates/source_reviews.template.json`. Validators tolerate common aliases such as `review_id`, `source_url`, and `source_title` to reduce repair loops, but new artifacts should use the canonical field names above.
@@ -263,6 +292,22 @@ strength. Set it to false for search snippets, root domains, unavailable
 reports, weak mirrors/reposts without methodology, and pages that only identify
 a lead for later research. Do not batch-convert missing values to true merely to
 pass validation.
+
+Before setting the boolean, assign a source-use tier:
+
+- `core_evidence`: source can support a formal EV/MET row and may feed a chart
+  or headline if the linked issue analysis permits it.
+- `contextual_evidence`: source can support body-copy context or caveated
+  implications, but should not be the sole basis for a headline or chart.
+- `directional_only`: source can guide research or provide directional color,
+  but do not promote its numbers into Metric Reconciliation unless corroborated.
+- `lead_only`: source only suggests where to look next.
+- `rejected`: source was reviewed and found unusable for this run.
+
+Also write `claim_use_scope` in plain language. Examples: "historical category
+definition only", "online GMV proxy, not all-channel market size", or
+"peer product ranking disclosure only". This prevents a weak but opened source
+from being overused downstream simply because `usable_as_evidence=true`.
 
 For every non-user source with `usable_as_evidence=true`, archive a reviewable
 snapshot under `artifacts/source_archive/` and list it in

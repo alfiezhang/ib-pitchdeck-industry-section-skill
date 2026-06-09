@@ -370,7 +370,7 @@ def validate(
         errors.append(
             "formal research execution report missing planned issue/subissue result(s): "
             + ", ".join(f"{area}/{subissue}" for area, subissue in missing_planned[:20])
-            + ". Add an FR-xxx result for each executed or unresolved planned issue/subissue, or remove unexecuted FS-xxx from the plan before validation."
+            + ". Add an FR-xxx result for each executed or unresolved planned issue/subissue. Do not remove taxonomy rows from formal_search_plan.json to reduce coverage."
         )
         if len(missing_planned) > 20:
             errors.append(f"...and {len(missing_planned) - 20} more planned issue/subissue result(s)")
@@ -395,7 +395,7 @@ def validate(
             "formal research execution report did not execute planned search instruction(s): "
             + ", ".join(missing_instructions[:20])
             + ". Run real formal searches for these FS-xxx instructions, append S-xxx entries to search_log.md, "
-            + "then reference those S-xxx IDs in search_attempt_ids; or remove truly unexecuted instructions from formal_search_plan.json before validation."
+            + "then reference those S-xxx IDs in search_attempt_ids. Do not delete planned taxonomy coverage to pass validation."
         )
         if len(missing_instructions) > 20:
             errors.append(f"...and {len(missing_instructions) - 20} more planned search instruction(s)")

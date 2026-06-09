@@ -63,6 +63,16 @@ VALID_RESEARCH_ACTIONS = {
     "request_user_or_management_input",
     "mark_unavailable_after_research",
 }
+PLACEHOLDER_MARKERS = (
+    "TODO",
+    "TODO_REPLACE",
+    "LLM must",
+    "LLM MUST",
+    "replace with",
+    "mechanical placeholder",
+    "skeleton",
+    "占位",
+)
 PAGE_SPECIFIC_FIELDS = {
     "recommended_slide_roles",
     "slide_no",
@@ -174,6 +184,11 @@ def _supporting_point_ids(analysis: dict[str, Any], key: str) -> list[str]:
     return values
 
 
+def _contains_placeholder(value: Any) -> bool:
+    text = str(value or "")
+    return any(marker in text for marker in PLACEHOLDER_MARKERS)
+
+
 def _analysis_ids_by_subissue(analyses: list[dict[str, Any]]) -> set[tuple[str, str]]:
     covered: set[tuple[str, str]] = set()
     for analysis in analyses:
@@ -249,6 +264,11 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
         for field in ("core_statement", "analysis_text", "analysis_type", "issue_area", "subissue", "status", "evidence_sufficiency"):
             if not _non_empty_text(analysis.get(field)):
                 errors.append(f"{prefix}: {field} is required")
+        for field in ("core_statement", "analysis_text"):
+            if _contains_placeholder(analysis.get(field)):
+                errors.append(
+                    f"{prefix}: {field} still contains skeleton placeholder text; replace it with substantive issue analysis from the research pack"
+                )
 
         source_execution_result_ids = [
             str(item).strip()
@@ -316,6 +336,8 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
                 continue
             if not _non_empty_text(point.get("point")):
                 errors.append(f"{point_prefix}.point is required")
+            elif _contains_placeholder(point.get("point")):
+                errors.append(f"{point_prefix}.point still contains skeleton placeholder text")
             role = str(point.get("role") or "").strip()
             if role not in VALID_POINT_ROLES:
                 errors.append(f"{point_prefix}.role must be one of {sorted(VALID_POINT_ROLES)}")
@@ -423,6 +445,152 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
     return errors, warnings
 
 
+def _repair_class(error: str) -> str:
+    if "issue_analyses must be a non-empty array" in error:
+        return "missing_issue_analysis"
+    if "status must be one of" in error or "analysis_type must be one of" in error or "evidence_sufficiency must be one of" in error:
+        return "mechanical_alias_or_enum"
+    if "analysis_text is too short" in error:
+        return "thin_analysis_text"
+    if "supporting_points" in error and "must cite evidence_ids or metric_ids" in error:
+        return "uncited_supporting_point"
+    if "skeleton placeholder" in error:
+        return "skeleton_placeholder"
+    if "chart_allowed requires" in error:
+        return "invalid_downstream_permission"
+    if error.startswith("missing issue coverage"):
+        return "missing_issue_coverage"
+    if "research_backlog" in error:
+        return "backlog_shape"
+    if "missing from research pack IB Issue Fact Inventory" in error:
+        return "research_pack_inventory_mismatch"
+    if "page-specific field" in error:
+        return "page_logic_in_issue_analysis"
+    return "other"
+
+
+REPAIR_PROFILES: dict[str, dict[str, Any]] = {
+    "missing_issue_analysis": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Rebuild issue_analyses from the research pack IB Issue Fact Inventory and formal_research_execution_report. Do not proceed to deck_blueprint with an empty analysis array.",
+        "repair_fields": ["issue_analyses", "research_backlog"],
+    },
+    "mechanical_alias_or_enum": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Run scripts/normalize_issue_analysis.py first, then revalidate. This handles common aliases such as sufficient/thin statuses and renamed fields.",
+        "repair_fields": ["issue_analyses[].status", "issue_analyses[].analysis_type", "issue_analyses[].evidence_sufficiency"],
+        "helper": "scripts/normalize_issue_analysis.py",
+    },
+    "thin_analysis_text": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Expand each analysis_text into a substantive issue paragraph using the research pack: evidence, mechanism, limitation, and why it matters for the pitch. Do not shorten to pass PPT copy limits.",
+        "repair_fields": ["issue_analyses[].analysis_text", "issue_analyses[].core_statement", "issue_analyses[].limitations"],
+    },
+    "skeleton_placeholder": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "A helper generated issue-analysis structure, but the LLM has not written the banker analysis yet. Replace TODO/skeleton text with core_statement, analysis_text, and supporting point language grounded in the research evidence pack.",
+        "repair_fields": ["issue_analyses[].core_statement", "issue_analyses[].analysis_text", "issue_analyses[].supporting_points[].point"],
+    },
+    "uncited_supporting_point": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Attach existing EV/MET IDs from the research pack to factual supporting points. If no evidence exists, change the point role to caveat/open_gap or move it to research_backlog.",
+        "repair_fields": ["issue_analyses[].supporting_points[]"],
+    },
+    "invalid_downstream_permission": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "If an analysis lacks chart-ready MET IDs or sufficient evidence, set chart_allowed/headline_allowed false. Only add MET IDs when they already exist in Metric Reconciliation.",
+        "repair_fields": ["issue_analyses[].downstream_permission", "issue_analyses[].metric_ids"],
+    },
+    "backlog_shape": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Complete each research_backlog item with reason, needed_evidence, research_action, and downstream_permission. Backlog is a valid way to cover unsupported subissues.",
+        "repair_fields": ["research_backlog[]"],
+    },
+    "missing_issue_coverage": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "For each missing issue/subissue, either add a supported issue analysis or add a research_backlog item explaining why evidence is insufficient. Do not invent a confident analysis just to cover taxonomy.",
+        "repair_fields": ["issue_analyses[]", "research_backlog[]"],
+    },
+    "research_pack_inventory_mismatch": {
+        "repair_target": "industry_research_pack.md",
+        "repair_hint": "Align issue_area/subissue with the IB Issue Fact Inventory, or update the research pack inventory if the analysis is genuinely supported by formal evidence.",
+        "repair_fields": ["IB Issue Fact Inventory", "issue_analyses[].issue_area", "issue_analyses[].subissue"],
+    },
+    "page_logic_in_issue_analysis": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Move slide numbers, page roles, headline claims, chart fields, and page evidence decisions to deck_blueprint/compiled artifacts. Issue analysis only owns research judgment and downstream permissions.",
+        "repair_fields": ["issue_analyses[]"],
+    },
+    "other": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Read the validator error literally, repair the upstream research judgment artifact, then rerun validate_issue_analysis.py.",
+        "repair_fields": ["issue_analyses", "research_backlog"],
+    },
+}
+
+
+def build_repair_plan(errors: list[str]) -> dict[str, Any]:
+    if not errors:
+        return {
+            "status": "no_issue_analysis_repairs_required",
+            "primary_repair_targets": [],
+            "targets": [],
+            "rerun_steps": [],
+        }
+    grouped: dict[str, list[str]] = {}
+    for error in errors:
+        grouped.setdefault(_repair_class(str(error)), []).append(str(error))
+    ordered_keys = [
+        "missing_issue_analysis",
+        "mechanical_alias_or_enum",
+        "thin_analysis_text",
+        "skeleton_placeholder",
+        "uncited_supporting_point",
+        "invalid_downstream_permission",
+        "backlog_shape",
+        "missing_issue_coverage",
+        "research_pack_inventory_mismatch",
+        "page_logic_in_issue_analysis",
+        "other",
+    ]
+    targets: list[dict[str, Any]] = []
+    primary_targets: list[str] = []
+    for key in ordered_keys:
+        issues = grouped.get(key)
+        if not issues:
+            continue
+        profile = REPAIR_PROFILES[key]
+        target = str(profile["repair_target"])
+        if target not in primary_targets:
+            primary_targets.append(target)
+        entry = {
+            "issue_class": key,
+            "count": len(issues),
+            "sample_errors": issues[:6],
+            "repair_target": target,
+            "repair_fields": profile["repair_fields"],
+            "repair_hint": profile["repair_hint"],
+        }
+        if profile.get("helper"):
+            entry["helper"] = profile["helper"]
+        targets.append(entry)
+    return {
+        "status": "repair_required",
+        "instruction": (
+            "Do not proceed to deck_blueprint or PPT while issue_analysis is invalid. "
+            "Repair the listed upstream artifacts in the same RUN_DIR, rerun validate_issue_analysis.py, "
+            "then run workflow.py next before moving downstream."
+        ),
+        "primary_repair_targets": primary_targets,
+        "targets": targets,
+        "rerun_steps": [
+            "scripts/normalize_issue_analysis.py if mechanical_alias_or_enum appears",
+            "scripts/validate_issue_analysis.py",
+            "scripts/workflow.py next --run-dir $RUN_DIR",
+        ],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("issue_analysis_positional", nargs="?", help="Path to industry_issue_analysis.json")
@@ -455,6 +623,7 @@ def main() -> int:
         "warning_count": len(warnings),
         "errors": errors,
         "warnings": warnings,
+        "repair_plan": build_repair_plan(errors),
     }
     result_json = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:

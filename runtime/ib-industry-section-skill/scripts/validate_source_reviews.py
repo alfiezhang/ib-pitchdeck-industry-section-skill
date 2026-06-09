@@ -61,6 +61,13 @@ ORIGINAL_REVIEW_FIELDS = (
     "methodology_locator",
     "source_chain",
 )
+EVIDENCE_USE_TIERS = {
+    "core_evidence",
+    "contextual_evidence",
+    "directional_only",
+    "lead_only",
+    "rejected",
+}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -240,6 +247,28 @@ def _validate_review_fields(review: dict[str, Any], idx: int, errors: list[str],
         value = _text(review.get(field))
         if len(value) < min_len:
             errors.append(f"{prefix}: {field} is too short for auditability")
+
+    evidence_use_tier = _text(review.get("evidence_use_tier")).lower()
+    if not evidence_use_tier:
+        warnings.append(
+            f"{prefix}: evidence_use_tier is missing; add core_evidence/contextual_evidence/"
+            "directional_only/lead_only/rejected before deciding usable_as_evidence"
+        )
+    elif evidence_use_tier not in EVIDENCE_USE_TIERS:
+        warnings.append(
+            f"{prefix}: evidence_use_tier '{evidence_use_tier}' is not one of "
+            f"{sorted(EVIDENCE_USE_TIERS)}"
+        )
+    claim_use_scope = _text(review.get("claim_use_scope"))
+    if _review_is_usable(review) and len(claim_use_scope) < 20:
+        warnings.append(
+            f"{prefix}: usable source should define claim_use_scope so downstream pages do not overuse the source"
+        )
+    if evidence_use_tier in {"directional_only", "lead_only", "rejected"} and _review_is_usable(review):
+        warnings.append(
+            f"{prefix}: evidence_use_tier={evidence_use_tier} conflicts with usable_as_evidence=true; "
+            "prefer usable_as_evidence=false unless the source has a narrow reviewed claim_use_scope"
+        )
 
     evidence_ids = [_text(item) for item in _as_list(review.get("evidence_ids")) if _text(item)]
     for ev_id in evidence_ids:

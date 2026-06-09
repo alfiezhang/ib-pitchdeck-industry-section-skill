@@ -13,6 +13,8 @@
       "search_attempt_ids": ["S-001"],
       "locator": "page/section/table/paragraph/URL anchor used for the reviewed claim",
       "excerpt": "Short reviewed excerpt or faithful paraphrase with enough context for later audit.",
+      "evidence_use_tier": "core_evidence | contextual_evidence | directional_only | lead_only | rejected",
+      "claim_use_scope": "Exactly what this source may support downstream, e.g. 'historical category definition only' or 'chart-ready 2024 peer revenue'.",
       "usable_as_evidence": true,
       "evidence_ids": ["EV-001"],
       "limitations": "",
@@ -20,5 +22,6 @@
       "methodology_locator": ""
     }
   ],
-  "field_alias_note": "Validators tolerate common aliases such as review_id/source_url/source_title, but new artifacts should use the canonical field names above."
+  "field_alias_note": "Validators tolerate common aliases such as review_id/source_url/source_title, but new artifacts should use the canonical field names above.",
+  "use_tier_note": "Use usable_as_evidence=true only for core_evidence/contextual_evidence with a reviewed locator/excerpt and a narrow claim_use_scope. Use directional_only or lead_only for media reposts, snippets, unavailable reports, weak mirrors, or pages that can guide research but should not directly support a formal EV/MET row."
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Validate the lightweight formal search plan before execution.
+"""Validate the formal search plan before execution.
 
-This is intentionally a light gate. It checks that the plan is executable and
-taxonomy-safe; it does not judge whether research findings are correct.
+The plan is not a findings gate. It checks that research is executable,
+taxonomy-safe, and broad enough to prevent thin downstream issue analysis.
 """
 
 from __future__ import annotations
@@ -50,6 +50,11 @@ PREMATURE_FINDING_MARKERS = (
     "页面结论",
 )
 VALID_PRIORITIES = {"high", "medium", "low"}
+REQUIRED_PAIRS = {
+    (issue_area, subissue)
+    for issue_area, subissues in ISSUE_TOPICS_BY_AREA.items()
+    for subissue in subissues
+}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -176,6 +181,17 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
     for text in _walk_text(plan.get("research_discipline", {})):
         if _contains_marker(text, PAGE_PLAN_MARKERS):
             warnings.append("research_discipline mentions page/deck terms; ensure this remains an execution rule, not page planning")
+
+    missing_pairs = sorted(REQUIRED_PAIRS - seen_pairs)
+    if missing_pairs:
+        preview = ", ".join(f"{area}/{subissue}" for area, subissue in missing_pairs[:20])
+        errors.append(
+            "formal_search_plan must cover every canonical issue_area/subissue so upstream research is not thin. "
+            "Add issue_search_plan entries with executable search_instructions for: "
+            + preview
+        )
+        if len(missing_pairs) > 20:
+            errors.append(f"...and {len(missing_pairs) - 20} more missing issue/subissue pair(s)")
 
     return errors, warnings
 
