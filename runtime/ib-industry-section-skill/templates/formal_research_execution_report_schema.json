@@ -3,7 +3,7 @@
   "title": "Formal Research Execution Report",
   "description": "Formal research execution results by issue/subissue. This is the research gate; the search plan itself is lightweight scope-driven planning, not a hypothesis gate.",
   "type": "object",
-  "required": ["schema_version", "formal_research_completed_at", "search_log", "issue_results"],
+  "required": ["schema_version", "formal_research_completed_at", "search_log", "issue_results", "coverage_summary", "fs_row_execution_status"],
   "properties": {
     "schema_version": { "const": "formal_research_execution_report_v1" },
     "formal_research_completed_at": { "type": "string" },
@@ -19,6 +19,10 @@
           "subissue",
           "research_question",
           "status",
+          "terminal_status",
+          "downstream_permission",
+          "minimum_actual_searches",
+          "actual_search_attempt_count",
           "search_instruction_ids",
           "search_attempt_ids",
           "selected_source_urls",
@@ -36,6 +40,16 @@
             "type": "string",
             "enum": ["supported", "thin", "conflicting", "not_comparable", "insufficient", "unavailable_after_research"]
           },
+          "terminal_status": {
+            "type": "string",
+            "enum": ["executed_with_evidence", "executed_no_usable_source", "directional_only", "not_executed", "not_material", "accounting_only"]
+          },
+          "downstream_permission": {
+            "type": "string",
+            "enum": ["may_support_claim", "contextual_only", "research_backlog_only", "not_allowed"]
+          },
+          "minimum_actual_searches": { "type": "integer", "minimum": 0 },
+          "actual_search_attempt_count": { "type": "integer", "minimum": 0 },
           "search_instruction_ids": {
             "type": "array",
             "minItems": 1,
@@ -57,11 +71,44 @@
     "coverage_summary": {
       "type": "object",
       "properties": {
+        "planned_fs_rows": { "type": "integer", "minimum": 0 },
+        "actual_search_attempts": { "type": "integer", "minimum": 0 },
+        "fs_rows_accounted": { "type": "integer", "minimum": 0 },
+        "fs_rows_executed_with_evidence": { "type": "integer", "minimum": 0 },
+        "fs_rows_executed_without_evidence": { "type": "integer", "minimum": 0 },
+        "fs_rows_not_executed": { "type": "integer", "minimum": 0 },
+        "high_priority_rows_below_minimum": { "type": "array", "items": { "type": "string", "pattern": "^FS-\\d{3}$" } },
         "covered_issue_areas": { "type": "array", "items": { "type": "string" } },
         "thin_or_unresolved_subissues": { "type": "array", "items": { "type": "string" } },
         "not_available_after_research": { "type": "array", "items": { "type": "string" } }
       },
       "additionalProperties": true
+    },
+    "fs_row_execution_status": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fs_id", "result_id", "issue_area", "subissue", "actual_search_attempt_ids", "terminal_status", "downstream_permission"],
+        "properties": {
+          "fs_id": { "type": "string", "pattern": "^FS-\\d{3}$" },
+          "result_id": { "type": "string", "pattern": "^FR-\\d{3}$" },
+          "issue_area": { "type": "string" },
+          "subissue": { "type": "string" },
+          "execution_expectation": { "type": "string" },
+          "minimum_actual_searches": { "type": "integer", "minimum": 0 },
+          "actual_search_attempt_ids": { "type": "array", "items": { "type": "string" } },
+          "actual_search_attempt_count": { "type": "integer", "minimum": 0 },
+          "terminal_status": {
+            "type": "string",
+            "enum": ["executed_with_evidence", "executed_no_usable_source", "directional_only", "not_executed", "not_material", "accounting_only"]
+          },
+          "downstream_permission": {
+            "type": "string",
+            "enum": ["may_support_claim", "contextual_only", "research_backlog_only", "not_allowed"]
+          }
+        },
+        "additionalProperties": true
+      }
     },
     "unresolved_issues": { "type": "array", "items": { "type": "string" } }
   },

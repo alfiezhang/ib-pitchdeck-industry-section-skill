@@ -14,7 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from pipeline import _write_run_flags  # noqa: E402
-from research_evidence_db import export_markdown, validate_db  # noqa: E402
+from research_evidence_db import build_db, export_markdown, validate_db  # noqa: E402
 from validate_final_delivery import validate_artifact_provenance  # noqa: E402
 from validate_research_pack import validate as validate_research_pack  # noqa: E402
 from workflow import recommended_commands  # noqa: E402
@@ -47,6 +47,11 @@ def minimal_research_db() -> dict:
                 "subissue": "current_market_size",
                 "research_question": "What is the current market size?",
                 "status": "supported",
+                "terminal_status": "executed_with_evidence",
+                "downstream_permission": "may_support_claim",
+                "minimum_actual_searches": 1,
+                "actual_search_attempt_count": 1,
+                "search_instruction_ids": ["FS-001"],
                 "search_attempt_ids": ["S-001"],
                 "source_review_ids": ["SRC-001"],
                 "evidence_ids": ["EV-001"],
@@ -69,6 +74,7 @@ def minimal_research_db() -> dict:
                 "reviewed_excerpt_or_paraphrase": "The sample market was RMB 100bn in 2026.",
                 "extracted_fact_or_metric_candidate": "Sample market size was RMB 100bn in 2026.",
                 "status": "supported",
+                "terminal_status": "executed_with_evidence",
                 "promoted_evidence_ids": ["EV-001"],
                 "promoted_metric_ids": ["MET-001"],
                 "limitations": ["Contract fixture only."],
@@ -211,6 +217,75 @@ def test_workflow_next_keeps_research_pack_derived() -> None:
     assert "build_research_evidence_pack_skeleton.py" not in command_text
 
 
+def test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence() -> None:
+    execution_report = {
+        "issue_results": [
+            {
+                "result_id": "FR-001",
+                "issue_area": "market_size_growth",
+                "subissue": "current_market_size",
+                "research_question": "What is the current market size?",
+                "status": "thin",
+                "terminal_status": "executed_with_evidence",
+                "downstream_permission": "may_support_claim",
+                "minimum_actual_searches": 1,
+                "actual_search_attempt_count": 1,
+                "search_instruction_ids": ["FS-001"],
+                "search_attempt_ids": ["S-001"],
+                "source_review_ids": ["SRC-001"],
+                "evidence_ids": ["EV-001"],
+                "metric_ids": [],
+                "findings_summary": "Reviewed source exists.",
+                "limitations": ["Fixture only."],
+                "research_pack_handling": "Promote after LLM extract review.",
+            },
+            {
+                "result_id": "FR-002",
+                "issue_area": "industry_structure",
+                "subissue": "value_chain",
+                "research_question": "How does the value chain work?",
+                "status": "insufficient",
+                "terminal_status": "not_executed",
+                "downstream_permission": "research_backlog_only",
+                "minimum_actual_searches": 1,
+                "actual_search_attempt_count": 0,
+                "search_instruction_ids": ["FS-002"],
+                "search_attempt_ids": [],
+                "source_review_ids": [],
+                "evidence_ids": [],
+                "metric_ids": [],
+                "findings_summary": "Planned row was not searched.",
+                "limitations": ["No actual S-xxx attempt."],
+                "research_pack_handling": "Keep as research gap; do not promote.",
+            },
+        ]
+    }
+    db = build_db(
+        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "Sampleland"},
+        scope_pack={"scope_summary": {"working_market": "sample market"}},
+        formal_search_plan={"issue_search_plan": [{}, {}]},
+        execution_report=execution_report,
+        source_reviews={
+            "source_reviews": [
+                {
+                    "source_review_id": "SRC-001",
+                    "url": "https://example.com/report",
+                    "title": "Example report",
+                    "locator": "section 1",
+                    "excerpt": "Reviewed source exists.",
+                    "source_type": "industry_report",
+                    "usable_as_evidence": True,
+                    "evidence_use_tier": "core_evidence",
+                    "claim_use_scope": "fixture only",
+                }
+            ]
+        },
+    )
+    assert [row["result_id"] for row in db["formal_research_extracts"]] == ["FR-001"], db["formal_research_extracts"]
+    assert [row["evidence_id"] for row in db["evidence_ledger"]] == ["EV-001"], db["evidence_ledger"]
+    assert any("FR-002" in item and "not_executed" in item for item in db["research_gap_audit"]["critical_gaps"])
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         test_research_db_export_validates_without_chart_ready_warning(Path(tmp) / "db_export")
@@ -219,6 +294,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         test_pipeline_run_flags_written_for_formal_package(Path(tmp) / "flags")
     test_workflow_next_keeps_research_pack_derived()
+    test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence()
     print("Research DB regression tests passed.")
     return 0
 

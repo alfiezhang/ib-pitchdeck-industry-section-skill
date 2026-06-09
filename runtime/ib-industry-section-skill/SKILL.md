@@ -85,7 +85,8 @@ Do:
 2. Create an LLM-only `llm_definition_draft`, then validate/refine it with thin
    industry scoping searches in `industry_scope_pack.json`.
 3. Build a full-taxonomy `formal_search_plan.json` skeleton and execute real
-   `FS-xxx` searches as `S-xxx` attempts.
+   formal searches as `S-xxx` attempts. `FS-xxx` rows are planned coverage
+   instructions, not evidence and not actual searches.
 4. Build source-review skeletons from the search log; the LLM reviews exact
    sources, locators, excerpts, use scope, and evidence usability.
 5. Archive usable reviewed sources, then build the formal execution report from
@@ -140,7 +141,9 @@ Core stages:
 3. **Industry scoping**: define the market boundary and data-risk map; no
    confirmed market-size/growth/share/ranking/valuation claims.
 4. **Formal research plan**: full canonical issue/subissue coverage; executable
-   queries only; no investment hypotheses or slide conclusions.
+   queries only; no investment hypotheses or slide conclusions. Treat taxonomy
+   rows as a coverage map, not as a claim that every row has already been
+   searched at equal depth.
 5. **Source chain**: execute real searches, append `S-xxx`, review exact sources,
    archive usable evidence, then build/validate formal execution.
 6. **Research evidence database**: preserve source-level extracts, EV/MET
@@ -203,6 +206,23 @@ discovery; record accidental numeric finds only as `unvalidated_leads`.
 Formal search planning covers all canonical issue/subissue rows. If evidence is
 unavailable, keep the row, run a reasonable search, and later mark the FR result
 `thin`, `insufficient`, or `unavailable_after_research` with limitations.
+
+Planned-vs-actual discipline:
+
+- A planned `FS-xxx` row is not evidence.
+- A planned query string is not evidence.
+- Only an actually executed formal/latest/peer search may receive an `S-xxx`
+  ID.
+- Do not create fake `S-xxx` IDs for unexecuted planned rows.
+- Do not fast-track from partial searches to `source_reviews`,
+  `research_evidence_db`, issue analysis, or deck blueprint.
+- If only 10 searches were actually executed out of 40+ planned `FS-xxx` rows,
+  say so explicitly in `formal_research_execution_report.json`. Account for the
+  remaining rows as `not_executed`, `not_material`, `accounting_only`,
+  `insufficient`, or backlog. They cannot support evidence, headlines, charts,
+  or body claims.
+- A few strong sources are not enough if planned-vs-actual coverage has not been
+  accounted for.
 
 Search count alone is not evidence quality. Reviewed sources need locators,
 excerpts/paraphrases, use scope, provenance tier, and source archive snapshots.

@@ -366,6 +366,29 @@ def validate(
         except Exception as exc:
             errors.append(f"cannot parse search_log.md for source review validation: {exc}")
             attempts = {}
+        for review_idx, review in enumerate(reviews, start=1):
+            prefix = _text(review.get("source_review_id")) or f"reviews[{review_idx}]"
+            for raw_attempt_id in [_text(item) for item in _as_list(review.get("search_attempt_ids")) if _text(item)]:
+                match = re.search(r"(\d+)", raw_attempt_id)
+                attempt_id = f"S-{int(match.group(1)):03d}" if match else raw_attempt_id.upper()
+                attempt = attempts.get(attempt_id)
+                if not attempt:
+                    errors.append(
+                        f"{prefix}: search_attempt_id {attempt_id} not found in search_log.md. "
+                        "Do not attach unexecuted S-xxx IDs to source_reviews; create SRC rows only from actual reviewed S-xxx attempts."
+                    )
+                    continue
+                stage = attempt.get("search stage", "").strip().lower()
+                if stage not in FORMAL_SEARCH_STAGES:
+                    errors.append(
+                        f"{prefix}: search_attempt_id {attempt_id} has stage '{stage}', not a formal/latest/peer stage. "
+                        "Source reviews for formal evidence must come from actual formal searches."
+                    )
+                opened = attempt.get("opened / reviewed", "").lower()
+                if not any(token in opened for token in POSITIVE_REVIEW_MARKERS):
+                    errors.append(
+                        f"{prefix}: search_attempt_id {attempt_id} was not marked Opened/Reviewed=yes in search_log.md"
+                    )
         for attempt_id, attempt in attempts.items():
             opened = attempt.get("opened / reviewed", "").lower()
             is_opened = any(token in opened for token in POSITIVE_REVIEW_MARKERS)

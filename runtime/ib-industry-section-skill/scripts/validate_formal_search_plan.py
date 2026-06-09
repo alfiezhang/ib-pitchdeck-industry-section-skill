@@ -50,6 +50,8 @@ PREMATURE_FINDING_MARKERS = (
     "页面结论",
 )
 VALID_PRIORITIES = {"high", "medium", "low"}
+VALID_EXECUTION_EXPECTATIONS = {"deep_search", "light_search", "accounting_only"}
+VALID_PLAN_TERMINAL_STATUSES = {"pending"}
 REQUIRED_PAIRS = {
     (issue_area, subissue)
     for issue_area, subissues in ISSUE_TOPICS_BY_AREA.items()
@@ -142,6 +144,27 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
         if priority not in VALID_PRIORITIES:
             errors.append(f"{prefix}: priority must be one of {sorted(VALID_PRIORITIES)}")
 
+        execution_expectation = _text(item.get("execution_expectation")).lower()
+        if execution_expectation not in VALID_EXECUTION_EXPECTATIONS:
+            errors.append(f"{prefix}: execution_expectation must be one of {sorted(VALID_EXECUTION_EXPECTATIONS)}")
+        minimum_actual_searches_raw = item.get("minimum_actual_searches")
+        if not isinstance(minimum_actual_searches_raw, int) or minimum_actual_searches_raw < 0:
+            errors.append(f"{prefix}: minimum_actual_searches must be a non-negative integer")
+            minimum_actual_searches = 0
+        else:
+            minimum_actual_searches = minimum_actual_searches_raw
+        if item.get("coverage_required") is not True:
+            errors.append(f"{prefix}: coverage_required must be true; taxonomy rows are coverage audit rows even when not material")
+        terminal_status = _text(item.get("terminal_status")).lower()
+        if terminal_status not in VALID_PLAN_TERMINAL_STATUSES:
+            errors.append(f"{prefix}: terminal_status must be pending in the search plan; execution status belongs in formal_research_execution_report.json")
+        if execution_expectation == "deep_search" and minimum_actual_searches < 2:
+            warnings.append(f"{prefix}: deep_search rows should normally set minimum_actual_searches >= 2")
+        if execution_expectation == "light_search" and minimum_actual_searches < 1:
+            warnings.append(f"{prefix}: light_search rows should normally set minimum_actual_searches >= 1")
+        if execution_expectation == "accounting_only" and minimum_actual_searches != 0:
+            warnings.append(f"{prefix}: accounting_only rows should normally set minimum_actual_searches to 0")
+
         instructions = item.get("search_instructions")
         if not isinstance(instructions, list) or not instructions:
             errors.append(f"{prefix}: search_instructions must be a non-empty array")
@@ -171,6 +194,16 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
                 errors.append(f"{inst_prefix}: query is too short to execute")
             if PLACEHOLDER_RE.search(query):
                 errors.append(f"{inst_prefix}: query still contains placeholder/example text")
+            query_variants = [_text(item) for item in _as_list(instruction.get("query_variants")) if _text(item)]
+            if not query_variants:
+                warnings.append(f"{inst_prefix}: query_variants is missing; include direct, authority, and reconciliation variants when possible")
+            elif execution_expectation == "deep_search" and len(query_variants) < 2:
+                warnings.append(f"{inst_prefix}: deep_search should include at least 2 query_variants")
+            for variant_idx, variant in enumerate(query_variants, start=1):
+                if len(variant) < 8:
+                    errors.append(f"{inst_prefix}.query_variants[{variant_idx}]: query variant is too short")
+                if PLACEHOLDER_RE.search(variant):
+                    errors.append(f"{inst_prefix}.query_variants[{variant_idx}]: query variant still contains placeholder/example text")
             if len(purpose) < 8:
                 errors.append(f"{inst_prefix}: purpose is too short")
             if _contains_marker(query + " " + purpose, PAGE_PLAN_MARKERS):

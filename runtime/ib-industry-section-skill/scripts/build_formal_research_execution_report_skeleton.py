@@ -110,6 +110,10 @@ def _planned_instructions(plan: dict[str, Any]) -> list[dict[str, Any]]:
                     "issue_area": _text(issue.get("issue_area")),
                     "subissue": _text(issue.get("subissue")),
                     "research_question": _text(issue.get("research_question")),
+                    "priority": _text(issue.get("priority")),
+                    "execution_expectation": _text(issue.get("execution_expectation")),
+                    "minimum_actual_searches": issue.get("minimum_actual_searches") if isinstance(issue.get("minimum_actual_searches"), int) else 0,
+                    "coverage_required": issue.get("coverage_required") is True,
                     "query": _text(instruction.get("query")),
                     "purpose": _text(instruction.get("purpose")),
                 }
@@ -157,6 +161,30 @@ def _unique(values: list[str]) -> list[str]:
     return output
 
 
+def _formal_attempts(attempts_by_id: dict[str, dict[str, str]]) -> set[str]:
+    output: set[str] = set()
+    for attempt_id, attempt in attempts_by_id.items():
+        stage = _text(attempt.get("search stage")).lower()
+        if stage in {"formal_research", "formal research", "formal_research_execution", "formal research execution", "latest_check", "latest", "peer_check", "peer check"}:
+            output.add(attempt_id)
+    return output
+
+
+def _terminal_status(
+    *,
+    attempts: list[dict[str, str]],
+    usable_reviews: list[dict[str, Any]],
+    instruction: dict[str, Any],
+) -> tuple[str, str]:
+    if usable_reviews:
+        return "executed_with_evidence", "may_support_claim"
+    if attempts:
+        return "executed_no_usable_source", "research_backlog_only"
+    if _text(instruction.get("execution_expectation")) == "accounting_only":
+        return "accounting_only", "research_backlog_only"
+    return "not_executed", "research_backlog_only"
+
+
 def build_report(
     *,
     plan: dict[str, Any],
@@ -166,6 +194,7 @@ def build_report(
     include_unexecuted: bool,
 ) -> dict[str, Any]:
     attempts_by_id = parse_search_attempts(search_log_path) if search_log_path.exists() else {}
+    formal_attempt_ids = _formal_attempts(attempts_by_id)
     attempts_by_instruction: dict[str, list[dict[str, str]]] = {}
     for attempt in attempts_by_id.values():
         for fs_id in _attempt_instruction_ids(attempt):
@@ -175,6 +204,11 @@ def build_report(
     covered_issue_areas: set[str] = set()
     thin_or_unresolved: list[str] = []
     unavailable: list[str] = []
+    fs_status_rows: list[dict[str, Any]] = []
+    high_priority_below_minimum: list[str] = []
+    fs_rows_executed_with_evidence = 0
+    fs_rows_executed_without_evidence = 0
+    fs_rows_not_executed = 0
 
     for instruction in _planned_instructions(plan):
         fs_id = instruction["instruction_id"]
@@ -199,6 +233,22 @@ def build_report(
             for ev_id in _as_list(review.get("evidence_ids"))
         ])
 
+        terminal_status, downstream_permission = _terminal_status(
+            attempts=attempts,
+            usable_reviews=usable_reviews,
+            instruction=instruction,
+        )
+        actual_attempt_count = len(attempt_ids)
+        minimum_actual_searches = int(instruction.get("minimum_actual_searches") or 0)
+        if actual_attempt_count < minimum_actual_searches:
+            high_priority_below_minimum.append(fs_id)
+        if terminal_status == "executed_with_evidence":
+            fs_rows_executed_with_evidence += 1
+        elif terminal_status == "executed_no_usable_source":
+            fs_rows_executed_without_evidence += 1
+        elif terminal_status in {"not_executed", "accounting_only"}:
+            fs_rows_not_executed += 1
+
         if usable_reviews:
             status = "thin"
             limitations = ["Auto-built skeleton: LLM must verify source support, scope, and whether status should be supported/thin/conflicting before promotion."]
@@ -214,18 +264,28 @@ def build_report(
             unavailable.append(f"{instruction['issue_area']}/{instruction['subissue']}")
         else:
             status = "insufficient"
-            limitations = ["No S-xxx search attempt is linked to this planned FS-xxx instruction."]
-            findings_summary = "Planned formal search instruction has not been executed."
-            handling = "Run the real formal search, append an S-xxx entry to search_log.md, then rebuild this skeleton."
+            if terminal_status == "accounting_only":
+                limitations = ["This planned FS-xxx row is accounting_only and has no actual S-xxx search attempt."]
+                findings_summary = "Coverage-audit row has not been researched because it may be immaterial after scoping."
+                handling = "Keep as research gap/backlog or mark not_material in final execution accounting; do not use as evidence."
+            else:
+                limitations = ["No S-xxx search attempt is linked to this planned FS-xxx instruction."]
+                findings_summary = "Planned formal search instruction has not been executed."
+                handling = "Run the real formal search, append an S-xxx entry to search_log.md, or explicitly keep this as not_executed/not_material backlog."
             unavailable.append(f"{instruction['issue_area']}/{instruction['subissue']}")
 
+        result_id = f"FR-{len(issue_results) + 1:03d}"
         issue_results.append(
             {
-                "result_id": f"FR-{len(issue_results) + 1:03d}",
+                "result_id": result_id,
                 "issue_area": instruction["issue_area"],
                 "subissue": instruction["subissue"],
                 "research_question": instruction["research_question"],
                 "status": status,
+                "terminal_status": terminal_status,
+                "downstream_permission": downstream_permission,
+                "minimum_actual_searches": minimum_actual_searches,
+                "actual_search_attempt_count": actual_attempt_count,
                 "search_instruction_ids": [fs_id],
                 "search_attempt_ids": attempt_ids,
                 "source_discovery_attempt_ids": [],
@@ -238,6 +298,20 @@ def build_report(
                 "research_pack_handling": handling,
             }
         )
+        fs_status_rows.append(
+            {
+                "fs_id": fs_id,
+                "result_id": result_id,
+                "issue_area": instruction["issue_area"],
+                "subissue": instruction["subissue"],
+                "execution_expectation": _text(instruction.get("execution_expectation")),
+                "minimum_actual_searches": minimum_actual_searches,
+                "actual_search_attempt_ids": attempt_ids,
+                "actual_search_attempt_count": actual_attempt_count,
+                "terminal_status": terminal_status,
+                "downstream_permission": downstream_permission,
+            }
+        )
 
     return {
         "schema_version": "formal_research_execution_report_v1",
@@ -245,10 +319,18 @@ def build_report(
         "search_log": search_log_ref,
         "issue_results": issue_results,
         "coverage_summary": {
+            "planned_fs_rows": len(_planned_instructions(plan)),
+            "actual_search_attempts": len(formal_attempt_ids),
+            "fs_rows_accounted": len(fs_status_rows),
+            "fs_rows_executed_with_evidence": fs_rows_executed_with_evidence,
+            "fs_rows_executed_without_evidence": fs_rows_executed_without_evidence,
+            "fs_rows_not_executed": fs_rows_not_executed,
+            "high_priority_rows_below_minimum": sorted(set(high_priority_below_minimum)),
             "covered_issue_areas": sorted(covered_issue_areas),
             "thin_or_unresolved_subissues": sorted(set(thin_or_unresolved)),
             "not_available_after_research": sorted(set(unavailable)),
         },
+        "fs_row_execution_status": fs_status_rows,
         "unresolved_issues": sorted(set(unavailable)),
         "skeleton_note": "Generated by build_formal_research_execution_report_skeleton.py. LLM must review and edit status, findings_summary, limitations, research_pack_handling, EV/MET IDs before treating this as final research judgment.",
     }

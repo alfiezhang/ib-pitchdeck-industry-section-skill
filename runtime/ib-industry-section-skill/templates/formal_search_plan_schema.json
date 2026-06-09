@@ -12,12 +12,17 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["issue_area", "subissue", "research_question", "priority", "search_instructions"],
+        "required": ["issue_area", "subissue", "research_question", "priority", "execution_expectation", "minimum_actual_searches", "coverage_required", "terminal_status", "search_instructions"],
         "properties": {
           "issue_area": { "type": "string" },
           "subissue": { "type": "string" },
           "research_question": { "type": "string" },
           "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "execution_expectation": { "type": "string", "enum": ["deep_search", "light_search", "accounting_only"] },
+          "minimum_actual_searches": { "type": "integer", "minimum": 0 },
+          "coverage_required": { "const": true },
+          "terminal_status": { "const": "pending" },
+          "execution_rationale": { "type": "string" },
           "search_instructions": {
             "type": "array",
             "minItems": 1,
@@ -27,6 +32,7 @@
               "properties": {
                 "instruction_id": { "type": "string", "pattern": "^FS-\\d{3}$" },
                 "query": { "type": "string", "minLength": 6 },
+                "query_variants": { "type": "array", "items": { "type": "string", "minLength": 6 } },
                 "purpose": { "type": "string", "minLength": 6 },
                 "source_hint": { "type": "string" }
               },

@@ -21,12 +21,37 @@ from json_utils import load_json_file
 
 SOURCE_HINTS_BY_AREA = {
     "market_size_growth": "official statistics, industry association, broker/consulting report, market data provider",
-    "demand_customer_logic": "consumer survey, customer research, industry report, platform/user data",
+    "demand_customer_logic": "customer/end-user/end-market research, industry report, channel/platform/user data",
     "industry_structure": "industry report, company filings, broker report, value-chain analysis",
     "key_trends_drivers": "industry report, regulator/standard body, technology report, broker report, M&A news",
     "competitive_landscape": "company filings, industry report, peer disclosures, market data provider",
     "competitive_dynamics": "industry report, company disclosures, broker report, trade media with cited data",
     "pitch_relevance_target_context": "company-provided materials, peer transactions, investor commentary, sector reports",
+}
+
+DEEP_SEARCH_PAIRS = {
+    ("market_size_growth", "current_market_size"),
+    ("market_size_growth", "historical_growth"),
+    ("market_size_growth", "forecast_growth"),
+    ("market_size_growth", "market_segmentation"),
+    ("industry_structure", "value_chain"),
+    ("industry_structure", "profit_pool"),
+    ("industry_structure", "barriers_to_entry"),
+    ("key_trends_drivers", "secular_tailwinds"),
+    ("key_trends_drivers", "channel_or_go_to_market_shift"),
+    ("competitive_landscape", "competitor_profiles"),
+    ("competitive_landscape", "strategic_positioning"),
+    ("competitive_dynamics", "consolidation_logic"),
+    ("pitch_relevance_target_context", "why_sector_relevant"),
+    ("pitch_relevance_target_context", "discussion_implications"),
+}
+
+ACCOUNTING_ONLY_PAIRS = {
+    ("market_size_growth", "market_cycle"),
+    ("key_trends_drivers", "technology_disruption"),
+    ("key_trends_drivers", "regulatory_developments"),
+    ("competitive_landscape", "valuation_snapshot_peer_fact"),
+    ("pitch_relevance_target_context", "evidence_limits"),
 }
 
 
@@ -92,6 +117,46 @@ def _label(value: str) -> str:
     return value.replace("_", " ")
 
 
+def _execution_policy(issue_area: str, subissue: str) -> tuple[str, int, str]:
+    pair = (issue_area, subissue)
+    if pair in DEEP_SEARCH_PAIRS:
+        return (
+            "deep_search",
+            2,
+            "Core pitch issue: run at least two actual S-xxx searches when possible, ideally authority/source-specific plus reconciliation/counter-check.",
+        )
+    if pair in ACCOUNTING_ONLY_PAIRS:
+        return (
+            "accounting_only",
+            0,
+            "Coverage-audit row: execute only if material after scoping; otherwise account for it as not_material or not_executed in formal execution.",
+        )
+    return (
+        "light_search",
+        1,
+        "Supporting issue: run one actual S-xxx search when material, or account for why it is not material/available.",
+    )
+
+
+def _priority_for_expectation(expectation: str) -> str:
+    if expectation == "deep_search":
+        return "high"
+    if expectation == "accounting_only":
+        return "low"
+    return "medium"
+
+
+def _query_variants(market_terms: str, issue_label: str, subissue_label: str, expectation: str) -> list[str]:
+    direct = f"{market_terms} {issue_label} {subissue_label} industry report"
+    authority = f"{market_terms} {subissue_label} official data industry association broker report"
+    reconciliation = f"{market_terms} {subissue_label} methodology scope comparison conflicting data"
+    if expectation == "deep_search":
+        return [direct, authority, reconciliation]
+    if expectation == "light_search":
+        return [direct]
+    return [direct]
+
+
 def build_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[str, Any]:
     meta = _meta_from_inputs(input_card, scope_pack)
     market_terms = _market_terms(meta, scope_pack)
@@ -104,11 +169,18 @@ def build_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[s
             fs_counter += 1
             issue_label = _label(issue_area)
             subissue_label = _label(subissue)
+            execution_expectation, minimum_actual_searches, rationale = _execution_policy(issue_area, subissue)
+            query_variants = _query_variants(market_terms, issue_label, subissue_label, execution_expectation)
             issue_search_plan.append(
                 {
                     "issue_area": issue_area,
                     "subissue": subissue,
-                    "priority": "medium",
+                    "priority": _priority_for_expectation(execution_expectation),
+                    "execution_expectation": execution_expectation,
+                    "minimum_actual_searches": minimum_actual_searches,
+                    "coverage_required": True,
+                    "terminal_status": "pending",
+                    "execution_rationale": rationale,
                     "research_question": (
                         f"What evidence is available for {subissue_label} within {market_terms}, "
                         "and what source scope, period, geography, denominator, and limitations apply?"
@@ -116,7 +188,8 @@ def build_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[s
                     "search_instructions": [
                         {
                             "instruction_id": fs_id,
-                            "query": f"{market_terms} {issue_label} {subissue_label} industry report source",
+                            "query": query_variants[0],
+                            "query_variants": query_variants,
                             "purpose": (
                                 f"Find formal evidence for {issue_area}/{subissue}; capture facts, metrics, "
                                 "scope, period, source authority, and limitations."
@@ -143,15 +216,16 @@ def build_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[s
             "canonical_subissue_count": sum(len(items) for items in ISSUE_TOPICS_BY_AREA.values()),
             "instruction": (
                 "Retain every issue_search_plan row. Edit queries to fit the industry, "
-                "but do not delete low-relevance subissues; execute the search and mark "
-                "the result thin/insufficient/unavailable in formal_research_execution_report.json if needed."
+                "but do not delete low-relevance subissues. The taxonomy is a coverage audit, "
+                "not an equal-depth search mandate: execute deep/light rows as planned, and explicitly "
+                "account for not_material, not_executed, or unavailable rows in formal_research_execution_report.json."
             ),
         },
         "allowed_issue_taxonomy": {area: sorted(subissues) for area, subissues in ISSUE_TOPICS_BY_AREA.items()},
         "planning_instruction": (
             "This plan intentionally covers every canonical issue/subissue to thicken upstream research. "
-            "For each row, write or refine one clear executable search instruction. Do not write investment "
-            "hypotheses, validated findings, slide conclusions, or page plans."
+            "For each row, refine executable query variants and execution expectations. Do not write investment "
+            "hypotheses, validated findings, slide conclusions, or page plans. A planned FS row or query is not evidence."
         ),
         "issue_search_plan": issue_search_plan,
         "research_discipline": {
@@ -162,6 +236,11 @@ def build_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[s
             ),
             "fs_vs_s_id_discipline": (
                 "FS-xxx IDs are planned search instructions. Real searches must be logged as S-xxx attempts."
+            ),
+            "planned_vs_actual_accounting": (
+                "A planned FS row is not evidence. Only actually executed S-xxx attempts can support source reviews, "
+                "research_evidence_db rows, issue analysis, or deck claims. Unexecuted FS rows must be accounted for "
+                "as not_executed, not_material, unavailable, or research_backlog; never create fake S-xxx IDs."
             ),
             "if_evidence_is_insufficient": (
                 "Record thin/insufficient/unavailable_after_research in the formal execution report and research pack; "

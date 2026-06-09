@@ -26,6 +26,10 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 - Formal research execution is the research gate. The search plan itself is not
   a hypothesis gate, but it must cover every canonical issue/subissue so
   downstream issue analysis is not starved of source material.
+- Full taxonomy coverage is a coverage audit, not proof that every row has been
+  searched. Planned `FS-xxx` rows and planned query strings are not evidence.
+  Evidence can only flow from actual `S-xxx` searches, reviewed `SRC-xxx`
+  sources, and promoted `EV-xxx` / `MET-xxx` rows.
 
 ## Source Priority
 
@@ -107,12 +111,20 @@ subissue from the same taxonomy used by `industry_issue_analysis.json`:
 - `pitch_relevance_target_context`
 
 Do not write investment hypotheses in the search plan. For every
-issue/subissue, write a research question and one or more executable
-`search_instructions[]` with exact query strings the next step should actually
-run. Do not delete low-relevance subissues. If a subissue turns out to be weak,
-irrelevant, unavailable, or not comparable after real searching, keep it in the
-formal execution report with `thin`, `insufficient`, or
-`unavailable_after_research` status and limitations.
+issue/subissue, write a research question and executable `search_instructions[]`
+with exact query strings the next step should actually run. Do not delete
+low-relevance subissues. Use `execution_expectation` to decide depth:
+
+- `deep_search`: material row; normally needs multiple actual searches or a
+  documented unavailable result.
+- `light_search`: relevant row; normally needs at least one actual search.
+- `accounting_only`: low-materiality row; may be accounted for without search,
+  but cannot support claims.
+
+If a subissue turns out to be weak, irrelevant, unavailable, or not comparable
+after real searching, keep it in the formal execution report with limitations.
+Do not create fake `S-xxx` IDs for unexecuted rows and do not delete planned
+taxonomy coverage to make the report look complete.
 
 ## Formal Research Execution
 
@@ -157,15 +169,20 @@ limitations, handling, and EV/MET IDs from the actual source support.
 ```
 
 The generated/edited report should contain one `issue_results[]` entry per
-planned instruction. Since the formal search plan covers the full taxonomy,
-this report is where weak or unavailable topics are downgraded; do not remove
-them from the plan to avoid work:
+planned instruction. It is a planned-vs-actual coverage ledger, not a narrative
+research summary. Since the formal search plan covers the full taxonomy, this
+report is where weak, unavailable, not-material, or unexecuted topics are
+accounted for; do not remove them from the plan to avoid work:
 
 - `result_id`: `FR-001`, `FR-002`, ...
 - `issue_area` / `subissue`
 - `research_question`
 - `status`: `supported`, `thin`, `conflicting`, `not_comparable`,
   `insufficient`, or `unavailable_after_research`
+- `terminal_status`: `executed_with_evidence`, `executed_no_usable_source`,
+  `not_executed`, `not_material`, or `accounting_only`
+- `downstream_permission`: `may_support_claim`, `contextual_only`,
+  `research_backlog_only`, or `not_allowed`
 - `search_instruction_ids`: `FS-xxx` instructions from the formal search plan
 - `search_attempt_ids`: real formal/latest/peer `S-xxx` searches from
   `search_log.md` only; never put `FS-xxx` here
@@ -199,6 +216,12 @@ it, or relabel it to pass validation.
 When formal execution validation fails, check actual search execution first:
 missing `S-xxx` attempts mean the fix is more formal search, not taxonomy
 rewriting or report reshaping.
+
+If only 10 actual searches were executed out of 40+ planned `FS-xxx` rows, the
+execution report must say so in `coverage_summary` and `fs_row_execution_status`.
+The unexecuted rows must be marked `not_executed`, `not_material`, or
+`accounting_only`. They cannot enter `source_reviews`, `research_evidence_db`,
+issue-analysis claims, or deck headlines.
 
 Validate formal execution and source reviews before writing the research pack:
 

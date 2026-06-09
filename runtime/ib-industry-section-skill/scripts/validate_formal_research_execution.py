@@ -53,6 +53,16 @@ VALID_RESULT_STATUS = {
 }
 EVIDENCE_STATUSES = {"supported", "thin", "conflicting", "not_comparable"}
 UNRESOLVED_STATUSES = {"insufficient", "unavailable_after_research"}
+VALID_TERMINAL_STATUSES = {
+    "executed_with_evidence",
+    "executed_no_usable_source",
+    "directional_only",
+    "not_executed",
+    "not_material",
+    "accounting_only",
+}
+NO_ATTEMPT_TERMINAL_STATUSES = {"not_executed", "not_material", "accounting_only"}
+VALID_DOWNSTREAM_PERMISSIONS = {"may_support_claim", "contextual_only", "research_backlog_only", "not_allowed"}
 REPORT_STRUCTURE_HINT = (
     "Start from templates/formal_research_execution_report.skeleton.json. "
     "For each executed FS-xxx, create one FR-xxx issue_results[] entry and copy "
@@ -134,8 +144,8 @@ def _planned_pairs(formal_search_plan: dict[str, Any]) -> set[tuple[str, str]]:
     return pairs
 
 
-def _planned_instructions(formal_search_plan: dict[str, Any]) -> dict[str, tuple[str, str]]:
-    instructions: dict[str, tuple[str, str]] = {}
+def _planned_instructions(formal_search_plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    instructions: dict[str, dict[str, Any]] = {}
     for item in _as_list(formal_search_plan.get("issue_search_plan")):
         if not isinstance(item, dict):
             continue
@@ -148,7 +158,13 @@ def _planned_instructions(formal_search_plan: dict[str, Any]) -> dict[str, tuple
                 continue
             instruction_id = _text(instruction.get("instruction_id"))
             if instruction_id:
-                instructions[instruction_id] = (area, subissue)
+                instructions[instruction_id] = {
+                    "issue_area": area,
+                    "subissue": subissue,
+                    "priority": _text(item.get("priority")).lower(),
+                    "execution_expectation": _text(item.get("execution_expectation")).lower(),
+                    "minimum_actual_searches": item.get("minimum_actual_searches") if isinstance(item.get("minimum_actual_searches"), int) else 0,
+                }
     return instructions
 
 
@@ -159,6 +175,7 @@ def _validate_attempts(
     attempts: dict[str, dict[str, str]],
     errors: list[str],
     warnings: list[str],
+    require_attempt: bool = True,
 ) -> tuple[bool, bool]:
     formal_seen = False
     broad_seen = False
@@ -180,7 +197,7 @@ def _validate_attempts(
         attempt_id = _normalize_attempt_id(raw_attempt_id)
         if attempt_id:
             formal_attempt_ids.append(attempt_id)
-    if not formal_attempt_ids:
+    if not formal_attempt_ids and require_attempt:
         errors.append(
             f"{prefix}: search_attempt_ids must include at least 1 real formal/latest/peer S-xxx search attempt. {ATTEMPT_ID_HINT}"
         )
@@ -225,6 +242,14 @@ def _validate_attempts(
     return formal_seen, broad_seen
 
 
+def _formal_attempt_ids(attempts: dict[str, dict[str, str]]) -> set[str]:
+    output: set[str] = set()
+    for attempt_id, attempt in attempts.items():
+        if _stage_is_formal(attempt):
+            output.add(attempt_id)
+    return output
+
+
 def validate(
     report: dict[str, Any],
     formal_search_plan: dict[str, Any],
@@ -254,11 +279,13 @@ def validate(
 
     planned_pairs = _planned_pairs(formal_search_plan) if isinstance(formal_search_plan, dict) else set()
     planned_instructions = _planned_instructions(formal_search_plan) if isinstance(formal_search_plan, dict) else {}
+    actual_formal_attempt_ids = _formal_attempt_ids(attempts)
     seen_pairs: set[tuple[str, str]] = set()
     seen_result_ids: set[str] = set()
     seen_instruction_ids: set[str] = set()
     formal_attempt_referenced = False
     status_counts: dict[str, int] = {}
+    computed_fs_status: dict[str, dict[str, Any]] = {}
 
     for idx, result in enumerate(results, start=1):
         if not isinstance(result, dict):
@@ -297,6 +324,23 @@ def validate(
         if status not in VALID_RESULT_STATUS:
             errors.append(f"{prefix}: status must be one of {sorted(VALID_RESULT_STATUS)}")
 
+        terminal_status = _text(result.get("terminal_status"))
+        if terminal_status not in VALID_TERMINAL_STATUSES:
+            errors.append(f"{prefix}: terminal_status must be one of {sorted(VALID_TERMINAL_STATUSES)}")
+        downstream_permission = _text(result.get("downstream_permission"))
+        if downstream_permission not in VALID_DOWNSTREAM_PERMISSIONS:
+            errors.append(f"{prefix}: downstream_permission must be one of {sorted(VALID_DOWNSTREAM_PERMISSIONS)}")
+        if terminal_status in NO_ATTEMPT_TERMINAL_STATUSES and downstream_permission not in {"research_backlog_only", "not_allowed"}:
+            errors.append(f"{prefix}: terminal_status={terminal_status} must use downstream_permission=research_backlog_only or not_allowed")
+        actual_search_attempt_count = result.get("actual_search_attempt_count")
+        if not isinstance(actual_search_attempt_count, int) or actual_search_attempt_count < 0:
+            errors.append(f"{prefix}: actual_search_attempt_count must be a non-negative integer")
+            actual_search_attempt_count = len(_as_list(result.get("search_attempt_ids")))
+        minimum_actual_searches = result.get("minimum_actual_searches")
+        if not isinstance(minimum_actual_searches, int) or minimum_actual_searches < 0:
+            errors.append(f"{prefix}: minimum_actual_searches must be a non-negative integer")
+            minimum_actual_searches = 0
+
         instruction_ids = [_text(item) for item in _as_list(result.get("search_instruction_ids")) if _text(item)]
         if not instruction_ids:
             errors.append(f"{prefix}: search_instruction_ids must reference at least one FS-xxx instruction from formal_search_plan.json")
@@ -304,13 +348,14 @@ def validate(
             if not FS_RE.fullmatch(instruction_id):
                 errors.append(f"{prefix}: invalid search_instruction_id '{instruction_id}'")
                 continue
-            planned_pair = planned_instructions.get(instruction_id)
-            if not planned_pair:
+            planned_instruction = planned_instructions.get(instruction_id)
+            if not planned_instruction:
                 errors.append(
                     f"{prefix}: search_instruction_id {instruction_id} not found in formal_search_plan.json. "
                     "Use only executed FS-xxx instructions that exist in artifacts/formal_search_plan.json."
                 )
                 continue
+            planned_pair = (planned_instruction["issue_area"], planned_instruction["subissue"])
             if planned_pair != (issue_area, subissue):
                 errors.append(
                     f"{prefix}: search_instruction_id {instruction_id} belongs to "
@@ -319,15 +364,39 @@ def validate(
                 )
                 continue
             seen_instruction_ids.add(instruction_id)
+            expected_min = int(planned_instruction.get("minimum_actual_searches") or 0)
+            if minimum_actual_searches != expected_min:
+                warnings.append(
+                    f"{prefix}: minimum_actual_searches={minimum_actual_searches} differs from formal_search_plan {instruction_id} minimum {expected_min}"
+                )
+            computed_fs_status[instruction_id] = {
+                "result_id": result_id,
+                "issue_area": issue_area,
+                "subissue": subissue,
+                "terminal_status": terminal_status,
+                "downstream_permission": downstream_permission,
+                "minimum_actual_searches": expected_min,
+                "actual_search_attempt_count": actual_search_attempt_count,
+                "search_attempt_ids": [_normalize_attempt_id(item) for item in _as_list(result.get("search_attempt_ids")) if _text(item)],
+            }
 
+        require_attempt = terminal_status not in NO_ATTEMPT_TERMINAL_STATUSES
         has_formal_attempt, _ = _validate_attempts(
             prefix=prefix,
             result=result,
             attempts=attempts,
             errors=errors,
             warnings=warnings,
+            require_attempt=require_attempt,
         )
         formal_attempt_referenced = formal_attempt_referenced or has_formal_attempt
+        normalized_attempt_ids = [_normalize_attempt_id(item) for item in _as_list(result.get("search_attempt_ids")) if _text(item)]
+        if actual_search_attempt_count != len(normalized_attempt_ids):
+            errors.append(
+                f"{prefix}: actual_search_attempt_count={actual_search_attempt_count} does not match search_attempt_ids count {len(normalized_attempt_ids)}"
+            )
+        if terminal_status in NO_ATTEMPT_TERMINAL_STATUSES and normalized_attempt_ids:
+            errors.append(f"{prefix}: terminal_status={terminal_status} cannot carry actual S-xxx search_attempt_ids")
 
         selected_urls = [_text(item) for item in _as_list(result.get("selected_source_urls")) if _text(item)]
         for url in selected_urls:
@@ -345,6 +414,8 @@ def validate(
                 errors.append(f"{prefix}: invalid metric_id '{met_id}'")
 
         if status in EVIDENCE_STATUSES:
+            if terminal_status in NO_ATTEMPT_TERMINAL_STATUSES:
+                errors.append(f"{prefix}: status={status} cannot be paired with terminal_status={terminal_status}")
             if not selected_urls:
                 errors.append(f"{prefix}: status={status} requires selected_source_urls")
             if not source_review_ids:
@@ -362,6 +433,8 @@ def validate(
                 errors.append(f"{prefix}: status={status} requires limitations")
             if evidence_ids or metric_ids:
                 errors.append(f"{prefix}: unresolved issue cannot carry EV/MET IDs as usable findings")
+            if terminal_status == "executed_with_evidence":
+                errors.append(f"{prefix}: unresolved status cannot use terminal_status=executed_with_evidence")
             if "backlog" not in _text(result.get("research_pack_handling")).lower() and "gap" not in _text(result.get("research_pack_handling")).lower():
                 warnings.append(f"{prefix}: unresolved issue should be handled as a research gap/backlog in the research pack")
 
@@ -392,23 +465,104 @@ def validate(
     missing_instructions = sorted(set(planned_instructions) - seen_instruction_ids)
     if missing_instructions:
         errors.append(
-            "formal research execution report did not execute planned search instruction(s): "
+            "formal research execution report did not account for planned search instruction(s): "
             + ", ".join(missing_instructions[:20])
-            + ". Run real formal searches for these FS-xxx instructions, append S-xxx entries to search_log.md, "
-            + "then reference those S-xxx IDs in search_attempt_ids. Do not delete planned taxonomy coverage to pass validation."
+            + ". Add FR rows with terminal_status=executed_with_evidence/executed_no_usable_source/not_executed/not_material/accounting_only. "
+            + "Do not create fake S-xxx IDs for unexecuted rows and do not delete planned taxonomy coverage."
         )
         if len(missing_instructions) > 20:
-            errors.append(f"...and {len(missing_instructions) - 20} more planned search instruction(s)")
+            errors.append(f"...and {len(missing_instructions) - 20} more unaccounted planned search instruction(s)")
 
     coverage = report.get("coverage_summary")
     if not isinstance(coverage, dict):
-        warnings.append("coverage_summary is missing; include issue areas covered, gaps, and unavailable facts")
+        errors.append("coverage_summary is missing; include planned-vs-actual FS/S accounting before downstream research pack")
     else:
+        expected_numbers = {
+            "planned_fs_rows": len(planned_instructions),
+            "actual_search_attempts": len(actual_formal_attempt_ids),
+            "fs_rows_accounted": len(computed_fs_status),
+            "fs_rows_executed_with_evidence": sum(1 for row in computed_fs_status.values() if row.get("terminal_status") == "executed_with_evidence"),
+            "fs_rows_executed_without_evidence": sum(1 for row in computed_fs_status.values() if row.get("terminal_status") == "executed_no_usable_source"),
+            "fs_rows_not_executed": sum(1 for row in computed_fs_status.values() if row.get("terminal_status") in {"not_executed", "accounting_only", "not_material"}),
+        }
+        for key, expected in expected_numbers.items():
+            observed = coverage.get(key)
+            if observed != expected:
+                errors.append(f"coverage_summary.{key} must be {expected}, observed {observed}")
+        below_minimum = sorted(
+            fs_id
+            for fs_id, row in computed_fs_status.items()
+            if int(row.get("actual_search_attempt_count") or 0) < int(row.get("minimum_actual_searches") or 0)
+        )
+        reported_below_minimum = sorted(_text(item) for item in _as_list(coverage.get("high_priority_rows_below_minimum")) if _text(item))
+        if reported_below_minimum != below_minimum:
+            errors.append(
+                "coverage_summary.high_priority_rows_below_minimum must match computed below-minimum FS rows: "
+                + ", ".join(below_minimum)
+            )
         covered_areas = set(_as_list(coverage.get("covered_issue_areas")))
         known_areas = set(ISSUE_TOPICS_BY_AREA)
         unknown = sorted(str(item) for item in covered_areas if item not in known_areas)
         if unknown:
             errors.append("coverage_summary.covered_issue_areas contains unknown issue area(s): " + ", ".join(unknown))
+
+    fs_rows = report.get("fs_row_execution_status")
+    if not isinstance(fs_rows, list) or not fs_rows:
+        errors.append("fs_row_execution_status must be a non-empty array accounting for every planned FS-xxx row")
+    else:
+        rows_by_fs: dict[str, dict[str, Any]] = {}
+        for idx, row in enumerate(fs_rows, start=1):
+            if not isinstance(row, dict):
+                errors.append(f"fs_row_execution_status[{idx}] must be an object")
+                continue
+            fs_id = _text(row.get("fs_id"))
+            prefix = f"fs_row_execution_status[{idx}]"
+            if not FS_RE.fullmatch(fs_id):
+                errors.append(f"{prefix}: fs_id must follow FS-001 format")
+                continue
+            if fs_id in rows_by_fs:
+                errors.append(f"{prefix}: duplicate fs_id {fs_id}")
+            rows_by_fs[fs_id] = row
+            if fs_id not in planned_instructions:
+                errors.append(f"{prefix}: fs_id {fs_id} not found in formal_search_plan.json")
+            terminal_status = _text(row.get("terminal_status"))
+            if terminal_status not in VALID_TERMINAL_STATUSES:
+                errors.append(f"{prefix}: terminal_status must be one of {sorted(VALID_TERMINAL_STATUSES)}")
+            downstream_permission = _text(row.get("downstream_permission"))
+            if downstream_permission not in VALID_DOWNSTREAM_PERMISSIONS:
+                errors.append(f"{prefix}: downstream_permission must be one of {sorted(VALID_DOWNSTREAM_PERMISSIONS)}")
+            actual_ids = [_normalize_attempt_id(item) for item in _as_list(row.get("actual_search_attempt_ids")) if _text(item)]
+            if row.get("actual_search_attempt_count") != len(actual_ids):
+                errors.append(f"{prefix}: actual_search_attempt_count does not match actual_search_attempt_ids count")
+            for attempt_id in actual_ids:
+                attempt = attempts.get(attempt_id)
+                if not attempt:
+                    errors.append(f"{prefix}: actual_search_attempt_id {attempt_id} not found in search_log.md")
+                elif not _stage_is_formal(attempt):
+                    errors.append(f"{prefix}: actual_search_attempt_id {attempt_id} is not a formal/latest/peer search")
+            if terminal_status in NO_ATTEMPT_TERMINAL_STATUSES and actual_ids:
+                errors.append(f"{prefix}: terminal_status={terminal_status} cannot carry actual_search_attempt_ids")
+        missing_fs_rows = sorted(set(planned_instructions) - set(rows_by_fs))
+        if missing_fs_rows:
+            errors.append(
+                "fs_row_execution_status missing planned FS row(s): "
+                + ", ".join(missing_fs_rows[:20])
+            )
+        mismatch_fs_rows = sorted(
+            fs_id
+            for fs_id, computed in computed_fs_status.items()
+            if fs_id in rows_by_fs
+            and (
+                _text(rows_by_fs[fs_id].get("terminal_status")) != computed.get("terminal_status")
+                or _text(rows_by_fs[fs_id].get("downstream_permission")) != computed.get("downstream_permission")
+                or [_normalize_attempt_id(item) for item in _as_list(rows_by_fs[fs_id].get("actual_search_attempt_ids")) if _text(item)] != computed.get("search_attempt_ids")
+            )
+        )
+        if mismatch_fs_rows:
+            errors.append(
+                "fs_row_execution_status differs from issue_results for FS row(s): "
+                + ", ".join(mismatch_fs_rows[:20])
+            )
 
     return errors, warnings
 

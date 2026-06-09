@@ -485,6 +485,16 @@ def message_for_state(state: dict[str, Any], debug_only: bool) -> str:
     stage = state.get("stage")
     if stage == "CLIENT_READY":
         return "Run is client-ready. Publish only the PPT referenced by the latest-final pointer."
+    if stage == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
+        return (
+            "formal_research_execution is not complete. Reconcile every planned FS-xxx row against actual S-xxx searches; "
+            "mark unexecuted rows explicitly and do not create fake S-xxx IDs or downstream evidence."
+        )
+    if stage == "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED":
+        return (
+            "research_evidence_db is not complete. Promote only reviewed SRC-backed executed evidence; planned-only or unexecuted "
+            "FS rows belong in the gap audit, not EV/MET rows."
+        )
     gate = state.get("gate") or "current gate"
     return f"{gate} is not complete. Do not proceed to downstream stages until this gate passes."
 

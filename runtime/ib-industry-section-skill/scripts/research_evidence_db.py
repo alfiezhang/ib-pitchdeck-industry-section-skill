@@ -17,6 +17,8 @@ from json_utils import load_json_file
 
 EV_RE = re.compile(r"^EV-\d{3}$")
 MET_RE = re.compile(r"^MET-\d{3}$")
+NO_EVIDENCE_TERMINAL_STATUSES = {"not_executed", "not_material", "accounting_only"}
+EVIDENCE_TERMINAL_STATUS = "executed_with_evidence"
 PLACEHOLDER_MARKERS = (
     "TODO",
     "TODO_REPLACE",
@@ -167,14 +169,19 @@ def build_db(
     metric_seen: set[str] = set()
     evidence_rows: list[dict[str, Any]] = []
     metric_rows: list[dict[str, Any]] = []
+    critical_gap_rows: list[str] = []
+    optional_gap_rows: list[str] = []
 
     for idx, result in enumerate(as_list(execution_report.get("issue_results")), start=1):
         if not isinstance(result, dict):
             continue
         result_id = text(result.get("result_id")) or f"FR-{idx:03d}"
+        terminal_status = text(result.get("terminal_status"))
+        downstream_permission = text(result.get("downstream_permission"))
         source_review_ids = [text(item) for item in as_list(result.get("source_review_ids")) if text(item)]
         evidence_ids = [text(item) for item in as_list(result.get("evidence_ids")) if text(item)]
         metric_ids = [text(item) for item in as_list(result.get("metric_ids")) if text(item)]
+        search_attempt_ids = [text(item) for item in as_list(result.get("search_attempt_ids")) if text(item)]
         formal_results.append(
             {
                 "result_id": result_id,
@@ -182,7 +189,12 @@ def build_db(
                 "subissue": text(result.get("subissue")),
                 "research_question": text(result.get("research_question")),
                 "status": text(result.get("status")),
-                "search_attempt_ids": [text(item) for item in as_list(result.get("search_attempt_ids")) if text(item)],
+                "terminal_status": terminal_status,
+                "downstream_permission": downstream_permission,
+                "minimum_actual_searches": result.get("minimum_actual_searches"),
+                "actual_search_attempt_count": result.get("actual_search_attempt_count"),
+                "search_instruction_ids": [text(item) for item in as_list(result.get("search_instruction_ids")) if text(item)],
+                "search_attempt_ids": search_attempt_ids,
                 "source_review_ids": source_review_ids,
                 "evidence_ids": evidence_ids,
                 "metric_ids": metric_ids,
@@ -191,8 +203,18 @@ def build_db(
                 "research_pack_handling": text(result.get("research_pack_handling")),
             }
         )
-        linked_ids = source_review_ids or [""]
-        for src_id in linked_ids:
+        if terminal_status in NO_EVIDENCE_TERMINAL_STATUSES:
+            critical_gap_rows.append(
+                f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                f"{terminal_status}; not eligible for evidence promotion until actual formal search/source review exists."
+            )
+        elif terminal_status != EVIDENCE_TERMINAL_STATUS:
+            optional_gap_rows.append(
+                f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                f"{terminal_status or text(result.get('status'))}; keep as contextual/gap unless stronger sources are reviewed."
+            )
+
+        for src_id in source_review_ids:
             review = review_map.get(src_id, {})
             formal_extracts.append(
                 {
@@ -201,18 +223,21 @@ def build_db(
                     "issue_area": text(result.get("issue_area")),
                     "subissue": text(result.get("subissue")),
                     "source_review_id": src_id,
-                    "search_attempt_ids": [text(item) for item in as_list(result.get("search_attempt_ids")) if text(item)],
+                    "search_attempt_ids": search_attempt_ids,
                     "source_url": review_url(review),
                     "source_locator": review_locator(review),
                     "reviewed_excerpt_or_paraphrase": review_excerpt(review),
                     "extracted_fact_or_metric_candidate": "TODO_REPLACE_WITH_SOURCE_FAITHFUL_EXTRACT",
                     "status": text(result.get("status")),
-                    "promoted_evidence_ids": evidence_ids,
-                    "promoted_metric_ids": metric_ids,
+                    "terminal_status": terminal_status,
+                    "promoted_evidence_ids": evidence_ids if terminal_status == EVIDENCE_TERMINAL_STATUS else [],
+                    "promoted_metric_ids": metric_ids if terminal_status == EVIDENCE_TERMINAL_STATUS else [],
                     "limitations": [text(item) for item in as_list(result.get("limitations")) if text(item)],
                 }
             )
         primary_review = review_map.get(source_review_ids[0], {}) if source_review_ids else {}
+        if terminal_status != EVIDENCE_TERMINAL_STATUS or not source_review_ids:
+            continue
         for ev_id in evidence_ids:
             if ev_id in evidence_seen:
                 continue
@@ -300,8 +325,9 @@ def build_db(
         "research_gap_audit": {
             "critical_gaps": [
                 "Resolve before validation: replace TODO extracts, populate promoted evidence/metric fields, and update issue fact inventory from source-faithful evidence."
-            ],
-            "optional_gaps": [],
+            ]
+            + critical_gap_rows,
+            "optional_gaps": optional_gap_rows,
             "intentionally_excluded_topics": [],
             "metric_consistency_check": {
                 "GMV vs revenue": "",
@@ -347,19 +373,67 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             if not text(source.get(field)):
                 warnings.append(f"{src_id}: source_materials.{field} is empty")
 
+    formal_result_by_id: dict[str, dict[str, Any]] = {}
+    ev_to_result: dict[str, dict[str, Any]] = {}
+    met_to_result: dict[str, dict[str, Any]] = {}
+    for idx, result in enumerate(as_list(db.get("formal_research_results")), start=1):
+        if not isinstance(result, dict):
+            errors.append(f"formal_research_results[{idx}] must be an object")
+            continue
+        result_id = text(result.get("result_id"))
+        prefix = result_id or f"formal_research_results[{idx}]"
+        if not result_id:
+            errors.append(f"{prefix}: result_id is required")
+            continue
+        if result_id in formal_result_by_id:
+            errors.append(f"{prefix}: duplicate result_id {result_id}")
+        formal_result_by_id[result_id] = result
+        terminal_status = text(result.get("terminal_status"))
+        source_review_ids = [text(item) for item in as_list(result.get("source_review_ids")) if text(item)]
+        evidence_ids = [text(item) for item in as_list(result.get("evidence_ids")) if text(item)]
+        metric_ids = [text(item) for item in as_list(result.get("metric_ids")) if text(item)]
+        search_attempt_ids = [text(item) for item in as_list(result.get("search_attempt_ids")) if text(item)]
+        if terminal_status in NO_EVIDENCE_TERMINAL_STATUSES:
+            if search_attempt_ids or source_review_ids or evidence_ids or metric_ids:
+                errors.append(
+                    f"{prefix}: terminal_status={terminal_status} cannot carry S/SRC/EV/MET IDs; "
+                    "planned-but-unexecuted rows belong in research_gap_audit, not evidence promotion"
+                )
+        if terminal_status == EVIDENCE_TERMINAL_STATUS and not source_review_ids:
+            errors.append(f"{prefix}: executed_with_evidence requires source_review_ids")
+        for src_id in source_review_ids:
+            if src_id not in source_ids:
+                errors.append(f"{prefix}: source_review_id {src_id} not found in source_materials")
+        for ev_id in evidence_ids:
+            ev_to_result[ev_id] = result
+        for met_id in metric_ids:
+            met_to_result[met_id] = result
+
     extract_count = 0
     for idx, extract in enumerate(as_list(db.get("formal_research_extracts")), start=1):
         if not isinstance(extract, dict):
             errors.append(f"formal_research_extracts[{idx}] must be an object")
             continue
         extract_count += 1
+        extract_id = text(extract.get("extract_id")) or f"formal_research_extracts[{idx}]"
         if not text(extract.get("extract_id")):
-            errors.append(f"formal_research_extracts[{idx}]: extract_id is required")
+            errors.append(f"{extract_id}: extract_id is required")
+        result_id = text(extract.get("result_id"))
+        result = formal_result_by_id.get(result_id)
+        if not result_id or result is None:
+            errors.append(f"{extract_id}: result_id must reference formal_research_results")
+        elif text(result.get("terminal_status")) in NO_EVIDENCE_TERMINAL_STATUSES:
+            errors.append(
+                f"{extract_id}: cannot extract evidence from {result_id} with terminal_status={text(result.get('terminal_status'))}; "
+                "account for it in research_gap_audit instead"
+            )
         src_id = text(extract.get("source_review_id"))
-        if src_id and src_id not in source_ids:
-            errors.append(f"{extract.get('extract_id')}: source_review_id {src_id} not found in source_materials")
+        if not src_id:
+            errors.append(f"{extract_id}: source_review_id is required; extracts must come from real reviewed SRC rows")
+        elif src_id not in source_ids:
+            errors.append(f"{extract_id}: source_review_id {src_id} not found in source_materials")
         if contains_placeholder(extract.get("extracted_fact_or_metric_candidate")):
-            errors.append(f"{extract.get('extract_id')}: replace extracted_fact_or_metric_candidate placeholder")
+            errors.append(f"{extract_id}: replace extracted_fact_or_metric_candidate placeholder")
 
     ev_ids: set[str] = set()
     for idx, row in enumerate(as_list(db.get("evidence_ledger")), start=1):
@@ -383,8 +457,16 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         if text(row.get("evidence_status")) not in {"primary-reviewed", "secondary-reviewed", "lead-only"}:
             errors.append(f"{ev_id}: evidence_status must be primary-reviewed, secondary-reviewed, or lead-only")
         src_id = text(row.get("source_review_id"))
-        if src_id and src_id not in source_ids:
+        if not src_id:
+            errors.append(f"{ev_id}: source_review_id is required")
+        elif src_id not in source_ids:
             errors.append(f"{ev_id}: source_review_id {src_id} not found in source_materials")
+        source_result = ev_to_result.get(ev_id)
+        if source_result and text(source_result.get("terminal_status")) != EVIDENCE_TERMINAL_STATUS:
+            errors.append(
+                f"{ev_id}: linked formal result {text(source_result.get('result_id'))} is "
+                f"terminal_status={text(source_result.get('terminal_status'))}; only executed_with_evidence may promote EV rows"
+            )
     if not ev_ids:
         errors.append("evidence_ledger must contain at least one promoted EV row")
 
@@ -405,6 +487,12 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
                 errors.append(f"{met_id}: {field} is required")
             elif contains_placeholder(row.get(field)):
                 errors.append(f"{met_id}: {field} still contains placeholder text")
+        source_result = met_to_result.get(met_id)
+        if source_result and text(source_result.get("terminal_status")) != EVIDENCE_TERMINAL_STATUS:
+            errors.append(
+                f"{met_id}: linked formal result {text(source_result.get('result_id'))} is "
+                f"terminal_status={text(source_result.get('terminal_status'))}; only executed_with_evidence may promote MET rows"
+            )
 
     inventory_rows = [row for row in as_list(db.get("issue_fact_inventory")) if isinstance(row, dict)]
     if not inventory_rows:
@@ -526,8 +614,8 @@ def export_markdown(db: dict[str, Any]) -> str:
         "- Key transaction question:",
         "",
         "Formal Research Execution Results:",
-        "| Result ID | Issue Area | Subissue | Research Question | Status | Search Attempt IDs | Source Review IDs | Evidence IDs | Metric IDs | Limitations / Research Pack Handling |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| Result ID | Issue Area | Subissue | Research Question | Status | Terminal Status | Downstream Permission | Search Attempt IDs | Source Review IDs | Evidence IDs | Metric IDs | Limitations / Research Pack Handling |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for result in as_list(db.get("formal_research_results")):
         if not isinstance(result, dict):
@@ -543,6 +631,8 @@ def export_markdown(db: dict[str, Any]) -> str:
                     pipe(result.get("subissue")),
                     pipe(result.get("research_question")),
                     pipe(result.get("status")),
+                    pipe(result.get("terminal_status")),
+                    pipe(result.get("downstream_permission")),
                     pipe(join_values(result.get("search_attempt_ids"))),
                     pipe(join_values(result.get("source_review_ids"))),
                     pipe(join_values(result.get("evidence_ids"))),
@@ -611,7 +701,7 @@ def export_markdown(db: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "Allowed `Fact Status`: `sufficient`, `thin`, `insufficient`, `not_applicable`.",
+            "Allowed `Fact Status`: `sufficient`, `thin`, `insufficient`, `not_applicable`, `unavailable_after_research`.",
             "",
             "## Deal Context",
             "",

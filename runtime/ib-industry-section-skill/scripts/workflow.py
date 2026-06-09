@@ -46,17 +46,17 @@ def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
         ],
         "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
             {
-                "purpose": "rebuild execution report skeleton from plan/log/reviews",
+                "purpose": "rebuild planned-vs-actual execution accounting from plan/log/reviews; include unexecuted FS rows explicitly",
                 "command": f"{py} scripts/build_formal_research_execution_report_skeleton.py --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --search-log {run_dir}/artifacts/search_log.md --source-reviews {run_dir}/artifacts/source_reviews.json --include-unexecuted --output {run_dir}/artifacts/formal_research_execution_report.json",
             },
             {
-                "purpose": "validate formal research execution",
+                "purpose": "validate formal research execution accounting; planned FS rows without actual S-xxx attempts must be marked not_executed/not_material/accounting_only, not faked",
                 "command": f"{py} scripts/validate_formal_research_execution.py --report {run_dir}/artifacts/formal_research_execution_report.json --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/formal_research_execution_validation.json",
             },
         ],
         "SOURCE_REVIEWS_MISSING_OR_FAILED": [
             {
-                "purpose": "append each real formal search attempt before source review; repeat per FS-xxx",
+                "purpose": "append each real formal search attempt before source review; S-xxx IDs are only for actual searches, never for unexecuted FS rows",
                 "command": f"{py} scripts/append_search_attempt.py --search-log {run_dir}/artifacts/search_log.md --query '<exact query searched>' --stage formal_research_execution --fs-id FS-001 --selected-source '<exact reviewed URL>' --opened-reviewed yes --locator-excerpt '<page/section/table and short excerpt or limitation>'",
             },
             {
@@ -202,6 +202,28 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
             "must_fix_current_gate_first": True,
             "must_not_call_validator_failure_a_parsing_edge_case": True,
             "forbidden_until_gate_passes": state["forbidden_actions"],
+        }
+    if state["current_stage"] == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
+        payload["planned_vs_actual_search_policy"] = {
+            "fs_rows_are": "planned coverage instructions",
+            "s_rows_are": "actual executed search attempts",
+            "must_account_for_every_planned_fs_row": True,
+            "unexecuted_fs_rows": "mark as not_executed, not_material, accounting_only, insufficient, or backlog",
+            "do_not": [
+                "Do not create fake S-xxx IDs for unexecuted FS rows.",
+                "Do not build source_reviews for unexecuted FS rows.",
+                "Do not build research_evidence_db from planned queries.",
+                "Do not write issue_analysis or deck_blueprint until execution accounting passes.",
+            ],
+        }
+    if state["current_stage"] == "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED":
+        payload["evidence_db_policy"] = {
+            "may_promote": "only FR rows with terminal_status=executed_with_evidence and reviewed SRC support",
+            "must_gap_audit": "not_executed, not_material, accounting_only, or executed_no_usable_source rows",
+            "do_not": [
+                "Do not create FX/EV/MET rows from planned-only FS rows.",
+                "Do not use search snippets or unreviewed URLs as evidence.",
+            ],
         }
     if state["current_stage"] == "STOP_AND_REPORT":
         payload["repair_policy"] = {

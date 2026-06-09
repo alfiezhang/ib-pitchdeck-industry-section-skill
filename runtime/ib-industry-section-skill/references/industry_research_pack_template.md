@@ -72,8 +72,8 @@ Project Classification:
 - Key transaction question:
 
 Formal Research Execution Results:
-| Result ID | Issue Area | Subissue | Research Question | Status | Search Attempt IDs | Source Review IDs | Evidence IDs | Metric IDs | Limitations / Research Pack Handling |
-|---|---|---|---|---|---|---|---|---|---|
+| Result ID | Issue Area | Subissue | Research Question | Status | Terminal Status | Downstream Permission | Search Attempt IDs | Source Review IDs | Evidence IDs | Metric IDs | Limitations / Research Pack Handling |
+|---|---|---|---|---|---|---|---|---|---|---|---|
 | FR-001 | | | | | | | | | |
 
 ---
@@ -85,6 +85,10 @@ Formal Research Execution Results:
 
 | Result ID | Source Review ID | Search Attempt IDs | Source URL | Locator | Reviewed Excerpt / Paraphrase | Extracted Fact Or Metric Candidate | Status | Promoted EV/MET IDs | Limitations |
 |---|---|---|---|---|---|---|---|---|---|
+
+Only rows with real reviewed `Source Review ID` support can appear in Formal
+Research Extracts. Planned-only or `not_executed` FS rows belong in Research Gap
+Audit, not in this table.
 | FR-001 | SRC-001 | S-001 | | | | | supported / thin / insufficient | EV-001 / MET-001 | |
 
 ---

@@ -128,9 +128,22 @@ Build the full taxonomy skeleton first:
 ```
 
 Then edit only the industry-specific research questions, query strings,
-purposes, and source hints. Do not delete canonical issue/subissue rows. Thin
-coverage upstream leads to thin issue analysis and thin PPT pages; execute the
-row, then downgrade it later if evidence is unavailable.
+purposes, and source hints. Do not delete canonical issue/subissue rows.
+
+Important: full taxonomy is a coverage audit, not an equal-depth search
+mandate. A planned `FS-xxx` row is not evidence, and a planned query is not a
+real search. Each row carries an execution expectation:
+
+- `deep_search`: material row; normally needs 2+ actual `S-xxx` attempts or a
+  clear explanation why fewer were sufficient/unavailable.
+- `light_search`: relevant row; normally needs at least 1 actual `S-xxx`
+  attempt.
+- `accounting_only`: low-materiality row; may have zero searches, but must be
+  accounted for later as not material/backlog and cannot support claims.
+
+Thin coverage upstream leads to thin issue analysis and thin PPT pages. The fix
+is better search execution or explicit coverage accounting, not fake `S-xxx`
+IDs and not deleting planned rows.
 
 The plan must not contain investment hypotheses, page headlines, or deck
 conclusions.
@@ -168,10 +181,16 @@ Rules:
 
 - `FS-xxx` appears in `search_instruction_ids`.
 - `S-xxx` appears in `search_attempt_ids`.
+- Only actual formal/latest/peer searches can receive `S-xxx` IDs.
+- Do not create `S-xxx` IDs for unexecuted planned `FS-xxx` rows.
 - Broad-discovery `S-xxx` attempts stay in discovery/source-lead fields; do not
   reuse them as formal execution.
-- Do not remove failed or thin `FS-xxx` rows. Mark the result thin,
-  insufficient, or unavailable after running the search.
+- Do not remove failed, thin, or unexecuted `FS-xxx` rows. Mark the result
+  `executed_with_evidence`, `executed_no_usable_source`, `not_executed`,
+  `not_material`, or `accounting_only` in formal execution accounting.
+- If 10 actual formal searches were executed against 40+ planned rows, write
+  that gap explicitly. The remaining rows go to coverage accounting/gap audit;
+  they do not become source reviews, evidence, or slide claims.
 
 ## Source Reviews
 
@@ -249,10 +268,16 @@ Build the report skeleton after search log, source reviews, and source archive:
 The helper maps `FS-xxx`, `S-xxx`, and `SRC-xxx`. The LLM edits judgment fields:
 
 - `status`
+- `terminal_status`
+- `downstream_permission`
 - `findings_summary`
 - `limitations`
 - `research_pack_handling`
 - real EV/MET links if already known
+
+The execution report is planned-vs-actual coverage accounting. It must reconcile
+every planned `FS-xxx` row with actual `S-xxx` searches. Do not claim all rows
+were searched unless the search log contains corresponding actual attempts.
 
 Validate:
 
