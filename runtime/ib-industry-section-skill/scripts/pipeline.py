@@ -74,6 +74,8 @@ def _ensure_run_dir(run_dir: Path) -> Path:
 def _preflight(run_dir: Path) -> None:
     state = validate_run_state(run_dir)
     if state["current_stage"] not in {
+        "CHART_METRIC_BINDING_FAILED",
+        "CONTENT_QUALITY_FAILED",
         "PRE_PPT_GATE_FAILED",
         "REPLACEMENT_DICT_MISSING_OR_FAILED",
         "FILLED_PPT_VALIDATION_FAILED",

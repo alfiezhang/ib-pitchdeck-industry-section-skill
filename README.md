@@ -49,6 +49,20 @@ cp -R runtime/ib-industry-section-skill ~/.codex/skills/
 
 不要把仓库根目录整体复制到 agent skills 目录。根目录包含测试、CI 和开发文件，会干扰 agent 执行。
 
+### 首次运行检查
+
+安装后，在 skill 目录中运行：
+
+```bash
+cd ~/.codex/skills/ib-industry-section-skill
+PYTHON_CMD="$(bash setup.sh --print-python)"
+"$PYTHON_CMD" scripts/check_runtime_dependencies.py
+```
+
+`setup.sh` 会调用 `scripts/bootstrap_runtime.py`，优先复用可用的 Python；如果缺少依赖，会尝试创建或更新本地 `.venv` 并安装 `requirements.txt`。
+
+正式研究需要联网搜索能力：可以使用 agent 自带的 Web Search，也可以使用 `tavily-python` / `ddgs` 作为脚本 fallback provider。如果完全没有网络或搜索 provider，只能使用用户提供的离线来源，并且仍需完成 source review、source archive 和 evidence trace；不能把未搜索的内容伪装成 formal research。
+
 ### 基本工作流
 
 该 skill 的正式流程大致为：
@@ -67,6 +81,8 @@ brief
 ```
 
 `scripts/pipeline.py render --run-dir <attempt_dir>` 是正式 PPT 渲染和 final gate 的首选入口。它只处理已经通过正式研究和上游校验的 run package，不从 brief 开始做研究，也不创建新的 attempt。`run_pipeline.sh` 保留为旧自动化兼容入口。
+
+当前 runtime 使用固定 8 页行业章节母版。页面类型和变体由 `slide_registry.json`、`page_type_rules.json`、`template_registry.json` 和 PPT mapping 控制；如需新增行业专属页面结构，应同步更新模板、registry、mapping 和验证脚本。
 
 ### 开发与测试
 
@@ -134,6 +150,20 @@ The installed layout should look like:
 
 Do not copy the repository root into the agent skills directory. The repository root contains tests, CI files, and development metadata that can distract execution agents.
 
+### First-Run Check
+
+After installation, run from the skill directory:
+
+```bash
+cd ~/.codex/skills/ib-industry-section-skill
+PYTHON_CMD="$(bash setup.sh --print-python)"
+"$PYTHON_CMD" scripts/check_runtime_dependencies.py
+```
+
+`setup.sh` calls `scripts/bootstrap_runtime.py`. It first tries to reuse a compatible Python runtime; if dependencies are missing, it can create/update the local `.venv` and install `requirements.txt`.
+
+Formal research needs search access. The agent may use its own Web Search tool, or the scripts can fall back to `tavily-python` / `ddgs` when configured. If neither network access nor a search provider is available, use only user-provided offline sources that can be reviewed, archived, and traced; do not represent unsearched content as formal research.
+
 ### Workflow
 
 The formal workflow is approximately:
@@ -152,6 +182,8 @@ brief
 ```
 
 `scripts/pipeline.py render --run-dir <attempt_dir>` is the preferred entrypoint for formal PPT rendering and final delivery gates. It only operates on a run package that has already passed formal research and upstream validation; it does not start research from a brief or create a new attempt. `run_pipeline.sh` remains as a compatibility entrypoint for older automation.
+
+The current runtime uses a fixed 8-slide industry-section master template. Page types and variants are controlled by `slide_registry.json`, `page_type_rules.json`, `template_registry.json`, and PPT mappings. New industry-specific page structures should update the template, registries, mappings, and validators together.
 
 ### Development And Tests
 

@@ -13,6 +13,9 @@ cd "$SKILL_DIR"
 
 "$PYTHON_CMD" -m compileall -q scripts
 bash -n run_pipeline.sh setup.sh "$ROOT_DIR/tests/run_contract_tests.sh"
+if command -v shellcheck >/dev/null 2>&1; then
+  shellcheck run_pipeline.sh setup.sh "$ROOT_DIR/tests/run_contract_tests.sh" "$ROOT_DIR/tests/run_smoke_tests.sh"
+fi
 
 if bash run_pipeline.sh --no-research-gate --renderer-spec "$TMP_DIR/missing_renderer_spec.json" >/dev/null 2>"$TMP_DIR/no_research_gate.err"; then
   echo "run_pipeline.sh must reject --no-research-gate without explicit debug authorization" >&2

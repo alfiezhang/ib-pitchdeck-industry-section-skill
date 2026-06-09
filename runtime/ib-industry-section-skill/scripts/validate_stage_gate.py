@@ -393,8 +393,8 @@ def validate_stage(stage: str, run_dir: Path, source_registry: Optional[Path]) -
     if stage in {"pre_research_pack", "pre_renderer", "pre_ppt"}:
         validate_industry_scope_pack_gate(run_dir, errors, warnings)
         check_formal_search_plan_presence(run_dir, errors, warnings)
-        validate_formal_research_execution_gate(run_dir, errors, warnings)
         validate_source_reviews_gate(run_dir, errors, warnings, require_memo_binding=stage in {"pre_renderer", "pre_ppt"})
+        validate_formal_research_execution_gate(run_dir, errors, warnings)
 
     if stage in {"pre_renderer", "pre_ppt"}:
         validate_research_pack_gate(run_dir, source_registry, errors, warnings)

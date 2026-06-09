@@ -955,6 +955,30 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not plan_errors, plan_errors
     assert len(plan["issue_search_plan"]) >= 40, len(plan["issue_search_plan"])
     (artifacts / "formal_search_plan_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": plan_warnings}, ensure_ascii=False), encoding="utf-8")
+    early_state = validate_run_state(run_dir)
+    assert early_state["current_stage"] == "SOURCE_REVIEWS_MISSING_OR_FAILED", early_state
+    source_review_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "SOURCE_REVIEWS_MISSING_OR_FAILED"})
+    source_review_validation_cmds = [
+        item["command"]
+        for item in source_review_commands
+        if "validate_source_reviews.py" in item["command"]
+    ]
+    assert source_review_validation_cmds, source_review_commands
+    assert "--formal-research-execution-report" not in source_review_validation_cmds[0], source_review_validation_cmds
+    assert "--source-archive-index" not in source_review_validation_cmds[0], source_review_validation_cmds
+    archive_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED"})
+    assert archive_commands and "scripts/build_source_archive.py" in archive_commands[0]["command"], archive_commands
+    assert "--run-dir" in archive_commands[0]["command"], archive_commands
+    assert "--output-dir" not in archive_commands[0]["command"], archive_commands
+    execution_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED"})
+    execution_validation_cmds = [
+        item["command"]
+        for item in execution_commands
+        if "validate_formal_research_execution.py" in item["command"]
+    ]
+    assert execution_validation_cmds, execution_commands
+    assert "--report" in execution_validation_cmds[0], execution_validation_cmds
+    assert "--formal-research-execution-report" not in execution_validation_cmds[0], execution_validation_cmds
     invalid_plan = json.loads(json.dumps(plan))
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["instruction_id"] = "FS-001"
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["query"] = "<industry> placeholder"

@@ -46,32 +46,32 @@ def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
         ],
         "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
             {
-                "purpose": "append each real formal search attempt; repeat per FS-xxx",
-                "command": f"{py} scripts/append_search_attempt.py --search-log {run_dir}/artifacts/search_log.md --query '<exact query searched>' --stage formal_research_execution --fs-id FS-001 --selected-source '<exact reviewed URL>' --opened-reviewed yes --locator-excerpt '<page/section/table and short excerpt or limitation>'",
-            },
-            {
                 "purpose": "rebuild execution report skeleton from plan/log/reviews",
                 "command": f"{py} scripts/build_formal_research_execution_report_skeleton.py --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --search-log {run_dir}/artifacts/search_log.md --source-reviews {run_dir}/artifacts/source_reviews.json --include-unexecuted --output {run_dir}/artifacts/formal_research_execution_report.json",
             },
             {
                 "purpose": "validate formal research execution",
-                "command": f"{py} scripts/validate_formal_research_execution.py --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/formal_research_execution_validation.json",
+                "command": f"{py} scripts/validate_formal_research_execution.py --report {run_dir}/artifacts/formal_research_execution_report.json --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/formal_research_execution_validation.json",
             },
         ],
         "SOURCE_REVIEWS_MISSING_OR_FAILED": [
+            {
+                "purpose": "append each real formal search attempt before source review; repeat per FS-xxx",
+                "command": f"{py} scripts/append_search_attempt.py --search-log {run_dir}/artifacts/search_log.md --query '<exact query searched>' --stage formal_research_execution --fs-id FS-001 --selected-source '<exact reviewed URL>' --opened-reviewed yes --locator-excerpt '<page/section/table and short excerpt or limitation>'",
+            },
             {
                 "purpose": "build source review skeleton from search log selected URLs",
                 "command": f"{py} scripts/build_source_reviews_skeleton.py --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/source_reviews.json",
             },
             {
                 "purpose": "validate reviewed sources after LLM fills locator/excerpt/use decisions",
-                "command": f"{py} scripts/validate_source_reviews.py --source-reviews {run_dir}/artifacts/source_reviews.json --search-log {run_dir}/artifacts/search_log.md --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --output {run_dir}/artifacts/source_reviews_validation.json",
+                "command": f"{py} scripts/validate_source_reviews.py --source-reviews {run_dir}/artifacts/source_reviews.json --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/source_reviews_validation.json",
             },
         ],
         "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
             {
                 "purpose": "build source archive from source reviews",
-                "command": f"{py} scripts/build_source_archive.py --source-reviews {run_dir}/artifacts/source_reviews.json --output-dir {run_dir}/artifacts/source_archive",
+                "command": f"{py} scripts/build_source_archive.py --source-reviews {run_dir}/artifacts/source_reviews.json --run-dir {run_dir} --overwrite",
             }
         ],
         "PRE_RESEARCH_PACK_GATE_FAILED": [

@@ -35,7 +35,7 @@
       "builder": "scripts/build_formal_research_execution_report_skeleton.py",
       "validator": "scripts/validate_formal_research_execution.py",
       "validation": "artifacts/formal_research_execution_validation.json",
-      "inputs": ["formal_search_plan", "search_log"]
+      "inputs": ["formal_search_plan", "search_log", "source_reviews", "source_archive"]
     },
     "source_reviews": {
       "path": "artifacts/source_reviews.json",
@@ -43,7 +43,7 @@
       "builder": "scripts/build_source_reviews_skeleton.py",
       "validator": "scripts/validate_source_reviews.py",
       "validation": "artifacts/source_reviews_validation.json",
-      "inputs": ["search_log", "formal_research_execution_report"]
+      "inputs": ["search_log"]
     },
     "evidence_candidate_skeleton": {
       "path": "artifacts/evidence_candidate_skeleton.json",
@@ -179,9 +179,9 @@
     { "gate": "input_card", "artifact": "input_card" },
     { "gate": "industry_scope_pack", "artifact": "industry_scope_pack" },
     { "gate": "formal_search_plan", "artifact": "formal_search_plan" },
-    { "gate": "formal_research_execution", "artifact": "formal_research_execution_report" },
     { "gate": "source_reviews", "artifact": "source_reviews" },
     { "gate": "source_archive", "artifact": "source_archive" },
+    { "gate": "formal_research_execution", "artifact": "formal_research_execution_report" },
     { "gate": "pre_research_pack", "artifact": "pre_research_pack_gate" },
     { "gate": "research_pack", "artifact": "research_pack" },
     { "gate": "issue_analysis", "artifact": "issue_analysis" },

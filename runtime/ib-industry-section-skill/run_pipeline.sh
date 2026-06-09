@@ -504,15 +504,14 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
     --formal-search-plan "$OUTPUT_DIR/artifacts/formal_search_plan.json" \
     --output "$OUTPUT_DIR/artifacts/formal_search_plan_validation.json"
 
-  echo "[bootstrap] validating formal research execution..."
-  run_validation_gate "formal_research_execution" "$OUTPUT_DIR/artifacts/formal_research_execution_validation.json" \
-  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_formal_research_execution.py" \
-    --report "$OUTPUT_DIR/artifacts/formal_research_execution_report.json" \
-    --formal-search-plan "$OUTPUT_DIR/artifacts/formal_search_plan.json" \
-    --search-log "$OUTPUT_DIR/artifacts/search_log.md" \
-    --output "$OUTPUT_DIR/artifacts/formal_research_execution_validation.json"
-
   echo "[bootstrap] validating source reviews..."
+  run_validation_gate "source_reviews" "$OUTPUT_DIR/artifacts/source_reviews_validation.json" \
+  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_source_reviews.py" \
+    --source-reviews "$OUTPUT_DIR/artifacts/source_reviews.json" \
+    --search-log "$OUTPUT_DIR/artifacts/search_log.md" \
+    --output "$OUTPUT_DIR/artifacts/source_reviews_validation.json"
+
+  echo "[bootstrap] validating source archive..."
   run_validation_gate "source_archive" "$OUTPUT_DIR/artifacts/source_archive_validation.json" \
   "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_source_archive.py" \
     --source-reviews "$OUTPUT_DIR/artifacts/source_reviews.json" \
@@ -520,14 +519,13 @@ if [[ $RESEARCH_GATE -eq 1 ]]; then
     --run-dir "$OUTPUT_DIR" \
     --output "$OUTPUT_DIR/artifacts/source_archive_validation.json"
 
-  run_validation_gate "source_reviews" "$OUTPUT_DIR/artifacts/source_reviews_validation.json" \
-  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_source_reviews.py" \
-    --source-reviews "$OUTPUT_DIR/artifacts/source_reviews.json" \
+  echo "[bootstrap] validating formal research execution..."
+  run_validation_gate "formal_research_execution" "$OUTPUT_DIR/artifacts/formal_research_execution_validation.json" \
+  "$PYTHON_CMD" "$SCRIPT_DIR/scripts/validate_formal_research_execution.py" \
+    --report "$OUTPUT_DIR/artifacts/formal_research_execution_report.json" \
+    --formal-search-plan "$OUTPUT_DIR/artifacts/formal_search_plan.json" \
     --search-log "$OUTPUT_DIR/artifacts/search_log.md" \
-    --formal-research-execution-report "$OUTPUT_DIR/artifacts/formal_research_execution_report.json" \
-    --source-archive-index "$OUTPUT_DIR/artifacts/source_archive/source_archive_index.json" \
-    --run-dir "$OUTPUT_DIR" \
-    --output "$OUTPUT_DIR/artifacts/source_reviews_validation.json"
+    --output "$OUTPUT_DIR/artifacts/formal_research_execution_validation.json"
 
   echo "[bootstrap] validating pre-research pack stage gate..."
   run_validation_gate "pre_research_pack" "$OUTPUT_DIR/artifacts/stage_gate_pre_research_pack_validation.json" \
