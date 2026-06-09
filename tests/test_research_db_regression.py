@@ -1,0 +1,227 @@
+from __future__ import annotations
+
+import json
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = ROOT / "runtime" / "ib-industry-section-skill" / "scripts"
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from pipeline import _write_run_flags  # noqa: E402
+from research_evidence_db import export_markdown, validate_db  # noqa: E402
+from validate_final_delivery import validate_artifact_provenance  # noqa: E402
+from validate_research_pack import validate as validate_research_pack  # noqa: E402
+from workflow import recommended_commands  # noqa: E402
+
+
+def minimal_research_db() -> dict:
+    return {
+        "schema_version": "research_evidence_db_v1",
+        "source_of_truth": True,
+        "meta": {
+            "target_company": "Sample Target",
+            "transaction_type": "control sale",
+            "industry": "sample sector",
+            "subsector": "sample subsector",
+            "geography": "Sampleland",
+            "language": "English",
+            "prepared_date": "2026-06-09",
+            "research_as_of_date": "2026-06-09",
+        },
+        "scope_summary": {
+            "working_market": "sample market",
+            "parent_market": "sample parent market",
+            "sub_markets": ["sample product"],
+            "excluded_scope": ["unrelated market"],
+        },
+        "formal_research_results": [
+            {
+                "result_id": "FR-001",
+                "issue_area": "market_size_growth",
+                "subissue": "current_market_size",
+                "research_question": "What is the current market size?",
+                "status": "supported",
+                "search_attempt_ids": ["S-001"],
+                "source_review_ids": ["SRC-001"],
+                "evidence_ids": ["EV-001"],
+                "metric_ids": ["MET-001"],
+                "findings_summary": "Reviewed source supports sample market size.",
+                "limitations": ["Contract fixture only."],
+                "research_pack_handling": "Use as a fixture row.",
+            }
+        ],
+        "formal_research_extracts": [
+            {
+                "extract_id": "FX-001",
+                "result_id": "FR-001",
+                "issue_area": "market_size_growth",
+                "subissue": "current_market_size",
+                "source_review_id": "SRC-001",
+                "search_attempt_ids": ["S-001"],
+                "source_url": "https://example.com/report",
+                "source_locator": "section 1",
+                "reviewed_excerpt_or_paraphrase": "The sample market was RMB 100bn in 2026.",
+                "extracted_fact_or_metric_candidate": "Sample market size was RMB 100bn in 2026.",
+                "status": "supported",
+                "promoted_evidence_ids": ["EV-001"],
+                "promoted_metric_ids": ["MET-001"],
+                "limitations": ["Contract fixture only."],
+            }
+        ],
+        "source_materials": [
+            {
+                "source_review_id": "SRC-001",
+                "source_name": "Example Industry Report",
+                "source_type": "industry_report",
+                "source_date": "2026-06-01",
+                "geography": "Sampleland",
+                "source_reliability": "high",
+                "evidence_use_tier": "primary",
+                "claim_use_scope": "industry-level",
+                "usable_as_evidence": True,
+                "source_url": "https://example.com/report",
+                "source_locator": "section 1",
+                "reviewed_excerpt": "The sample market was RMB 100bn in 2026.",
+                "limitations": "Contract fixture only.",
+            }
+        ],
+        "evidence_ledger": [
+            {
+                "evidence_id": "EV-001",
+                "claim_or_metric": "Sample market size was RMB 100bn in 2026.",
+                "claim_scope": "industry-level",
+                "source_review_id": "SRC-001",
+                "source_name": "Example Industry Report",
+                "source_url": "https://example.com/report",
+                "source_type": "industry_report",
+                "evidence_status": "primary-reviewed",
+                "source_date": "2026-06-01",
+                "data_period": "2026",
+                "source_locator": "section 1",
+                "raw_excerpt": "The sample market was RMB 100bn in 2026.",
+                "reliability": "high",
+                "confidence": "high",
+            }
+        ],
+        "metric_reconciliation": [
+            {
+                "metric_group": "Market sizing",
+                "metric_id": "MET-001",
+                "metric_name": "Sample market size",
+                "metric_type": "retail_sales",
+                "market_definition": "sample market",
+                "channel_scope": "all_channel",
+                "geography": "Sampleland",
+                "data_period": "2026",
+                "value": "100",
+                "unit": "RMB bn",
+                "comparable_with": "",
+                "parent_metric_id": "",
+                "cagr_endpoint_ids": "",
+                "conflict_status": "single-source",
+                "resolution": "Use only as a contract fixture.",
+                "chart_ready": True,
+            }
+        ],
+        "issue_fact_inventory": [
+            {
+                "issue_area": "market_size_growth",
+                "subissue": "current_market_size",
+                "evidence_ids": ["EV-001"],
+                "metric_ids": ["MET-001"],
+                "fact_status": "sufficient",
+                "notes": "Fixture inventory row.",
+            }
+        ],
+        "research_gap_audit": {
+            "critical_gaps": [],
+            "metric_consistency_check": {
+                "GMV vs revenue": "No conflict.",
+                "Cross-slide repeated metric consistency": "No repeated metric conflict.",
+                "Target financials consistency": "No target financials.",
+                "User-provided vs external-source discrepancy": "No discrepancy.",
+                "Chart number consistency": "MET-001 is chart ready.",
+            },
+        },
+    }
+
+
+def test_research_db_export_validates_without_chart_ready_warning(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    db = minimal_research_db()
+    errors, _, metrics = validate_db(db)
+    assert errors == []
+    assert metrics["metric_reconciliation_row_count"] == 1
+
+    run_dir = tmp_path
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "research_evidence_db.json").write_text(json.dumps(db, ensure_ascii=False), encoding="utf-8")
+    (artifacts / "research_evidence_db_validation.json").write_text(
+        json.dumps({"is_valid": True, "errors": [], "warnings": []}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    pack = export_markdown(db)
+    assert "Chart Ready" in pack
+    (run_dir / "industry_research_pack.md").write_text(pack, encoding="utf-8")
+
+    result = validate_research_pack(run_dir / "industry_research_pack.md")
+    assert result["is_valid"] is True
+    assert not any("chart_ready flags" in warning for warning in result["warnings"])
+
+
+def test_final_delivery_provenance_detects_stale_research_db_validation(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    db_validation = artifacts / "research_evidence_db_validation.json"
+    db_validation.write_text(json.dumps({"is_valid": True}), encoding="utf-8")
+    db_path = artifacts / "research_evidence_db.json"
+    db_path.write_text(json.dumps(minimal_research_db(), ensure_ascii=False), encoding="utf-8")
+    now = time.time()
+    os.utime(db_validation, (now - 20, now - 20))
+    os.utime(db_path, (now, now))
+
+    errors, _ = validate_artifact_provenance(tmp_path)
+    assert any("research_evidence_db_validation.json is older" in error for error in errors)
+
+
+def test_pipeline_run_flags_written_for_formal_package(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    _write_run_flags(tmp_path, entrypoint="pytest")
+    flags = json.loads((tmp_path / "artifacts" / "run_flags.json").read_text(encoding="utf-8"))
+    assert flags["schema_version"] == "run_flags_v1"
+    assert flags["research_gate"] == 1
+    assert flags["issue_analysis_layer"] == 1
+    assert flags["debug_output_only"] is False
+
+
+def test_workflow_next_keeps_research_pack_derived() -> None:
+    commands = recommended_commands({"run_dir": "/tmp/run", "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
+    command_text = "\n".join(item["command"] for item in commands)
+    assert "export_research_pack_from_db.py" in command_text
+    assert "validate_research_pack.py" in command_text
+    assert "--source-registry templates/source_registry.json" in command_text
+    assert "build_research_evidence_pack_skeleton.py" not in command_text
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory() as tmp:
+        test_research_db_export_validates_without_chart_ready_warning(Path(tmp) / "db_export")
+    with tempfile.TemporaryDirectory() as tmp:
+        test_final_delivery_provenance_detects_stale_research_db_validation(Path(tmp) / "provenance")
+    with tempfile.TemporaryDirectory() as tmp:
+        test_pipeline_run_flags_written_for_formal_package(Path(tmp) / "flags")
+    test_workflow_next_keeps_research_pack_derived()
+    print("Research DB regression tests passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

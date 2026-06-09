@@ -67,13 +67,12 @@ For one-shot or delivery runs with an existing validated attempt, use only the P
 This operates inside the current attempt directory. It does not create a new
 attempt, does not perform research, and does not write page judgments.
 
-`run_pipeline.sh` remains a compatibility wrapper for older command surfaces:
+`run_pipeline.sh` remains a compatibility wrapper for older command surfaces,
+but it only delegates to the Python orchestrator for an existing attempt:
 
 ```bash
 /path/to/skill/run_pipeline.sh \
-  --work-root /path/to/work \
-  --case-name "project-or-target-name" \
-  --deck-blueprint /path/to/run/deck_blueprint.json
+  --run-dir /path/to/runs/<case_slug>/attempt_<timestamp>
 ```
 
 The deterministic pipeline owns the PPT stage sequence:
@@ -163,17 +162,15 @@ If an older command surface requires the shell wrapper, pass an explicit package
 
 ```bash
 /path/to/skill/run_pipeline.sh \
-  --work-root /path/to/work \
-  --case-name "project-or-target-name" \
-  --deck-blueprint /path/to/work/deck_blueprint.json
+  --run-dir /path/to/runs/<case_slug>/attempt_<timestamp>
 ```
 
-If `--deck-blueprint` is already inside an `attempt_*` directory, the shell wrapper keeps that attempt as the package of record by default. Otherwise, if no explicit output directory is provided, it writes generated artifacts under `<work_root>/runs/<case_slug>/attempt_<timestamp>/`. Pass `--case-name` when using a shared workspace so multiple projects do not mix under one top-level `runs` folder. Use `--new-attempt`, `--resume-active`, `--attempt-name`, or `--output-dir` only when intentionally creating, continuing, or selecting a different attempt.
+The shell wrapper no longer creates attempts, stages artifacts, or continues
+`ACTIVE_ATTEMPT.txt`. If `--deck-blueprint` is passed, it is used only to infer
+the enclosing `attempt_*` directory.
 
 The pipeline writes `artifacts/stage_gate_pre_ppt_validation.json` and exits
 before PPT generation when the formal search plan, research pack, renderer spec, content
 quality, or MET-ID evidence chain is invalid. A user asking to generate an
 industry-section PPT from a project brief is asking for the formal path, not a
-rendering shortcut. Use `--no-research-gate` only for explicit local PPT-only
-debugging after setting `IB_SKILL_ALLOW_PPT_ONLY_DEBUG=1` and passing
-`--debug-reason`; never use it for a research-backed deliverable.
+rendering shortcut. `--no-research-gate` is not a delivery path.

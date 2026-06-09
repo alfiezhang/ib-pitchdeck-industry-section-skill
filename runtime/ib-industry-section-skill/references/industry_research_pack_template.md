@@ -81,7 +81,7 @@ Formal Research Execution Results:
 ## Formal Research Extracts
 > Preserve the raw research substrate before synthesis. This section is not page strategy and not slide copy.
 > For every material `FR-xxx` and `SRC-xxx`, include the reviewed locator/excerpt, extracted fact, metric candidates, limitations, and whether the item is promoted to EV/MET. This prevents the research pack from becoming an over-compressed memo.
-> Start from `scripts/build_research_evidence_pack_skeleton.py`; then replace extraction placeholders with source-faithful facts/metrics. Do not delete thin or insufficient rows to make the file shorter.
+> This Markdown file is generated from `artifacts/research_evidence_db.json` with `scripts/export_research_pack_from_db.py`. Edit the database, not this export. Do not delete thin or insufficient rows to make the file shorter.
 
 | Result ID | Source Review ID | Search Attempt IDs | Source URL | Locator | Reviewed Excerpt / Paraphrase | Extracted Fact Or Metric Candidate | Status | Promoted EV/MET IDs | Limitations |
 |---|---|---|---|---|---|---|---|---|---|
@@ -259,10 +259,10 @@ Claim strength values:
 > Do not rename table headers. Use `Metric ID`, not `MET ID`; use `CAGR Endpoint IDs`
 > exactly for the ordered begin/end metric references.
 
-| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Parent Metric ID | CAGR Endpoint IDs | Conflict Status | Resolution |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Market sizing | MET-001 | | | | | | | | | | | | | |
-| Market sizing | MET-002 | | | | | | | | | | | | | |
+| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Parent Metric ID | CAGR Endpoint IDs | Conflict Status | Resolution | Chart Ready |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Market sizing | MET-001 | | | | | | | | | | | | | | false |
+| Market sizing | MET-002 | | | | | | | | | | | | | | false |
 
 <!--
 Metric Type: retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
@@ -276,7 +276,7 @@ CAGR Endpoint IDs: MET-IDs of begin/end value metrics for CAGR validation
 Key rules:
 - Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
 - Every MET-ID used in Key Data Points, Chart-ready Data, page evidence contract, or renderer spec must first be populated here.
-- For every metric likely to appear in a PPT visual, add a short note using `chart_ready: true` or `chart_ready: false` immediately after the table or in the metric notes. Use `chart_ready: true` only when scope, unit, period, and source quality are clean enough for charting.
+- Use the `Chart Ready` column. Set it to `true` only when scope, unit, period, and source quality are clean enough for charting.
 - CAGR rows must include exactly two ordered `CAGR Endpoint IDs`: begin MET-ID, end MET-ID. Both endpoint rows must be existing numeric `MET-###` rows and must share the same Metric Type, Market Definition, Channel Scope, Geography, and Unit. Do not use `MET-BGN`, `MET-END`, `METBGN`, or `METEND`.
 - `Comparable With` is not a substitute for CAGR endpoint rows. Do not calculate or cite CAGR when the endpoints are missing, stale, or not comparable.
 - Different channel_scope values must not be auto-summed or subtracted

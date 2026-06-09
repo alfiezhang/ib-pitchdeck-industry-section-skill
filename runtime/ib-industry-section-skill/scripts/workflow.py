@@ -80,24 +80,30 @@ def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
                 "command": f"{py} scripts/validate_stage_gate.py --stage pre_research_pack --run-dir {run_dir} --output {run_dir}/artifacts/stage_gate_pre_research_pack_validation.json",
             }
         ],
+        "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": [
+            {
+                "purpose": "build research evidence database skeleton from reviewed formal research",
+                "command": f"{py} scripts/build_research_evidence_db.py --input-card {run_dir}/input_card.json --scope-pack {run_dir}/artifacts/industry_scope_pack.json --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --source-reviews {run_dir}/artifacts/source_reviews.json --output {run_dir}/artifacts/research_evidence_db.json",
+            },
+            {
+                "purpose": "validate research evidence database after LLM fills extracts/EV/MET/inventory fields",
+                "command": f"{py} scripts/validate_research_evidence_db.py --research-evidence-db {run_dir}/artifacts/research_evidence_db.json --output {run_dir}/artifacts/research_evidence_db_validation.json",
+            },
+        ],
         "RESEARCH_PACK_MISSING_OR_FAILED": [
             {
-                "purpose": "build research evidence pack skeleton",
-                "command": f"{py} scripts/build_research_evidence_pack_skeleton.py --input-card {run_dir}/input_card.json --scope-pack {run_dir}/artifacts/industry_scope_pack.json --formal-search-plan {run_dir}/artifacts/formal_search_plan.json --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --source-reviews {run_dir}/artifacts/source_reviews.json --output {run_dir}/industry_research_pack.md",
+                "purpose": "export readable research pack from research evidence database",
+                "command": f"{py} scripts/export_research_pack_from_db.py --research-evidence-db {run_dir}/artifacts/research_evidence_db.json --output {run_dir}/industry_research_pack.md",
             },
             {
-                "purpose": "build optional EV/MET candidate skeleton for extraction",
-                "command": f"{py} scripts/build_evidence_candidate_skeleton.py --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --source-reviews {run_dir}/artifacts/source_reviews.json --output {run_dir}/artifacts/evidence_candidate_skeleton.json",
-            },
-            {
-                "purpose": "validate research evidence pack after LLM fills extracts/EV/MET ledgers",
-                "command": f"{py} scripts/validate_research_pack.py --research-pack {run_dir}/industry_research_pack.md --run-dir {run_dir} --output {run_dir}/artifacts/research_pack_validation.json",
+                "purpose": "validate generated research evidence pack",
+                "command": f"{py} scripts/validate_research_pack.py --research-pack {run_dir}/industry_research_pack.md --run-dir {run_dir} --source-registry templates/source_registry.json --output {run_dir}/artifacts/research_pack_validation.json",
             },
         ],
         "ISSUE_ANALYSIS_MISSING_OR_FAILED": [
             {
                 "purpose": "build issue analysis skeleton from research-pack inventory",
-                "command": f"{py} scripts/build_issue_analysis_skeleton.py --research-pack {run_dir}/industry_research_pack.md --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --output {run_dir}/industry_issue_analysis.json",
+                "command": f"{py} scripts/build_issue_analysis_skeleton.py --research-evidence-db {run_dir}/artifacts/research_evidence_db.json --formal-research-execution-report {run_dir}/artifacts/formal_research_execution_report.json --output {run_dir}/industry_issue_analysis.json",
             },
             {
                 "purpose": "normalize common LLM-shaped issue analysis aliases",
@@ -138,14 +144,6 @@ def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
         ],
         "CONTENT_QUALITY_FAILED": [
             {
-                "purpose": "build non-blocking banker review packet before repairing blueprint/content",
-                "command": f"{py} scripts/build_banker_review_packet.py --deck-blueprint {run_dir}/deck_blueprint.json --page-contract {run_dir}/page_evidence_contract.json --renderer-spec {run_dir}/renderer_spec.json --output {run_dir}/artifacts/banker_review_packet.md",
-            },
-            {
-                "purpose": "build structured banker review report skeleton",
-                "command": f"{py} scripts/build_banker_review_report_skeleton.py --deck-blueprint {run_dir}/deck_blueprint.json --page-contract {run_dir}/page_evidence_contract.json --renderer-spec {run_dir}/renderer_spec.json --output {run_dir}/artifacts/banker_review_report.json",
-            },
-            {
                 "purpose": "rerun content quality after repairing deck_blueprint/recompiling",
                 "command": f"{py} scripts/validate_content_quality.py --renderer-spec {run_dir}/renderer_spec.json --research-pack {run_dir}/industry_research_pack.md --rules templates/content_quality_rules.json --text-fit-rules templates/text_fit_rules.json --layout-budget templates/layout_budget.json --output {run_dir}/artifacts/content_quality_validation.json",
             },
@@ -164,8 +162,8 @@ def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
         ],
         "FINAL_DELIVERY_NOT_READY": [
             {
-                "purpose": "rerun final delivery gate and run quality summary after technical/research blockers are fixed",
-                "command": f"{py} scripts/pipeline.py finalize --run-dir {run_dir} --require-client-ready",
+                "purpose": "rerun formal PPT pipeline after repairing final-delivery blockers",
+                "command": f"{py} scripts/pipeline.py render --run-dir {run_dir}",
             }
         ],
     }

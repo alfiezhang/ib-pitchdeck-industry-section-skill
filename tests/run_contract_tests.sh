@@ -601,6 +601,7 @@ for name in (
     "industry_scope_pack_validation.json",
     "formal_research_execution_validation.json",
     "stage_gate_pre_research_pack_validation.json",
+    "research_evidence_db_validation.json",
     "research_pack_validation.json",
     "issue_analysis_validation.json",
     "deck_blueprint_validation.json",
@@ -608,6 +609,7 @@ for name in (
 ):
     (bad_artifacts / name).write_text(json.dumps({"is_valid": True, "error_count": 0}, ensure_ascii=False), encoding="utf-8")
 (bad_artifacts / "industry_scope_pack.json").write_text(json.dumps({"schema_version": "industry_scope_pack_v1"}, ensure_ascii=False), encoding="utf-8")
+(bad_artifacts / "research_evidence_db.json").write_text(json.dumps({"schema_version": "research_evidence_db_v1", "source_of_truth": True}, ensure_ascii=False), encoding="utf-8")
 (bad_artifacts / "source_reviews_validation.json").write_text(json.dumps({"is_valid": False, "error_count": 1}, ensure_ascii=False), encoding="utf-8")
 research_result = validate_research_pack(bad_run / "industry_research_pack.md", run_dir=bad_run)
 if not any("source_reviews_validation.json is_valid=false" in item for item in research_result["errors"]):
@@ -766,17 +768,21 @@ from build_banker_review_report_skeleton import build_report as build_banker_rev
 from build_evidence_candidate_skeleton import build_candidates as build_evidence_candidate_skeleton
 from build_formal_research_execution_report_skeleton import build_report as build_formal_execution_skeleton
 from build_issue_analysis_skeleton import build_issue_analysis_skeleton
-from build_research_evidence_pack_skeleton import build_pack as build_research_evidence_pack_skeleton
 from build_source_reviews_skeleton import build_source_reviews as build_source_reviews_skeleton
 from build_source_archive import build_archive as build_source_archive
 from build_agent_handoff import build_handoff
 from generate_run_quality_summary import build_summary_payload
+from pipeline import _write_run_flags
+from research_evidence_db import build_db as build_research_evidence_db
+from research_evidence_db import export_markdown as export_research_pack_from_db
+from research_evidence_db import validate_db as validate_research_evidence_db
 from validate_formal_research_execution import validate as validate_formal_research_execution
 from validate_formal_research_execution import parse_search_attempts
 from validate_formal_search_plan import validate as validate_formal_search_plan
 from validate_industry_scope_pack import validate as validate_industry_scope_pack
 from validate_source_archive import validate as validate_source_archive
 from validate_source_reviews import validate as validate_source_reviews
+from validate_research_pack import validate as validate_research_pack
 from validate_stage_gate import validate_stage
 from validate_run_state import validate_run_state
 from workflow import recommended_commands
@@ -785,6 +791,12 @@ with tempfile.TemporaryDirectory() as tmp:
     run_dir = Path(tmp)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir()
+    _write_run_flags(run_dir, entrypoint="contract-test")
+    run_flags = json.loads((artifacts / "run_flags.json").read_text(encoding="utf-8"))
+    assert run_flags["schema_version"] == "run_flags_v1", run_flags
+    assert run_flags["research_gate"] == 1, run_flags
+    assert run_flags["issue_analysis_layer"] == 1, run_flags
+    assert run_flags["debug_output_only"] is False, run_flags
 
     auto_search_log = artifacts / "search_log_auto.md"
     subprocess.run(
@@ -979,6 +991,12 @@ with tempfile.TemporaryDirectory() as tmp:
     assert execution_validation_cmds, execution_commands
     assert "--report" in execution_validation_cmds[0], execution_validation_cmds
     assert "--formal-research-execution-report" not in execution_validation_cmds[0], execution_validation_cmds
+    db_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
+    assert db_commands and "scripts/build_research_evidence_db.py" in db_commands[0]["command"], db_commands
+    pack_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
+    assert pack_commands and "scripts/export_research_pack_from_db.py" in pack_commands[0]["command"], pack_commands
+    pack_validation_cmds = [item["command"] for item in pack_commands if "validate_research_pack.py" in item["command"]]
+    assert pack_validation_cmds and "--source-registry templates/source_registry.json" in pack_validation_cmds[0], pack_validation_cmds
     invalid_plan = json.loads(json.dumps(plan))
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["instruction_id"] = "FS-001"
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["query"] = "<industry> placeholder"
@@ -1218,24 +1236,79 @@ with tempfile.TemporaryDirectory() as tmp:
     stage_result = validate_stage("pre_research_pack", run_dir, None)
     assert stage_result["is_valid"], stage_result
     (artifacts / "stage_gate_pre_research_pack_validation.json").write_text(json.dumps(stage_result, ensure_ascii=False), encoding="utf-8")
-    evidence_pack_skeleton = build_research_evidence_pack_skeleton(
-        input_card={"industry": "sample sector", "geography": "Samplestan"},
+    research_db = build_research_evidence_db(
+        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "Samplestan"},
         scope_pack=scope_pack,
         formal_search_plan=plan,
         execution_report=report,
         source_reviews=source_reviews,
     )
-    assert "# industry research evidence pack" in evidence_pack_skeleton, evidence_pack_skeleton[:200]
-    assert "## Formal Research Extracts" in evidence_pack_skeleton, evidence_pack_skeleton[:500]
-    assert "LLM must extract the exact fact/metric candidate" in evidence_pack_skeleton, evidence_pack_skeleton[:1000]
-    assert "market_size_growth | current_market_size" in evidence_pack_skeleton, evidence_pack_skeleton[:2000]
-    research_pack_skeleton_path = run_dir / "industry_research_pack_skeleton.md"
-    research_pack_skeleton_path.write_text(evidence_pack_skeleton, encoding="utf-8")
-    issue_skeleton = build_issue_analysis_skeleton(research_pack_skeleton_path, report)
-    assert issue_skeleton["issue_analyses"], issue_skeleton
-    assert issue_skeleton["research_backlog"], issue_skeleton
+    for extract in research_db["formal_research_extracts"]:
+        extract["extracted_fact_or_metric_candidate"] = "Source-faithful contract-test extract with scope and limitation."
+    for ev in research_db["evidence_ledger"]:
+        if ev["evidence_id"] == "EV-001":
+            ev.update(
+                {
+                    "claim_or_metric": "Current market size is source-backed with explicit scope.",
+                    "claim_scope": "industry-level",
+                    "source_type": "industry_report",
+                    "reliability": "reviewed_source",
+                    "data_period": "2026",
+                }
+            )
+        if ev["evidence_id"] == "EV-002":
+            ev.update(
+                {
+                    "claim_or_metric": "Value-chain economics are directionally supported.",
+                    "claim_scope": "industry-level",
+                    "source_type": "industry_report",
+                    "reliability": "reviewed_source",
+                    "data_period": "2026",
+                }
+            )
+    for met in research_db["metric_reconciliation"]:
+        met.update(
+            {
+                "metric_name": "Current market size",
+                "metric_type": "market_size",
+                "market_definition": "sample sector market",
+                "channel_scope": "all_channel",
+                "geography": "Samplestan",
+                "data_period": "2026",
+                "value": "100",
+                "unit": "RMB bn",
+                "conflict_status": "single-source",
+                "resolution": "Use as contract-test metric only.",
+                "chart_ready": True,
+            }
+        )
+    research_db["research_gap_audit"]["critical_gaps"] = []
+    research_db["research_gap_audit"]["metric_consistency_check"] = {
+        "GMV vs revenue": "No GMV/revenue conflict in contract fixture.",
+        "Cross-slide repeated metric consistency": "Repeated metrics use MET-001 only.",
+        "Target financials consistency": "No target financials in contract fixture.",
+        "User-provided vs external-source discrepancy": "No discrepancy in contract fixture.",
+        "Chart number consistency": "Chart numbers should bind to MET-001.",
+    }
+    db_errors, db_warnings, db_metrics = validate_research_evidence_db(research_db)
+    assert not db_errors, db_errors
+    assert db_metrics["evidence_ledger_row_count"] == 2, db_metrics
+    (artifacts / "research_evidence_db.json").write_text(json.dumps(research_db, ensure_ascii=False, indent=2), encoding="utf-8")
+    (artifacts / "research_evidence_db_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": db_warnings}, ensure_ascii=False), encoding="utf-8")
+    exported_pack = export_research_pack_from_db(research_db)
+    assert "Generated readable export" in exported_pack, exported_pack[:300]
+    assert "| EV-001 | Current market size" in exported_pack, exported_pack[:4000]
+    assert "Chart Ready" in exported_pack, exported_pack[:5000]
+    (run_dir / "industry_research_pack.md").write_text(exported_pack, encoding="utf-8")
+    research_pack_result = validate_research_pack(Path(run_dir / "industry_research_pack.md"), run_dir=run_dir)
+    assert research_pack_result["is_valid"], research_pack_result
+    assert not any("chart_ready flags" in item for item in research_pack_result["warnings"]), research_pack_result
+    (artifacts / "research_pack_validation.json").write_text(json.dumps(research_pack_result, ensure_ascii=False), encoding="utf-8")
+    issue_skeleton_from_db = build_issue_analysis_skeleton(None, report, research_db)
+    assert issue_skeleton_from_db["issue_analyses"], issue_skeleton_from_db
+    assert issue_skeleton_from_db["issue_analyses"][0]["evidence_ids"], issue_skeleton_from_db["issue_analyses"][0]
     issue_skeleton_path = run_dir / "industry_issue_analysis_skeleton.json"
-    issue_skeleton_path.write_text(json.dumps(issue_skeleton, ensure_ascii=False, indent=2), encoding="utf-8")
+    issue_skeleton_path.write_text(json.dumps(issue_skeleton_from_db, ensure_ascii=False, indent=2), encoding="utf-8")
     issue_skeleton_result = subprocess.run(
         [
             sys.executable,
@@ -1243,7 +1316,7 @@ with tempfile.TemporaryDirectory() as tmp:
             "--issue-analysis",
             str(issue_skeleton_path),
             "--research-pack",
-            str(research_pack_skeleton_path),
+            str(run_dir / "industry_research_pack.md"),
         ],
         text=True,
         capture_output=True,
@@ -1251,9 +1324,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert issue_skeleton_result.returncode != 0, issue_skeleton_result.stdout
     assert "skeleton placeholder" in issue_skeleton_result.stdout, issue_skeleton_result.stdout
     state = validate_run_state(run_dir)
-    assert state["current_stage"] == "RESEARCH_PACK_MISSING_OR_FAILED", state
-    (run_dir / "industry_research_pack.md").write_text("validated research pack body", encoding="utf-8")
-    (artifacts / "research_pack_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": []}, ensure_ascii=False), encoding="utf-8")
+    assert state["current_stage"] == "ISSUE_ANALYSIS_MISSING_OR_FAILED", state
     (run_dir / "industry_issue_analysis.json").write_text("{}", encoding="utf-8")
     (artifacts / "issue_analysis_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": []}, ensure_ascii=False), encoding="utf-8")
     (artifacts / "gate_retry_state.json").write_text(
@@ -1287,7 +1358,7 @@ with tempfile.TemporaryDirectory() as tmp:
     render_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "REPLACEMENT_DICT_MISSING_OR_FAILED"})
     assert render_commands and "scripts/pipeline.py render" in render_commands[0]["command"], render_commands
     final_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "FINAL_DELIVERY_NOT_READY"})
-    assert final_commands and "scripts/pipeline.py finalize" in final_commands[0]["command"], final_commands
+    assert final_commands and "scripts/pipeline.py render" in final_commands[0]["command"], final_commands
     pipeline_status = subprocess.run(
         [sys.executable, "scripts/pipeline.py", "status", "--run-dir", str(run_dir)],
         text=True,

@@ -46,6 +46,7 @@ def _looks_like_formal_run(run_dir: Path) -> bool:
     """
     formal_markers = [
         run_dir / "input_card.json",
+        run_dir / "artifacts" / "research_evidence_db.json",
         run_dir / "industry_research_pack.md",
         run_dir / "industry_issue_analysis.json",
         run_dir / "template_registry.json",

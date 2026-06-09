@@ -16,7 +16,8 @@ Main outputs:
 - `artifacts/source_reviews.json`
 - `artifacts/source_archive/source_archive_index.json`
 - `artifacts/formal_research_execution_report.json`
-- `industry_research_pack.md`
+- `artifacts/research_evidence_db.json` (source of truth)
+- `industry_research_pack.md` (generated readable export)
 - `industry_issue_analysis.json`
 
 The research pack is an evidence binder, not a narrative memo. Preserve
@@ -65,8 +66,9 @@ For a new brief, the research stage runs in this order:
 5. `source_reviews.json`
 6. `source_archive/source_archive_index.json`
 7. `formal_research_execution_report.json`
-8. `industry_research_pack.md`
-9. `industry_issue_analysis.json`
+8. `artifacts/research_evidence_db.json`
+9. `industry_research_pack.md`
+10. `industry_issue_analysis.json`
 
 Do not write the execution report before real formal searches, source reviews,
 and source archive exist.
@@ -271,21 +273,21 @@ Validate:
 If the gate fails, repair search/source/execution artifacts. Do not start the
 research pack.
 
-## Evidence Pack
+## Research Evidence Database
 
-Build the skeleton:
+Build the source-of-truth JSON skeleton:
 
 ```bash
-"$PYTHON_CMD" scripts/build_research_evidence_pack_skeleton.py \
+"$PYTHON_CMD" scripts/build_research_evidence_db.py \
   --input-card "$RUN_DIR/input_card.json" \
   --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
   --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
-  --output "$RUN_DIR/industry_research_pack.md"
+  --output "$RUN_DIR/artifacts/research_evidence_db.json"
 ```
 
-Optional extraction workspace:
+Diagnostic-only extraction workspace:
 
 ```bash
 "$PYTHON_CMD" scripts/build_evidence_candidate_skeleton.py \
@@ -294,7 +296,11 @@ Optional extraction workspace:
   --output "$RUN_DIR/artifacts/evidence_candidate_skeleton.json"
 ```
 
-Fill `industry_research_pack.md` as a binder:
+Use this helper only when EV/MET extraction is stuck or needs audit support. It
+is not part of the main workflow path and should not delay DB authoring when the
+database can be filled directly.
+
+Fill `artifacts/research_evidence_db.json` as the binder:
 
 - Formal Research Extracts
 - Evidence Ledger
@@ -309,6 +315,18 @@ write page evidence packs here; deck blueprint and compiler own page contracts.
 Validate:
 
 ```bash
+"$PYTHON_CMD" scripts/validate_research_evidence_db.py \
+  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
+  --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
+```
+
+Then export the readable Markdown pack:
+
+```bash
+"$PYTHON_CMD" scripts/export_research_pack_from_db.py \
+  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
+  --output "$RUN_DIR/industry_research_pack.md"
+
 "$PYTHON_CMD" scripts/validate_research_pack.py \
   --research-pack "$RUN_DIR/industry_research_pack.md" \
   --run-dir "$RUN_DIR" \
@@ -322,7 +340,7 @@ Build the skeleton:
 
 ```bash
 "$PYTHON_CMD" scripts/build_issue_analysis_skeleton.py \
-  --research-pack "$RUN_DIR/industry_research_pack.md" \
+  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
   --output "$RUN_DIR/industry_issue_analysis.json"
 ```

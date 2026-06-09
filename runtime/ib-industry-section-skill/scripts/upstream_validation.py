@@ -14,6 +14,7 @@ BASE_RESEARCH_VALIDATIONS = (
     "artifacts/source_archive_validation.json",
     "artifacts/source_reviews_validation.json",
     "artifacts/stage_gate_pre_research_pack_validation.json",
+    "artifacts/research_evidence_db_validation.json",
     "artifacts/research_pack_validation.json",
 )
 

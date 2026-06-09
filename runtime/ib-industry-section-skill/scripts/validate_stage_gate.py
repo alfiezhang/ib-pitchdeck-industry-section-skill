@@ -15,6 +15,7 @@ from validate_chart_metric_binding import validate as validate_chart_metric_bind
 from validate_industry_scope_pack import validate as validate_industry_scope_pack
 from validate_issue_analysis import validate as validate_issue_analysis
 from validate_research_pack import validate as validate_research_pack
+from research_evidence_db import validate_db as validate_research_evidence_db_data
 from validate_page_evidence_contract import validate as validate_page_evidence_contract
 from validate_deck_blueprint import validate as validate_deck_blueprint
 from validate_renderer_spec import validate as validate_renderer_spec
@@ -214,7 +215,23 @@ def validate_research_pack_gate(
 ) -> None:
     memo_path = run_dir / "industry_research_pack.md"
     artifact_path = run_dir / "artifacts" / "research_pack_validation.json"
+    db_path = run_dir / "artifacts" / "research_evidence_db.json"
+    db_validation_path = run_dir / "artifacts" / "research_evidence_db_validation.json"
 
+    if not db_path.exists():
+        errors.append(f"missing required artifact: {db_path}")
+    require_valid_artifact(db_validation_path, errors, warnings)
+    if db_path.exists():
+        try:
+            db_errors, db_warnings, _ = validate_research_evidence_db_data(load_json_file(db_path))
+        except Exception as exc:
+            errors.append(f"cannot validate current research_evidence_db.json: {exc}")
+            db_warnings = []
+        else:
+            if db_errors:
+                errors.append("current research evidence db validation failed")
+                errors.extend(str(item) for item in db_errors)
+        warnings.extend(str(item) for item in db_warnings)
     if not memo_path.exists():
         errors.append(f"missing required artifact: {memo_path}")
     require_valid_artifact(artifact_path, errors, warnings)

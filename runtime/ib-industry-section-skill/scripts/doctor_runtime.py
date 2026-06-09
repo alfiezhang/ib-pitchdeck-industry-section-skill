@@ -56,11 +56,8 @@ def main() -> None:
         ],
         "recommended_commands": [
             "python3 scripts/bootstrap_runtime.py --print-python",
-            "\"$PYTHON_CMD\" scripts/pipeline.py status --run-dir <run>",
+            "\"$PYTHON_CMD\" scripts/workflow.py next --run-dir <run>",
             "\"$PYTHON_CMD\" scripts/pipeline.py render --run-dir <run>",
-            "\"$PYTHON_CMD\" scripts/pipeline.py finalize --run-dir <run> --require-client-ready",
-            "scripts/validate_stage_gate.py --stage pre_ppt --run-dir <run>",
-            "scripts/validate_final_delivery.py --run-dir <run>",
         ],
         "rules": [
             "Do not edit skill source files during a user run.",

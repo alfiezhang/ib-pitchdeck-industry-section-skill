@@ -234,23 +234,37 @@ Validate formal execution and source reviews before writing the research pack:
   --output "$RUN_DIR/artifacts/stage_gate_pre_research_pack_validation.json"
 ```
 
-Do not write `industry_research_pack.md` until this pre-research-pack gate
-passes. After it passes, build the evidence-pack skeleton first:
+Do not write `industry_research_pack.md` by hand. After the pre-research-pack
+gate passes, build the machine-readable evidence database first:
 
 ```bash
-"$PYTHON_CMD" scripts/build_research_evidence_pack_skeleton.py \
+"$PYTHON_CMD" scripts/build_research_evidence_db.py \
   --input-card "$RUN_DIR/input_card.json" \
   --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
   --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --output "$RUN_DIR/artifacts/research_evidence_db.json"
+
+"$PYTHON_CMD" scripts/validate_research_evidence_db.py \
+  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
+  --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
+
+"$PYTHON_CMD" scripts/export_research_pack_from_db.py \
+  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/industry_research_pack.md"
+
+"$PYTHON_CMD" scripts/validate_research_pack.py \
+  --research-pack "$RUN_DIR/industry_research_pack.md" \
+  --run-dir "$RUN_DIR" \
+  --source-registry templates/source_registry.json \
+  --output "$RUN_DIR/artifacts/research_pack_validation.json"
 ```
 
-The skeleton is a research evidence binder scaffold, not a narrative memo and
-not a valid final pack by itself. The LLM must then extract facts/metrics from
-reviewed source rows, promote supported items into EV/MET ledgers, update issue
-fact status, and complete the gap audit before validation.
+The JSON database is the source of truth. The Markdown pack is a generated
+readable export and must be regenerated after DB edits. The LLM extracts
+facts/metrics into the DB, promotes supported items into EV/MET rows, updates
+issue fact status, and completes the gap audit before export/validation.
 
 ## Data Conflicts
 

@@ -16,21 +16,24 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from layout_config import layout_config_paths
 from validate_run_state import validate_run_state
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
 TEMPLATE = ROOT_DIR / "assets" / "industry_section_template_master.pptx"
-PPT_MAPPING = ROOT_DIR / "templates" / "ppt_mapping.json"
 SOURCE_REGISTRY = ROOT_DIR / "templates" / "source_registry.json"
-RENDER_LAYOUTS = ROOT_DIR / "templates" / "render_layouts.json"
 CONTENT_RULES = ROOT_DIR / "templates" / "content_quality_rules.json"
-TEXT_FIT_RULES = ROOT_DIR / "templates" / "text_fit_rules.json"
-LAYOUT_BUDGET = ROOT_DIR / "templates" / "layout_budget.json"
+LAYOUT_PATHS = layout_config_paths()
+PPT_MAPPING = LAYOUT_PATHS["ppt_mapping"]
+RENDER_LAYOUTS = LAYOUT_PATHS["render_layouts"]
+TEXT_FIT_RULES = LAYOUT_PATHS["text_fit_rules"]
+LAYOUT_BUDGET = LAYOUT_PATHS["layout_budget"]
 
 FILLED_PPT = "industry_section_filled.pptx"
 CLEAN_PPT = "industry_section_filled_clean.pptx"
@@ -117,6 +120,37 @@ def _clear_not_client_ready(run_dir: Path) -> None:
         marker.unlink()
 
 
+def _write_run_flags(run_dir: Path, *, entrypoint: str) -> None:
+    """Record formal pipeline mode for final delivery.
+
+    The legacy shell wrapper used to own this artifact. The Python pipeline is
+    now the formal controller, so it must write the package-of-record flags
+    itself. Existing debug flags are preserved so a debug run cannot be
+    accidentally promoted by calling finalize.
+    """
+
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(exist_ok=True)
+    path = artifacts / "run_flags.json"
+    existing = _json(path)
+    if existing.get("debug_output_only") is True:
+        return
+    payload = {
+        "schema_version": "run_flags_v1",
+        "research_gate": 1,
+        "issue_analysis_layer": 1,
+        "quality_gate": 1,
+        "source_run_dir": str(run_dir),
+        "output_run_dir": str(run_dir),
+        "package_of_record": str(run_dir),
+        "debug_output_only": False,
+        "debug_reason": "",
+        "pipeline_entrypoint": entrypoint,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
@@ -174,6 +208,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
     artifacts.mkdir(exist_ok=True)
     if not skip_preflight:
         _preflight(run_dir)
+    _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render")
 
     try:
         validate_pre_ppt(run_dir, python_cmd)
@@ -291,6 +326,7 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
     run_dir = _ensure_run_dir(run_dir)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
+    _write_run_flags(run_dir, entrypoint="scripts/pipeline.py finalize")
     cmd = [
         python_cmd,
         SCRIPT_DIR / "validate_final_delivery.py",

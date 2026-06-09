@@ -828,7 +828,8 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None, source_registry_pa
     errors.extend(inventory_errors)
     warnings.extend(inventory_warnings)
 
-    if "chart_ready" not in text:
+    has_chart_ready_column = any("Chart Ready" in row for row in metric_rows)
+    if "chart_ready" not in text and "Chart Ready" not in text and not has_chart_ready_column:
         warnings.append("research pack has no chart_ready flags; quantitative visuals may be under-specified")
 
     if "HIGH PRIORITY GAP: online research not completed" in text:
@@ -892,6 +893,8 @@ def validate(memo_path: Path, run_dir: Optional[Path] = None, source_registry_pa
             "artifacts/formal_research_execution_report.json",
             "artifacts/formal_research_execution_validation.json",
             "artifacts/stage_gate_pre_research_pack_validation.json",
+            "artifacts/research_evidence_db.json",
+            "artifacts/research_evidence_db_validation.json",
         ]
         for rel in required_artifacts:
             artifact_path = run_dir / rel

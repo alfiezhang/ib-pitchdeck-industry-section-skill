@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 
 CORE_FILES = [
+    "artifacts/research_evidence_db.json",
     "industry_research_pack.md",
     "deck_blueprint.json",
     "renderer_spec.json",
@@ -18,6 +19,7 @@ CORE_FILES = [
     "filled_ppt_validation.json",
     "artifacts/run_flags.json",
     "artifacts/final_delivery_validation.json",
+    "artifacts/research_evidence_db_validation.json",
     "artifacts/research_pack_validation.json",
     "artifacts/deck_blueprint_validation.json",
     "artifacts/replacement_dict_validation.json",
@@ -38,6 +40,7 @@ def attempt_summary(attempt_dir: Path) -> dict[str, Any]:
     final_gate_path = attempt_dir / "artifacts/final_delivery_validation.json"
     final_gate = load_json(final_gate_path) if final_gate_path.exists() else {}
     source_files = [
+        attempt_dir / "artifacts" / "research_evidence_db.json",
         attempt_dir / "industry_research_pack.md",
         attempt_dir / "deck_blueprint.json",
         attempt_dir / "renderer_spec.json",

@@ -74,6 +74,34 @@ def _meta_from_pack(text: str) -> dict[str, str]:
     return result
 
 
+def _meta_from_db(db: dict[str, Any]) -> dict[str, str]:
+    meta = db.get("meta") if isinstance(db.get("meta"), dict) else {}
+    return {
+        "target_company": _text(meta.get("target_company")) or "Unknown Target",
+        "industry": _text(meta.get("industry")) or "Unknown industry",
+        "geography": _text(meta.get("geography")) or "Unknown geography",
+        "research_as_of_date": _text(meta.get("research_as_of_date")) or date.today().isoformat(),
+    }
+
+
+def _db_inventory_rows(db: dict[str, Any]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for item in _as_list(db.get("issue_fact_inventory")):
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                "Issue Area": _text(item.get("issue_area")),
+                "Subissue": _text(item.get("subissue")),
+                "Evidence IDs": ", ".join(_text(ev) for ev in _as_list(item.get("evidence_ids")) if _text(ev)),
+                "Metric IDs": ", ".join(_text(met) for met in _as_list(item.get("metric_ids")) if _text(met)),
+                "Fact Status": _text(item.get("fact_status")),
+                "Notes": _text(item.get("notes")),
+            }
+        )
+    return rows
+
+
 def _result_by_pair(report: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
     out: dict[tuple[str, str], dict[str, Any]] = {}
     for result in _as_list(report.get("issue_results")):
@@ -150,9 +178,21 @@ def _needed_evidence(area: str, subissue: str, result: dict[str, Any]) -> list[s
     return [f"Reviewed evidence or metric support for {area}/{subissue} with source locator, scope, period, geography, and limitation."]
 
 
-def build_issue_analysis_skeleton(research_pack_path: Path, execution_report: dict[str, Any]) -> dict[str, Any]:
-    text = research_pack_path.read_text(encoding="utf-8")
-    rows = issue_fact_inventory_rows(text)
+def build_issue_analysis_skeleton(
+    research_pack_path: Path | None,
+    execution_report: dict[str, Any],
+    research_evidence_db: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    db = research_evidence_db or {}
+    if db:
+        text = ""
+        rows = _db_inventory_rows(db)
+    elif research_pack_path:
+        text = research_pack_path.read_text(encoding="utf-8")
+        rows = issue_fact_inventory_rows(text)
+    else:
+        text = ""
+        rows = []
     rows_by_pair: dict[tuple[str, str], dict[str, str]] = {}
     for row in rows:
         area = _text(row.get("Issue Area"))
@@ -229,7 +269,7 @@ def build_issue_analysis_skeleton(research_pack_path: Path, execution_report: di
                 )
 
     return {
-        "meta": _meta_from_pack(text),
+        "meta": _meta_from_db(db) if db else _meta_from_pack(text),
         "issue_analyses": issue_analyses,
         "research_backlog": backlog,
         "rejected_or_deprioritized_analyses": [],
@@ -238,14 +278,18 @@ def build_issue_analysis_skeleton(research_pack_path: Path, execution_report: di
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--research-pack", required=True)
+    parser.add_argument("--research-pack")
+    parser.add_argument("--research-evidence-db")
     parser.add_argument("--formal-research-execution-report")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
+    if not args.research_pack and not args.research_evidence_db:
+        parser.error("--research-pack or --research-evidence-db is required")
 
     output = build_issue_analysis_skeleton(
-        research_pack_path=Path(args.research_pack),
+        research_pack_path=Path(args.research_pack) if args.research_pack else None,
         execution_report=_load_optional_json(args.formal_research_execution_report),
+        research_evidence_db=_load_optional_json(args.research_evidence_db),
     )
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

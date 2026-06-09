@@ -17,6 +17,7 @@ from validate_industry_scope_pack import validate as validate_industry_scope_pac
 from validate_issue_analysis import validate as validate_issue_analysis_data
 from validate_input_card import validate as validate_input_card_data
 from validate_research_pack import validate as validate_research_pack_data
+from research_evidence_db import validate_db as validate_research_evidence_db_data
 from validate_page_evidence_contract import validate as validate_page_evidence_contract_data
 from validate_deck_blueprint import validate as validate_deck_blueprint_data
 from validate_formal_research_execution import validate as validate_formal_research_execution_data
@@ -125,6 +126,7 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
         "artifacts/content_quality_validation.json": ["renderer_spec", "research_pack"],
         "artifacts/renderer_spec_validation.json": ["renderer_spec", "template_registry", "deck_blueprint", "page_contract"],
         "artifacts/research_pack_validation.json": ["research_pack", "run_dir"],
+        "artifacts/research_evidence_db_validation.json": ["research_evidence_db"],
         "artifacts/source_reviews_validation.json": ["source_reviews"],
         "artifacts/source_archive_validation.json": ["source_archive_index"],
         "artifacts/formal_research_execution_validation.json": ["formal_research_execution_report", "formal_search_plan", "search_log"],
@@ -158,14 +160,17 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
             run_dir / "page_evidence_contract.json",
         ],
         "artifacts/research_pack_validation.json": [
+            run_dir / "artifacts" / "research_evidence_db.json",
             run_dir / "industry_research_pack.md",
+        ],
+        "artifacts/research_evidence_db_validation.json": [
+            run_dir / "artifacts" / "research_evidence_db.json",
         ],
         "artifacts/source_reviews_validation.json": [
             run_dir / "artifacts" / "source_reviews.json",
             run_dir / "artifacts" / "source_archive" / "source_archive_index.json",
             run_dir / "artifacts" / "search_log.md",
             run_dir / "artifacts" / "formal_research_execution_report.json",
-            run_dir / "industry_research_pack.md",
         ],
         "artifacts/source_archive_validation.json": [
             run_dir / "artifacts" / "source_reviews.json",
@@ -607,6 +612,31 @@ def validate_replacement_dict_artifact(run_dir: Path) -> tuple[list[str], list[s
 def validate_research_pack_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    db_path = run_dir / "artifacts/research_evidence_db.json"
+    db_validation_path = run_dir / "artifacts/research_evidence_db_validation.json"
+    if not db_path.exists():
+        errors.append("missing artifacts/research_evidence_db.json")
+    else:
+        try:
+            db_errors, db_warnings, _ = validate_research_evidence_db_data(load_json_file(db_path))
+        except Exception as exc:
+            errors.append(f"cannot validate research_evidence_db.json: {exc}")
+        else:
+            if db_errors:
+                errors.append("current research evidence db validation failed")
+                errors.extend(str(item) for item in db_errors)
+            warnings.extend(str(item) for item in db_warnings)
+    if db_validation_path.exists():
+        try:
+            db_artifact = load_json_file(db_validation_path)
+        except Exception as exc:
+            errors.append(f"cannot read research_evidence_db_validation.json: {exc}")
+        else:
+            if db_artifact.get("is_valid") is False:
+                errors.append("research_evidence_db_validation.json is_valid=false")
+    else:
+        errors.append("missing research_evidence_db_validation.json")
+
     memo_path = run_dir / "industry_research_pack.md"
     if not memo_path.exists():
         return ["missing industry_research_pack.md"], warnings

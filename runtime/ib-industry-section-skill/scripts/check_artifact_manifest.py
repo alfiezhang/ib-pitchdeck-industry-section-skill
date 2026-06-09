@@ -29,11 +29,15 @@ def validate_manifest(manifest: dict[str, Any], root_dir: Path) -> list[str]:
 
     artifacts = manifest.get("artifacts")
     gates = manifest.get("gates")
+    artifact_layers = manifest.get("artifact_layers", {})
     if not isinstance(artifacts, dict):
         return ["artifacts must be an object"]
     if not isinstance(gates, list):
         errors.append("gates must be an array")
         gates = []
+    if artifact_layers and not isinstance(artifact_layers, dict):
+        errors.append("artifact_layers must be an object when present")
+        artifact_layers = {}
 
     for artifact_key, artifact in artifacts.items():
         if not isinstance(artifact, dict):
@@ -69,6 +73,39 @@ def validate_manifest(manifest: dict[str, Any], root_dir: Path) -> list[str]:
     final_gate = next((gate for gate in gates if isinstance(gate, dict) and gate.get("gate") == "final_delivery"), {})
     if final_gate.get("require_client_ready") is not True:
         errors.append("final_delivery gate must set require_client_ready=true")
+
+    layer_membership: dict[str, str] = {}
+    for layer_name, layer in artifact_layers.items():
+        if not isinstance(layer, dict):
+            errors.append(f"artifact_layers.{layer_name} must be an object")
+            continue
+        layer_artifacts = layer.get("artifacts")
+        if not isinstance(layer_artifacts, list):
+            errors.append(f"artifact_layers.{layer_name}.artifacts must be an array")
+            continue
+        for artifact_key in layer_artifacts:
+            artifact_key = str(artifact_key)
+            if artifact_key not in artifacts:
+                errors.append(f"artifact_layers.{layer_name} references unknown artifact: {artifact_key}")
+                continue
+            if artifact_key in layer_membership:
+                errors.append(
+                    f"artifact {artifact_key} appears in multiple layers: "
+                    f"{layer_membership[artifact_key]} and {layer_name}"
+                )
+            layer_membership[artifact_key] = str(layer_name)
+        for path_key in ("main_llm_authoring_path",):
+            path_items = layer.get(path_key, [])
+            if path_items and not isinstance(path_items, list):
+                errors.append(f"artifact_layers.{layer_name}.{path_key} must be an array")
+                continue
+            for artifact_key in path_items:
+                if str(artifact_key) not in artifacts:
+                    errors.append(f"artifact_layers.{layer_name}.{path_key} references unknown artifact: {artifact_key}")
+    if artifact_layers:
+        missing_from_layers = sorted(set(artifacts) - set(layer_membership))
+        if missing_from_layers:
+            errors.append(f"artifacts missing from artifact_layers: {', '.join(missing_from_layers)}")
     return errors
 
 

@@ -174,11 +174,12 @@ This compiler creates:
 - `page_evidence_contract.json`;
 - `renderer_spec.json`.
 
-## Step 5: Banker Review Packet (Non-Blocking)
+## Diagnostic: Banker Review Packet
 
-Before final content-quality validation, build a compact review packet and read
-it like a banker reviewer. This is not a gate and not another JSON artifact to
-fill. It helps the LLM focus on page quality instead of schema repair.
+When page quality is hard to diagnose, build a compact review packet and read it
+like a banker reviewer. This is not a gate, not part of the main workflow path,
+and not another artifact to fill by default. It helps the LLM focus on page
+quality instead of schema repair.
 
 ```bash
 "$PYTHON_CMD" scripts/build_banker_review_packet.py \
@@ -211,7 +212,7 @@ support, copy density, visual support, and the upstream file to edit. Fill the
 judgment fields if useful, then repair `deck_blueprint.json` or upstream
 research artifacts.
 
-## Step 6: Validate Compiled Artifacts
+## Step 5: Validate Compiled Artifacts
 
 ```bash
 "$PYTHON_CMD" scripts/validate_page_evidence_contract.py \

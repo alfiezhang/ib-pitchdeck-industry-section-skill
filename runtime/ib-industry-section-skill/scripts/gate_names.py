@@ -8,6 +8,7 @@ FORMAL_RESEARCH_EXECUTION = "formal_research_execution"
 SOURCE_REVIEWS = "source_reviews"
 SOURCE_ARCHIVE = "source_archive"
 PRE_RESEARCH_PACK = "pre_research_pack"
+RESEARCH_EVIDENCE_DB = "research_evidence_db"
 RESEARCH_PACK = "research_pack"
 ISSUE_ANALYSIS = "issue_analysis"
 TEMPLATE_REGISTRY = "template_registry"
@@ -29,6 +30,7 @@ CANONICAL_GATES = [
     SOURCE_REVIEWS,
     SOURCE_ARCHIVE,
     PRE_RESEARCH_PACK,
+    RESEARCH_EVIDENCE_DB,
     RESEARCH_PACK,
     ISSUE_ANALYSIS,
     TEMPLATE_REGISTRY,

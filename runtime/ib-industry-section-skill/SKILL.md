@@ -72,11 +72,8 @@ This is especially important after `source_reviews`, `source_archive`,
 `final_delivery`; those failures are not formatting details.
 
 If a run becomes hard to reason about, generate role packets instead of rereading
-the whole skill:
-
-```bash
-"$PYTHON_CMD" scripts/build_agent_handoff.py --run-dir "$RUN_DIR"
-```
+the whole skill only when explicitly doing diagnostics. Role packets are not
+part of the main workflow path.
 
 ## Non-Negotiable Rules
 
@@ -93,7 +90,8 @@ Do:
    sources, locators, excerpts, use scope, and evidence usability.
 5. Archive usable reviewed sources, then build the formal execution report from
    plan/log/reviews.
-6. Build `industry_research_pack.md` as an evidence binder, not a small memo.
+6. Build and edit `artifacts/research_evidence_db.json` as the source-of-truth
+   evidence database, then export `industry_research_pack.md` from it.
 7. Build issue-analysis skeletons mechanically, then replace placeholders with
    substantive banker analysis.
 8. Let `deck_blueprint.json` be the single LLM-authored page-design artifact.
@@ -109,7 +107,8 @@ Do not:
   renderer spec" as production content;
 - use `--no-research-gate` for a research-backed PPT request;
 - use debug PPT output as a deliverable;
-- skip research pack, issue analysis, deck blueprint, or final delivery gates;
+- skip research evidence DB, generated research pack, issue analysis, deck
+  blueprint, or final delivery gates;
 - hand-write `replacement_dict.json`;
 - create ad-hoc PPT scripts (`generate_ppt.py`, custom `python-pptx`,
   PptxGenJS, LibreOffice, Keynote, manual drawing) to bypass the package;
@@ -123,7 +122,7 @@ Common wrong path:
 
 Correct path:
 
-`brief -> scope pack -> full-taxonomy search plan -> formal searches -> source reviews/archive -> execution report -> evidence pack -> issue analysis -> deck blueprint -> compiled contract/renderer -> formal pipeline -> final delivery`
+`brief -> scope pack -> full-taxonomy search plan -> formal searches -> source reviews/archive -> execution report -> research_evidence_db -> generated research pack -> issue analysis -> deck blueprint -> compiled contract/renderer -> formal pipeline -> final delivery`
 
 ## Formal Workflow
 
@@ -144,8 +143,10 @@ Core stages:
    queries only; no investment hypotheses or slide conclusions.
 5. **Source chain**: execute real searches, append `S-xxx`, review exact sources,
    archive usable evidence, then build/validate formal execution.
-6. **Research evidence pack**: preserve source-level extracts, EV/MET ledgers,
-   issue fact inventory, metric reconciliation, conflicts, and gaps.
+6. **Research evidence database**: preserve source-level extracts, EV/MET
+   ledgers, issue fact inventory, metric reconciliation, conflicts, and gaps in
+   `artifacts/research_evidence_db.json`; export `industry_research_pack.md`
+   from the DB for readable review and existing validators.
 7. **Issue analysis**: form banker judgments from validated evidence; weak
    support remains caveated or in backlog.
 8. **Deck blueprint**: design pages, headline/main message/body blocks, visual
@@ -161,6 +162,27 @@ For detailed step commands, read the relevant sub-skill and run:
 
 The recommended commands from `workflow.py next` are the preferred repair path.
 
+## Artifact Layers
+
+Keep the mental model simple:
+
+- **Authoring artifacts**: the few files where LLM judgment matters
+  (`input_card.json`, `artifacts/research_evidence_db.json`,
+  `industry_issue_analysis.json`, `deck_blueprint.json`). The research support
+  files under `artifacts/` exist to make the evidence pack auditable.
+- **Derived artifacts**: deterministic outputs such as
+  `industry_research_pack.md`, `page_evidence_contract.json`,
+  `renderer_spec.json`, `replacement_dict.json`, `source_archive/`, and the
+  PPT. Do not hand-author these.
+- **Validation artifacts**: gate outputs under `artifacts/*_validation.json`.
+  Do not edit these; repair the upstream authoring artifact.
+- **Diagnostic artifacts**: optional helpers such as banker review reports,
+  candidate workspaces, agent handoff packets, and run quality summaries. Use
+  them only when they clarify a repair; they are not the main path.
+
+`templates/artifact_manifest.json` is the machine-readable source of truth for
+these layers.
+
 ## Research Discipline
 
 ID meanings:
@@ -169,7 +191,8 @@ ID meanings:
 - `S-xxx`: actual search attempt in `search_log.md`
 - `SRC-xxx`: reviewed source in `source_reviews.json`
 - `FR-xxx`: formal issue/subissue execution result
-- `EV-xxx` / `MET-xxx`: evidence and metric rows in the research pack
+- `EV-xxx` / `MET-xxx`: evidence and metric rows authored in
+  `research_evidence_db.json` and exported into the research pack
 
 Broad discovery is only for scoping. It should use terms such as `definition`,
 `classification`, `included segments`, `adjacent market`, `scope`, `taxonomy`,
@@ -209,19 +232,18 @@ create page judgments, or create a new attempt. It runs pre-PPT checks,
 replacement generation, PPT fill/clean/postprocess, filled-PPT validation, final
 delivery validation, run quality summary, and latest-run index updates.
 
-`run_pipeline.sh` remains compatibility-only for older automation. Do not choose
-it as the first step for a new brief.
+`run_pipeline.sh` remains a legacy compatibility wrapper for older automation.
+It delegates to `scripts/pipeline.py render` and no longer creates attempts,
+stages artifacts, or repairs gates. Do not choose it as the first step for a new
+brief.
 
 ## Debug Mode
 
-Debug mode is only for local PPT template or renderer diagnostics:
-
-```bash
-IB_SKILL_ALLOW_PPT_ONLY_DEBUG=1 ./run_pipeline.sh \
-  --no-research-gate \
-  --debug-reason "local template/rendering diagnostic: <what is being tested>" \
-  --renderer-spec <path/to/renderer_spec.json>
-```
+Debug mode is only for local PPT template or renderer diagnostics. Use the
+specific low-level script for the behavior being tested, for example token
+replacement, cleanup, or post-processing. The legacy `run_pipeline.sh` wrapper
+rejects `--no-research-gate` for formal delivery and does not provide a
+client-ready debug path.
 
 Debug output is never task completion for a new project brief and must not be
 reported as client-ready.
@@ -240,8 +262,9 @@ Do not weaken evidence to pass validators. Never:
 
 For `content_quality` failures, open
 `artifacts/content_quality_validation.json` and follow its `repair_plan`. Repair
-the named upstream target (`deck_blueprint.json`, research pack, or issue
-analysis), recompile, and rerun validation. Do not patch `renderer_spec.json`,
+the named upstream target (`deck_blueprint.json`, research evidence DB /
+generated research pack, or issue analysis), recompile, and rerun validation. Do
+not patch `renderer_spec.json`,
 `replacement_dict.json`, or the PPT as a shortcut.
 
 If the same gate reaches `STOP_AND_REPORT`, preserve the attempt directory and

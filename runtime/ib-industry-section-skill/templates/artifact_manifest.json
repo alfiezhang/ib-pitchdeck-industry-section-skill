@@ -1,6 +1,54 @@
 {
   "schema_version": "artifact_manifest_v1",
   "description": "Canonical artifact and gate manifest for the formal IB industry section workflow. Use this file as the machine source of truth for artifact paths, validators, builders, and stale-validation input relationships.",
+  "artifact_layers": {
+    "authoring": {
+      "description": "Artifacts where the LLM performs substantive transcription, research judgment, evidence extraction, or page design. This is the main mental path.",
+      "main_llm_authoring_path": ["input_card", "research_evidence_db", "issue_analysis", "deck_blueprint"],
+      "artifacts": [
+        "input_card",
+        "industry_scope_pack",
+        "formal_search_plan",
+        "search_log",
+        "source_reviews",
+        "formal_research_execution_report",
+        "research_evidence_db",
+        "issue_analysis",
+        "deck_blueprint"
+      ]
+    },
+    "derived": {
+      "description": "Deterministic artifacts generated from authoring artifacts. Do not hand-author these for formal delivery.",
+      "artifacts": [
+        "source_archive",
+        "research_pack",
+        "template_registry",
+        "page_evidence_contract",
+        "renderer_spec",
+        "replacement_dict",
+        "filled_ppt"
+      ]
+    },
+    "validation": {
+      "description": "Gate and validation artifacts. Repair upstream authoring files instead of editing these outputs.",
+      "artifacts": [
+        "pre_research_pack_gate",
+        "chart_metric_binding",
+        "content_quality",
+        "pre_ppt_gate",
+        "final_delivery"
+      ]
+    },
+    "diagnostic": {
+      "description": "Optional helper artifacts for debugging or role handoff. They are not part of the main workflow path and should not be required for delivery.",
+      "artifacts": [
+        "evidence_candidate_skeleton",
+        "banker_review_report",
+        "agent_handoff",
+        "run_quality_summary"
+      ]
+    }
+  },
   "artifacts": {
     "input_card": {
       "path": "input_card.json",
@@ -67,10 +115,18 @@
     },
     "research_pack": {
       "path": "industry_research_pack.md",
-      "owner": "script_skeleton_llm_evidence_extraction",
-      "builder": "scripts/build_research_evidence_pack_skeleton.py",
+      "owner": "script_export_from_research_evidence_db",
+      "builder": "scripts/export_research_pack_from_db.py",
       "validator": "scripts/validate_research_pack.py",
       "validation": "artifacts/research_pack_validation.json",
+      "inputs": ["research_evidence_db"]
+    },
+    "research_evidence_db": {
+      "path": "artifacts/research_evidence_db.json",
+      "owner": "script_skeleton_llm_evidence_extraction",
+      "builder": "scripts/build_research_evidence_db.py",
+      "validator": "scripts/validate_research_evidence_db.py",
+      "validation": "artifacts/research_evidence_db_validation.json",
       "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
     },
     "issue_analysis": {
@@ -79,7 +135,7 @@
       "builder": "scripts/build_issue_analysis_skeleton.py",
       "validator": "scripts/validate_issue_analysis.py",
       "validation": "artifacts/issue_analysis_validation.json",
-      "inputs": ["research_pack"]
+      "inputs": ["research_evidence_db", "research_pack", "formal_research_execution_report"]
     },
     "template_registry": {
       "path": "template_registry.json",
@@ -149,7 +205,7 @@
       "owner": "script",
       "validator": "scripts/validate_stage_gate.py --stage pre_ppt",
       "validation": "artifacts/stage_gate_pre_ppt_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "chart_metric_binding", "content_quality"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "chart_metric_binding", "content_quality"]
     },
     "replacement_dict": {
       "path": "replacement_dict.json",
@@ -172,7 +228,7 @@
       "owner": "script",
       "validator": "scripts/validate_final_delivery.py",
       "validation": "artifacts/final_delivery_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "replacement_dict", "filled_ppt"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "replacement_dict", "filled_ppt"]
     }
   },
   "gates": [
@@ -183,6 +239,7 @@
     { "gate": "source_archive", "artifact": "source_archive" },
     { "gate": "formal_research_execution", "artifact": "formal_research_execution_report" },
     { "gate": "pre_research_pack", "artifact": "pre_research_pack_gate" },
+    { "gate": "research_evidence_db", "artifact": "research_evidence_db" },
     { "gate": "research_pack", "artifact": "research_pack" },
     { "gate": "issue_analysis", "artifact": "issue_analysis" },
     { "gate": "template_registry", "artifact": "template_registry" },

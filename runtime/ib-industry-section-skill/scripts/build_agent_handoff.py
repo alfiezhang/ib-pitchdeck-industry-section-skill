@@ -38,12 +38,26 @@ ROLES: dict[str, dict[str, Any]] = {
     },
     "evidence_extractor": {
         "title": "Evidence Extractor",
-        "mission": "Extract source-faithful EV/MET candidates into the evidence binder; do not write polished memo conclusions.",
-        "owns": ["industry_research_pack.md", "evidence_candidate_skeleton.json"],
-        "must_not": ["collapse research into a short memo", "promote lead-only sources", "mix incomparable metric scopes"],
-        "inputs": ["artifacts/formal_research_execution_report.json", "artifacts/source_reviews.json", "artifacts/evidence_candidate_skeleton.json"],
-        "outputs": ["industry_research_pack.md", "artifacts/research_pack_validation.json"],
-        "helpers": ["build_evidence_candidate_skeleton.py", "build_research_evidence_pack_skeleton.py", "validate_research_pack.py"],
+        "mission": "Extract source-faithful facts/metrics into research_evidence_db; do not write polished memo conclusions.",
+        "owns": ["artifacts/research_evidence_db.json"],
+        "must_not": ["hand-edit industry_research_pack.md", "collapse research into a short memo", "promote lead-only sources", "mix incomparable metric scopes"],
+        "inputs": [
+            "artifacts/formal_research_execution_report.json",
+            "artifacts/source_reviews.json",
+            "artifacts/source_archive/source_archive_index.json",
+        ],
+        "outputs": [
+            "artifacts/research_evidence_db.json",
+            "artifacts/research_evidence_db_validation.json",
+            "industry_research_pack.md",
+            "artifacts/research_pack_validation.json",
+        ],
+        "helpers": [
+            "build_research_evidence_db.py",
+            "validate_research_evidence_db.py",
+            "export_research_pack_from_db.py",
+            "validate_research_pack.py",
+        ],
     },
     "issue_analyst": {
         "title": "Issue Analyst",

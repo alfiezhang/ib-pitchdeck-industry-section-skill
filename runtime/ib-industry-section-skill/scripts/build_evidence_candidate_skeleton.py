@@ -3,8 +3,9 @@
 
 This helper assigns candidate IDs and review workspaces. It does not promote
 facts into the Evidence Ledger or Metric Reconciliation. The LLM must extract
-source-faithful facts/metrics, decide promotion status, and then copy only
-supported rows into industry_research_pack.md.
+source-faithful facts/metrics, decide promotion status, and then promote only
+supported rows into artifacts/research_evidence_db.json. The Markdown
+industry_research_pack.md is generated from that database.
 """
 
 from __future__ import annotations

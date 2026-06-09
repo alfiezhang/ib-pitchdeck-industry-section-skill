@@ -11,6 +11,7 @@ from zipfile import ZipFile
 from typing import Any
 
 from json_utils import load_json_file
+from layout_config import layout_config_paths
 from slide_registry import load_slide_registry, slides_by_no
 
 
@@ -59,20 +60,30 @@ def _registry_pairs(registry: dict[str, Any]) -> set[tuple[int, str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check registry coverage across downstream contracts.")
-    parser.add_argument("--registry", default=str(ROOT_DIR / "templates" / "slide_registry.json"))
-    parser.add_argument("--render-layouts", default=str(ROOT_DIR / "templates" / "render_layouts.json"))
-    parser.add_argument("--ppt-mapping", default=str(ROOT_DIR / "templates" / "ppt_mapping.json"))
-    parser.add_argument("--layout-budget", default=str(ROOT_DIR / "templates" / "layout_budget.json"))
-    parser.add_argument("--text-fit-rules", default=str(ROOT_DIR / "templates" / "text_fit_rules.json"))
+    layout_paths = layout_config_paths()
+    parser.add_argument("--layout-config", default=str(ROOT_DIR / "templates" / "layout_config.json"))
+    parser.add_argument("--registry")
+    parser.add_argument("--render-layouts")
+    parser.add_argument("--ppt-mapping")
+    parser.add_argument("--layout-budget")
+    parser.add_argument("--text-fit-rules")
     parser.add_argument("--template", default=str(ROOT_DIR / "assets" / "industry_section_template_master.pptx"))
     args = parser.parse_args()
 
-    registry = load_slide_registry(Path(args.registry))
-    render_layouts = load_json_file(Path(args.render_layouts)).get("slides") or {}
-    ppt_mapping_raw = load_json_file(Path(args.ppt_mapping))
+    if args.layout_config:
+        layout_paths = layout_config_paths(Path(args.layout_config))
+    registry_path = Path(args.registry) if args.registry else layout_paths["slide_registry"]
+    render_layouts_path = Path(args.render_layouts) if args.render_layouts else layout_paths["render_layouts"]
+    ppt_mapping_path = Path(args.ppt_mapping) if args.ppt_mapping else layout_paths["ppt_mapping"]
+    layout_budget_path = Path(args.layout_budget) if args.layout_budget else layout_paths["layout_budget"]
+    text_fit_rules_path = Path(args.text_fit_rules) if args.text_fit_rules else layout_paths["text_fit_rules"]
+
+    registry = load_slide_registry(registry_path)
+    render_layouts = load_json_file(render_layouts_path).get("slides") or {}
+    ppt_mapping_raw = load_json_file(ppt_mapping_path)
     ppt_mapping = _mapping_by_slide(ppt_mapping_raw)
-    layout_budget = load_json_file(Path(args.layout_budget))
-    text_fit_rules = load_json_file(Path(args.text_fit_rules))
+    layout_budget = load_json_file(layout_budget_path)
+    text_fit_rules = load_json_file(text_fit_rules_path)
     physical_slides = _ppt_slide_names(Path(args.template))
     registry_pairs = _registry_pairs(registry)
 

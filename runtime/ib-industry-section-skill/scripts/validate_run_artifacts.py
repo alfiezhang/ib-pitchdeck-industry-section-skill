@@ -16,6 +16,7 @@ from validate_formal_research_execution import parse_search_attempts
 
 REQUIRED_CORE_FILES = [
     "input_card.json",
+    "artifacts/research_evidence_db.json",
     "industry_research_pack.md",
     "deck_blueprint.json",
     "renderer_spec.json",
@@ -26,6 +27,7 @@ REQUIRED_CORE_FILES = [
     "artifacts/renderer_spec_validation.json",
     "artifacts/chart_metric_binding_validation.json",
     "artifacts/content_quality_validation.json",
+    "artifacts/research_evidence_db_validation.json",
     "artifacts/replacement_dict_validation.json",
     "artifacts/stage_gate_pre_ppt_validation.json",
 ]
@@ -38,6 +40,8 @@ REQUIRED_RESEARCH_FILES = [
     "artifacts/formal_research_execution_report.json",
     "artifacts/formal_research_execution_validation.json",
     "artifacts/stage_gate_pre_research_pack_validation.json",
+    "artifacts/research_evidence_db.json",
+    "artifacts/research_evidence_db_validation.json",
     "artifacts/research_pack_validation.json",
     "artifacts/search_log.md",
     "artifacts/source_reviews.json",

@@ -72,7 +72,8 @@ brief
 → industry scope pack
 → formal search plan
 → formal research execution
-→ research pack
+→ research evidence DB
+→ generated research pack
 → issue analysis
 → deck blueprint
 → page evidence contract / renderer spec
@@ -80,7 +81,7 @@ brief
 → final delivery validation
 ```
 
-`scripts/pipeline.py render --run-dir <attempt_dir>` 是正式 PPT 渲染和 final gate 的首选入口。它只处理已经通过正式研究和上游校验的 run package，不从 brief 开始做研究，也不创建新的 attempt。`run_pipeline.sh` 保留为旧自动化兼容入口。
+`scripts/pipeline.py render --run-dir <attempt_dir>` 是正式 PPT 渲染和 final gate 的首选入口。它只处理已经通过正式研究和上游校验的 run package，不从 brief 开始做研究，也不创建新的 attempt。`run_pipeline.sh` 仅保留为旧自动化兼容包装器，并且只接受已有 attempt。
 
 当前 runtime 使用固定 8 页行业章节母版。页面类型和变体由 `slide_registry.json`、`page_type_rules.json`、`template_registry.json` 和 PPT mapping 控制；如需新增行业专属页面结构，应同步更新模板、registry、mapping 和验证脚本。
 
@@ -173,7 +174,8 @@ brief
 → industry scope pack
 → formal search plan
 → formal research execution
-→ research pack
+→ research evidence DB
+→ generated research pack
 → issue analysis
 → deck blueprint
 → page evidence contract / renderer spec
@@ -181,7 +183,7 @@ brief
 → final delivery validation
 ```
 
-`scripts/pipeline.py render --run-dir <attempt_dir>` is the preferred entrypoint for formal PPT rendering and final delivery gates. It only operates on a run package that has already passed formal research and upstream validation; it does not start research from a brief or create a new attempt. `run_pipeline.sh` remains as a compatibility entrypoint for older automation.
+`scripts/pipeline.py render --run-dir <attempt_dir>` is the preferred entrypoint for formal PPT rendering and final delivery gates. It only operates on a run package that has already passed formal research and upstream validation; it does not start research from a brief or create a new attempt. `run_pipeline.sh` remains only as a compatibility wrapper for older automation and accepts existing attempts only.
 
 The current runtime uses a fixed 8-slide industry-section master template. Page types and variants are controlled by `slide_registry.json`, `page_type_rules.json`, `template_registry.json`, and PPT mappings. New industry-specific page structures should update the template, registries, mappings, and validators together.
 
