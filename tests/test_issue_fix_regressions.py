@@ -199,6 +199,47 @@ def test_template_profile_defers_to_earlier_gates(tmp_path: Path) -> None:
     assert state["current_stage"] == "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED", state
 
 
+def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
+    """Template profile check must fire right after renderer_spec passes, not after chart/content/final gates."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir()
+    # Seed everything through renderer_spec
+    (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
+    (artifacts / "input_card_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "industry_scope_pack.json").write_text("{}", encoding="utf-8")
+    (artifacts / "industry_scope_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "formal_search_plan.json").write_text("{}", encoding="utf-8")
+    (artifacts / "formal_search_plan_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "source_reviews.json").write_text("{}", encoding="utf-8")
+    (artifacts / "source_reviews_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "source_archive").mkdir(parents=True, exist_ok=True)
+    (artifacts / "source_archive" / "source_archive_index.json").write_text("{}", encoding="utf-8")
+    (artifacts / "source_archive_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "formal_research_execution_report.json").write_text("{}", encoding="utf-8")
+    (artifacts / "formal_research_execution_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "stage_gate_pre_research_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "research_evidence_db.json").write_text("{}", encoding="utf-8")
+    (artifacts / "research_evidence_db_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (run_dir / "industry_research_pack.md").write_text("# Pack\n", encoding="utf-8")
+    (artifacts / "research_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (run_dir / "industry_issue_analysis.json").write_text("{}", encoding="utf-8")
+    (artifacts / "issue_analysis_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (run_dir / "template_registry.json").write_text("{}", encoding="utf-8")
+    (artifacts / "template_registry_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (run_dir / "deck_blueprint.json").write_text("{}", encoding="utf-8")
+    (artifacts / "deck_blueprint_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (run_dir / "page_evidence_contract.json").write_text("{}", encoding="utf-8")
+    (artifacts / "page_evidence_contract_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (run_dir / "renderer_spec.json").write_text("{}", encoding="utf-8")
+    (artifacts / "renderer_spec_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    # No template_profile.json → should fire right after renderer_spec
+    state = validate_run_state(run_dir)
+    assert state["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED", state
+    assert state["blocking_gate"] == "template_profile"
+
+
 def test_source_materials_validation_catches_errors() -> None:
     data = {
         "_provenance": {
@@ -225,6 +266,13 @@ def test_source_materials_validation_catches_errors() -> None:
                 "source_access_path": "https://example.com",
                 "notes": "",
             },
+            {
+                "source_name": "Bad URL",
+                "source_type": "company_material",
+                "source_access": "public_search",
+                "source_access_path": "not a url",
+                "notes": "",
+            },
         ],
     }
     result = validate_input_card(data)
@@ -232,6 +280,7 @@ def test_source_materials_validation_catches_errors() -> None:
     error_text = " ".join(result["errors"])
     assert "public_search" in error_text
     assert "bad_type" in error_text
+    assert "not a valid URL" in error_text
 
 
 def test_source_materials_skips_template_placeholder() -> None:
@@ -276,6 +325,7 @@ def main() -> int:
         test_empty_run_returns_input_card_missing(tmp_path / "empty")
         test_template_profile_requires_renderer_spec(tmp_path / "no_renderer")
         test_template_profile_defers_to_earlier_gates(tmp_path / "with_renderer")
+        test_template_profile_fires_after_renderer_spec(tmp_path / "after_renderer")
     test_formal_search_plan_high_priority_warning_allows_multivariants()
     test_research_error_matching_is_specific()
     test_runtime_dependency_payload_exposes_search_and_paid_flags()

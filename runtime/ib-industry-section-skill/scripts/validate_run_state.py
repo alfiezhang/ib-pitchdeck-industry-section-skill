@@ -555,7 +555,7 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
         },
     ]
 
-    for check in checks:
+    for idx, check in enumerate(checks):
         missing = []
         artifact = run_dir / check["artifact"]
         if not artifact.exists():
@@ -581,12 +581,14 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
         if stale:
             return {**check, "status": "stale", "stale_validations": stale}
 
-    template_profile_state = _template_profile_check(run_dir)
-    if template_profile_state is not None:
-        return template_profile_state
-    template_fit_state = _template_fit_validation_check(run_dir)
-    if template_fit_state is not None:
-        return template_fit_state
+        # After RENDERER_SPEC passes, check template layer before chart/content gates
+        if str(check.get("gate") or "") == RENDERER_SPEC:
+            template_profile_state = _template_profile_check(run_dir)
+            if template_profile_state is not None:
+                return template_profile_state
+            template_fit_state = _template_fit_validation_check(run_dir)
+            if template_fit_state is not None:
+                return template_fit_state
 
     return {
         "stage": "CLIENT_READY",

@@ -167,10 +167,16 @@ def _validate_source_materials(data: dict[str, Any]) -> tuple[list[str], list[st
                 f"{prefix}.source_access '{source_access}' is not valid; "
                 f"expected one of {sorted(VALID_SOURCE_ACCESSES)}"
             )
-        if source_access == "public_search" and not source_access_path:
-            errors.append(
-                f"{prefix}: source_access is 'public_search' but source_access_path (URL) is empty"
-            )
+        if source_access == "public_search":
+            if not source_access_path:
+                errors.append(
+                    f"{prefix}: source_access is 'public_search' but source_access_path (URL) is empty"
+                )
+            elif not source_access_path.lower().startswith(("http://", "https://")):
+                errors.append(
+                    f"{prefix}: source_access is 'public_search' but source_access_path is not a valid URL "
+                    f"(must start with http:// or https://)"
+                )
         if source_access == "user_provided":
             has_content = bool(source_name or source_access_path or notes)
             if not has_content:
