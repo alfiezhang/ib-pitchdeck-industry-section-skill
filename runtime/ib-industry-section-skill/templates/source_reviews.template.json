@@ -1,5 +1,7 @@
 {
   "schema_version": "source_reviews_v1",
+  "_template_only": true,
+  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use build_source_reviews_skeleton.py then fill each review.",
   "purpose": "Audit exact opened/reviewed sources that support formal evidence. Search snippets and broad-discovery leads are not usable evidence.",
   "reviews": [
     {

@@ -14,8 +14,9 @@ REQUIRED_IMPORTS = [
     {"module": "lxml.etree", "package": "lxml"},
 ]
 
-REPO_ROOT = Path(__file__).resolve().parent
-SOURCE_REGISTRY = REPO_ROOT / "templates" / "source_registry.json"
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent
+SOURCE_REGISTRY = ROOT_DIR / "templates" / "source_registry.json"
 SEARXNG_ENV_VARS = ("SEARXNG_BASE_URL", "SEARXNG_URL", "SEARXNG_ENDPOINT")
 
 OPTIONAL_SEARCH_MODULE_GROUPS = {

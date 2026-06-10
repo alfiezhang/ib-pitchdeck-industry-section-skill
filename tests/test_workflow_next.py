@@ -126,7 +126,89 @@ def test_workflow_next_produces_pack_stage_repair_commands(tmp_path: Path) -> No
     assert "--source-registry templates/source_registry.json" in command_text, payload["recommended_next_commands"]
 
 
+def test_workflow_next_empty_run_returns_input_card_missing(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    payload = next_payload(run_dir)
+    assert payload["current_stage"] == "INPUT_CARD_MISSING", payload
+
+
+def _seed_full_research_ready(run_dir: Path) -> None:
+    """Seed all artifacts needed to pass research/issue/deck gates."""
+    _seed_research_pack_ready(run_dir)
+    artifacts = run_dir / "artifacts"
+    # Research pack file and validation
+    (run_dir / "industry_research_pack.md").write_text("# Research Pack\n", encoding="utf-8")
+    _write_json(artifacts / "research_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Issue analysis
+    _write_json(run_dir / "industry_issue_analysis.json", {"issues": []})
+    _write_json(artifacts / "issue_analysis_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Template registry
+    _write_json(run_dir / "template_registry.json", {"slides": []})
+    _write_json(artifacts / "template_registry_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Deck blueprint
+    _write_json(run_dir / "deck_blueprint.json", {"slides": []})
+    _write_json(artifacts / "deck_blueprint_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Page evidence contract
+    _write_json(run_dir / "page_evidence_contract.json", {"pages": []})
+    _write_json(artifacts / "page_evidence_contract_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Renderer spec
+    _write_json(
+        run_dir / "renderer_spec.json",
+        {"schema_version": "renderer_spec_v1", "slides": [], "layout_version": "v1"},
+    )
+    _write_json(artifacts / "renderer_spec_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Chart metric binding
+    _write_json(artifacts / "chart_metric_binding_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Content quality
+    _write_json(artifacts / "content_quality_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Pre-PPT stage gate
+    _write_json(artifacts / "stage_gate_pre_ppt_validation.json", {"is_valid": True})
+    # Replacement dict
+    _write_json(run_dir / "replacement_dict.json", {"tokens": {}})
+    _write_json(artifacts / "replacement_dict_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Filled PPT
+    (run_dir / "industry_section_filled_clean.pptx").write_bytes(b"PK\x03\x04")
+    _write_json(run_dir / "filled_ppt_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Final delivery
+    _write_json(artifacts / "final_delivery_validation.json", {"is_valid": True, "client_ready": True, "errors": [], "warnings": []})
+
+
+def test_workflow_next_renderer_spec_without_template_profile(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    _seed_full_research_ready(run_dir)
+    payload = next_payload(run_dir)
+    assert payload["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED", payload
+    command_text = "\n".join(item["command"] for item in payload["recommended_next_commands"])
+    assert "template_analyzer.py" in command_text
+
+
+def test_workflow_next_template_profile_without_template_fit(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    _seed_full_research_ready(run_dir)
+    artifacts = run_dir / "artifacts"
+    _write_json(
+        artifacts / "template_profile.json",
+        {
+            "schema_version": "template_profile_v1",
+            "template_file": str(ROOT / "runtime/ib-industry-section-skill/assets/industry_section_template_master.pptx"),
+            "layout": {},
+            "visual_style": {},
+        },
+    )
+    payload = next_payload(run_dir)
+    assert payload["current_stage"] == "TEMPLATE_FIT_FAILED", payload
+    command_text = "\n".join(item["command"] for item in payload["recommended_next_commands"])
+    assert "template_fit.py" in command_text
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as tmp_dir:
-        test_workflow_next_produces_pack_stage_repair_commands(Path(tmp_dir))
+        tmp_path = Path(tmp_dir)
+        test_workflow_next_empty_run_returns_input_card_missing(tmp_path / "empty")
+        test_workflow_next_produces_pack_stage_repair_commands(tmp_path / "pack")
+        test_workflow_next_renderer_spec_without_template_profile(tmp_path / "no_profile")
+        test_workflow_next_template_profile_without_template_fit(tmp_path / "no_fit")
         print("workflow next regression tests passed.")

@@ -157,6 +157,9 @@ def validation_passed(path: Path, *, require_client_ready: bool = False) -> tupl
 
 
 def _template_profile_check(run_dir: Path) -> dict[str, Any] | None:
+    renderer_spec_path = run_dir / "renderer_spec.json"
+    if not renderer_spec_path.exists():
+        return None
     profile_path = run_dir / "artifacts" / "template_profile.json"
     if not profile_path.exists():
         return {
@@ -368,13 +371,6 @@ def blocked_retry_gate(run_dir: Path) -> Optional[dict[str, Any]]:
 def first_failed_gate(run_dir: Path) -> dict[str, Any]:
     manifest = load_artifact_manifest()
 
-    template_profile_state = _template_profile_check(run_dir)
-    if template_profile_state is not None:
-        return template_profile_state
-    template_fit_state = _template_fit_validation_check(run_dir)
-    if template_fit_state is not None:
-        return template_fit_state
-
     checks = [
         {
             "stage": "INPUT_CARD_MISSING",
@@ -584,6 +580,13 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
         stale = stale_validation_details(run_dir, validations, input_artifacts)
         if stale:
             return {**check, "status": "stale", "stale_validations": stale}
+
+    template_profile_state = _template_profile_check(run_dir)
+    if template_profile_state is not None:
+        return template_profile_state
+    template_fit_state = _template_fit_validation_check(run_dir)
+    if template_fit_state is not None:
+        return template_fit_state
 
     return {
         "stage": "CLIENT_READY",

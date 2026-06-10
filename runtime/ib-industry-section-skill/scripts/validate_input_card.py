@@ -59,6 +59,26 @@ ALLOWED_LANGUAGES = {
     "中文",
     "英文",
 }
+VALID_SOURCE_TYPES = {
+    "project_specific_material",
+    "user_curated_industry_report",
+    "company_material",
+    "web_search_result",
+    "repository_retrieval",
+    "official_filing",
+    "company_disclosure",
+    "industry_report",
+    "regulator",
+    "business_media",
+    "database",
+    "other",
+}
+VALID_SOURCE_ACCESSES = {
+    "user_provided",
+    "public_search",
+    "repository_retrieval",
+}
+PLACEHOLDER_SOURCE_TYPE_RE = re.compile(r"\|")
 LANGUAGE_ALIASES = {
     "Chinese": "Chinese",
     "zh-CN": "Chinese",
@@ -110,6 +130,57 @@ def canonical_language(value: str) -> str:
     return LANGUAGE_ALIASES.get(value.strip(), value.strip())
 
 
+def _validate_source_materials(data: dict[str, Any]) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    materials = data.get("source_materials")
+    if not isinstance(materials, list):
+        return errors, warnings
+    for idx, item in enumerate(materials, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"source_materials[{idx}] must be an object")
+            continue
+        prefix = f"source_materials[{idx}]"
+        source_type = str(item.get("source_type") or "").strip()
+        source_access = str(item.get("source_access") or "").strip()
+        source_name = str(item.get("source_name") or "").strip()
+        source_access_path = str(item.get("source_access_path") or "").strip()
+        notes = str(item.get("notes") or "").strip()
+
+        # Skip empty template rows (all key fields blank or placeholder)
+        is_placeholder = (
+            not source_name
+            and not notes
+            and (not source_type or PLACEHOLDER_SOURCE_TYPE_RE.search(source_type))
+            and (not source_access or PLACEHOLDER_SOURCE_TYPE_RE.search(source_access))
+        )
+        if is_placeholder:
+            continue
+
+        if source_type and source_type not in VALID_SOURCE_TYPES:
+            errors.append(
+                f"{prefix}.source_type '{source_type}' is not a valid type; "
+                f"expected one of {sorted(VALID_SOURCE_TYPES)}"
+            )
+        if source_access and source_access not in VALID_SOURCE_ACCESSES:
+            errors.append(
+                f"{prefix}.source_access '{source_access}' is not valid; "
+                f"expected one of {sorted(VALID_SOURCE_ACCESSES)}"
+            )
+        if source_access == "public_search" and not source_access_path:
+            errors.append(
+                f"{prefix}: source_access is 'public_search' but source_access_path (URL) is empty"
+            )
+        if source_access == "user_provided":
+            has_content = bool(source_name or source_access_path or notes)
+            if not has_content:
+                errors.append(
+                    f"{prefix}: source_access is 'user_provided' but source_name, source_access_path, "
+                    "and notes are all empty; provide at least one"
+                )
+    return errors, warnings
+
+
 def validate(data: dict[str, Any], allow_enriched: bool = False) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -136,6 +207,10 @@ def validate(data: dict[str, Any], allow_enriched: bool = False) -> dict[str, An
             warnings.append(
                 f"{path} is populated without provenance; mark it as user_provided or normalized_metadata"
             )
+
+    sm_errors, sm_warnings = _validate_source_materials(data)
+    errors.extend(sm_errors)
+    warnings.extend(sm_warnings)
 
     language = str(data.get("language", "")).strip()
     if not language:

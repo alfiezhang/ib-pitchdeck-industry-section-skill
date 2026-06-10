@@ -93,10 +93,10 @@
     {
       "item": "Whether adjacent platform models belong in core scope",
       "why_ambiguous": "These players share channels but differ in business model depth.",
-      "research_treatment": "Treat as scoped-out unless validated by formal research with explicit scope notes."
+      "research_treatment": "Treat as scoped-out unless supported by formal research with explicit scope notes."
     }
   ],
-  "scope_confidence_rationale": "Confidence is provisional until formal boundary and source quality are validated.",
+  "scope_confidence_rationale": "Confidence is provisional until formal boundary and source quality are reviewed.",
   "data_hierarchy": [
     {
       "level": 1,

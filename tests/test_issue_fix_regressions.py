@@ -18,6 +18,9 @@ from gate_guard import _looks_like_formal_run  # noqa: E402
 from pipeline import PipelineError, finalize  # noqa: E402
 from validate_final_delivery import _looks_like_research_error, _template_layer_validation  # noqa: E402
 from validate_formal_search_plan import validate as validate_formal_search_plan  # noqa: E402
+from validate_input_card import validate as validate_input_card  # noqa: E402
+from validate_run_state import validate_run_state  # noqa: E402
+from workflow import next_payload  # noqa: E402
 
 
 def test_finalize_short_circuits_on_validation_failure(tmp_path: Path) -> None:
@@ -158,6 +161,111 @@ def test_runtime_dependency_payload_exposes_search_and_paid_flags() -> None:
     assert doctor_payload["paid_search_optional"] is True
 
 
+def test_empty_run_returns_input_card_missing(tmp_path: Path) -> None:
+    run_dir = tmp_path / "empty_run"
+    run_dir.mkdir(parents=True)
+    state = validate_run_state(run_dir)
+    assert state["current_stage"] == "INPUT_CARD_MISSING", state
+
+
+def test_template_profile_requires_renderer_spec(tmp_path: Path) -> None:
+    """Template profile check must not fire when renderer_spec.json does not exist."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir()
+    # Seed input card so INPUT_CARD_MISSING doesn't fire
+    (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
+    (artifacts / "input_card_validation.json").write_text(
+        '{"is_valid": true}', encoding="utf-8"
+    )
+    state = validate_run_state(run_dir)
+    # Without renderer_spec, template checks should be skipped
+    assert state["current_stage"] != "TEMPLATE_PROFILE_MISSING_OR_FAILED", state
+    assert state["current_stage"] == "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED", state
+
+
+def test_template_profile_defers_to_earlier_gates(tmp_path: Path) -> None:
+    """Template profile check must not fire when earlier gates (e.g. scope_pack) are missing."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir()
+    (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
+    (artifacts / "input_card_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (run_dir / "renderer_spec.json").write_text("{}", encoding="utf-8")
+    state = validate_run_state(run_dir)
+    # scope_pack is missing, so it fires before template profile
+    assert state["current_stage"] == "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED", state
+
+
+def test_source_materials_validation_catches_errors() -> None:
+    data = {
+        "_provenance": {
+            "request_language": "English",
+            "user_provided_paths": ["source_materials"],
+            "normalized_metadata_paths": [],
+        },
+        "target_company": "TestCo",
+        "industry": "tech",
+        "geography": "US",
+        "language": "English",
+        "source_materials": [
+            {
+                "source_name": "Report",
+                "source_type": "company_material",
+                "source_access": "public_search",
+                "source_access_path": "",
+                "notes": "some notes",
+            },
+            {
+                "source_name": "",
+                "source_type": "bad_type",
+                "source_access": "user_provided",
+                "source_access_path": "https://example.com",
+                "notes": "",
+            },
+        ],
+    }
+    result = validate_input_card(data)
+    assert not result["is_valid"]
+    error_text = " ".join(result["errors"])
+    assert "public_search" in error_text
+    assert "bad_type" in error_text
+
+
+def test_source_materials_skips_template_placeholder() -> None:
+    data = {
+        "_provenance": {
+            "request_language": "English",
+            "user_provided_paths": [],
+            "normalized_metadata_paths": [],
+        },
+        "target_company": "",
+        "industry": "",
+        "geography": "",
+        "language": "",
+        "source_materials": [
+            {
+                "source_name": "",
+                "source_type": "project_specific_material | user_curated_industry_report | other",
+                "source_access": "user_provided | public_search",
+                "source_access_path": "file path, internal path, or URL",
+                "notes": "",
+            }
+        ],
+    }
+    result = validate_input_card(data)
+    error_text = " ".join(result["errors"])
+    assert "source_materials" not in error_text
+
+
+def test_check_runtime_dependencies_source_registry_path() -> None:
+    from check_runtime_dependencies import SOURCE_REGISTRY
+    assert SOURCE_REGISTRY.exists(), f"SOURCE_REGISTRY path does not exist: {SOURCE_REGISTRY}"
+    assert SOURCE_REGISTRY.name == "source_registry.json"
+
+
 def main() -> int:
     with __import__("tempfile").TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
@@ -165,9 +273,15 @@ def main() -> int:
         test_json_helper_raises_on_corrupt_payload(tmp_path / "json")
         test_formal_looks_like_formal_run_requires_multiple_markers(tmp_path / "run2")
         test_template_layer_validation_detects_missing_and_invalid_artifacts(tmp_path / "template-layer")
+        test_empty_run_returns_input_card_missing(tmp_path / "empty")
+        test_template_profile_requires_renderer_spec(tmp_path / "no_renderer")
+        test_template_profile_defers_to_earlier_gates(tmp_path / "with_renderer")
     test_formal_search_plan_high_priority_warning_allows_multivariants()
     test_research_error_matching_is_specific()
     test_runtime_dependency_payload_exposes_search_and_paid_flags()
+    test_source_materials_validation_catches_errors()
+    test_source_materials_skips_template_placeholder()
+    test_check_runtime_dependencies_source_registry_path()
     print("Issue fix regression tests passed.")
     return 0
 
