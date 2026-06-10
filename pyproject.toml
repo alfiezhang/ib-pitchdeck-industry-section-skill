@@ -1,0 +1,7 @@
+[project]
+name = "ib-industry-section-skill"
+requires-python = ">=3.9"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["runtime/ib-industry-section-skill/scripts"]

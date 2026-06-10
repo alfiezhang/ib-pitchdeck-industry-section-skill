@@ -179,6 +179,101 @@ def _append_payload_validity_messages(
         warnings.append(str(item))
 
 
+def _load_saved_validation_artifact(
+    artifact_path: Path,
+    repair_targets: list[dict[str, Any]],
+    errors: list[str],
+    *,
+    layer: str,
+    artifact: str,
+    missing_recommended_action: str,
+    read_recommended_action: str | None = None,
+    check_warning_count: bool = False,
+) -> dict[str, Any] | None:
+    """Load a saved *_validation.json artifact and check its is_valid flag.
+
+    Returns the loaded payload, or None if the artifact is missing/unreadable.
+    Appends errors and repair targets as side effects.
+    """
+    if not artifact_path.exists():
+        errors.append(f"missing {artifact}")
+        _append_validation_issue(
+            repair_targets,
+            artifact=artifact,
+            layer=layer,
+            errors=[f"missing {artifact}"],
+            recommended_action=missing_recommended_action,
+        )
+        return None
+    try:
+        payload = load_json_file(artifact_path)
+    except Exception as exc:
+        message = f"cannot read {artifact}: {exc}"
+        errors.append(message)
+        _append_validation_issue(
+            repair_targets,
+            artifact=artifact,
+            layer=layer,
+            errors=[message],
+            recommended_action=read_recommended_action or f"Re-run validation for {artifact}.",
+        )
+        return None
+    _append_repair_targets(
+        repair_targets,
+        payload,
+        default_layer=layer,
+        default_artifact=artifact,
+    )
+    if payload.get("is_valid") is False:
+        errors.append(f"{artifact} is_valid=false")
+    if check_warning_count and payload.get("warning_count", 0):
+        errors.append(f"{artifact} contains {payload.get('warning_count')} warning(s)")
+    return payload
+
+
+def _run_validator_and_report(
+    data: dict[str, Any],
+    validator: Any,
+    validator_args: tuple[Any, ...] | None,
+    repair_targets: list[dict[str, Any]],
+    errors: list[str],
+    warnings: list[str],
+    *,
+    layer: str,
+    artifact: str,
+    fail_label: str,
+    recommended_action: str,
+    forbidden_action: str = "",
+) -> None:
+    """Run a domain validator, collect errors/warnings, and append repair targets."""
+    args = validator_args or ()
+    current_errors, current_warnings = validator(data, *args)
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not current_errors,
+            "errors": current_errors,
+            "repair_target_artifact": artifact,
+            "repair_target_layer": layer,
+            "repair_plan": {"targets": []},
+        },
+        default_layer=layer,
+        default_artifact=artifact,
+    )
+    if current_errors:
+        errors.append(fail_label)
+        errors.extend(str(item) for item in current_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact=artifact,
+            layer=layer,
+            errors=[str(item) for item in current_errors],
+            recommended_action=recommended_action,
+            forbidden_action=forbidden_action,
+        )
+    warnings.extend(str(item) for item in current_warnings)
+
+
 def _template_layer_validation(
     run_dir: Path,
     repair_targets: list[dict[str, Any]],
@@ -589,38 +684,17 @@ def validate_formal_research_execution_artifact(
         )
     warnings.extend(str(item) for item in current_warnings)
 
-    if artifact_path.exists():
-        try:
-            artifact = load_json_file(artifact_path)
-        except Exception as exc:
-            errors.append(f"cannot read formal_research_execution_validation.json: {exc}")
-            _append_validation_issue(
-                repair_targets,
-                artifact="artifacts/formal_research_execution_validation.json",
-                layer="research",
-                errors=[f"cannot read formal_research_execution_validation.json: {exc}"],
-                recommended_action="Re-run validator after fixing formal research execution report artifacts.",
-            )
-        else:
-            _append_repair_targets(
-                repair_targets,
-                artifact,
-                default_layer="research",
-                default_artifact="artifacts/formal_research_execution_validation.json",
-            )
-            if artifact.get("is_valid") is False:
-                errors.append("formal_research_execution_validation.json is_valid=false")
-            if artifact.get("warning_count", 0):
-                warnings.append(f"formal_research_execution_validation.json contains {artifact.get('warning_count')} warning(s)")
-    else:
-        errors.append("missing formal_research_execution_validation.json")
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/formal_research_execution_validation.json",
-            layer="research",
-            errors=["missing formal_research_execution_validation.json"],
-            recommended_action="Run validate_formal_research_execution.py and write validation artifact.",
-        )
+    saved = _load_saved_validation_artifact(
+        artifact_path,
+        repair_targets,
+        errors,
+        layer="research",
+        artifact="artifacts/formal_research_execution_validation.json",
+        missing_recommended_action="Run validate_formal_research_execution.py and write validation artifact.",
+        read_recommended_action="Re-run validator after fixing formal research execution report artifacts.",
+    )
+    if saved is not None and saved.get("warning_count", 0):
+        warnings.append(f"formal_research_execution_validation.json contains {saved.get('warning_count')} warning(s)")
 
     return errors, warnings
 
@@ -633,87 +707,42 @@ def validate_formal_search_plan_artifact(
     warnings: list[str] = []
     plan_path = run_dir / "artifacts/formal_search_plan.json"
     artifact_path = run_dir / "artifacts/formal_search_plan_validation.json"
-    if not plan_path.exists():
-        message = "missing formal_search_plan.json"
-        errors.append(message)
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/formal_search_plan.json",
-            layer="research",
-            errors=[message],
-            recommended_action="Create or repair formal_search_plan.json with scoped search rows.",
-        )
-        return errors, warnings
-    try:
-        plan_data = load_json_file(plan_path)
-    except Exception as exc:
-        message = f"cannot read formal_search_plan.json: {exc}"
-        errors.append(message)
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/formal_search_plan.json",
-            layer="research",
-            errors=[message],
-            recommended_action="Rebuild formal_search_plan.json and rerun this validator.",
-        )
-        return errors, warnings
-
-    current_errors, current_warnings = validate_formal_search_plan_data(plan_data)
-    _append_repair_targets(
+    plan_data = _load_artifact_payload(
+        plan_path,
         repair_targets,
-        {
-            "is_valid": not current_errors,
-            "errors": current_errors,
-            "repair_target_artifact": "artifacts/formal_search_plan.json",
-            "repair_target_layer": "research",
-            "repair_plan": {"targets": []},
-        },
-        default_layer="research",
-        default_artifact="artifacts/formal_search_plan.json",
+        errors,
+        layer="research",
+        artifact="artifacts/formal_search_plan.json",
+        missing_message="missing formal_search_plan.json",
+        missing_recommended_action="Create or repair formal_search_plan.json with scoped search rows.",
+        read_recommended_action="Rebuild formal_search_plan.json and rerun this validator.",
     )
-    if current_errors:
-        errors.append("current formal search plan validation failed")
-        errors.extend(str(item) for item in current_errors)
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/formal_search_plan.json",
-            layer="research",
-            errors=[str(item) for item in current_errors],
-            recommended_action="Fix execution expectation and taxonomy in formal_search_plan.json.",
-            forbidden_action="Do not map FS rows to source rows without executed attempts.",
-        )
-    warnings.extend(str(item) for item in current_warnings)
+    if plan_data is None:
+        return errors, warnings
 
-    if artifact_path.exists():
-        try:
-            artifact = load_json_file(artifact_path)
-        except Exception as exc:
-            errors.append(f"cannot read formal_search_plan_validation.json: {exc}")
-            _append_validation_issue(
-                repair_targets,
-                artifact="artifacts/formal_search_plan_validation.json",
-                layer="research",
-                errors=[f"cannot read formal_search_plan_validation.json: {exc}"],
-                recommended_action="Re-run formal_search_plan validator.",
-            )
-        else:
-            _append_repair_targets(
-                repair_targets,
-                artifact,
-                default_layer="research",
-                default_artifact="artifacts/formal_search_plan_validation.json",
-            )
-            if artifact.get("is_valid") is False:
-                errors.append("formal_search_plan_validation.json is_valid=false")
-    else:
-        errors.append("missing formal_search_plan_validation.json")
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/formal_search_plan_validation.json",
-            layer="research",
-            errors=["missing formal_search_plan_validation.json"],
-            recommended_action="Run validate_formal_search_plan.py and persist output.",
-        )
+    _run_validator_and_report(
+        plan_data,
+        validate_formal_search_plan_data,
+        None,
+        repair_targets,
+        errors,
+        warnings,
+        layer="research",
+        artifact="artifacts/formal_search_plan.json",
+        fail_label="current formal search plan validation failed",
+        recommended_action="Fix execution expectation and taxonomy in formal_search_plan.json.",
+        forbidden_action="Do not map FS rows to source rows without executed attempts.",
+    )
+
+    _load_saved_validation_artifact(
+        artifact_path,
+        repair_targets,
+        errors,
+        layer="research",
+        artifact="artifacts/formal_search_plan_validation.json",
+        missing_recommended_action="Run validate_formal_search_plan.py and persist output.",
+        read_recommended_action="Re-run formal_search_plan validator.",
+    )
     return errors, warnings
 
 
@@ -725,88 +754,42 @@ def validate_industry_scope_pack_artifact(
     warnings: list[str] = []
     scope_path = run_dir / "artifacts/industry_scope_pack.json"
     artifact_path = run_dir / "artifacts/industry_scope_pack_validation.json"
-    if not scope_path.exists():
-        message = "missing industry_scope_pack.json"
-        errors.append(message)
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/industry_scope_pack.json",
-            layer="industry",
-            errors=[message],
-            recommended_action="Repair industry_scope_pack.json before final delivery check.",
-            forbidden_action="Do not run final delivery while scope is missing.",
-        )
-        return errors, warnings
-    try:
-        scope_data = load_json_file(scope_path)
-    except Exception as exc:
-        message = f"cannot read industry_scope_pack.json: {exc}"
-        errors.append(message)
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/industry_scope_pack.json",
-            layer="industry",
-            errors=[message],
-            recommended_action="Rebuild industry_scope_pack.json and rerun validator.",
-        )
-        return errors, warnings
-
-    current_errors, current_warnings = validate_industry_scope_pack_data(scope_data)
-    _append_repair_targets(
+    scope_data = _load_artifact_payload(
+        scope_path,
         repair_targets,
-        {
-            "is_valid": not current_errors,
-            "errors": current_errors,
-            "repair_target_artifact": "artifacts/industry_scope_pack.json",
-            "repair_target_layer": "industry",
-            "repair_plan": {"targets": []},
-        },
-        default_layer="industry",
-        default_artifact="artifacts/industry_scope_pack.json",
+        errors,
+        layer="industry",
+        artifact="artifacts/industry_scope_pack.json",
+        missing_message="missing industry_scope_pack.json",
+        missing_recommended_action="Repair industry_scope_pack.json before final delivery check.",
+        missing_forbidden_action="Do not run final delivery while scope is missing.",
+        read_recommended_action="Rebuild industry_scope_pack.json and rerun validator.",
     )
-    if current_errors:
-        errors.append("current industry scope pack validation failed")
-        errors.extend(str(item) for item in current_errors)
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/industry_scope_pack.json",
-            layer="industry",
-            errors=[str(item) for item in current_errors],
-            recommended_action="Repair boundary definitions and exclusions in industry scope pack.",
-        )
-    warnings.extend(str(item) for item in current_warnings)
+    if scope_data is None:
+        return errors, warnings
 
-    if artifact_path.exists():
-        try:
-            artifact = load_json_file(artifact_path)
-        except Exception as exc:
-            errors.append(f"cannot read industry_scope_pack_validation.json: {exc}")
-            _append_validation_issue(
-                repair_targets,
-                artifact="artifacts/industry_scope_pack_validation.json",
-                layer="industry",
-                errors=[f"cannot read industry_scope_pack_validation.json: {exc}"],
-                recommended_action="Re-run industry scope pack validator.",
-            )
-        else:
-            _append_repair_targets(
-                repair_targets,
-                artifact,
-                default_layer="industry",
-                default_artifact="artifacts/industry_scope_pack_validation.json",
-            )
-            if artifact.get("is_valid") is False:
-                errors.append("industry_scope_pack_validation.json is_valid=false")
-    else:
-        errors.append("missing industry_scope_pack_validation.json")
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/industry_scope_pack_validation.json",
-            layer="industry",
-            errors=["missing industry_scope_pack_validation.json"],
-            recommended_action="Run industry scope validator and save artifact.",
-        )
+    _run_validator_and_report(
+        scope_data,
+        validate_industry_scope_pack_data,
+        None,
+        repair_targets,
+        errors,
+        warnings,
+        layer="industry",
+        artifact="artifacts/industry_scope_pack.json",
+        fail_label="current industry scope pack validation failed",
+        recommended_action="Repair boundary definitions and exclusions in industry scope pack.",
+    )
 
+    _load_saved_validation_artifact(
+        artifact_path,
+        repair_targets,
+        errors,
+        layer="industry",
+        artifact="artifacts/industry_scope_pack_validation.json",
+        missing_recommended_action="Run industry scope validator and save artifact.",
+        read_recommended_action="Re-run industry scope pack validator.",
+    )
     return errors, warnings
 
 
@@ -1185,8 +1168,6 @@ def validate_renderer_spec_artifact(
     if errors:
         return errors, warnings
 
-    errors: list[str] = []
-    warnings: list[str] = []
     try:
         result_errors, result_warnings = validate_renderer_spec_data(
             load_json_file(renderer_spec_path),
@@ -1251,37 +1232,19 @@ def validate_replacement_dict_artifact(
             forbidden_action="Do not generate final PPT without replacement_dict.json.",
         )
         return errors, warnings
-    if not artifact_path.exists():
-        errors.append("missing replacement_dict_validation.json")
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/replacement_dict_validation.json",
-            layer="generation",
-            errors=["missing replacement_dict_validation.json"],
-            recommended_action="Run validate_replacement_dict.py and persist artifact.",
-        )
-    else:
-        try:
-            artifact = load_json_file(artifact_path)
-        except Exception as exc:
-            errors.append(f"cannot read replacement_dict_validation.json: {exc}")
-            _append_validation_issue(
-                repair_targets,
-                artifact="artifacts/replacement_dict_validation.json",
-                layer="generation",
-                errors=[f"cannot read replacement_dict_validation.json: {exc}"],
-                recommended_action="Re-run replacement-dict validation after path normalization.",
-            )
-        else:
-            _append_repair_targets(
-                repair_targets,
-                artifact,
-                default_layer="generation",
-                default_artifact="artifacts/replacement_dict_validation.json",
-            )
-            if artifact.get("is_valid") is False:
-                errors.append("replacement_dict_validation.json is_valid=false")
-            warnings.extend(str(item) for item in artifact.get("warnings", []))
+
+    saved = _load_saved_validation_artifact(
+        artifact_path,
+        repair_targets,
+        errors,
+        layer="generation",
+        artifact="artifacts/replacement_dict_validation.json",
+        missing_recommended_action="Run validate_replacement_dict.py and persist artifact.",
+        read_recommended_action="Re-run replacement-dict validation after path normalization.",
+    )
+    if saved is not None:
+        warnings.extend(str(item) for item in saved.get("warnings", []))
+
     if not renderer_spec_path.exists():
         errors.append("missing renderer_spec.json")
         _append_validation_issue(
@@ -1541,74 +1504,32 @@ def validate_source_reviews_artifact(
         )
     warnings.extend(str(item) for item in result.get("warnings", []))
 
-    artifact_path = run_dir / "artifacts/source_reviews_validation.json"
-    if artifact_path.exists():
-        try:
-            artifact = load_json_file(artifact_path)
-        except Exception as exc:
-            errors.append(f"cannot read source_reviews_validation.json: {exc}")
-            _append_validation_issue(
-                repair_targets,
-                artifact="artifacts/source_reviews_validation.json",
-                layer="knowledge",
-                errors=[f"cannot read source_reviews_validation.json: {exc}"],
-                recommended_action="Re-run source review validation with valid source_reviews.json.",
-            )
-        else:
-            _append_repair_targets(
-                repair_targets,
-                artifact,
-                default_layer="knowledge",
-                default_artifact="artifacts/source_reviews_validation.json",
-            )
-            if artifact.get("is_valid") is False:
-                errors.append("source_reviews_validation.json is_valid=false")
-    else:
-        errors.append("missing source_reviews_validation.json")
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/source_reviews_validation.json",
-            layer="knowledge",
-            errors=["missing source_reviews_validation.json"],
-            recommended_action="Run validate_source_reviews.py and persist validation artifact.",
-        )
-    archive_artifact_path = run_dir / "artifacts/source_archive_validation.json"
-    if archive_artifact_path.exists():
-        try:
-            archive_artifact = load_json_file(archive_artifact_path)
-        except Exception as exc:
-            errors.append(f"cannot read source_archive_validation.json: {exc}")
-            _append_validation_issue(
-                repair_targets,
-                artifact="artifacts/source_archive_validation.json",
-                layer="knowledge",
-                errors=[f"cannot read source_archive_validation.json: {exc}"],
-                recommended_action="Run source archive validator after fixing source archive index.",
-            )
-        else:
-            _append_repair_targets(
-                repair_targets,
-                archive_artifact,
-                default_layer="knowledge",
-                default_artifact="artifacts/source_archive_validation.json",
-            )
-            if archive_artifact.get("is_valid") is False:
-                errors.append("source_archive_validation.json is_valid=false")
-                _append_validation_issue(
-                    repair_targets,
-                    artifact="artifacts/source_archive_validation.json",
-                    layer="knowledge",
-                    errors=["source_archive_validation.json is_valid=false"],
-                    recommended_action="Fix source_archive index and rerun source archive validation.",
-                )
-    else:
-        errors.append("missing source_archive_validation.json")
+    _load_saved_validation_artifact(
+        run_dir / "artifacts/source_reviews_validation.json",
+        repair_targets,
+        errors,
+        layer="knowledge",
+        artifact="artifacts/source_reviews_validation.json",
+        missing_recommended_action="Run validate_source_reviews.py and persist validation artifact.",
+        read_recommended_action="Re-run source review validation with valid source_reviews.json.",
+    )
+
+    archive_saved = _load_saved_validation_artifact(
+        run_dir / "artifacts/source_archive_validation.json",
+        repair_targets,
+        errors,
+        layer="knowledge",
+        artifact="artifacts/source_archive_validation.json",
+        missing_recommended_action="Generate and validate source archive index before final delivery.",
+        read_recommended_action="Run source archive validator after fixing source archive index.",
+    )
+    if archive_saved is not None and archive_saved.get("is_valid") is False:
         _append_validation_issue(
             repair_targets,
             artifact="artifacts/source_archive_validation.json",
             layer="knowledge",
-            errors=["missing source_archive_validation.json"],
-            recommended_action="Generate and validate source archive index before final delivery.",
+            errors=["source_archive_validation.json is_valid=false"],
+            recommended_action="Fix source_archive index and rerun source archive validation.",
         )
     return errors, warnings
 

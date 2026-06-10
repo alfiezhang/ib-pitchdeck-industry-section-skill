@@ -102,6 +102,8 @@ def get_path(data: dict[str, Any], path: str) -> Any:
 def is_non_empty(value: Any) -> bool:
     if value is None:
         return False
+    if isinstance(value, bool):
+        return value
     if isinstance(value, str):
         return bool(value.strip())
     if isinstance(value, (list, dict)):

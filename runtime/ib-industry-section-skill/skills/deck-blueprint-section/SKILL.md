@@ -61,6 +61,9 @@ Each slide must contain:
 - `fixed_page_role`: the fixed role for that slide;
 - `investor_question`: the investor question this page answers;
 - `page_thesis`: the page answer in banker reasoning language;
+- `page_argument`: the one-line evidence-backed page argument before execution into headline/body/copy;
+- `visual_intent`: explicit intent of visual + copy combination (e.g., prove scale through chart evidence, or make a directional comparison through cards);
+- `evidence_role`: how this slide contributes to the downstream deck evidence chain; one of `thesis_anchor`, `supporting_evidence`, `context_setting`, `caveat_only`, `open_question`;
 - `issue_analysis_ids`: the IA blocks used by this page;
 - `selected_page_type`: a formal-allowed page type from `template_registry.json`;
 - `claim_strength`;

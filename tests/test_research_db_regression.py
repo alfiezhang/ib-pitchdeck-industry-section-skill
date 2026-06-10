@@ -286,18 +286,4 @@ def test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence() -> Non
     assert any("FR-002" in item and "not_executed" in item for item in db["research_gap_audit"]["critical_gaps"])
 
 
-def main() -> int:
-    with tempfile.TemporaryDirectory() as tmp:
-        test_research_db_export_validates_without_chart_ready_warning(Path(tmp) / "db_export")
-    with tempfile.TemporaryDirectory() as tmp:
-        test_final_delivery_provenance_detects_stale_research_db_validation(Path(tmp) / "provenance")
-    with tempfile.TemporaryDirectory() as tmp:
-        test_pipeline_run_flags_written_for_formal_package(Path(tmp) / "flags")
-    test_workflow_next_keeps_research_pack_derived()
-    test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence()
-    print("Research DB regression tests passed.")
-    return 0
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())

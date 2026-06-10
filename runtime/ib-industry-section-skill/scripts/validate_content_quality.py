@@ -214,15 +214,21 @@ def metric_signatures(text: str) -> list[str]:
     return signatures
 
 
-def collect_slide_metric_signatures(slide: dict) -> set[str]:
-    fields: list[str] = []
+def collect_slide_text_fields(slide: dict) -> list[tuple[str, str]]:
+    """Collect (field_name, text_value) pairs from headline, main_message, pitch_relevance, and body_copy."""
+    fields: list[tuple[str, str]] = []
     for field_name in ("headline", "main_message", "pitch_relevance"):
         value = slide.get(field_name)
         if isinstance(value, str):
-            fields.append(value)
+            fields.append((field_name, value))
     body_copy = slide.get("body_copy", {})
     if isinstance(body_copy, dict):
-        fields.extend(value for value in body_copy.values() if isinstance(value, str))
+        fields.extend((f"body_copy.{key}", value) for key, value in body_copy.items() if isinstance(value, str))
+    return fields
+
+
+def collect_slide_metric_signatures(slide: dict) -> set[str]:
+    fields: list[str] = [value for _, value in collect_slide_text_fields(slide)]
     chart_data = slide.get("chart_data", {})
     if isinstance(chart_data, dict):
         fields.append(str(chart_data.get("title") or ""))
@@ -301,15 +307,7 @@ def check_claim_strength_language(
 ) -> None:
     """Block absolute language that is incompatible with pitch materials."""
     slide_no = slide.get("slide_no")
-
-    fields: list[tuple[str, str]] = []
-    for field_name in ("headline", "main_message", "pitch_relevance"):
-        value = slide.get(field_name)
-        if isinstance(value, str):
-            fields.append((field_name, value))
-    body_copy = slide.get("body_copy", {})
-    if isinstance(body_copy, dict):
-        fields.extend((f"body_copy.{key}", value) for key, value in body_copy.items() if isinstance(value, str))
+    fields = collect_slide_text_fields(slide)
 
     findings: list[str] = []
     for field_name, value in fields:
@@ -338,14 +336,7 @@ def check_cautious_language(
     if not cautious_phrases:
         return
     slide_no = slide.get("slide_no")
-    fields: list[tuple[str, str]] = []
-    for field_name in ("headline", "main_message", "pitch_relevance"):
-        value = slide.get(field_name)
-        if isinstance(value, str):
-            fields.append((field_name, value))
-    body_copy = slide.get("body_copy", {})
-    if isinstance(body_copy, dict):
-        fields.extend((f"body_copy.{key}", value) for key, value in body_copy.items() if isinstance(value, str))
+    fields = collect_slide_text_fields(slide)
 
     findings: list[str] = []
     for field_name, value in fields:
@@ -384,15 +375,7 @@ def check_target_advocacy_language(
     allowed_central_headline = slide_no == 8 and (
         not target_context_type or target_context_type in {"central", "selective"}
     )
-
-    fields: list[tuple[str, str]] = []
-    for field_name in ("headline", "main_message", "pitch_relevance"):
-        value = slide.get(field_name)
-        if isinstance(value, str):
-            fields.append((field_name, value))
-    body_copy = slide.get("body_copy", {})
-    if isinstance(body_copy, dict):
-        fields.extend((f"body_copy.{key}", value) for key, value in body_copy.items() if isinstance(value, str))
+    fields = collect_slide_text_fields(slide)
 
     blocking_findings: list[str] = []
     advisory_findings: list[str] = []
@@ -1320,15 +1303,32 @@ def check_chart_data(
     check_chart_metric_binding(slide, memo_text, warnings, blocking_issues)
 
 
-def parse_metric_reconciliation(memo_text: str) -> dict[str, dict[str, str]]:
-    """Parse research pack Metric Reconciliation rows into a MET-ID keyed map."""
-    metrics: dict[str, dict[str, str]] = {}
+def parse_markdown_section_table(
+    memo_text: str,
+    section_pattern: str,
+    header_sentinel: str,
+    key_pattern: str = "",
+    key_column: int = 0,
+) -> dict[str, dict[str, str]]:
+    """Generic parser for pipe-delimited Markdown tables under a ## section heading.
+
+    Args:
+        memo_text: Full markdown text to parse.
+        section_pattern: Regex pattern to match the section header (e.g. "Metric Reconciliation").
+        header_sentinel: First cell value that identifies the header row (e.g. "Metric Group").
+        key_pattern: Regex pattern to match the key column value (e.g. r"^MET-\\d{3}$"). If empty, all data rows are included.
+        key_column: Column index to match against key_pattern and use as the dict key.
+
+    Returns:
+        Dict keyed by the key column value, with each value being a dict of column-header -> cell-value.
+    """
+    result: dict[str, dict[str, str]] = {}
     if not memo_text:
-        return metrics
+        return result
     in_section = False
     header: list[str] = []
     for line in memo_text.splitlines():
-        if re.match(r"^##\s+Metric Reconciliation\b", line, flags=re.IGNORECASE):
+        if re.match(rf"^##\s+{section_pattern}\b", line, flags=re.IGNORECASE):
             in_section = True
             continue
         if in_section and re.match(r"^##\s+", line):
@@ -1338,75 +1338,39 @@ def parse_metric_reconciliation(memo_text: str) -> dict[str, dict[str, str]]:
         cells = [c.strip() for c in line.split("|")[1:-1]]
         if not cells:
             continue
-        if cells[0] == "Metric Group":
+        if cells[0] == header_sentinel:
             header = cells
             continue
         if all(set(c) <= {"-", ":"} for c in cells):
             continue
-        if len(cells) > 1 and re.match(r"^MET-\d{3}$", cells[1]):
-            row: dict[str, str] = {}
-            for i, cell in enumerate(cells):
-                key = header[i] if i < len(header) else f"col_{i}"
-                row[key] = cell
-            metrics[cells[1]] = row
-    return metrics
+        key = cells[key_column] if len(cells) > key_column else ""
+        if key_pattern and not re.match(key_pattern, key):
+            continue
+        if key:
+            result[key] = {header[i] if i < len(header) else f"col_{i}": cell for i, cell in enumerate(cells)}
+    return result
+
+
+def parse_metric_reconciliation(memo_text: str) -> dict[str, dict[str, str]]:
+    """Parse research pack Metric Reconciliation rows into a MET-ID keyed map."""
+    return parse_markdown_section_table(
+        memo_text,
+        section_pattern="Metric Reconciliation",
+        header_sentinel="Metric Group",
+        key_pattern=r"^MET-\d{3}$",
+        key_column=1,
+    )
 
 
 def parse_evidence_ledger(memo_text: str) -> dict[str, dict[str, str]]:
-    ledger: dict[str, dict[str, str]] = {}
-    if not memo_text:
-        return ledger
-    in_section = False
-    header: list[str] = []
-    for line in memo_text.splitlines():
-        if re.match(r"^##\s+Evidence Ledger\b", line, flags=re.IGNORECASE):
-            in_section = True
-            continue
-        if in_section and re.match(r"^##\s+", line):
-            break
-        if not in_section or not line.startswith("|"):
-            continue
-        cells = [c.strip() for c in line.split("|")[1:-1]]
-        if not cells:
-            continue
-        if cells[0] == "Evidence ID":
-            header = cells
-            continue
-        if all(set(c) <= {"-", ":"} for c in cells):
-            continue
-        if re.match(r"^EV-\d{3}$", cells[0]):
-            ledger[cells[0]] = {header[i] if i < len(header) else f"col_{i}": cell for i, cell in enumerate(cells)}
-    return ledger
-
-
-def memo_has_comparable_market_timeseries(memo_text: str) -> bool:
-    """Heuristic: detect whether the research pack has enough comparable datapoints for a Slide 1 trend chart."""
-    metrics = parse_metric_reconciliation(memo_text)
-    groups: dict[tuple[str, str, str, str, str], set[str]] = {}
-    market_terms = ("market", "size", "gmv", "sales", "revenue", "市场", "规模", "销售", "收入", "交易额")
-    blocking_statuses = {"conflicting", "not_comparable", "unresolved"}
-    for row in metrics.values():
-        status = row.get("Conflict Status", "").strip().lower()
-        if status in blocking_statuses:
-            continue
-        searchable = " ".join(
-            row.get(field, "")
-            for field in ("Metric Name", "Metric Type", "Metric Group", "Market Definition")
-        ).lower()
-        if not any(term in searchable for term in market_terms):
-            continue
-        period = (row.get("Data Period") or "").strip()
-        if not period:
-            continue
-        key = (
-            (row.get("Metric Type") or "").strip().lower(),
-            (row.get("Market Definition") or "").strip().lower(),
-            (row.get("Geography") or "").strip().lower(),
-            (row.get("Channel Scope") or "").strip().lower(),
-            (row.get("Unit") or "").strip().lower(),
-        )
-        groups.setdefault(key, set()).add(period)
-    return any(len(periods) >= 3 for periods in groups.values())
+    """Parse research pack Evidence Ledger rows into an EV-ID keyed map."""
+    return parse_markdown_section_table(
+        memo_text,
+        section_pattern="Evidence Ledger",
+        header_sentinel="Evidence ID",
+        key_pattern=r"^EV-\d{3}$",
+        key_column=0,
+    )
 
 
 def collect_chart_source_rows(chart_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1813,31 +1777,19 @@ def check_metric_ids_against_memo(slides: list[dict], memo_text: str) -> list[st
         return []
     issues: list[str] = []
 
-    # Parse Metric Reconciliation from research pack
-    metric_re = re.compile(
-        r"^\|\s*([^|]+)\s*\|\s*MET-(\d{3})\s*\|", flags=re.MULTILINE
-    )
-    # Simple parser: extract MET-IDs and their conflict status from research pack
+    # Parse Metric Reconciliation from research pack using shared parser
+    metrics = parse_metric_reconciliation(memo_text)
     met_status: dict[str, str] = {}
-
-
-    in_section = False
-    for line in memo_text.splitlines():
-        if re.match(r"^##\s+Metric Reconciliation\b", line, flags=re.IGNORECASE):
-            in_section = True
-            continue
-        if in_section and re.match(r"^##\s+", line):
-            break
-        if not in_section or not line.startswith("|"):
-            continue
-        cells = [c.strip() for c in line.split("|")[1:-1]]
-        if len(cells) < 13:
-            continue
-        met_id = cells[1].strip() if len(cells) > 1 else ""
-        if not re.match(r"^MET-\d{3}$", met_id):
-            continue
-        conflict = cells[-2].strip().lower() if len(cells) > 12 else ""
-        resolution = cells[-1].strip() if len(cells) > 13 else ""
+    for met_id, row in metrics.items():
+        # Find conflict and resolution columns by header name
+        conflict = ""
+        resolution = ""
+        for col_name, cell_value in row.items():
+            col_lower = col_name.strip().lower()
+            if "conflict" in col_lower and "status" in col_lower:
+                conflict = cell_value.strip().lower()
+            elif "resolution" in col_lower:
+                resolution = cell_value.strip()
         met_status[met_id] = conflict
         if resolution:
             met_status[f"{met_id}_resolution"] = resolution
@@ -2177,29 +2129,12 @@ def check_slide6_industry_balance(slides: list[dict], memo_text: str) -> list[st
     """Require Slide 6 competitive landscape to remain industry/peer-first."""
     if not memo_text:
         return []
-    ev_scope: dict[str, str] = {}
-    in_ledger = False
-    header: list[str] = []
-    for line in memo_text.splitlines():
-        if re.match(r"^##\s+Evidence Ledger\b", line, flags=re.IGNORECASE):
-            in_ledger = True
-            continue
-        if in_ledger and re.match(r"^##\s+", line):
-            break
-        if not in_ledger or not line.startswith("|"):
-            continue
-        cells = [c.strip() for c in line.split("|")[1:-1]]
-        if not cells:
-            continue
-        if cells[0] == "Evidence ID":
-            header = cells
-            continue
-        if all(set(c) <= {"-", ":"} for c in cells):
-            continue
-        if not re.match(r"^EV-\d{3}$", cells[0]):
-            continue
-        row = {header[i] if i < len(header) else f"col_{i}": cell for i, cell in enumerate(cells)}
-        ev_scope[cells[0]] = str(row.get("Claim Scope") or "").strip().lower()
+    # Use shared Evidence Ledger parser
+    ledger = parse_evidence_ledger(memo_text)
+    ev_scope: dict[str, str] = {
+        ev_id: str(row.get("Claim Scope") or "").strip().lower()
+        for ev_id, row in ledger.items()
+    }
 
     issues: list[str] = []
     for slide in slides:

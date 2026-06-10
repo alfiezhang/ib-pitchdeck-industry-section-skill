@@ -321,6 +321,9 @@
               "table_row_1",
               "table_row_2",
               "table_row_3",
+              "table_row_4",
+              "table_row_5",
+              "table_row_6",
               "right_top",
               "right_mid",
               "right_bottom"
@@ -339,12 +342,10 @@
               "chart_data"
             ],
             "required_body_fields": [
-              "axis_x",
-              "axis_y",
-              "point_1",
-              "point_2",
-              "point_3",
-              "point_4",
+              "matrix_label_x",
+              "matrix_label_y",
+              "matrix_title",
+              "left_panel",
               "right_top",
               "right_mid",
               "right_bottom"
@@ -353,12 +354,10 @@
           },
           "token_contract": {
             "required_body_fields": [
-              "axis_x",
-              "axis_y",
-              "point_1",
-              "point_2",
-              "point_3",
-              "point_4",
+              "matrix_label_x",
+              "matrix_label_y",
+              "matrix_title",
+              "left_panel",
               "right_top",
               "right_mid",
               "right_bottom"
@@ -412,7 +411,9 @@
             "required_body_fields": [
               "stage_1",
               "stage_2",
-              "stage_3"
+              "stage_3",
+              "stage_4",
+              "timeline_note"
             ],
             "required_objects": []
           },
@@ -420,7 +421,9 @@
             "required_body_fields": [
               "stage_1",
               "stage_2",
-              "stage_3"
+              "stage_3",
+              "stage_4",
+              "timeline_note"
             ]
           }
         },

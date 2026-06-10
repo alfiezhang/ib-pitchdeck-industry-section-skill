@@ -13,7 +13,6 @@ ib-industry-section-skill/
 ├── runtime/
 │   └── ib-industry-section-skill/   # 可直接安装/复制的 skill 目录
 ├── tests/                           # 开发与回归测试，不属于安装包
-├── .github/                         # CI 配置，不属于安装包
 ├── agents/                          # 开发元数据，不属于安装包
 └── README.md                        # 本文件
 ```
@@ -47,7 +46,7 @@ cp -R runtime/ib-industry-section-skill ~/.codex/skills/
 ~/.codex/skills/ib-industry-section-skill/SKILL.md
 ```
 
-不要把仓库根目录整体复制到 agent skills 目录。根目录包含测试、CI 和开发文件，会干扰 agent 执行。
+不要把仓库根目录整体复制到 agent skills 目录。根目录包含测试和开发文件，会干扰 agent 执行。
 
 ### 首次运行检查
 
@@ -98,7 +97,7 @@ PYTHON_CMD=python3 bash tests/run_contract_tests.sh
 
 ### 打包
 
-如需生成干净安装包，应只打包 `runtime/ib-industry-section-skill/` 的内容。安装包不应包含 `tests/`、`.github/`、`agents/`、`dist/`、缓存文件或历史运行结果。
+如需生成干净安装包，应只打包 `runtime/ib-industry-section-skill/` 的内容。安装包不应包含 `tests/`、`agents/`、`dist/`、缓存文件或历史运行结果。
 
 ---
 
@@ -115,7 +114,6 @@ ib-industry-section-skill/
 ├── runtime/
 │   └── ib-industry-section-skill/   # Installable skill directory
 ├── tests/                           # Developer regression tests; not installed
-├── .github/                         # CI configuration; not installed
 ├── agents/                          # Development metadata; not installed
 └── README.md                        # This file
 ```
@@ -149,7 +147,7 @@ The installed layout should look like:
 ~/.codex/skills/ib-industry-section-skill/SKILL.md
 ```
 
-Do not copy the repository root into the agent skills directory. The repository root contains tests, CI files, and development metadata that can distract execution agents.
+Do not copy the repository root into the agent skills directory. The repository root contains tests and development metadata that can distract execution agents.
 
 ### First-Run Check
 
@@ -200,4 +198,4 @@ If your local Python version has compatibility issues with `python-pptx` / `lxml
 
 ### Packaging
 
-A clean distributable package should contain only the contents of `runtime/ib-industry-section-skill/`. It should not include `tests/`, `.github/`, `agents/`, `dist/`, cache files, or historical run outputs.
+A clean distributable package should contain only the contents of `runtime/ib-industry-section-skill/`. It should not include `tests/`, `agents/`, `dist/`, cache files, or historical run outputs.

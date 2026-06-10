@@ -315,26 +315,4 @@ def test_check_runtime_dependencies_source_registry_path() -> None:
     assert SOURCE_REGISTRY.name == "source_registry.json"
 
 
-def main() -> int:
-    with __import__("tempfile").TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        test_finalize_short_circuits_on_validation_failure(tmp_path / "run")
-        test_json_helper_raises_on_corrupt_payload(tmp_path / "json")
-        test_formal_looks_like_formal_run_requires_multiple_markers(tmp_path / "run2")
-        test_template_layer_validation_detects_missing_and_invalid_artifacts(tmp_path / "template-layer")
-        test_empty_run_returns_input_card_missing(tmp_path / "empty")
-        test_template_profile_requires_renderer_spec(tmp_path / "no_renderer")
-        test_template_profile_defers_to_earlier_gates(tmp_path / "with_renderer")
-        test_template_profile_fires_after_renderer_spec(tmp_path / "after_renderer")
-    test_formal_search_plan_high_priority_warning_allows_multivariants()
-    test_research_error_matching_is_specific()
-    test_runtime_dependency_payload_exposes_search_and_paid_flags()
-    test_source_materials_validation_catches_errors()
-    test_source_materials_skips_template_placeholder()
-    test_check_runtime_dependencies_source_registry_path()
-    print("Issue fix regression tests passed.")
-    return 0
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())

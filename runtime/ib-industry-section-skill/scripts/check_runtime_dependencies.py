@@ -42,7 +42,7 @@ def _get_searxng_url() -> tuple[bool, str]:
     registry = _read_json(SOURCE_REGISTRY)
     connectors = registry.get("search_connectors", {}) if isinstance(registry, dict) else {}
     if isinstance(connectors, dict):
-        searxng = connectors.get("searxng") if isinstance(connectors, dict) else {}
+        searxng = connectors.get("searxng")
         if isinstance(searxng, dict):
             configured_url = str(searxng.get("default_url", "")).strip()
             if configured_url:

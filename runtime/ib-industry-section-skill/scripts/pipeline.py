@@ -83,6 +83,8 @@ def _ensure_run_dir(run_dir: Path) -> Path:
 def _preflight(run_dir: Path) -> None:
     state = validate_run_state(run_dir)
     if state["current_stage"] not in {
+        "TEMPLATE_PROFILE_MISSING_OR_FAILED",
+        "TEMPLATE_FIT_FAILED",
         "CHART_METRIC_BINDING_FAILED",
         "CONTENT_QUALITY_FAILED",
         "PRE_PPT_GATE_FAILED",

@@ -242,7 +242,7 @@
       "owner": "script",
       "validator": "scripts/validate_final_delivery.py",
       "validation": "artifacts/final_delivery_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "replacement_dict", "filled_ppt"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "template_profile", "template_fit_validation", "replacement_dict", "filled_ppt"]
     }
   },
   "gates": [
@@ -256,12 +256,12 @@
     { "gate": "research_evidence_db", "artifact": "research_evidence_db" },
     { "gate": "research_pack", "artifact": "research_pack" },
     { "gate": "issue_analysis", "artifact": "issue_analysis" },
-    { "gate": "template_profile", "artifact": "template_profile" },
-    { "gate": "template_fit_validation", "artifact": "template_fit_validation" },
     { "gate": "template_registry", "artifact": "template_registry" },
     { "gate": "deck_blueprint", "artifact": "deck_blueprint" },
     { "gate": "page_evidence_contract", "artifact": "page_evidence_contract" },
     { "gate": "renderer_spec", "artifact": "renderer_spec" },
+    { "gate": "template_profile", "artifact": "template_profile" },
+    { "gate": "template_fit_validation", "artifact": "template_fit_validation" },
     { "gate": "chart_metric_binding", "artifact": "chart_metric_binding" },
     { "gate": "content_quality", "artifact": "content_quality" },
     { "gate": "pre_ppt", "artifact": "pre_ppt_gate" },

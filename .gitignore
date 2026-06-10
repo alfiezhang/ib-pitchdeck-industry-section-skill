@@ -8,6 +8,7 @@ venv/
 
 # Local tool state
 .claude/
+AGENTS.md
 .env
 .env.*
 
@@ -15,6 +16,7 @@ venv/
 ref/
 dist/
 runs/
+docs/
 
 # Generated test outputs
 tests/**/artifacts/

@@ -54,9 +54,4 @@ def test_pipeline_run_flags_preserves_debug_only_when_set(tmp_path: Path) -> Non
     assert run_flags["package_of_record"] == "debug-package", run_flags
 
 
-if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        test_pipeline_run_flags_preserve_formal_defaults(tmp_path / "formal")
-        test_pipeline_run_flags_preserves_debug_only_when_set(tmp_path / "debug")
-    print("pipeline run_flags regression tests passed.")
+

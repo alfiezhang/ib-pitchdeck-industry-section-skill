@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -99,6 +98,29 @@ def test_workflow_next_prefers_template_profile_repair_stage(tmp_path: Path) -> 
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)
     _seed_research_pack_ready(run_dir)
+    # Seed research pack + validation so pipeline advances past RESEARCH_PACK stage
+    artifacts = run_dir / "artifacts"
+    (run_dir / "industry_research_pack.md").write_text("# Research Pack\n", encoding="utf-8")
+    _write_json(artifacts / "research_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Seed issue analysis + validation
+    _write_json(run_dir / "industry_issue_analysis.json", {"issues": []})
+    _write_json(artifacts / "issue_analysis_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Seed template registry + validation
+    _write_json(run_dir / "template_registry.json", {"slides": []})
+    _write_json(artifacts / "template_registry_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Seed deck blueprint + validation
+    _write_json(run_dir / "deck_blueprint.json", {"slides": []})
+    _write_json(artifacts / "deck_blueprint_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Seed page evidence contract + validation
+    _write_json(run_dir / "page_evidence_contract.json", {"pages": []})
+    _write_json(artifacts / "page_evidence_contract_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Seed renderer spec + validation
+    _write_json(
+        run_dir / "renderer_spec.json",
+        {"schema_version": "renderer_spec_v1", "slides": [], "layout_version": "v1"},
+    )
+    _write_json(artifacts / "renderer_spec_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # No template_profile.json → should fire TEMPLATE_PROFILE_MISSING_OR_FAILED
 
     payload = next_payload(run_dir)
     assert payload["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED", payload
@@ -204,11 +226,4 @@ def test_workflow_next_template_profile_without_template_fit(tmp_path: Path) -> 
     assert "template_fit.py" in command_text
 
 
-if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-        test_workflow_next_empty_run_returns_input_card_missing(tmp_path / "empty")
-        test_workflow_next_produces_pack_stage_repair_commands(tmp_path / "pack")
-        test_workflow_next_renderer_spec_without_template_profile(tmp_path / "no_profile")
-        test_workflow_next_template_profile_without_template_fit(tmp_path / "no_fit")
-        print("workflow next regression tests passed.")
+
