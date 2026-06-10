@@ -194,8 +194,9 @@ def test_final_delivery_provenance_detects_stale_research_db_validation(tmp_path
     os.utime(db_validation, (now - 20, now - 20))
     os.utime(db_path, (now, now))
 
-    errors, _ = validate_artifact_provenance(tmp_path)
-    assert any("research_evidence_db_validation.json is older" in error for error in errors)
+    errors, warnings, stale = validate_artifact_provenance(tmp_path)
+    # Staleness is detected and tracked (auto-rerun will fail since no command is defined)
+    assert "artifacts/research_evidence_db_validation.json" in stale
 
 
 def test_pipeline_run_flags_written_for_formal_package(tmp_path: Path) -> None:

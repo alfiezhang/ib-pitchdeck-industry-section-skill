@@ -220,10 +220,7 @@ def _check_render_layout_presence(
     variant_layout = str(variant.get("render_layout") or "")
     variant_missing = page_type not in layout_slides.get(str(slide_no), {})
     if variant_missing:
-        if _has_payload(slide.get("chart_data")) or _has_payload(slide.get("compare_table_data")):
-            _append(blocking, f"slide {slide_no}: render layout for '{page_type}' not found in template profile")
-        else:
-            _append(warnings, f"slide {slide_no}: render_layout '{variant_layout}' not found in template profile")
+        _append(blocking, f"slide {slide_no}: render layout for '{page_type}' not found in template profile; PPT rendering will produce broken output")
 
 
 def _check_visual_style(
@@ -316,6 +313,8 @@ def main() -> int:
         if args.strict and warnings:
             blocking.extend(warnings)
             warnings = []
+        # Recompute is_valid after strict promotion so blocking issues are reflected
+        is_valid = not blocking
         result = {
             "schema_version": "template_fit_v1",
             "is_valid": is_valid,

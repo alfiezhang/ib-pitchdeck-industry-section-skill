@@ -27,6 +27,10 @@ from validate_run_state import validate_run_state
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
+
+# --- Tool integrity: do not modify this file during a run ---
+_TOOL_SOURCE_REPO = ROOT_DIR.parent.parent  # expected: <repo>/runtime/ib-industry-section-skill
+_INTEGRITY_SENTINEL = "pipeline.py is a read-only tool file; repair upstream artifacts, not this script."  # noqa: E501
 TEMPLATE = ROOT_DIR / "assets" / "industry_section_template_master.pptx"
 SOURCE_REGISTRY = ROOT_DIR / "templates" / "source_registry.json"
 CONTENT_RULES = ROOT_DIR / "templates" / "content_quality_rules.json"
@@ -128,7 +132,7 @@ def _clear_not_client_ready(run_dir: Path) -> None:
         marker.unlink()
 
 
-def _write_run_flags(run_dir: Path, *, entrypoint: str) -> None:
+def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool = False) -> None:
     """Record formal pipeline mode for final delivery.
 
     The legacy shell wrapper used to own this artifact. The Python pipeline is
@@ -154,6 +158,7 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str) -> None:
         "debug_output_only": False,
         "debug_reason": "",
         "pipeline_entrypoint": entrypoint,
+        "preflight_skipped": preflight_skipped,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -241,7 +246,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
     artifacts.mkdir(exist_ok=True)
     if not skip_preflight:
         _preflight(run_dir)
-    _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render")
+    _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render", preflight_skipped=skip_preflight)
 
     try:
         validate_pre_ppt(run_dir, python_cmd)
@@ -398,6 +403,36 @@ def next_action(run_dir: Path) -> None:
     print(json.dumps(next_payload(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
 
 
+def _check_tool_integrity() -> None:
+    """Verify critical pipeline functions have not been patched at runtime.
+
+    This is a lightweight behavioral check: it inspects the source of key
+    functions for markers that would be lost if an agent replaced them with
+    stubs (e.g., forcing is_valid=True, swallowing exceptions). If tampering
+    is detected, the pipeline refuses to run.
+    """
+    import inspect
+
+    checks = {
+        "_preflight": "PipelineError",
+        "finalize": "PipelineError",
+        "validate_pre_ppt": "_run(",
+        "render": "_mark_not_client_ready",
+    }
+    for func_name, marker in checks.items():
+        func = globals().get(func_name)
+        if func is None:
+            raise PipelineError(f"tool integrity: {func_name} is missing; do not modify pipeline.py")
+        src = inspect.getsource(func)
+        if marker not in src:
+            raise PipelineError(
+                f"tool integrity: {func_name} appears to have been modified "
+                f"(expected marker '{marker}' not found). "
+                "Do not patch pipeline.py to bypass gates. "
+                "Repair the upstream artifact instead."
+            )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python", default=sys.executable, help="Python interpreter used for child scripts.")
@@ -424,6 +459,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        _check_tool_integrity()
         run_dir = Path(args.run_dir)
         if args.command == "status":
             status(run_dir)

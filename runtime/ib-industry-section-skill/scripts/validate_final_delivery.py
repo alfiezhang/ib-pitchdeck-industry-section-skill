@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -462,9 +463,87 @@ def is_within_run(path_text: str, run_dir: Path) -> bool:
         return False
 
 
-def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
+# Mapping from stale validation artifact to the command that regenerates it.
+# Commands use {run_dir} and {python} placeholders.
+_STALE_RERUN_COMMANDS: dict[str, list[str]] = {
+    "artifacts/deck_blueprint_validation.json": [
+        "{python}", "scripts/validate_deck_blueprint.py",
+        "--deck-blueprint", "{run_dir}/deck_blueprint.json",
+        "--issue-analysis", "{run_dir}/industry_issue_analysis.json",
+        "--template-registry", "{run_dir}/template_registry.json",
+        "--layout-budget", "templates/layout_budget.json",
+        "--output", "{run_dir}/artifacts/deck_blueprint_validation.json",
+    ],
+    "artifacts/renderer_spec_validation.json": [
+        "{python}", "scripts/validate_renderer_spec.py",
+        "--renderer-spec", "{run_dir}/renderer_spec.json",
+        "--template-registry", "{run_dir}/template_registry.json",
+        "--deck-blueprint", "{run_dir}/deck_blueprint.json",
+        "--page-contract", "{run_dir}/page_evidence_contract.json",
+        "--output", "{run_dir}/artifacts/renderer_spec_validation.json",
+    ],
+    "artifacts/source_reviews_validation.json": [
+        "{python}", "scripts/validate_source_reviews.py",
+        "--source-reviews", "{run_dir}/artifacts/source_reviews.json",
+        "--search-log", "{run_dir}/artifacts/search_log.md",
+        "--source-archive", "{run_dir}/artifacts/source_archive/source_archive_index.json",
+        "--output", "{run_dir}/artifacts/source_reviews_validation.json",
+    ],
+    "artifacts/page_evidence_contract_validation.json": [
+        "{python}", "scripts/validate_page_evidence_contract.py",
+        "--page-contract", "{run_dir}/page_evidence_contract.json",
+        "--deck-blueprint", "{run_dir}/deck_blueprint.json",
+        "--issue-analysis", "{run_dir}/industry_issue_analysis.json",
+        "--output", "{run_dir}/artifacts/page_evidence_contract_validation.json",
+    ],
+}
+
+
+def _try_rerun_stale_validators(
+    stale_artifacts: list[str],
+    run_dir: Path,
+    python_cmd: str,
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Attempt to rerun validators whose results are stale.
+
+    If rerun succeeds, the stale artifact is refreshed and removed from the
+    error list. If rerun fails, an error is added.
+    """
+    if not stale_artifacts:
+        return
+
+    for artifact_rel in stale_artifacts:
+        cmd_template = _STALE_RERUN_COMMANDS.get(artifact_rel)
+        if not cmd_template:
+            errors.append(
+                f"{artifact_rel} is stale and no auto-rerun command is defined; "
+                "manually rerun the validator"
+            )
+            continue
+
+        cmd = [
+            part.replace("{run_dir}", str(run_dir)).replace("{python}", python_cmd)
+            for part in cmd_template
+        ]
+        try:
+            result = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60)
+            if result.returncode == 0:
+                warnings.append(f"{artifact_rel} was stale; auto-reran validator successfully")
+            else:
+                stderr_tail = (result.stderr or "")[-200:]
+                errors.append(
+                    f"{artifact_rel} is stale and auto-rerun failed (exit {result.returncode}): {stderr_tail}"
+                )
+        except Exception as exc:
+            errors.append(f"{artifact_rel} is stale and auto-rerun raised: {exc}")
+
+
+def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    stale_artifacts: list[str] = []
     checks = {
         "artifacts/input_card_validation.json": ["input_card"],
         "artifacts/industry_scope_pack_validation.json": ["scope_pack"],
@@ -600,8 +679,9 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
         source_files = source_files_by_artifact.get(rel, [])
         newer_sources = [path.name for path in source_files if path.exists() and path.stat().st_mtime > artifact_mtime + 1.0]
         if newer_sources:
-            errors.append(f"{rel} is older than source file(s): {', '.join(newer_sources)}; rerun validation")
-    return errors, warnings
+            stale_artifacts.append(rel)
+            warnings.append(f"{rel} is older than source file(s): {', '.join(newer_sources)}; will attempt auto-rerun")
+    return errors, warnings, stale_artifacts
 
 
 def validate_formal_research_execution_artifact(
@@ -1534,7 +1614,7 @@ def validate_source_reviews_artifact(
     return errors, warnings
 
 
-def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str, Any]:
+def validate(run_dir: Path, source_registry: Optional[Path] = None, python_cmd: str = sys.executable) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
     technical_delivery_valid = True
@@ -1563,12 +1643,17 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
                 errors.append("run_flags.json indicates issue_analysis_layer was disabled; non-issue-analysis runs cannot be final")
             if run_flags.get("debug_output_only") is True:
                 errors.append("run_flags.json marks this as debug_output_only; debug runs cannot be final")
+            if run_flags.get("preflight_skipped") is True:
+                errors.append("run_flags.json indicates --skip-preflight was used; degraded pipeline runs cannot be client-ready")
 
     artifact_result = validate_run_artifacts(run_dir, require_research=True)
     errors.extend(artifact_result["errors"])
     warnings.extend(artifact_result["warnings"])
 
-    provenance_errors, provenance_warnings = validate_artifact_provenance(run_dir)
+    provenance_errors, provenance_warnings, stale_artifacts = validate_artifact_provenance(run_dir)
+    # Attempt to auto-rerun stale validators before treating them as errors
+    if stale_artifacts:
+        _try_rerun_stale_validators(stale_artifacts, run_dir, python_cmd, provenance_errors, provenance_warnings)
     errors.extend(provenance_errors)
     warnings.extend(provenance_warnings)
 

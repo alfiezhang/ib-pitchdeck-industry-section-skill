@@ -364,6 +364,59 @@ def validate_formal_research_execution_gate(
         warnings.extend(current_warnings)
 
 
+_SEARCH_COVERAGE_MIN = 0.60
+
+
+def check_search_coverage(
+    run_dir: Path,
+    errors: list[str],
+    warnings: list[str],
+    repair_targets: Optional[list[dict[str, Any]]] = None,
+) -> None:
+    """Check that at least 60% of planned formal searches were actually executed."""
+    artifacts = run_dir / "artifacts"
+    report_path = artifacts / "formal_research_execution_report.json"
+    if not report_path.exists():
+        return  # report missing → other gates will catch this
+
+    try:
+        report_data = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    results = report_data.get("results", [])
+    if not results:
+        return
+
+    total = len(results)
+    executed = sum(
+        1 for r in results
+        if r.get("evidence_status") not in {"not_executed", "accounting_only"}
+    )
+    ratio = executed / total if total else 0.0
+
+    if ratio < _SEARCH_COVERAGE_MIN:
+        skipped = total - executed
+        errors.append(
+            f"search coverage too low: {executed}/{total} ({ratio:.0%}) formal searches executed; "
+            f"{skipped} rows skipped. minimum required: {_SEARCH_COVERAGE_MIN:.0%}"
+        )
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_research_execution_report.json",
+            layer="research",
+            errors=[
+                f"only {executed}/{total} planned formal searches were executed ({ratio:.0%}); "
+                f"minimum is {_SEARCH_COVERAGE_MIN:.0%}"
+            ],
+            recommended_action=(
+                "Execute the remaining formal searches from formal_search_plan.json, "
+                "or mark them as 'not_material' with justification in the execution report."
+            ),
+            forbidden_action="Do not skip searches and proceed to evidence DB or issue analysis.",
+        )
+
+
 def validate_source_reviews_gate(
     run_dir: Path,
     errors: list[str],
@@ -899,6 +952,7 @@ def validate_stage(stage: str, run_dir: Path, source_registry: Optional[Path]) -
             repair_targets=repair_targets,
         )
         validate_formal_research_execution_gate(run_dir, errors, warnings, repair_targets=repair_targets)
+        check_search_coverage(run_dir, errors, warnings, repair_targets=repair_targets)
 
     if stage in {"pre_renderer", "pre_ppt"}:
         validate_research_pack_gate(run_dir, source_registry, errors, warnings, repair_targets=repair_targets)

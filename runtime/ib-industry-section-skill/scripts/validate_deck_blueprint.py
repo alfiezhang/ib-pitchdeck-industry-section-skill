@@ -29,6 +29,7 @@ from deck_blueprint_utils import (
 )
 from json_utils import load_json_file
 from upstream_validation import DECK_BLUEPRINT_UPSTREAM_VALIDATIONS, assert_formal_upstream_valid
+from validation_common import display_units, layout_rules_for
 
 
 BLOCKED_MARKERS = (
@@ -575,11 +576,69 @@ def validate(
     return errors, warnings, error_repair_targets
 
 
+_LAYOUT_BUDGET_HARD_OVERFLOW = 1.30  # > 130% of budget is an error
+
+
+def check_layout_budget(
+    deck_blueprint: dict[str, Any],
+    layout_budget: dict[str, Any],
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Estimate body_copy field sizes against layout budget at blueprint stage.
+
+    This catches content overload early, before template_fit or rendering.
+    """
+    if not isinstance(layout_budget, dict):
+        return
+
+    global_rules = layout_budget.get("global", {})
+    global_body = global_rules.get("body_copy", {})
+    default_limit = float(global_body.get("max_bullet_units_default", 88))
+
+    slides = deck_blueprint.get("slides") if isinstance(deck_blueprint, dict) else None
+    if not isinstance(slides, list):
+        return
+
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        slide_no = int(slide.get("slide_no") or 0)
+        page_type = str(slide.get("selected_page_type") or "")
+        rules = layout_rules_for(slide_no, page_type, layout_budget)
+        if not isinstance(rules, dict):
+            continue
+
+        body_copy = slide.get("body_copy")
+        if not isinstance(body_copy, dict):
+            continue
+
+        field_limits = rules.get("body_fields_max_units", {})
+        for field_name, value in body_copy.items():
+            if not isinstance(value, str) or not value.strip():
+                continue
+            field_limit = float(field_limits.get(field_name, default_limit))
+            actual = display_units(value)
+            if actual > field_limit * _LAYOUT_BUDGET_HARD_OVERFLOW:
+                errors.append(
+                    f"slide {slide_no}: '{field_name}' is {actual:.1f} layout units, "
+                    f"budget is {field_limit:.1f} ({actual / field_limit:.0%}); "
+                    f"reduce copy before downstream artifacts are generated"
+                )
+            elif actual > field_limit:
+                warnings.append(
+                    f"slide {slide_no}: '{field_name}' is {actual:.1f} layout units, "
+                    f"budget is {field_limit:.1f} ({actual / field_limit:.0%}); "
+                    f"consider trimming for cleaner template fit"
+                )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--deck-blueprint", required=True)
     parser.add_argument("--issue-analysis", required=True)
     parser.add_argument("--template-registry", required=True)
+    parser.add_argument("--layout-budget", help="Optional layout_budget.json for early content-size checks.")
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -587,8 +646,9 @@ def main() -> int:
         deck_blueprint_path = Path(args.deck_blueprint)
         issue_analysis_path = Path(args.issue_analysis)
         template_registry_path = Path(args.template_registry)
+        deck_data = load_json_file(deck_blueprint_path)
         errors, warnings, repair_targets = validate(
-            load_json_file(deck_blueprint_path),
+            deck_data,
             load_json_file(issue_analysis_path),
             load_json_file(template_registry_path),
         )
@@ -600,6 +660,12 @@ def main() -> int:
                 stage_name="deck_blueprint",
             )
         )
+        if args.layout_budget:
+            try:
+                layout_budget = load_json_file(Path(args.layout_budget))
+                check_layout_budget(deck_data, layout_budget, errors, warnings)
+            except Exception as exc:
+                warnings.append(f"layout budget check skipped: {exc}")
     except Exception as exc:
         errors, warnings, repair_targets = [str(exc)], [], []
 

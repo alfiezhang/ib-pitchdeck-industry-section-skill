@@ -36,13 +36,32 @@ These principles apply before any artifact work:
 
 ## Quick Start
 
-Work from the installed skill root, for example:
+Set up the runtime from the skill directory, then work from **your project
+directory** (the folder where you started this session):
 
 ```bash
-cd ~/.codex/skills/ib-industry-section-skill
-PYTHON_CMD="$(bash setup.sh --print-python)"
-"$PYTHON_CMD" scripts/check_runtime_dependencies.py
+SKILL_DIR="$HOME/.codex/skills/ib-industry-section-skill"   # or ~/.claude/skills/...
+PYTHON_CMD="$(bash "$SKILL_DIR/setup.sh" --print-python)"
+"$PYTHON_CMD" "$SKILL_DIR/scripts/check_runtime_dependencies.py"
 ```
+
+All `RUN_DIR` paths, `runs/` folders, and output artifacts live under your
+**current working directory** (`$PWD`), never inside the skill installation
+directory. `<work_root>` means `$PWD`, not the skill install path.
+
+### Read-Only Tool Files
+
+The following files are **tool code — do not modify them** during a run:
+
+- `scripts/*.py` — pipeline, validators, builders, renderers
+- `templates/*.json` — artifact manifest, slide registry, layout budgets,
+  schema files, PPT mapping, source registry
+- `references/*.md` — execution discipline, scope boundary, research policy
+- `skills/*/SKILL.md` — sub-skill instructions
+
+If a validator rejects your data, **repair the upstream artifact**, not the
+validator script. If you believe a validator has a bug, report it to the user
+and let them fix the source code — never patch scripts to bypass gates.
 
 Runtime requirements:
 
@@ -151,7 +170,10 @@ Correct path:
 
 Use one run directory as the package of record:
 
-`<work_root>/runs/<case_slug>/attempt_<timestamp>/`
+`$PWD/runs/<case_slug>/attempt_<timestamp>/`
+
+`<work_root>` is always the user's current working directory (`$PWD`), never
+the skill installation directory.
 
 Do not create nested `runs/` folders inside an attempt. Do not create a new
 attempt to escape stale or failed validation.

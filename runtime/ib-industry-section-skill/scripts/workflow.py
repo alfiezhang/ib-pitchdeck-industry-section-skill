@@ -123,7 +123,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "DECK_BLUEPRINT_MISSING_OR_FAILED": [
         {
             "purpose": "validate deck blueprint after page-editor repair",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_deck_blueprint.py --deck-blueprint {{run_dir}}/deck_blueprint.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --template-registry {{run_dir}}/template_registry.json --output {{run_dir}}/artifacts/deck_blueprint_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_deck_blueprint.py --deck-blueprint {{run_dir}}/deck_blueprint.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --template-registry {{run_dir}}/template_registry.json --layout-budget templates/layout_budget.json --output {{run_dir}}/artifacts/deck_blueprint_validation.json",
         },
     ],
     "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": [
