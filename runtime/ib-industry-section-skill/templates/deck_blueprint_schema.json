@@ -25,6 +25,9 @@
           "fixed_page_role",
           "investor_question",
           "page_thesis",
+          "page_argument",
+          "visual_intent",
+          "evidence_role",
           "issue_analysis_ids",
           "selected_page_type",
           "claim_strength",
@@ -37,6 +40,19 @@
           "fixed_page_role": { "type": "string" },
           "investor_question": { "type": "string" },
           "page_thesis": { "type": "string" },
+          "page_argument": {
+            "type": "string",
+            "description": "The one-line evidence-backed page argument for this slide before execution into headline/body/copy."
+          },
+          "visual_intent": {
+            "type": "string",
+            "description": "Explicit intent of visual + copy combination (e.g., prove scale through chart evidence, or make a directional comparison through cards)."
+          },
+          "evidence_role": {
+            "type": "string",
+            "enum": ["thesis_anchor", "supporting_evidence", "context_setting", "caveat_only", "open_question"],
+            "description": "How this slide contributes to downstream deck evidence chain."
+          },
           "why_this_page_matters": { "type": "string" },
           "issue_analysis_ids": {
             "type": "array",

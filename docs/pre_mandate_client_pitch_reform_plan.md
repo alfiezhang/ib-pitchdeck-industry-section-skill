@@ -689,7 +689,7 @@ git status --short
 
 ### 10.1 Phase 1：清理上下文污染
 
-状态：`[~]`
+状态：`[x]`
 
 目标：开发计划留在 repo 级 `docs/`，runtime skill 包只保留 agent 执行客户项目所需内容。
 
@@ -699,9 +699,9 @@ git status --short
 - `[x]` 删除 runtime skill 包里的开发计划 docs
 - `[x]` 新增 repo 级 `AGENTS.md`
 - `[x]` 在 runtime `SKILL.md` 加极简 Operating Principles
-- `[ ]` 检查打包脚本，确认 `docs/` 不进入 clean skill zip
-- `[ ]` 检查 `README.md` 是否仍面向 GitHub 用户，而不是本地路径说明
-- `[ ]` 检查 `references/` 中是否有开发路线/架构讨论残留
+- `[x]` 检查打包脚本，确认 `docs/` 不进入 clean skill zip
+- `[x]` 检查 `README.md` 是否仍面向 GitHub 用户，而不是本地路径说明
+- `[x]` 检查 `references/` 中是否有开发路线/架构讨论残留
 
 重点文件：
 
@@ -721,17 +721,19 @@ runtime/ib-industry-section-skill/references/*.md
 
 ### 10.2 Phase 2：Material / Source Classification
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：用户材料、用户精选行业报告、系统搜索结果、历史资料、市场数据分清楚。
 
 需要设计：
 
-- `[ ]` source type enum
-- `[ ]` material index 或 source metadata 结构
-- `[ ]` 用户上传报告 / URL / PDF 的进入路径
-- `[ ]` source type 写入 `source_reviews.json`
-- `[ ]` source type 写入 `research_evidence_db.json`
+- `[x]` source type enum
+- `[x]` material index 或 source metadata 结构
+- `[x]` 用户上传报告 / URL / PDF 的进入路径
+- `[x]` source type 写入 `source_reviews.json`
+- `[x]` source type 写入 `research_evidence_db.json`
+
+设计冲突：无；`source_type` 的分类仅用于区分 material / user / 官方 / 媒体等源系谱，并保留给 LLM 做判断，不在脚本端硬编码结论。
 
 重点文件：
 
@@ -751,16 +753,18 @@ runtime/ib-industry-section-skill/scripts/build_research_evidence_db.py
 
 ### 10.3 Phase 3：Industry Boundary Loop
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：先定义行业边界，再正式研究；boundary search 只验证“研究哪个行业”。
 
 需要修改：
 
-- `[ ]` `industry_scope_pack` schema 明确 broad/core/adjacent/excluded
-- `[ ]` `validate_industry_scope_pack.py` 阻止 confirmed market claim
-- `[ ]` boundary validation search 与 formal research search 在字段上区分
-- `[ ]` formal search plan skeleton 明确 taxonomy 是 coverage audit
+- `[x]` `industry_scope_pack` schema 明确 broad/core/adjacent/excluded
+- `[x]` `validate_industry_scope_pack.py` 阻止 confirmed market claim
+- `[x]` boundary validation search 与 formal research search 在字段上区分
+- `[x]` formal search plan skeleton 明确 taxonomy 是 coverage audit
+
+设计冲突记录：无
 
 重点文件：
 
@@ -780,18 +784,18 @@ runtime/ib-industry-section-skill/references/scope_boundary.md
 
 ### 10.4 Phase 4：Formal Research Planned-vs-Actual Accounting
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：彻底封住“FS rows 写满但实际没搜也继续下游”的路径。
 
 需要修改：
 
-- `[ ]` `formal_search_plan` 增 `execution_expectation`
-- `[ ]` `formal_search_plan` 增 `minimum_actual_searches`
-- `[ ]` `formal_research_execution_report` 增 `coverage_summary`
-- `[ ]` `formal_research_execution_report` 标注每个 FS row 的 terminal status
-- `[ ]` `workflow.py next` 在 planned-vs-actual 不完整时给明确 repair target
-- `[ ]` source reviews 只允许引用真实 executed/reviewed S-ID
+- `[x]` `formal_search_plan` 增 `execution_expectation`
+- `[x]` `formal_search_plan` 增 `minimum_actual_searches`
+- `[x]` `formal_research_execution_report` 增 `coverage_summary`
+- `[x]` `formal_research_execution_report` 标注每个 FS row 的 terminal status
+- `[x]` `workflow.py next` 在 planned-vs-actual 不完整时给明确 repair target
+- `[x]` source reviews 只允许引用真实 executed/reviewed S-ID
 
 重点文件：
 
@@ -812,19 +816,21 @@ runtime/ib-industry-section-skill/scripts/validate_run_state.py
 - 未执行 FS row 自动进入 `not_executed/not_material/research_backlog`；
 - evidence DB 不接收没有 S-ID/SRC-ID 的 claim。
 
+设计冲突记录：无
+
 ### 10.5 Phase 5：Reasoning Kernel / Hypothesis Resolution
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：让 hypothesis 进入可控分流，不再混进结论。
 
 需要修改：
 
-- `[ ]` issue analysis schema 增 `evidence_status`
-- `[ ]` issue analysis schema 增 `allowed_deck_usage`
-- `[ ]` issue analysis schema 增 `hypothesis_resolution`
-- `[ ]` validator 禁止 `not_researched/caveat_only` 进入 headline/main message
-- `[ ]` issue skeleton 自动生成 backlog，减少 LLM 手填机械字段
+- `[x]` issue analysis schema 增 `evidence_status`
+- `[x]` issue analysis schema 增 `allowed_deck_usage`
+- `[x]` issue analysis schema 增 `hypothesis_resolution`
+- `[x]` validator 禁止 `not_researched/caveat_only` 进入 headline/main message
+- `[x]` issue skeleton 自动生成 backlog，减少 LLM 手填机械字段
 
 重点文件：
 
@@ -843,18 +849,22 @@ runtime/ib-industry-section-skill/skills/research-pack/SKILL.md
 - caveat_only 只能进入 caveat/diligence question；
 - not_researched 不能进入 deck claim。
 
+设计冲突记录：无
+
 ### 10.6 Phase 6：Generation Layer / Page Argument
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：deck 从 page argument 生成，不从 research pack 机械压缩。
 
 需要修改：
 
-- `[ ]` `deck_blueprint` 明确 page thesis、main message、visual intent、evidence role
-- `[ ]` `validate_deck_blueprint.py` 报错时列出 active fields 和 repair target
-- `[ ]` `compile_deck_blueprint.py` 保留 LLM 的 target_field intent，不盲按顺序塞字段
-- `[ ]` `page_evidence_contract` 继承 evidence status 和 downstream permission
+- `[x]` `deck_blueprint` 明确 page thesis、main message、visual intent、evidence role
+- `[x]` `validate_deck_blueprint.py` 报错时列出 active fields 和 repair target
+- `[x]` `compile_deck_blueprint.py` 保留 LLM 的 target_field intent，不盲按顺序塞字段
+- `[x]` `page_evidence_contract` 继承 evidence status 和 downstream permission
+
+设计冲突记录：无
 
 重点文件：
 
@@ -875,17 +885,19 @@ runtime/ib-industry-section-skill/skills/deck-blueprint-section/SKILL.md
 
 ### 10.7 Phase 7：Template Layer
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：动态识别 PPT 模板并做 template fit。
 
 需要新增/修改：
 
-- `[ ]` `template_profile.json` schema 或结构
-- `[ ]` `template_analyzer.py`
-- `[ ]` `template_fit.py`
-- `[ ]` Template QC 输出配色、字体、版式、来源区、信息密度问题
-- `[ ]` renderer / postprocess 使用 template profile，而不是散落配置
+- `[x]` `template_profile.json` schema 或结构
+- `[x]` `template_analyzer.py`
+- `[x]` `template_fit.py`
+- `[x]` Template QC 输出配色、字体、版式、来源区、信息密度问题
+- `[x]` renderer / postprocess 使用 template profile，而不是散落配置
+
+设计冲突记录：无
 
 重点文件：
 
@@ -907,16 +919,16 @@ runtime/ib-industry-section-skill/scripts/postprocess_ppt_visuals.py
 
 ### 10.8 Phase 8：QC Engine / Repair Targets
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：所有关键失败都能告诉 LLM “修哪层、哪个文件、不能做什么”。
 
 需要修改：
 
-- `[ ]` 统一 QC 输出字段：`issue_type/severity/repair_target_layer/repair_target_artifact/recommended_action/forbidden_action`
-- `[ ]` `validate_content_quality.py` 的分类输出继续拆清楚
-- `[ ]` `validate_stage_gate.py` 和 `validate_final_delivery.py` 读取/汇总 repair targets
-- `[ ]` `workflow.py next` 输出唯一下一步命令
+- `[x]` 统一 QC 输出字段：`issue_type/severity/repair_target_layer/repair_target_artifact/recommended_action/forbidden_action`
+- `[x]` `validate_content_quality.py` 的分类输出继续拆清楚
+- `[x]` `validate_stage_gate.py` 和 `validate_final_delivery.py` 读取/汇总 repair targets
+- `[x]` `workflow.py next` 输出唯一下一步命令
 
 重点文件：
 
@@ -937,17 +949,19 @@ runtime/ib-industry-section-skill/scripts/validate_run_state.py
 
 ### 10.9 Phase 9：External Evidence Connector
 
-状态：`[ ]`
+状态：`[x]`
 
 目标：支持 SearXNG、manual URL/PDF、repository retrieval，减少 paid search 依赖。
 
 需要修改：
 
-- `[ ]` `web_search.py` provider 化
-- `[ ]` 增 SearXNG connector 配置
-- `[ ]` manual URL / PDF ingestion 接入 source review skeleton
-- `[ ]` source archive 能保存用户资料摘录和 locator
-- `[ ]` repository retrieval 进入 Knowledge Layer，而不是直接进入 deck
+- `[x]` `web_search.py` provider 化
+- `[x]` 增 SearXNG connector 配置
+- `[x]` manual URL / PDF ingestion 接入 source review skeleton
+- `[x]` source archive 能保存用户资料摘录和 locator
+- `[x]` repository retrieval 进入 Knowledge Layer，而不是直接进入 deck
+
+设计冲突记录：无；当未配置 SearXNG 且缺少 paid API 时，`--provider auto` 将回退到 DDG/Tavily；需确认用户在该场景下已提供可审计的手工来源。
 
 重点文件：
 
@@ -967,7 +981,7 @@ runtime/ib-industry-section-skill/scripts/validate_source_archive.py
 
 ### 10.10 最终回归
 
-状态：`[ ]`
+状态：`[x]`
 
 每个阶段完成后至少跑：
 
@@ -984,6 +998,13 @@ python3 runtime/ib-industry-section-skill/scripts/check_registry_coverage.py
 PYTHON_CMD=python3 tests/run_contract_tests.sh
 PYTHON_CMD=python3 tests/run_smoke_tests.sh
 ```
+
+Phase 10 完成项（更新）：
+
+- `[x]` 为最终回归补齐最小回归测试与 fixture：`tests/fixtures/minimal_research_db/`, `tests/test_workflow_next.py`, `tests/test_pipeline_run_flags.py`
+- `[x]` 在每次完成后执行了本节基础检查与 `run_contract_tests.sh`、`run_smoke_tests.sh`
+- `[x]` 本轮阻塞清理：`run_contract_tests` 中 source_reviews 别名路径补齐 `source_type`，`pipeline.py` 的 `_write_run_flags` 改为 `parents=True` 创建 `artifacts`，对应新增回归覆盖 `tests/test_pipeline_run_flags.py`
+- `[x]` 设计冲突记录：无
 
 并补至少一个 minimal regression fixture：
 

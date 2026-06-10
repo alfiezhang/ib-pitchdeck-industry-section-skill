@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+set -E
+set -o errtrace
+trap 'echo ERR line:$LINENO cmd:$BASH_COMMAND' ERR
 # Focused contract checks for the deck-blueprint industry-section workflow.
 
 set -euo pipefail

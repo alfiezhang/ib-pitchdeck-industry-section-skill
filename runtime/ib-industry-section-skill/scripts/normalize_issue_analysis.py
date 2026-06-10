@@ -20,6 +20,8 @@ from validate_issue_analysis import (
     VALID_ANALYSIS_TYPES,
     VALID_BACKLOG_PERMISSIONS,
     VALID_CONFIDENCE_STATUS,
+    VALID_EVIDENCE_STATUS,
+    VALID_HYPOTHESIS_RESOLUTION,
     VALID_EVIDENCE_SUFFICIENCY,
     VALID_POINT_ROLES,
     VALID_RESEARCH_ACTIONS,
@@ -130,6 +132,57 @@ def _normalize_sufficiency(value: Any, evidence_ids: list[str], metric_ids: list
     if candidate in VALID_EVIDENCE_SUFFICIENCY:
         return candidate
     return "sufficient" if (evidence_ids or metric_ids) else "insufficient"
+
+
+def _normalize_evidence_status(value: Any, sufficiency: str) -> str:
+    text = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "supported": "supported",
+        "thin": "thin",
+        "weak": "thin",
+        "insufficient": "insufficient",
+        "no": "not_researched",
+        "not_researched": "not_researched",
+        "unavailable": "unavailable_after_research",
+        "unavailable_after_research": "unavailable_after_research",
+        "not_applicable": "not_applicable",
+        "caveat": "caveat_only",
+        "caveat_only": "caveat_only",
+    }
+    candidate = aliases.get(text, "")
+    if not candidate:
+        candidate = {
+            "sufficient": "supported",
+            "thin": "thin",
+            "insufficient": "insufficient",
+            "not_applicable": "not_applicable",
+            "unavailable_after_research": "unavailable_after_research",
+        }.get(sufficiency, sufficiency)
+    if candidate in VALID_EVIDENCE_STATUS:
+        return candidate
+    return "insufficient"
+
+
+def _normalize_hypothesis_resolution(value: Any, evidence_status: str, status: str) -> str:
+    text = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "resolved": "resolved",
+        "confirm": "resolved",
+        "confirmed": "resolved",
+        "not_researched": "not_researched",
+        "no_evidence": "not_researched",
+        "caveat": "caveat_only",
+        "deprioritized": "deprioritized",
+        "rejected": "rejected",
+    }
+    candidate = aliases.get(text, text)
+    if candidate in VALID_HYPOTHESIS_RESOLUTION:
+        return candidate
+    if status == "rejected":
+        return "rejected"
+    if evidence_status in {"not_researched", "caveat_only"}:
+        return evidence_status
+    return "resolved" if status in {"validated", "partially_validated"} else "deprioritized"
 
 
 def _normalize_issue_area(value: Any, subissue: str) -> str:
@@ -250,6 +303,22 @@ def normalize(pool: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
             source_execution_result_ids = [f"FR-{idx:03d}"]
             warnings.append(f"{analysis_id}: source_execution_result_ids missing; filled {source_execution_result_ids[0]} as mechanical placeholder")
 
+        evidence_status = _normalize_evidence_status(raw.get("evidence_status"), sufficiency)
+        hypothesis_resolution = _normalize_hypothesis_resolution(raw.get("hypothesis_resolution"), evidence_status, status)
+        allowed_deck_usage = raw.get("allowed_deck_usage") if isinstance(raw.get("allowed_deck_usage"), dict) else {}
+        normalized_allowed = {
+            "headline": bool(allowed_deck_usage.get("headline")),
+            "main_message": bool(allowed_deck_usage.get("main_message")),
+            "chart": bool(allowed_deck_usage.get("chart")),
+            "body_copy": bool(allowed_deck_usage.get("body_copy")),
+        }
+        if status in {"rejected", "unverified"} and not any(normalized_allowed.values()):
+            normalized_allowed["body_copy"] = False
+            if evidence_status not in {"not_researched", "caveat_only"}:
+                normalized_allowed["body_copy"] = False
+        if evidence_status in {"not_researched", "caveat_only"}:
+            normalized_allowed = {"headline": False, "main_message": False, "chart": False, "body_copy": False}
+
         normalized_analysis = {
             "analysis_id": analysis_id,
             "source_execution_result_ids": source_execution_result_ids,
@@ -259,12 +328,15 @@ def normalize(pool: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
             "core_statement": str(raw.get("core_statement") or raw.get("finding") or "").strip(),
             "analysis_text": str(raw.get("analysis_text") or raw.get("so_what_for_pitch") or raw.get("so_what") or "").strip(),
             "supporting_points": _normalize_supporting_points(raw, evidence_ids, metric_ids, sufficiency),
+            "evidence_status": evidence_status,
+            "hypothesis_resolution": hypothesis_resolution,
             "evidence_sufficiency": sufficiency,
             "status": status,
             "evidence_ids": evidence_ids,
             "metric_ids": metric_ids,
             "limitations": [str(item).strip() for item in _as_list(raw.get("limitations")) if str(item).strip()],
             "downstream_permission": _normalize_permission(raw.get("downstream_permission", raw.get("usage_permission")), sufficiency=sufficiency, metric_ids=metric_ids),
+            "allowed_deck_usage": normalized_allowed,
         }
         if raw.get("candidate_use_cases") is not None:
             normalized_analysis["candidate_use_cases"] = [

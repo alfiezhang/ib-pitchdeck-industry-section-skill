@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Fallback web search tool for use when Claude Code's built-in WebSearch is unavailable
-(e.g., when using third-party API proxies that don't support the tool).
+"""Search helper used by the skill research workflow.
 
-Search priority: Tavily (AI-optimized) → DuckDuckGo (free fallback)
+The helper is provider-based so the same interface can use:
+- SearXNG (local/remote instance)
+- DuckDuckGo (ddgs / duckduckgo-search package)
+- Tavily
 
+In `auto` mode, provider order comes from `source_registry.json`:
+`search_connectors.provider_order` (fallback: `searxng` -> `duckduckgo` -> `tavily`).
 Features:
   - Proxy support via HTTP_PROXY / HTTPS_PROXY environment variables
   - Result quality filtering (removes noise, irrelevant domains)
@@ -22,8 +26,8 @@ Usage:
   python scripts/web_search.py -q "行业趋势" --use-default-packs --source-registry templates/source_registry.json
 
 Environment:
-  TAVILY_API_KEY  — required for Tavily provider. Get free key at https://tavily.com
-  HTTP_PROXY / HTTPS_PROXY — optional proxy URL for outbound requests
+  TAVILY_API_KEY  - required for Tavily provider. Get free key at https://tavily.com
+  HTTP_PROXY / HTTPS_PROXY - optional proxy URL for outbound requests
 """
 from __future__ import annotations
 
@@ -32,13 +36,19 @@ import json
 import os
 import re
 import sys
+from dataclasses import dataclass
+from urllib.error import URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_SOURCE_REGISTRY = SCRIPT_DIR.parent / "templates" / "source_registry.json"
+SEARXNG_ENV = ("SEARXNG_BASE_URL", "SEARXNG_URL", "SEARXNG_ENDPOINT")
+DEFAULT_PROVIDER_ORDER = ("searxng", "duckduckgo", "tavily")
 
 
 # ── Proxy detection ──────────────────────────────────────────────
@@ -53,6 +63,70 @@ def detect_proxy():
 
 
 PROXY = detect_proxy()
+
+
+@dataclass(frozen=True)
+class SourceConnectorConfig:
+    provider_order: tuple[str, ...]
+    searxng_url: str
+    searxng_timeout: float
+
+
+def _coerce_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_timeout(value: Any, default: float) -> float:
+    candidate = _coerce_float(value, default)
+    if candidate <= 0:
+        return max(default, 1.0)
+    return candidate
+
+
+def _pick_first(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _normalize_provider(provider: str) -> str:
+    return str(provider or "").strip().lower()
+
+
+def _load_connector_config(path: str) -> SourceConnectorConfig:
+    registry = {}
+    source_registry_path = Path(path or "").expanduser()
+    if source_registry_path.exists():
+        with source_registry_path.open("r", encoding="utf-8") as f:
+            registry = json.load(f)
+    connectors = registry.get("search_connectors", {})
+    order = connectors.get("provider_order") or connectors.get("order") or connectors.get("provider_preference") or DEFAULT_PROVIDER_ORDER
+    provider_order = tuple(str(item).strip().lower() for item in order if str(item).strip())
+    if not provider_order:
+        provider_order = DEFAULT_PROVIDER_ORDER
+
+    searxng_cfg = connectors.get("searxng", {}) if isinstance(connectors, dict) else {}
+    if not isinstance(searxng_cfg, dict):
+        searxng_cfg = {}
+    env_url = _pick_first(
+        os.environ.get("SEARXNG_BASE_URL"),
+        os.environ.get("SEARXNG_URL"),
+        os.environ.get("SEARXNG_ENDPOINT"),
+        searxng_cfg.get("default_url"),
+    )
+    return SourceConnectorConfig(
+        provider_order=provider_order,
+        searxng_url=env_url.strip(),
+        searxng_timeout=_coerce_timeout(
+            _pick_first(searxng_cfg.get("timeout_seconds"), os.environ.get("SEARXNG_TIMEOUT")), 20.0
+        ),
+    )
+
 
 # ── Result quality filtering ─────────────────────────────────────
 
@@ -175,7 +249,7 @@ def split_cjk_query(query: str) -> list[str]:
     segments = [s.strip() for s in segments if s.strip()]
 
     if len(segments) <= 1:
-        # No good split points — try splitting on 与/和/及
+        # No good split points - try splitting on 与/和/及
         parts = re.split(r'[与和及]', query)
         if len(parts) > 1:
             return [p.strip() for p in parts if p.strip()]
@@ -310,24 +384,98 @@ def search_duckduckgo(query: str, max_results: int = 5) -> list[dict]:
     return results
 
 
-def search_auto(query: str, max_results: int = 5) -> list[dict]:
-    """Auto mode: try Tavily first, fallback to DuckDuckGo."""
-    if os.environ.get("TAVILY_API_KEY"):
-        try:
-            results = search_tavily(query, max_results)
-            if results:
-                return results
-        except Exception as e:
-            print(f"[web_search] Tavily failed: {e}", file=sys.stderr)
-    else:
-        print("[web_search] TAVILY_API_KEY not set, skipping Tavily", file=sys.stderr)
+def search_searxng(
+    query: str,
+    max_results: int = 5,
+    base_url: str = "",
+    timeout: float = 20.0,
+    search_path: str = "/search",
+    format_param: str = "json",
+) -> list[dict]:
+    """Search via SearXNG endpoint."""
+    if not base_url:
+        raise RuntimeError("SearXNG base URL not configured. Set SEARXNG_BASE_URL or source_registry search_connectors.searxng.default_url.")
 
+    base = base_url.rstrip("/")
+    endpoint = f"{base}{search_path}"
+    params = {
+        "q": query,
+        "format": format_param,
+    }
+    url = f"{endpoint}?{urlencode(params)}"
+
+    request = Request(url, headers={"User-Agent": "ib-industry-section-skill/web-search"})
     try:
-        print("[web_search] Falling back to DuckDuckGo", file=sys.stderr)
-        return search_duckduckgo(query, max_results)
-    except Exception as e:
-        print(f"[web_search] DuckDuckGo failed: {e}", file=sys.stderr)
-        raise RuntimeError("all web search providers failed") from e
+        with urlopen(request, timeout=timeout, context=None) as response:
+            payload = json.load(response)
+    except URLError as exc:
+        raise RuntimeError(f"SearXNG request failed: {exc}") from exc
+    except Exception as exc:  # pragma: no cover - defensive for backend variations
+        raise RuntimeError(f"SearXNG response parse error: {exc}") from exc
+
+    raw_results = payload.get("results") if isinstance(payload, dict) else []
+    if not isinstance(raw_results, list):
+        raw_results = []
+
+    results = []
+    for item in raw_results:
+        if not isinstance(item, dict):
+            continue
+        results.append({
+            "title": str(item.get("title", "")).strip(),
+            "url": str(item.get("url", "") or item.get("href", "")).strip(),
+            "snippet": str(item.get("content", "") or item.get("snippet", "") or item.get("description", "")).strip(),
+            "provider": "searxng",
+        })
+
+    return results[:max_results]
+
+
+def search_auto(
+    query: str,
+    max_results: int = 5,
+    *,
+    source_registry: str = str(DEFAULT_SOURCE_REGISTRY),
+    searxng_url: str = "",
+    searxng_timeout: float | None = None,
+) -> list[dict]:
+    """Auto mode: try providers by search_connectors.provider_order."""
+    connector_cfg = _load_connector_config(source_registry)
+    providers = connector_cfg.provider_order or DEFAULT_PROVIDER_ORDER
+    for provider in providers:
+        provider_key = _normalize_provider(provider)
+        try:
+            if provider_key == "searxng":
+                registry = load_source_registry(source_registry)
+                search_cfg = registry.get("search_connectors", {}).get("searxng", {})
+                cfg_timeout = _coerce_timeout(search_cfg.get("timeout_seconds"), connector_cfg.searxng_timeout)
+                timeout = (
+                    _coerce_timeout(searxng_timeout, cfg_timeout)
+                    if searxng_timeout is not None
+                    else cfg_timeout
+                )
+                base_url = _pick_first(searxng_url, connector_cfg.searxng_url)
+                results = search_searxng(
+                    query,
+                    max_results=max_results,
+                    base_url=base_url,
+                    timeout=timeout,
+                    search_path=str(search_cfg.get("search_path") or "/search"),
+                    format_param=str(search_cfg.get("format") or search_cfg.get("format_param") or "json"),
+                )
+            elif provider_key == "duckduckgo":
+                results = search_duckduckgo(query, max_results=max_results)
+            elif provider_key == "tavily":
+                results = search_tavily(query, max_results=max_results)
+            else:
+                print(f"[web_search] Unknown provider '{provider}', skipping", file=sys.stderr)
+                continue
+        except Exception as exc:
+            print(f"[web_search] {provider_key} failed: {exc}", file=sys.stderr)
+            continue
+        if results:
+            return results
+    raise RuntimeError("all web search providers failed or returned no results")
 
 
 def _build_site_query(query: str, domain: str) -> str:
@@ -348,10 +496,10 @@ def search_with_sites(
     site_mode='only': only run site-constrained queries.
     site_mode='priority': run site-constrained queries first, then fallback unrestricted if results are sparse.
     """
-    # Site search only works reliably with DuckDuckGo
-    # Tavily API does not support site: prefix syntax
+    # Site search only works reliably with DuckDuckGo in this workflow.
+    # Tavily and SearXNG are not reliable for explicit site-domain constrained queries here.
     effective_provider = provider
-    if provider in ("auto", "tavily"):
+    if provider in ("auto", "tavily", "searxng"):
         print("[web_search] Site search requires DuckDuckGo; switching provider to duckduckgo", file=sys.stderr)
         effective_provider = "duckduckgo"
 
@@ -404,9 +552,26 @@ def search_with_sites(
     return all_results, query_log
 
 
-def search_multi_query(queries: list[str], provider: str, max_results: int = 5) -> list[dict]:
+def search_multi_query(
+    queries: list[str],
+    provider: str,
+    max_results: int = 5,
+    *,
+    source_registry: str = str(DEFAULT_SOURCE_REGISTRY),
+    searxng_url: str = "",
+    searxng_timeout: float | None = None,
+) -> list[dict]:
     """Run multiple queries and merge + deduplicate results."""
-    search_fn = PROVIDERS[provider]
+    if provider == "auto":
+        search_fn = lambda query, count: search_auto(
+            query,
+            count,
+            source_registry=source_registry,
+            searxng_url=searxng_url,
+            searxng_timeout=searxng_timeout,
+        )
+    else:
+        search_fn = PROVIDERS[provider]
     all_results = []
     seen_urls = set()
 
@@ -429,6 +594,7 @@ def search_multi_query(queries: list[str], provider: str, max_results: int = 5) 
 
 
 PROVIDERS = {
+    "searxng": search_searxng,
     "tavily": search_tavily,
     "duckduckgo": search_duckduckgo,
     "auto": search_auto,
@@ -439,7 +605,7 @@ PROVIDERS = {
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Fallback web search with quality filtering (Tavily → DuckDuckGo)"
+        description="Fallback web search with quality filtering (SearXNG -> DuckDuckGo -> Tavily)"
     )
     parser.add_argument("--query", "-q", help="Single search query")
     parser.add_argument(
@@ -454,7 +620,23 @@ def main():
         "--provider",
         choices=list(PROVIDERS.keys()),
         default="auto",
-        help="Search provider (default: auto = Tavily → DuckDuckGo)",
+        help="Search provider (default: auto = SearXNG -> DuckDuckGo -> Tavily)",
+    )
+    parser.add_argument(
+        "--provider-registry",
+        default=str(DEFAULT_SOURCE_REGISTRY),
+        help="Path to templates/source_registry.json for search connector config.",
+    )
+    parser.add_argument(
+        "--searxng-url",
+        default="",
+        help="Override SearXNG base URL when provider is searxng/auto.",
+    )
+    parser.add_argument(
+        "--searxng-timeout",
+        type=float,
+        default=None,
+        help="Override SearXNG timeout seconds when provider is searxng/auto.",
     )
     parser.add_argument(
         "--max-results", "-n", type=int, default=5,
@@ -534,18 +716,28 @@ def main():
     query_log = []
     if sites:
         print(f"[web_search] Site mode: {args.site_mode}, domains: {sites}", file=sys.stderr)
+        provider_for_site = args.provider
+        if provider_for_site == "auto":
+            provider_for_site = _normalize_provider(_load_connector_config(args.provider_registry).provider_order[0])
         all_results, query_log = search_with_sites(
             queries=queries,
             sites=sites,
             site_mode=args.site_mode,
-            provider=args.provider,
+            provider=provider_for_site if provider_for_site else args.provider,
             max_results=args.max_results,
             source_packs=source_packs,
         )
         provider_used = "duckduckgo"  # Site search always uses DDG
     elif len(queries) > 1:
         print(f"[web_search] Running {len(queries)} queries...", file=sys.stderr)
-        all_results = search_multi_query(queries, args.provider, args.max_results)
+        all_results = search_multi_query(
+            queries,
+            args.provider,
+            args.max_results,
+            source_registry=str(args.provider_registry),
+            searxng_url=str(args.searxng_url),
+            searxng_timeout=args.searxng_timeout,
+        )
         provider_used = args.provider
         if provider_used == "auto" and all_results:
             provider_used = all_results[0].get("source", "unknown")
@@ -559,7 +751,27 @@ def main():
             })
     else:
         search_fn = PROVIDERS[args.provider]
-        all_results = search_fn(queries[0], args.max_results)
+        if args.provider == "auto":
+            all_results = search_fn(
+                queries[0],
+                args.max_results,
+                source_registry=str(args.provider_registry),
+                searxng_url=str(args.searxng_url),
+                searxng_timeout=args.searxng_timeout,
+            )
+        elif args.provider == "searxng":
+            connector = _load_connector_config(str(args.provider_registry))
+            search_cfg = load_source_registry(args.provider_registry).get("search_connectors", {}).get("searxng", {})
+            all_results = search_fn(
+                queries[0],
+                args.max_results,
+                base_url=connector.searxng_url or str(args.searxng_url),
+                timeout=_coerce_timeout(args.searxng_timeout, connector.searxng_timeout),
+                search_path=str(search_cfg.get("search_path") or "/search"),
+                format_param=str(search_cfg.get("format") or search_cfg.get("format_param") or "json"),
+            )
+        else:
+            all_results = search_fn(queries[0], args.max_results)
         provider_used = args.provider
         if provider_used == "auto" and all_results:
             provider_used = all_results[0].get("source", "unknown")

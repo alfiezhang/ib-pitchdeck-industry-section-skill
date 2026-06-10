@@ -11,6 +11,19 @@ from typing import Any
 from validate_run_state import validate_run_state
 
 
+def dedupe_commands(commands: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Keep command recommendations stable and unique by command string."""
+    seen: set[str] = set()
+    deduped: list[dict[str, str]] = []
+    for item in commands:
+        command = item.get("command", "")
+        if command in seen:
+            continue
+        seen.add(command)
+        deduped.append(item)
+    return deduped
+
+
 def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
     """Return concrete next commands for common gate states.
 
@@ -30,13 +43,13 @@ def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
         ],
         "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED": [
             {
-                "purpose": "validate scope pack after definition/scoping repair",
+                "purpose": "validate scope pack after definition/scoping repair; boundary validation is scoping-only and uses broad_discovery, not formal research conclusions",
                 "command": f"{py} scripts/validate_industry_scope_pack.py --scope-pack {run_dir}/artifacts/industry_scope_pack.json --output {run_dir}/artifacts/industry_scope_pack_validation.json",
             }
         ],
         "FORMAL_SEARCH_PLAN_MISSING": [
             {
-                "purpose": "build full-taxonomy formal search plan skeleton",
+                "purpose": "build full-taxonomy formal search plan skeleton as coverage_audit (coverage rows only, formal_research_execution stage)",
                 "command": f"{py} scripts/build_formal_search_plan_skeleton.py --input-card {run_dir}/input_card.json --scope-pack {run_dir}/artifacts/industry_scope_pack.json --output {run_dir}/artifacts/formal_search_plan.json",
             },
             {
@@ -61,7 +74,7 @@ def recommended_commands(state: dict[str, Any]) -> list[dict[str, str]]:
             },
             {
                 "purpose": "build source review skeleton from search log selected URLs",
-                "command": f"{py} scripts/build_source_reviews_skeleton.py --search-log {run_dir}/artifacts/search_log.md --output {run_dir}/artifacts/source_reviews.json",
+                "command": f"{py} scripts/build_source_reviews_skeleton.py --search-log {run_dir}/artifacts/search_log.md --input-card {run_dir}/input_card.json --output {run_dir}/artifacts/source_reviews.json",
             },
             {
                 "purpose": "validate reviewed sources after LLM fills locator/excerpt/use decisions",
@@ -176,6 +189,7 @@ def status_payload(run_dir: Path) -> dict[str, Any]:
 
 def next_payload(run_dir: Path) -> dict[str, Any]:
     state = validate_run_state(run_dir)
+    next_commands = dedupe_commands(recommended_commands(state))
     payload = {
         "schema_version": "workflow_next_v1",
         "run_dir": state["run_dir"],
@@ -190,7 +204,8 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "stale_validations": state.get("stale_validations", []),
         "retry_state": state.get("retry_state", {}),
         "allowed_next_actions": state["allowed_next_actions"],
-        "recommended_next_commands": recommended_commands(state),
+        "recommended_next_command": next_commands[0]["command"] if next_commands else "",
+        "recommended_next_commands": next_commands,
         "forbidden_actions": state["forbidden_actions"],
         "debug_only": state["debug_only"],
         "final_delivery_valid": state["final_delivery_valid"],
@@ -214,6 +229,14 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
                 "Do not build source_reviews for unexecuted FS rows.",
                 "Do not build research_evidence_db from planned queries.",
                 "Do not write issue_analysis or deck_blueprint until execution accounting passes.",
+            ],
+        }
+        payload["repair_target"] = {
+            "artifact": "artifacts/formal_research_execution_report.json",
+            "required_steps": [
+                "Run build_formal_research_execution_report_skeleton --include-unexecuted to force every planned FS-xxx row into issue_results + fs_row_execution_status.",
+                "In each FR row, keep search_instruction_ids aligned to its FS owner, set search_attempt_ids only for real S-xxx attempts from search_log.md.",
+                "Mark each unexecuted or immaterial FS row explicitly (not_executed/not_material/accounting_only) and leave evidence IDs empty for those rows.",
             ],
         }
     if state["current_stage"] == "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED":

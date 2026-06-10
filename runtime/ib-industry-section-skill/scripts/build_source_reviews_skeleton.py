@@ -16,6 +16,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from json_utils import load_json_file
+from source_classification import is_material_type, normalize_source_type
 from validate_formal_research_execution import parse_search_attempts
 
 
@@ -41,8 +43,31 @@ def _norm_url(url: str) -> str:
     return url.strip().rstrip("/")
 
 
+def _looks_like_http_url(url: str) -> bool:
+    lowered = url.lower()
+    return lowered.startswith("http://") or lowered.startswith("https://")
+
+
 def _selected_urls(raw: str) -> list[str]:
     return [_norm_url(item) for item in URL_EXTRACT_RE.findall(raw or "")]
+
+
+def _first_present(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, list) and value:
+            return value
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
 
 
 def _stage(attempt: dict[str, str]) -> str:
@@ -80,10 +105,113 @@ def _review_status(attempt: dict[str, str]) -> str:
     return "selected_but_not_reviewed"
 
 
-def build_source_reviews(search_log_path: Path, *, formal_only: bool) -> dict[str, Any]:
+def _source_review_template(
+    review_id: str,
+    *,
+    url: str,
+    title: str,
+    source_type: str,
+    source_access: str,
+    source_access_path: str,
+    locator: str,
+    excerpt: str,
+    source_date: str,
+    geography: str,
+    fact_type: str,
+) -> dict[str, Any]:
+    access_path = source_access_path or ""
+    normalized_source_type = normalize_source_type(source_type)
+    return {
+        "source_review_id": review_id,
+        "url": url,
+        "title": title,
+        "source_type": normalized_source_type,
+        "source_access": source_access,
+        "source_access_path": access_path,
+        "locator": locator
+        or "LLM must open/review exact source and replace with page, section, table, paragraph, or URL anchor.",
+        "excerpt": excerpt
+        or "LLM must add a source-faithful excerpt or paraphrase before promotion.",
+        "search_attempt_ids": [],
+        "evidence_ids": [],
+        "evidence_use_tier": "lead_only",
+        "fact_type": fact_type or "factual",
+        "claim_use_scope": "Not usable for deck or research-pack claims until LLM reviews exact source, scope, period, and limitations.",
+        "usable_as_evidence": False,
+        "review_status": "needs_llm_source_review",
+        "limitations": "",
+        "original_url": access_path if _looks_like_http_url(access_path) else "",
+        "methodology_locator": "",
+        "source_date": source_date,
+        "geography": geography,
+        "data_period": "",
+        "review_instruction": "Review source metadata and locator/excerpt before marking usability.",
+    }
+
+
+def _load_input_materials(path: Path | None) -> list[dict[str, Any]]:
+    if not path or not path.exists():
+        return []
+    try:
+        data = load_json_file(path)
+    except Exception:
+        return []
+    if not isinstance(data, dict):
+        return []
+    return [item for item in _as_list(data.get("source_materials")) if isinstance(item, dict)]
+
+
+def build_source_reviews(
+    search_log_path: Path,
+    *,
+    formal_only: bool,
+    input_card_path: Path | None = None,
+) -> dict[str, Any]:
     attempts = parse_search_attempts(search_log_path) if search_log_path.exists() else {}
     reviews: list[dict[str, Any]] = []
-    seen_urls: set[tuple[str, str]] = set()
+    seen_keys: set[tuple[str, str]] = set()
+
+    for material in _load_input_materials(input_card_path):
+        source_name = _text(material.get("source_name") or material.get("title") or material.get("name"))
+        source_path = _text(
+            material.get("source_access_path")
+            or material.get("source_path")
+            or material.get("source_url")
+            or material.get("path")
+        )
+        source_type = normalize_source_type(material.get("source_type"))
+        source_access = _text(material.get("source_access") or ("user_provided" if is_material_type(source_type) else "public_search"))
+        source_date = _text(material.get("source_date"))
+        geography = _text(material.get("geography"))
+        fact_type = _text(material.get("fact_type") or "factual")
+
+        if not source_name and not source_path:
+            continue
+
+        url = source_path if _looks_like_http_url(source_path) else "user-provided"
+        if source_access == "public_search" and not _looks_like_http_url(source_path):
+            source_access = "user_provided"
+
+        review_key = (_norm_url(url), source_type)
+        if review_key in seen_keys:
+            continue
+        seen_keys.add(review_key)
+
+        reviews.append(
+            _source_review_template(
+                f"SRC-{len(reviews) + 1:03d}",
+                url=url,
+                title=source_name or source_type,
+                source_type=source_type,
+                source_access=source_access,
+                source_access_path=source_path,
+                locator=_text(material.get("locator") or material.get("location") or material.get("methodology_locator")),
+                excerpt=_text(material.get("excerpt") or material.get("notes")),
+                source_date=source_date,
+                geography=geography,
+                fact_type=fact_type,
+            )
+        )
 
     for attempt_id in sorted(attempts):
         attempt = attempts[attempt_id]
@@ -94,25 +222,27 @@ def build_source_reviews(search_log_path: Path, *, formal_only: bool) -> dict[st
             continue
         locator_excerpt = _locator_excerpt(attempt)
         for url in selected_urls:
-            key = (attempt_id, _norm_url(url))
-            if key in seen_urls:
+            review_key = (_norm_url(url), "web_search_result")
+            if review_key in seen_keys:
                 continue
-            seen_urls.add(key)
+            seen_keys.add(review_key)
             review_id = f"SRC-{len(reviews) + 1:03d}"
             reviews.append(
                 {
-                    "source_review_id": review_id,
-                    "url": _norm_url(url),
-                    "title": _short_title(url),
-                    "locator": locator_excerpt
-                    or "LLM must open/review exact source and replace with page, section, table, paragraph, or URL anchor.",
-                    "excerpt": locator_excerpt
-                    or "LLM must add a source-faithful excerpt or paraphrase before promotion.",
+                    **_source_review_template(
+                        review_id,
+                        url=_norm_url(url),
+                        title=_short_title(url),
+                        source_type="web_search_result",
+                        source_access="public_search",
+                        source_access_path="",
+                        locator=locator_excerpt,
+                        excerpt=locator_excerpt,
+                        source_date="",
+                        geography="",
+                        fact_type="factual",
+                    ),
                     "search_attempt_ids": [attempt_id],
-                    "evidence_ids": [],
-                    "evidence_use_tier": "lead_only",
-                    "claim_use_scope": "Not usable for deck or research-pack claims until LLM reviews exact source, scope, period, method, and limitations.",
-                    "usable_as_evidence": False,
                     "review_status": _review_status(attempt),
                     "review_instruction": (
                         "Assess whether this is core_evidence, contextual_evidence, directional_only, lead_only, or rejected. "
@@ -142,9 +272,14 @@ def main() -> int:
         action="store_true",
         help="Include broad discovery selected URLs. Default keeps only formal/latest/peer attempts.",
     )
+    parser.add_argument("--input-card")
     args = parser.parse_args()
 
-    output = build_source_reviews(Path(args.search_log), formal_only=not args.include_broad_discovery)
+    output = build_source_reviews(
+        Path(args.search_log),
+        formal_only=not args.include_broad_discovery,
+        input_card_path=Path(args.input_card) if args.input_card else None,
+    )
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

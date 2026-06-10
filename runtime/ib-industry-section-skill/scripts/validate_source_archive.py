@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from json_utils import load_json_file
+from source_classification import is_material_type
 
 
 SCHEMA_VERSION = "source_archive_index_v1"
@@ -31,7 +32,12 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _is_user_source_url(value: str) -> bool:
+def _is_user_source(review: dict[str, Any]) -> bool:
+    if is_material_type(_text(review.get("source_type"))):
+        return True
+    if _text(review.get("source_access")).strip().lower() == "user_provided":
+        return True
+    value = _text(review.get("url"))
     return value.strip().lower() in USER_SOURCE_VALUES
 
 
@@ -189,10 +195,20 @@ def validate(
             continue
         if not _review_is_usable(review):
             continue
-        if _is_user_source_url(url):
-            continue
-        required_review_ids.add(review_id)
+        is_user_source = _is_user_source(review)
+        if not is_user_source:
+            required_review_ids.add(review_id)
         entry = entries_by_id.get(review_id)
+        if is_user_source:
+            if not entry:
+                continue
+            entry_url = _text(entry.get("url"))
+            status = _text(entry.get("archive_status"))
+            if status != "user_provided":
+                errors.append(
+                    f"{review_id}: user/material repository source archive entry must use archive_status=user_provided"
+                )
+            continue
         if not entry:
             errors.append(
                 f"{review_id}: usable formal evidence source has no source archive entry. "
@@ -203,8 +219,15 @@ def validate(
         if entry_url and entry_url.rstrip("/") != url.rstrip("/"):
             errors.append(f"{review_id}: source_archive url does not match source_reviews.url")
         status = _text(entry.get("archive_status"))
+        if status == "user_provided" and not is_user_source:
+            errors.append(
+                f"{review_id}: archive_status 'user_provided' is only allowed for user/material repository sources."
+            )
+            continue
         if status not in VALID_ARCHIVE_STATUSES:
             errors.append(f"{review_id}: archive_status must be one of {sorted(VALID_ARCHIVE_STATUSES)}")
+            continue
+        if is_user_source and status == "user_provided":
             continue
         if status in {"saved_text", "saved_pdf", "excerpt_snapshot"}:
             archive_path = _text(entry.get("archive_path"))
@@ -235,8 +258,6 @@ def validate(
             if len(excerpt) < 30:
                 errors.append(f"{review_id}: archive_unavailable requires reviewed_excerpt with enough audit context")
             unavailable_count += 1
-        elif status == "user_provided":
-            errors.append(f"{review_id}: non-user source cannot use archive_status=user_provided")
 
     if required_review_ids and saved_count == 0:
         warnings.append(

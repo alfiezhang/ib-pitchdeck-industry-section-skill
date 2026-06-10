@@ -3,16 +3,20 @@
   "title": "Full-Taxonomy Formal Search Plan",
   "description": "Industry-scope-pack-driven executable issue/subissue search instruction plan. The schema documents shape; scripts/validate_formal_search_plan.py enforces full taxonomy coverage and execution readiness before formal searches.",
   "type": "object",
-  "required": ["schema_version", "meta", "industry_scope_pack", "issue_search_plan"],
+    "required": ["schema_version", "meta", "industry_scope_pack", "plan_mode", "issue_search_plan"],
   "properties": {
     "schema_version": { "const": "formal_search_plan_v1" },
     "meta": { "type": "object", "additionalProperties": true },
+    "plan_mode": {
+      "type": "string",
+      "const": "coverage_audit"
+    },
     "industry_scope_pack": { "type": "object", "additionalProperties": true },
     "issue_search_plan": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["issue_area", "subissue", "research_question", "priority", "execution_expectation", "minimum_actual_searches", "coverage_required", "terminal_status", "search_instructions"],
+          "required": ["issue_area", "subissue", "research_question", "priority", "execution_expectation", "minimum_actual_searches", "coverage_required", "terminal_status", "search_instructions"],
         "properties": {
           "issue_area": { "type": "string" },
           "subissue": { "type": "string" },
@@ -28,14 +32,18 @@
             "minItems": 1,
             "items": {
               "type": "object",
-              "required": ["instruction_id", "query", "purpose"],
-              "properties": {
-                "instruction_id": { "type": "string", "pattern": "^FS-\\d{3}$" },
-                "query": { "type": "string", "minLength": 6 },
-                "query_variants": { "type": "array", "items": { "type": "string", "minLength": 6 } },
-                "purpose": { "type": "string", "minLength": 6 },
-                "source_hint": { "type": "string" }
-              },
+                  "required": ["instruction_id", "query", "purpose", "search_stage"],
+                  "properties": {
+                    "instruction_id": { "type": "string", "pattern": "^FS-\\d{3}$" },
+                    "query": { "type": "string", "minLength": 6 },
+                    "query_variants": { "type": "array", "items": { "type": "string", "minLength": 6 } },
+                    "purpose": { "type": "string", "minLength": 6 },
+                    "source_hint": { "type": "string" },
+                    "search_stage": {
+                      "type": "string",
+                      "const": "formal_research_execution"
+                    }
+                  },
               "additionalProperties": false
             }
           }

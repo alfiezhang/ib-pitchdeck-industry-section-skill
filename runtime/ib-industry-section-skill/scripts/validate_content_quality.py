@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 from json_utils import load_json_file
 from metric_scope_utils import SCOPE_FIELDS, normalize_scope_value
+from qc_repair_targets import normalize_repair_issue
 from validation_common import (
     approx_units_to_chars,
     check_main_message_terminal_punctuation,
@@ -673,6 +674,13 @@ DEFAULT_CONTENT_REPAIR_PROFILE = {
     "category": "content_quality",
     "owner_stage": "deck_blueprint",
     "repair_target": "deck_blueprint.json",
+    "repair_target_layer": "generation",
+    "repair_target_artifact": "deck_blueprint.json",
+    "recommended_action": (
+        "Fix the upstream page argument, evidence, or blueprint copy; "
+        "do not patch compiled renderer or PPT artifacts."
+    ),
+    "forbidden_action": "Do not patch renderer_spec.json, replacement_dict.json, or PPT files unless a deterministic compiler/script bug is confirmed.",
     "repair_fields": [
         "slides[].headline",
         "slides[].main_message",
@@ -962,7 +970,7 @@ def classify_content_root_causes(messages: list[str]) -> list[dict[str, Any]]:
         ),
         (
             "LAYOUT_FIT_RISK",
-            ("layout", "line(s)", "reduce by", "budget", "chars"),
+            ("layout", "line(s)", "reduce by", "budget", "chars", "visual area", "template-profile", "footer"),
         ),
         (
             "TARGET_ADVOCACY_OR_OVERCLAIM",
@@ -975,6 +983,14 @@ def classify_content_root_causes(messages: list[str]) -> list[dict[str, Any]]:
         (
             "GENERIC_COPY",
             ("generic copy phrase", "too generic", "boilerplate", "research note style"),
+        ),
+        (
+            "CONTENT_SOURCE_NOTE",
+            ("source_note", "evidence", "source note"),
+        ),
+        (
+            "CONTENT_EVIDENCE_LINKAGE",
+            ("evidence id", "ev-id", "central supported_inference", "no evidence", "outside material claim", "open question"),
         ),
     ]
     grouped: dict[str, dict[str, Any]] = {}
@@ -989,14 +1005,29 @@ def classify_content_root_causes(messages: list[str]) -> list[dict[str, Any]]:
             **DEFAULT_CONTENT_REPAIR_PROFILE,
             **CONTENT_REPAIR_PROFILES.get(code, {}),
         }
+        repair_issue_defaults = normalize_repair_issue(
+            profile,
+            default_layer="generation",
+            default_artifact="deck_blueprint.json",
+            default_recommended_action=profile.get("repair_hint", ""),
+        ) or {
+            "issue_type": code,
+            "severity": "error",
+            "repair_target_layer": "generation",
+            "repair_target_artifact": profile.get("repair_target", "deck_blueprint.json"),
+            "recommended_action": profile.get("repair_hint", ""),
+            "forbidden_action": "; ".join(str(item) for item in profile.get("do_not_edit", []) or []),
+        }
         entry = grouped.setdefault(
             code,
             {
-                "severity": "error",
+                "severity": repair_issue_defaults.get("severity", "error"),
                 "code": code,
                 "category": profile["category"],
                 "owner_stage": profile["owner_stage"],
+                "repair_target_layer": repair_issue_defaults["repair_target_layer"],
                 "repair_target": profile["repair_target"],
+                "repair_target_artifact": repair_issue_defaults["repair_target_artifact"],
                 "repair_fields": profile["repair_fields"],
                 "fallback_repair_targets": profile["fallback_repair_targets"],
                 "do_not_edit": profile["do_not_edit"],
@@ -1004,6 +1035,8 @@ def classify_content_root_causes(messages: list[str]) -> list[dict[str, Any]]:
                 "message_count": 0,
                 "examples": [],
                 "repair_hint": profile["repair_hint"],
+                "recommended_action": repair_issue_defaults["recommended_action"],
+                "forbidden_action": repair_issue_defaults["forbidden_action"],
             },
         )
         entry["message_count"] += 1
@@ -1022,6 +1055,7 @@ def build_content_repair_plan(root_causes: list[dict[str, Any]]) -> dict[str, An
             "fallback_repair_targets": [],
             "do_not_edit": [],
             "rerun_steps": [],
+            "repair_issues": [],
             "targets": [],
         }
 
@@ -1066,6 +1100,33 @@ def build_content_repair_plan(root_causes: list[dict[str, Any]]) -> dict[str, An
             }
         )
 
+    repair_issues = []
+    for root_cause in root_causes:
+        issue = normalize_repair_issue(
+            {
+                **root_cause,
+                "issue_type": root_cause.get("code", "content_quality"),
+                "repair_target_artifact": root_cause.get("repair_target_artifact") or root_cause.get("repair_target", ""),
+                "recommended_action": root_cause.get("recommended_action", root_cause.get("repair_hint", "")),
+                "forbidden_action": root_cause.get("forbidden_action", ""),
+            },
+            default_layer=root_cause.get("repair_target_layer") or str(root_cause.get("owner_stage") or "generation"),
+            default_artifact=str(root_cause.get("repair_target") or root_cause.get("repair_target_artifact") or ""),
+            default_recommended_action=root_cause.get("repair_hint", ""),
+        )
+        if issue:
+            issue["examples"] = unique_preserve_order(root_cause.get("examples", []))
+            repair_issues.append(issue)
+
+    deduped_repair_issues: list[dict[str, Any]] = []
+    seen_issue_keys: set[str] = set()
+    for item in repair_issues:
+        key = json.dumps(item, ensure_ascii=False, sort_keys=True)
+        if key in seen_issue_keys:
+            continue
+        seen_issue_keys.add(key)
+        deduped_repair_issues.append(item)
+    repair_issues = deduped_repair_issues
     return {
         "status": "repair_required",
         "instruction": (
@@ -1077,6 +1138,7 @@ def build_content_repair_plan(root_causes: list[dict[str, Any]]) -> dict[str, An
         "do_not_edit": do_not_edit,
         "rerun_steps": rerun_steps,
         "targets": targets,
+        "repair_issues": repair_issues,
     }
 
 
@@ -2528,6 +2590,7 @@ def validate(
         "root_cause_count": len(root_causes),
         "root_causes": root_causes,
         "repair_plan": repair_plan,
+        "repair_issues": repair_plan.get("repair_issues", []),
         "blocking_issue_count": len(blocking_issues),
         "blocking_issues": blocking_issues,
         "density_warnings": density_warnings,

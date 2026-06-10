@@ -30,9 +30,14 @@
   "source_materials": [
     {
       "source_name": "",
-      "source_type": "",
+      "source_type": "project_specific_material | user_curated_industry_report | company_material | web_search_result | repository_retrieval | official_filing | company_disclosure | industry_report | regulator | business_media | database | other",
+      "source_access": "user_provided | public_search | repository_retrieval",
+      "source_access_path": "file path, internal path, or URL",
       "source_date": "",
       "geography": "",
+      "fact_type": "factual | directional | contextual | comparison_metric | methodology",
+      "confidence": "low | medium | high",
+      "scope": "industry-level | target-level | transaction-inference",
       "notes": ""
     }
   ],

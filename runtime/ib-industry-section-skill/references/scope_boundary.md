@@ -21,6 +21,11 @@ This is not:
 
 The output must preserve the fixed 8-slide industry section structure. The research can be broad and judgment-led, but the delivery format remains the bundled template.
 
+## Search Discipline
+
+Use this phase as a boundary-scoping loop, not formal research. Boundary scoping is logged in `broad_discovery` searches to validate working definitions and classification.
+Formal evidence generation belongs to `formal_research_execution` and should not be concluded in this phase.
+
 ## Three Relevance Levels
 
 Each slide should primarily serve at least one level:

@@ -10,6 +10,7 @@
     "prepared_date": "",
     "research_as_of_date": ""
   },
+  "plan_mode": "coverage_audit",
   "industry_scope_pack": {
     "artifact_path": "artifacts/industry_scope_pack.json",
     "purpose": "Use the scope pack as a research map: market definition, category boundaries, data hierarchy, required reconciliations, unvalidated leads, and seed questions. Do not convert scope-pack leads into findings here.",
@@ -47,12 +48,14 @@
           "instruction_id": "FS-001",
           "query": "<industry/subsector> <geography> market size latest report",
           "purpose": "Find current market-size datapoints and source scope.",
+          "search_stage": "formal_research_execution",
           "source_hint": "official statistics, industry association, broker/consulting report, company disclosure"
         },
         {
           "instruction_id": "FS-002",
           "query": "<industry/subsector> <geography> market size CAGR forecast",
           "purpose": "Find growth datapoints or enough periods to reconcile CAGR.",
+          "search_stage": "formal_research_execution",
           "source_hint": "industry report, broker report, official statistics"
         }
       ]
@@ -67,6 +70,7 @@
           "instruction_id": "FS-003",
           "query": "<industry/subsector> <geography> leading companies market share",
           "purpose": "Identify peer universe, share indicators, and inclusion rationale.",
+          "search_stage": "formal_research_execution",
           "source_hint": "company disclosure, industry report, platform data"
         }
       ]

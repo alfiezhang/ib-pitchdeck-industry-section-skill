@@ -51,6 +51,7 @@ PREMATURE_FINDING_MARKERS = (
 )
 VALID_PRIORITIES = {"high", "medium", "low"}
 VALID_EXECUTION_EXPECTATIONS = {"deep_search", "light_search", "accounting_only"}
+PLANNED_SEARCH_STAGE = "formal_research_execution"
 VALID_PLAN_TERMINAL_STATUSES = {"pending"}
 REQUIRED_PAIRS = {
     (issue_area, subissue)
@@ -104,6 +105,8 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
         errors.append(f"schema_version must be {SCHEMA_VERSION}")
     if not isinstance(plan.get("meta"), dict):
         errors.append("meta must be an object")
+    if _text(plan.get("plan_mode")) != "coverage_audit":
+        errors.append("plan_mode must be 'coverage_audit' to mark this as a canonical coverage-audit plan")
     if not isinstance(plan.get("industry_scope_pack"), dict):
         errors.append("industry_scope_pack must be an object linking the scope artifact")
 
@@ -190,6 +193,11 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
 
             query = _text(instruction.get("query"))
             purpose = _text(instruction.get("purpose"))
+            search_stage = _text(instruction.get("search_stage"))
+            if search_stage != PLANNED_SEARCH_STAGE:
+                errors.append(
+                    f"{inst_prefix}: search_stage must be '{PLANNED_SEARCH_STAGE}' to distinguish planned formal search rows from boundary scoping queries"
+                )
             if len(query) < 8:
                 errors.append(f"{inst_prefix}: query is too short to execute")
             if PLACEHOLDER_RE.search(query):

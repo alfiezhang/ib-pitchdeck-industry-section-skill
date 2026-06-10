@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Template Profile",
+  "description": "Deterministic, analyzable profile of a PPT template including style, geometry, and capacity.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "template_file",
+    "visual_style",
+    "text_geometry",
+    "source_policy"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "template_profile_v1" },
+    "template_file": { "type": "string" },
+    "analysis_source": { "type": "string" },
+    "analysis_error": { "type": "string" },
+    "analysis_fallback": { "type": "boolean" },
+    "render_layouts_source": { "type": "string" },
+    "text_fit_rules_source": { "type": "string" },
+    "layout_budget_source": { "type": "string" },
+    "ppt_mapping_source": { "type": "string" },
+    "visual_style": {
+      "type": "object",
+      "required": ["colors", "typography"],
+      "properties": {
+        "colors": {
+          "type": "object",
+          "required": ["brand_primary", "accent_red", "grid_gray", "text_gray"],
+          "properties": {
+            "brand_primary": { "type": "string" },
+            "accent_red": { "type": "string" },
+            "grid_gray": { "type": "string" },
+            "text_gray": { "type": "string" },
+            "panel_fill": { "type": "string" },
+            "matrix_axis": { "type": "string" },
+            "additionalProperties": false
+          },
+          "additionalProperties": true
+        },
+        "typography": {
+          "type": "object",
+          "required": ["body", "table_header", "table_body", "legend_pt"],
+          "properties": {
+            "body": { "type": "string" },
+            "table_header": { "type": "string" },
+            "table_body": { "type": "string" },
+            "legend_pt": { "type": "number" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "text_geometry": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "render_layouts": {
+          "type": "object",
+          "required": ["slides"],
+          "properties": {
+            "slides": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "layout_budget": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "text_fit_rules": {
+          "type": "object",
+          "properties": {
+            "fields": { "type": "object", "additionalProperties": true }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "slide_variants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slide_no", "page_type", "render_layout", "supports"],
+        "properties": {
+          "slide_no": { "type": "integer", "minimum": 1 },
+          "page_type": { "type": "string" },
+          "render_layout": { "type": "string" },
+          "supports": {
+            "type": "object",
+            "properties": {
+              "chart": { "type": "boolean" },
+              "table": { "type": "boolean" },
+              "matrix": { "type": "boolean" },
+              "cards": { "type": "boolean" }
+            },
+            "required": ["chart", "table", "matrix", "cards"],
+            "additionalProperties": false
+          },
+          "required_body_fields": { "type": "array", "items": { "type": "string" } },
+          "capacity_rules": { "type": "object", "additionalProperties": true }
+        },
+        "additionalProperties": true
+      }
+    },
+    "source_policy": {
+      "type": "object",
+      "required": ["source_footer_fields"],
+      "properties": {
+        "source_footer_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_source_footer": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

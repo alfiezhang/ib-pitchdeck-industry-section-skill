@@ -31,6 +31,9 @@
           "analysis_text",
           "supporting_points",
           "evidence_sufficiency",
+          "evidence_status",
+          "allowed_deck_usage",
+          "hypothesis_resolution",
           "status",
           "evidence_ids",
           "metric_ids",
@@ -131,6 +134,25 @@
           "analysis_text": {
             "type": "string",
             "description": "Substantive issue-level analysis paragraph. This should synthesize evidence and caveats; it is not slide copy."
+          },
+          "evidence_status": {
+            "type": "string",
+            "enum": ["supported", "thin", "insufficient", "not_applicable", "unavailable_after_research", "not_researched", "caveat_only"]
+          },
+          "allowed_deck_usage": {
+            "type": "object",
+            "required": ["headline", "main_message", "chart", "body_copy"],
+            "properties": {
+              "headline": { "type": "boolean" },
+              "main_message": { "type": "boolean" },
+              "chart": { "type": "boolean" },
+              "body_copy": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          },
+          "hypothesis_resolution": {
+            "type": "string",
+            "enum": ["resolved", "not_researched", "caveat_only", "deprioritized", "rejected"]
           },
           "supporting_points": {
             "type": "array",

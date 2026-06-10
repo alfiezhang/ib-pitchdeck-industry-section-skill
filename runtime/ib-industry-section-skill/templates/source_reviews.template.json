@@ -6,7 +6,9 @@
       "source_review_id": "SRC-001",
       "url": "https://example.com/exact-report-or-article",
       "title": "Exact report or article title",
-      "source_type": "official_filing | company_disclosure | industry_report | regulator | business_media | database | user_provided | other",
+      "source_type": "project_specific_material | user_curated_industry_report | web_search_result | company_material | repository_retrieval | official_filing | company_disclosure | industry_report | regulator | business_media | database | other",
+      "source_access": "user_provided | public_search | repository_retrieval",
+      "source_access_path": "file or URL path used for this source material",
       "publisher": "",
       "source_date": "",
       "data_period": "",
@@ -17,6 +19,7 @@
       "claim_use_scope": "Exactly what this source may support downstream, e.g. 'historical category definition only' or 'chart-ready 2024 peer revenue'.",
       "usable_as_evidence": true,
       "evidence_ids": ["EV-001"],
+      "fact_type": "factual | directional | contextual | comparison_metric | methodology",
       "limitations": "",
       "original_url": "",
       "methodology_locator": ""

@@ -156,6 +156,7 @@ def _candidate_fields_for_role(role: str, fields: list[str]) -> list[str]:
 
 
 def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], page_type: str) -> dict[str, str]:
+    slide_no = int(slide.get("slide_no") or 0)
     explicit = slide.get("body_copy")
     if isinstance(explicit, dict):
         return {str(key): str(value or "").strip() for key, value in explicit.items()}
@@ -169,13 +170,11 @@ def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], pa
         if not target:
             continue
         if target not in fields:
-            slide_no = int(slide.get("slide_no") or 0)
             raise ValueError(
                 f"slide {slide_no}: body block target_field '{target}' is not active for {page_type}. "
                 f"{_active_fields_hint(slide_no, page_type, fields)}"
             )
         if body.get(target):
-            slide_no = int(slide.get("slide_no") or 0)
             raise ValueError(
                 f"slide {slide_no}: duplicate body block target_field '{target}'. "
                 f"{_active_fields_hint(slide_no, page_type, fields)}"
@@ -193,11 +192,12 @@ def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], pa
                 assigned_block_indexes.add(idx)
                 break
 
-    remaining_fields = [field for field in fields if not body.get(field)]
-    for idx, block in enumerate(blocks):
-        if idx in assigned_block_indexes or not remaining_fields:
-            continue
-        body[remaining_fields.pop(0)] = _body_text(block)
+    if len(assigned_block_indexes) < len(blocks):
+        unmapped = [str(idx + 1) for idx in range(len(blocks)) if idx not in assigned_block_indexes]
+        raise ValueError(
+            f"slide {slide_no}: {len(unmapped)} body block(s) could not be mapped by target_field or role: "
+            f"blocks {', '.join(unmapped)}. Set target_field on those blocks or provide explicit body_copy."
+        )
     return body
 
 

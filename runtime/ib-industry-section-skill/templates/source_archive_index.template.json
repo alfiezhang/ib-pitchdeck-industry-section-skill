@@ -11,7 +11,7 @@
       "archive_status": "excerpt_snapshot",
       "archive_path": "artifacts/source_archive/SRC-001.md",
       "captured_at": "",
-      "source_type": "webpage",
+      "source_type": "web_search_result",
       "locator": "page/section/table/paragraph used in source_reviews.json",
       "reviewed_excerpt": "Short reviewed excerpt or paraphrased locator context used to support the EV row.",
       "archive_unavailable_reason": ""

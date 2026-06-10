@@ -32,6 +32,12 @@
     "broader_market": "",
     "adjacent_markets": []
   },
+  "scope_classification": {
+    "broad": [],
+    "core": [],
+    "adjacent": [],
+    "excluded": []
+  },
   "market_definitions": {
     "narrow_definition": {
       "included_segments": [],

@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from json_utils import load_json_file
+from source_classification import is_material_type, normalize_source_type
 
 
-USER_SOURCE_VALUES = {"user-provided", "user provided", "input_card", "management", "company/user-provided"}
 SRC_RE = re.compile(r"^SRC-\d{3}$")
 
 
@@ -25,8 +25,14 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _is_user_source_url(value: str) -> bool:
-    return value.strip().lower() in USER_SOURCE_VALUES
+def _is_user_source(review: dict[str, Any]) -> bool:
+    source_type = normalize_source_type(review.get("source_type"))
+    if is_material_type(source_type):
+        return True
+    if _text(review.get("source_access")).strip().lower() == "user_provided":
+        return True
+    value = _text(review.get("url"))
+    return value.strip().lower() in {"user-provided", "user provided", "input_card", "management", "company/user-provided"}
 
 
 def _first_present(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
@@ -155,23 +161,26 @@ def build_archive(
         if not _review_is_usable(review):
             skipped.append(source_review_id)
             continue
-        if _is_user_source_url(url):
-            skipped.append(source_review_id)
-            continue
 
-        archive_file = archive_dir / f"{source_review_id}.md"
-        if overwrite or not archive_file.exists():
-            archive_file.write_text(_markdown_snapshot(review, captured_at), encoding="utf-8")
-            written.append(str(archive_file))
+        archive_status = "excerpt_snapshot"
+        archive_path = ""
+        if _is_user_source(review):
+            archive_status = "user_provided"
+        else:
+            archive_file = archive_dir / f"{source_review_id}.md"
+            if overwrite or not archive_file.exists():
+                archive_file.write_text(_markdown_snapshot(review, captured_at), encoding="utf-8")
+                written.append(str(archive_file))
+            archive_path = str(archive_file)
         entries.append(
             {
                 "source_review_id": source_review_id,
                 "url": url,
                 "title": _text(review.get("title")),
-                "archive_status": "excerpt_snapshot",
-                "archive_path": _relative_archive_path(run_dir, archive_file),
+                "archive_status": archive_status,
+                "archive_path": archive_path if archive_status == "user_provided" else _relative_archive_path(run_dir, Path(archive_path)),
                 "captured_at": captured_at,
-                "source_type": _text(review.get("source_type")) or "webpage",
+                "source_type": normalize_source_type(review.get("source_type")),
                 "locator": _text(review.get("locator")),
                 "reviewed_excerpt": _text(review.get("excerpt")),
                 "archive_unavailable_reason": "",

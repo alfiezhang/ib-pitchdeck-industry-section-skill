@@ -35,6 +35,16 @@ VALID_ANALYSIS_TYPES = {
     "pitch_context",
     "evidence_gap",
 }
+VALID_EVIDENCE_STATUS = {
+    "supported",
+    "thin",
+    "insufficient",
+    "not_applicable",
+    "unavailable_after_research",
+    "not_researched",
+    "caveat_only",
+}
+VALID_HYPOTHESIS_RESOLUTION = {"resolved", "not_researched", "caveat_only", "deprioritized", "rejected"}
 VALID_EVIDENCE_SUFFICIENCY = {
     "sufficient",
     "thin",
@@ -303,11 +313,24 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
         if analysis_type and analysis_type not in VALID_ANALYSIS_TYPES:
             errors.append(f"{prefix}: invalid analysis_type '{analysis_type}'")
 
+        evidence_status = str(analysis.get("evidence_status") or "").strip()
+        if evidence_status and evidence_status not in VALID_EVIDENCE_STATUS:
+            errors.append(f"{prefix}: evidence_status must be one of {sorted(VALID_EVIDENCE_STATUS)}")
+        hypothesis_resolution = str(analysis.get("hypothesis_resolution") or "").strip()
+        if hypothesis_resolution and hypothesis_resolution not in VALID_HYPOTHESIS_RESOLUTION:
+            errors.append(f"{prefix}: hypothesis_resolution must be one of {sorted(VALID_HYPOTHESIS_RESOLUTION)}")
+
         status = str(analysis.get("status") or "").strip()
         if status and status not in VALID_CONFIDENCE_STATUS:
             errors.append(f"{prefix}: status must be one of {sorted(VALID_CONFIDENCE_STATUS)}")
         if status == "rejected":
             errors.append(f"{prefix}: rejected analyses belong in rejected_or_deprioritized_analyses, not issue_analyses")
+        if hypothesis_resolution == "rejected" and status != "rejected":
+            errors.append(f"{prefix}: hypothesis_resolution=rejected requires status=rejected")
+        if hypothesis_resolution == "not_researched" and evidence_status != "not_researched":
+            errors.append(f"{prefix}: hypothesis_resolution=not_researched requires evidence_status=not_researched")
+        if hypothesis_resolution == "caveat_only" and evidence_status != "caveat_only":
+            errors.append(f"{prefix}: hypothesis_resolution=caveat_only requires evidence_status=caveat_only")
 
         sufficiency = str(analysis.get("evidence_sufficiency") or "").strip()
         if sufficiency and sufficiency not in VALID_EVIDENCE_SUFFICIENCY:
@@ -374,6 +397,13 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
         for field in ("headline_allowed", "chart_allowed", "body_copy_allowed"):
             if not isinstance(downstream.get(field), bool):
                 errors.append(f"{prefix}: downstream_permission.{field} must be boolean")
+        allowed_deck_usage = analysis.get("allowed_deck_usage")
+        if not isinstance(allowed_deck_usage, dict):
+            errors.append(f"{prefix}: allowed_deck_usage is required")
+            allowed_deck_usage = {}
+        for field in ("headline", "main_message", "chart", "body_copy"):
+            if not isinstance(allowed_deck_usage.get(field), bool):
+                errors.append(f"{prefix}: allowed_deck_usage.{field} must be boolean")
         if downstream.get("headline_allowed") and sufficiency not in {"sufficient", "thin"}:
             errors.append(f"{prefix}: headline_allowed requires sufficient or thin evidence_sufficiency")
         if downstream.get("headline_allowed"):
@@ -390,6 +420,15 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
             downstream.get("headline_allowed") or downstream.get("chart_allowed")
         ):
             errors.append(f"{prefix}: insufficient/unavailable analysis cannot allow headlines or charts")
+        if evidence_status in {"not_researched", "caveat_only"}:
+            if downstream.get("headline_allowed"):
+                errors.append(f"{prefix}: evidence_status={evidence_status} cannot allow headline_allowed")
+            if downstream.get("body_copy_allowed"):
+                errors.append(f"{prefix}: evidence_status={evidence_status} cannot allow body_copy_allowed")
+            if allowed_deck_usage.get("headline"):
+                errors.append(f"{prefix}: evidence_status={evidence_status} cannot allow allowed_deck_usage.headline")
+            if allowed_deck_usage.get("main_message"):
+                errors.append(f"{prefix}: evidence_status={evidence_status} cannot allow allowed_deck_usage.main_message")
 
         if memo_ev_ids:
             missing = sorted(set(evidence_ids) - memo_ev_ids)

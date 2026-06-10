@@ -34,6 +34,7 @@ PPT_MAPPING = LAYOUT_PATHS["ppt_mapping"]
 RENDER_LAYOUTS = LAYOUT_PATHS["render_layouts"]
 TEXT_FIT_RULES = LAYOUT_PATHS["text_fit_rules"]
 LAYOUT_BUDGET = LAYOUT_PATHS["layout_budget"]
+TEMPLATE_PROFILE = LAYOUT_PATHS["template_profile"]
 
 FILLED_PPT = "industry_section_filled.pptx"
 CLEAN_PPT = "industry_section_filled_clean.pptx"
@@ -130,7 +131,7 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str) -> None:
     """
 
     artifacts = run_dir / "artifacts"
-    artifacts.mkdir(exist_ok=True)
+    artifacts.mkdir(parents=True, exist_ok=True)
     path = artifacts / "run_flags.json"
     existing = _json(path)
     if existing.get("debug_output_only") is True:
@@ -154,6 +155,7 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str) -> None:
 def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
+    template_profile_path = artifacts / "template_profile.json"
     _run(
         [
             python_cmd,
@@ -184,6 +186,30 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
             LAYOUT_BUDGET,
             "--output",
             artifacts / "content_quality_validation.json",
+        ]
+    )
+    _run(
+        [
+            python_cmd,
+            SCRIPT_DIR / "template_analyzer.py",
+            "--template",
+            TEMPLATE,
+            "--layout-config",
+            ROOT_DIR / "templates" / "layout_config.json",
+            "--output",
+            template_profile_path,
+        ]
+    )
+    _run(
+        [
+            python_cmd,
+            SCRIPT_DIR / "template_fit.py",
+            "--renderer-spec",
+            run_dir / "renderer_spec.json",
+            "--template-profile",
+            template_profile_path,
+            "--output",
+            artifacts / "template_fit_validation.json",
         ]
     )
     _run(
@@ -289,6 +315,8 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
                 run_dir / "renderer_spec.json",
                 "--output",
                 run_dir / CLEAN_PPT,
+                "--template-profile",
+                artifacts / "template_profile.json",
                 "--render-layouts",
                 RENDER_LAYOUTS,
                 "--log",

@@ -33,6 +33,23 @@ VALID_CLAIM_STRENGTHS = {
     "open_question",
 }
 METRIC_VISUAL_CAPABILITIES = {"chart", "table", "matrix", "cards"}
+VALID_EVIDENCE_STATUS = {
+    "supported",
+    "thin",
+    "insufficient",
+    "not_applicable",
+    "unavailable_after_research",
+    "not_researched",
+    "caveat_only",
+}
+EVIDENCE_STATUS_RANK = {
+    "supported": 0,
+    "thin": 1,
+    "caveat_only": 2,
+    "insufficient": 3,
+    "unavailable_after_research": 4,
+    "not_researched": 5,
+}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -48,6 +65,98 @@ def _analysis_index(pool: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if not isinstance(analyses, list):
         return {}
     return {str(item.get("analysis_id")): item for item in analyses if isinstance(item, dict) and item.get("analysis_id")}
+
+
+def _analysis_evidence_status(analysis: dict[str, Any]) -> str:
+    raw_status = str(analysis.get("evidence_status") or "").strip()
+    if raw_status in VALID_EVIDENCE_STATUS:
+        return raw_status
+    raw_evidence = str(analysis.get("evidence_sufficiency") or "").strip()
+    if raw_evidence == "sufficient":
+        return "supported"
+    if raw_evidence in VALID_EVIDENCE_STATUS:
+        return raw_evidence
+    if str(analysis.get("status") or "").strip() == "rejected":
+        return "not_researched"
+    return "not_researched"
+
+
+def _analysis_downstream_permission(analysis: dict[str, Any]) -> dict[str, bool]:
+    allowed = analysis.get("allowed_deck_usage")
+    if isinstance(allowed, dict):
+        return {
+            "headline_allowed": bool(allowed.get("headline") is True),
+            "main_message_allowed": bool(allowed.get("main_message") is True),
+            "chart_allowed": bool(allowed.get("chart") is True),
+            "body_copy_allowed": bool(allowed.get("body_copy") is True),
+        }
+    usage = _usage(analysis)
+    return {
+        "headline_allowed": bool(usage.get("headline_allowed") is True),
+        "main_message_allowed": bool(usage.get("headline_allowed") is True),
+        "chart_allowed": bool(usage.get("chart_allowed") is True),
+        "body_copy_allowed": bool(usage.get("body_copy_allowed") is True),
+    }
+
+
+def _union_permission(perms: list[dict[str, bool]]) -> dict[str, bool]:
+    union = {
+        "headline_allowed": False,
+        "main_message_allowed": False,
+        "chart_allowed": False,
+        "body_copy_allowed": False,
+    }
+    for perm in perms:
+        for key in union:
+            if perm.get(key) is True:
+                union[key] = True
+    return union
+
+
+def _aggregate_evidence_status(analysis_ids: set[str], analyses_by_id: dict[str, dict[str, Any]]) -> str:
+    if not analysis_ids:
+        return "insufficient"
+    statuses = [_analysis_evidence_status(analyses_by_id.get(analysis_id) or {}) for analysis_id in analysis_ids if analysis_id]
+    if not statuses:
+        return "insufficient"
+    unique = {status for status in statuses if status}
+    if not unique:
+        return "insufficient"
+    if unique == {"not_applicable"}:
+        return "not_applicable"
+    usable = [status for status in unique if status != "not_applicable"]
+    if not usable:
+        return "not_applicable"
+    return max(usable, key=lambda item: EVIDENCE_STATUS_RANK.get(item, -1))
+
+
+def _analysis_permission_matrix_entry(entry: dict[str, Any], idx: int) -> tuple[str, dict[str, Any]]:
+    if not isinstance(entry, dict):
+        raise TypeError("selected_issue_downstream_permissions entries must be objects")
+    analysis_id = str(entry.get("analysis_id") or "").strip()
+    if not (analysis_id.startswith("IA-") and len(analysis_id) == 6 and analysis_id[3:].isdigit()):
+        raise ValueError(f"selected_issue_downstream_permissions[{idx}] invalid analysis_id '{analysis_id}'")
+    evidence_status = str(entry.get("evidence_status") or "").strip()
+    if evidence_status not in VALID_EVIDENCE_STATUS:
+        raise ValueError(f"selected_issue_downstream_permissions[{idx}] evidence_status invalid '{evidence_status}'")
+    perm = entry.get("downstream_permission")
+    if not isinstance(perm, dict):
+        raise ValueError(f"selected_issue_downstream_permissions[{idx}] downstream_permission must be object")
+    required = ("headline_allowed", "main_message_allowed", "chart_allowed", "body_copy_allowed")
+    missing = [name for name in required if perm.get(name) is None]
+    if missing:
+        raise ValueError(f"selected_issue_downstream_permissions[{idx}] missing downstream_permission fields: {', '.join(missing)}")
+    if any(not isinstance(perm.get(name), bool) for name in required):
+        raise ValueError(f"selected_issue_downstream_permissions[{idx}] downstream_permission fields must be boolean")
+    return analysis_id, {
+        "analysis_status": evidence_status,
+        "downstream_permission": {
+            "headline_allowed": bool(perm.get("headline_allowed") is True),
+            "main_message_allowed": bool(perm.get("main_message_allowed") is True),
+            "chart_allowed": bool(perm.get("chart_allowed") is True),
+            "body_copy_allowed": bool(perm.get("body_copy_allowed") is True),
+        },
+    }
 
 
 def _page_plan_index(page_plan: dict[str, Any]) -> dict[int, dict[str, Any]]:
@@ -255,9 +364,39 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
         if page_role != expected_role:
             errors.append(f"{prefix}: page_role must be '{expected_role}', found '{page_role}'")
 
-        for field in ("page_question", "proof_standard", "evidence_gap_handling"):
+        for field in ("page_question", "proof_standard", "evidence_gap_handling", "headline_claim"):
             if not _non_empty_text(slide.get(field)):
                 errors.append(f"{prefix}: {field} is required")
+        for field in ("headline_allowed", "main_message_allowed", "chart_allowed", "visual_metric_allowed"):
+            if not isinstance(slide.get(field), bool):
+                errors.append(f"{prefix}: {field} must be boolean")
+        downstream_permission = slide.get("downstream_permission")
+        if not isinstance(downstream_permission, dict):
+            errors.append(f"{prefix}: downstream_permission must be object")
+        else:
+            for field in ("headline_allowed", "main_message_allowed", "chart_allowed", "body_copy_allowed"):
+                if not isinstance(downstream_permission.get(field), bool):
+                    errors.append(f"{prefix}: downstream_permission.{field} must be boolean")
+        evidence_status = str(slide.get("evidence_status") or "").strip()
+        if evidence_status not in VALID_EVIDENCE_STATUS:
+            errors.append(f"{prefix}: evidence_status must be one of {sorted(VALID_EVIDENCE_STATUS)}")
+
+        selected_issue_permissions: dict[str, dict[str, Any]] = {}
+        contract_issue_status: dict[str, str] = {}
+        for entry_idx, item in enumerate(_as_list(slide.get("selected_issue_downstream_permissions")), start=1):
+            if not isinstance(item, dict):
+                errors.append(f"{prefix}: selected_issue_downstream_permissions[{entry_idx}] must be object")
+                continue
+            try:
+                analysis_id, parsed = _analysis_permission_matrix_entry(item, entry_idx)
+            except (TypeError, ValueError) as exc:
+                errors.append(f"{prefix}: {exc}")
+                continue
+            if analysis_id in selected_issue_permissions:
+                errors.append(f"{prefix}: selected_issue_downstream_permissions has duplicate analysis_id '{analysis_id}'")
+                continue
+            selected_issue_permissions[analysis_id] = parsed["downstream_permission"]
+            contract_issue_status[analysis_id] = parsed["analysis_status"]
 
         strategy_entry = strategy_by_no.get(slide_no)
         if not strategy_entry:
@@ -267,6 +406,8 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             proof_evidence_ids: set[str] = set()
             expected_proof_points: list[dict[str, Any]] = []
             strategy_visual_plan: dict[str, Any] = {}
+            expected_downstream_permission = {}
+            expected_evidence_status = ""
         else:
             if page_role != str(strategy_entry.get("fixed_page_role") or "").strip():
                 errors.append(f"{prefix}: page_role does not match page plan fixed_page_role")
@@ -280,6 +421,10 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             proof_evidence_ids = _proof_evidence_ids(strategy_entry)
             expected_proof_points = _normalized_proof_points(strategy_entry)
             strategy_visual_plan = strategy_entry.get("visual_plan") if isinstance(strategy_entry.get("visual_plan"), dict) else {}
+            expected_downstream_permission = _union_permission(
+                [_analysis_downstream_permission(analyses_by_id.get(analysis_id) or {}) for analysis_id in mapped_ids]
+            )
+            expected_evidence_status = _aggregate_evidence_status(mapped_ids, analyses_by_id)
 
         primary_id = str(slide.get("primary_issue_analysis_id") or "").strip()
         if strategy_entry and primary_id != str(strategy_entry.get("primary_issue_analysis_id") or "").strip():
@@ -292,6 +437,37 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
         invalid_supporting = sorted(supporting_ids - mapped_ids)
         if invalid_supporting:
             errors.append(f"{prefix}: supporting_issue_analysis_ids not selected in page plan: {', '.join(invalid_supporting)}")
+        selected_ids = set(selected_issue_permissions)
+        if mapped_ids != selected_ids:
+            missing = sorted(mapped_ids - selected_ids)
+            extra = sorted(selected_ids - mapped_ids)
+            if missing:
+                errors.append(f"{prefix}: selected_issue_downstream_permissions missing analysis ids: {', '.join(missing)}")
+            if extra:
+                errors.append(f"{prefix}: selected_issue_downstream_permissions has extra analysis ids: {', '.join(extra)}")
+        if strategy_entry:
+            if evidence_status != expected_evidence_status:
+                errors.append(f"{prefix}: evidence_status must equal aggregate evidence status of selected issue analyses")
+            if isinstance(downstream_permission, dict):
+                contract_union = _union_permission(list(selected_issue_permissions.values()))
+                if contract_union != expected_downstream_permission:
+                    errors.append(f"{prefix}: downstream_permission must equal union of selected_issue_downstream_permissions")
+            for analysis_id in mapped_ids:
+                if analysis_id not in selected_issue_permissions:
+                    continue
+                issue = analyses_by_id.get(analysis_id) or {}
+                expected_issue_status = _analysis_evidence_status(issue)
+                if expected_issue_status != contract_issue_status.get(analysis_id):
+                    errors.append(
+                        f"{prefix}: selected_issue_downstream_permissions[{analysis_id}].evidence_status "
+                        f"must match issue_analysis evidence_status '{expected_issue_status}'"
+                    )
+                expected_issue_perm = _analysis_downstream_permission(issue)
+                if expected_issue_perm != selected_issue_permissions[analysis_id]:
+                    errors.append(
+                        f"{prefix}: selected_issue_downstream_permissions[{analysis_id}].downstream_permission "
+                        f"must match issue_analysis allowed permissions"
+                    )
 
         claim_strength = str(slide.get("claim_strength") or "").strip()
         if claim_strength not in VALID_CLAIM_STRENGTHS:
@@ -302,10 +478,28 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
                 errors.append(f"{prefix}: page contract claim_strength cannot be stronger than page plan claim_strength")
 
         headline_allowed = slide.get("headline_allowed") is True
+        main_message_allowed = slide.get("main_message_allowed") is True
         chart_allowed = slide.get("chart_allowed") is True
         visual_metric_allowed = slide.get("visual_metric_allowed") is True
-        if headline_allowed and primary and _usage(primary).get("headline_allowed") is not True:
-            errors.append(f"{prefix}: headline_allowed=true but primary issue analysis does not allow headlines")
+        if strategy_entry and isinstance(downstream_permission, dict):
+            expected_headline_allowed = (
+                bool(expected_downstream_permission.get("headline_allowed"))
+                and claim_strength not in {"hypothesis", "open_question"}
+            ) or slide_no == 8 and bool(expected_downstream_permission.get("headline_allowed"))
+            if expected_headline_allowed is False:
+                expected_headline_allowed = False
+            if headline_allowed != expected_headline_allowed:
+                errors.append(f"{prefix}: headline_allowed does not match generated headline permissions from page plan and issue analyses")
+            expected_main_message_allowed = (
+                bool(expected_downstream_permission.get("main_message_allowed"))
+                and claim_strength not in {"hypothesis", "open_question"}
+            ) or slide_no == 8 and bool(expected_downstream_permission.get("main_message_allowed"))
+            if expected_main_message_allowed is False:
+                expected_main_message_allowed = False
+            if main_message_allowed != expected_main_message_allowed:
+                errors.append(f"{prefix}: main_message_allowed does not match generated permissions from page plan and issue analyses")
+        elif headline_allowed:
+            errors.append(f"{prefix}: headline_allowed=true but cannot validate against page plan")
         capability = str(strategy_visual_plan.get("required_capability") or "")
         visual_permitted_metrics = (
             _proof_ids_with_permission(

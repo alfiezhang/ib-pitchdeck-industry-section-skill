@@ -103,6 +103,7 @@ SCAFFOLD_LABELS = {
 }
 
 DEFAULT_RENDER_LAYOUTS_PATH = Path(__file__).resolve().parents[1] / "templates" / "render_layouts.json"
+DEFAULT_TEMPLATE_PROFILE_PATH = Path(__file__).resolve().parents[1] / "templates" / "template_profile.json"
 
 BRAND_BLUE = RGBColor(0x0D, 0x57, 0xAA)
 GRID_GRAY = RGBColor(0xD9, 0xD9, 0xD9)
@@ -112,6 +113,74 @@ LEGEND_FONT_SIZE = 8
 BODY_FONT = "Microsoft YaHei"
 TABLE_HEADER_FONT_SIZE = 10.0
 TABLE_BODY_FONT_SIZE = 10.0
+
+
+def _parse_hex_rgb(value: object, fallback: RGBColor) -> RGBColor:
+    if not value:
+        return fallback
+    text = str(value).strip().lstrip("#")
+    if len(text) != 6:
+        return fallback
+    if any(ch not in "0123456789ABCDEFabcdef" for ch in text):
+        return fallback
+    return RGBColor(int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16))
+
+
+def _parse_font_size(value: object, fallback: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return parsed
+
+
+def _safe_font_name(value: object, fallback: str) -> str:
+    text = str(value or fallback).strip()
+    return text or fallback
+
+
+def _apply_template_profile_style(profile_path: Path, warnings: Optional[list[str]] = None) -> None:
+    global BRAND_BLUE, GRID_GRAY, TEXT_GRAY, ACCENT_RED
+    global LEGEND_FONT_SIZE, BODY_FONT, TABLE_HEADER_FONT_SIZE, TABLE_BODY_FONT_SIZE
+
+    profile_warnings = warnings if warnings is not None else []
+    if not profile_path.exists():
+        if profile_warnings is not None:
+            profile_warnings.append(f"template profile missing, using static fallback style: {profile_path}")
+        return
+
+    data = load_json(profile_path)
+    visual = data.get("visual_style", {}) if isinstance(data, dict) else {}
+    colors = visual.get("colors", {}) if isinstance(visual, dict) else {}
+    typography = visual.get("typography", {}) if isinstance(visual, dict) else {}
+
+    BRAND_BLUE = _parse_hex_rgb(colors.get("brand_primary"), BRAND_BLUE)
+    ACCENT_RED = _parse_hex_rgb(colors.get("accent_red"), ACCENT_RED)
+    GRID_GRAY = _parse_hex_rgb(colors.get("grid_gray"), GRID_GRAY)
+    TEXT_GRAY = _parse_hex_rgb(colors.get("text_gray"), TEXT_GRAY)
+
+    LEGEND_FONT_SIZE = _parse_font_size(typography.get("legend_pt"), LEGEND_FONT_SIZE)
+    TABLE_HEADER_FONT_SIZE = _parse_font_size(typography.get("table_header_pt"), TABLE_HEADER_FONT_SIZE)
+    TABLE_BODY_FONT_SIZE = _parse_font_size(typography.get("table_body_pt"), TABLE_BODY_FONT_SIZE)
+    BODY_FONT = _safe_font_name(typography.get("body"), BODY_FONT)
+
+    if visual:
+        if not typography.get("body"):
+            profile_warnings.append("template profile missing body font; using fallback Microsoft YaHei")
+        if not typography.get("table_header"):
+            profile_warnings.append("template profile missing table_header font; using fallback Microsoft YaHei")
+            typography.setdefault("table_header", BODY_FONT)
+        if not typography.get("table_body"):
+            profile_warnings.append("template profile missing table_body font; using fallback Microsoft YaHei")
+            typography.setdefault("table_body", BODY_FONT)
+        if not colors.get("brand_primary"):
+            profile_warnings.append("template profile missing brand_primary; using fallback color")
+        if not colors.get("accent_red"):
+            profile_warnings.append("template profile missing accent_red; using fallback color")
+        if not colors.get("grid_gray"):
+            profile_warnings.append("template profile missing grid_gray; using fallback color")
+        if not colors.get("text_gray"):
+            profile_warnings.append("template profile missing text_gray; using fallback color")
 
 
 def load_json(path: Path) -> dict:
@@ -1102,7 +1171,9 @@ def remove_shapes_in_box(slide, box: tuple[int, int, int, int]) -> list[dict]:
     return removed
 
 
-def set_cell_text(cell, text: str, font_size: float, bold: bool = False, color: RGBColor = TEXT_GRAY) -> None:
+def set_cell_text(cell, text: str, font_size: float, bold: bool = False, color: Optional[RGBColor] = None) -> None:
+    if color is None:
+        color = TEXT_GRAY
     cell.text = ""
     cell.margin_left = Emu(30000)
     cell.margin_right = Emu(30000)
@@ -1121,7 +1192,9 @@ def set_cell_text(cell, text: str, font_size: float, bold: bool = False, color: 
     run.font.color.rgb = color
 
 
-def style_table_shape(table_shape, header_fill: RGBColor = BRAND_BLUE) -> None:
+def style_table_shape(table_shape, header_fill: Optional[RGBColor] = None) -> None:
+    if header_fill is None:
+        header_fill = BRAND_BLUE
     table = table_shape.table
     for row_idx, row in enumerate(table.rows):
         for cell in row.cells:
@@ -1383,7 +1456,18 @@ def sanitize_ole_artifacts(pptx_path: Path) -> dict:
     return {"removed_parts": removed_parts, "updated_parts": updated_parts}
 
 
-def postprocess(input_ppt: Path, renderer_spec_path: Path, output_ppt: Path, render_layouts_path: Path = DEFAULT_RENDER_LAYOUTS_PATH) -> dict:
+def postprocess(
+    input_ppt: Path,
+    renderer_spec_path: Path,
+    output_ppt: Path,
+    render_layouts_path: Path = DEFAULT_RENDER_LAYOUTS_PATH,
+    template_profile_path: Optional[Path] = None,
+) -> dict:
+    template_profile_warnings: list[str] = []
+    if template_profile_path is None:
+        template_profile_path = DEFAULT_TEMPLATE_PROFILE_PATH
+    _apply_template_profile_style(template_profile_path, template_profile_warnings)
+
     renderer_spec = load_json(renderer_spec_path)
     render_layouts = load_render_layouts(render_layouts_path)
     prs = Presentation(str(input_ppt))
@@ -1413,6 +1497,8 @@ def postprocess(input_ppt: Path, renderer_spec_path: Path, output_ppt: Path, ren
         "input_ppt": str(input_ppt),
         "renderer_spec": str(renderer_spec_path),
         "render_layouts": str(render_layouts_path),
+        "template_profile": str(template_profile_path),
+        "template_profile_warnings": template_profile_warnings,
         "output_ppt": str(output_ppt),
         "removed_scaffold_labels": removed_labels,
         "removed_think_cell_ole": removed_think_cell_ole,
@@ -1434,6 +1520,11 @@ def main() -> None:
         default=str(DEFAULT_RENDER_LAYOUTS_PATH),
         help="Path to templates/render_layouts.json with deterministic renderer coordinates.",
     )
+    parser.add_argument(
+        "--template-profile",
+        default=str(DEFAULT_TEMPLATE_PROFILE_PATH),
+        help="Path to template_profile.json with visual style and fit rules.",
+    )
     parser.add_argument("--log", help="Optional path to write a JSON log.")
     parser.add_argument(
         "--fail-on-unrendered",
@@ -1452,12 +1543,19 @@ def main() -> None:
         if args.allow_ungated_debug:
             require_debug_output_name(output_path)
         require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
-        result = postprocess(Path(args.input_ppt), Path(args.renderer_spec), output_path, Path(args.render_layouts))
+        result = postprocess(
+            Path(args.input_ppt),
+            Path(args.renderer_spec),
+            output_path,
+            Path(args.render_layouts),
+            Path(args.template_profile),
+        )
     except Exception as exc:
         result = {
             "input_ppt": args.input_ppt,
             "renderer_spec": args.renderer_spec,
             "render_layouts": args.render_layouts,
+            "template_profile": args.template_profile,
             "output_ppt": args.output,
             "is_valid": False,
             "error": f"{type(exc).__name__}: {exc}",

@@ -25,6 +25,47 @@ from validate_research_pack import issue_fact_inventory_rows
 SUPPORTED_STATUSES = {"sufficient", "thin", "not_applicable"}
 
 
+def _evidence_status(fact_status: str) -> str:
+    if fact_status == "sufficient":
+        return "supported"
+    if fact_status == "thin":
+        return "thin"
+    if fact_status == "not_applicable":
+        return "caveat_only"
+    return "insufficient"
+
+
+def _hypothesis_resolution(fact_status: str) -> str:
+    if fact_status == "sufficient":
+        return "resolved"
+    if fact_status == "thin":
+        return "caveat_only"
+    return "not_researched"
+
+
+def _allowed_deck_usage(fact_status: str, metric_ids: list[str]) -> dict[str, bool]:
+    if fact_status == "sufficient":
+        return {
+            "headline": True,
+            "main_message": True,
+            "chart": bool(metric_ids),
+            "body_copy": True,
+        }
+    if fact_status == "thin":
+        return {
+            "headline": False,
+            "main_message": False,
+            "chart": False,
+            "body_copy": True,
+        }
+    return {
+        "headline": False,
+        "main_message": False,
+        "chart": False,
+        "body_copy": False,
+    }
+
+
 def _text(value: Any) -> str:
     return str(value or "").strip()
 
@@ -226,6 +267,8 @@ def build_issue_analysis_skeleton(
                         "issue_area": area,
                         "subissue": subissue,
                         "analysis_type": "evidence_gap" if fact_status == "not_applicable" else _analysis_type(area, subissue),
+                        "evidence_status": _evidence_status(fact_status),
+                        "hypothesis_resolution": _hypothesis_resolution(fact_status),
                         "core_statement": f"TODO_REPLACE_WITH_CORE_STATEMENT for {area}/{subissue}. Current inventory note: {notes}",
                         "analysis_text": (
                             f"TODO_REPLACE_WITH_SUBSTANTIVE_ANALYSIS for {area}/{subissue}. "
@@ -243,6 +286,7 @@ def build_issue_analysis_skeleton(
                         ],
                         "evidence_sufficiency": fact_status,
                         "status": _status_for_fact_status(fact_status),
+                        "allowed_deck_usage": _allowed_deck_usage(fact_status, metric_ids),
                         "evidence_ids": evidence_ids,
                         "metric_ids": metric_ids,
                         "limitations": [

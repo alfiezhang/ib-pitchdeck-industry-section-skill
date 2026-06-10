@@ -9,6 +9,20 @@
     "global_official",
     "consulting_reports"
   ],
+  "search_connectors": {
+    "provider_order": [
+      "searxng",
+      "duckduckgo",
+      "tavily"
+    ],
+    "searxng": {
+      "default_url": "",
+      "search_path": "/search",
+      "format": "json",
+      "timeout_seconds": 20.0,
+      "note": "Set search_connectors.searxng.default_url (e.g., http://localhost:8080) or SEARXNG_BASE_URL when paid APIs are unavailable."
+    }
+  },
 
   "source_packs": {
     "china_official": {

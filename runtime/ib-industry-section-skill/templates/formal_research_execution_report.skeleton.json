@@ -4,9 +4,17 @@
   "search_log": "artifacts/search_log.md",
   "issue_results": [],
   "coverage_summary": {
+    "planned_fs_rows": 0,
+    "actual_search_attempts": 0,
+    "fs_rows_accounted": 0,
+    "fs_rows_executed_with_evidence": 0,
+    "fs_rows_executed_without_evidence": 0,
+    "fs_rows_not_executed": 0,
+    "high_priority_rows_below_minimum": [],
     "covered_issue_areas": [],
     "thin_or_unresolved_subissues": [],
     "not_available_after_research": []
   },
+  "fs_row_execution_status": [],
   "unresolved_issues": []
 }

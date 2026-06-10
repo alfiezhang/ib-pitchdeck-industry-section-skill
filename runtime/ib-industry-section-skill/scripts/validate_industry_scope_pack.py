@@ -69,6 +69,7 @@ def _validate_required(data: dict[str, Any]) -> list[str]:
         "meta",
         "llm_definition_draft",
         "scope_summary",
+        "scope_classification",
         "market_definitions",
         "ambiguous_boundaries",
         "data_hierarchy",
@@ -122,6 +123,28 @@ def _validate_required(data: dict[str, Any]) -> list[str]:
             errors.append("scope_summary.working_market is required")
         if not isinstance(scope_summary.get("adjacent_markets"), list):
             errors.append("scope_summary.adjacent_markets must be an array")
+        if not str(scope_summary.get("parent_market") or "").strip():
+            errors.append("scope_summary.parent_market is required")
+        if not str(scope_summary.get("broader_market") or "").strip():
+            errors.append("scope_summary.broader_market is required")
+
+    classification = data.get("scope_classification")
+    if not isinstance(classification, dict):
+        errors.append("scope_classification must be an object")
+    else:
+        for field in ("broad", "core"):
+            raw_values = classification.get(field)
+            values = raw_values if isinstance(raw_values, list) else []
+            if not isinstance(raw_values, list):
+                errors.append(f"scope_classification.{field} must be an array")
+            elif not values:
+                errors.append(f"scope_classification.{field} must be a non-empty array")
+            elif any(not str(item).strip() for item in values):
+                errors.append(f"scope_classification.{field} contains blank item")
+        for field in ("adjacent", "excluded"):
+            values = classification.get(field)
+            if not isinstance(values, list):
+                errors.append(f"scope_classification.{field} must be an array")
 
     definitions = data.get("market_definitions")
     if not isinstance(definitions, dict):

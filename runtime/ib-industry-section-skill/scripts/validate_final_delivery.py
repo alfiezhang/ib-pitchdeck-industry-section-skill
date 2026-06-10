@@ -28,6 +28,7 @@ from validate_stage_gate import validate_stage as validate_stage_gate_data
 from validate_source_reviews import validate as validate_source_reviews_data
 from validate_template_registry import validate as validate_template_registry_data
 from validate_formal_search_plan import validate as validate_formal_search_plan_data
+from qc_repair_targets import collect_repair_targets, unique_repair_targets
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -55,17 +56,78 @@ def unique_preserve_order(items: list[str]) -> list[str]:
     return result
 
 
+def _append_repair_targets(
+    target_list: list[dict[str, Any]],
+    report: dict[str, Any] | None,
+    *,
+    default_layer: str = "unknown",
+    default_artifact: str = "",
+) -> None:
+    if target_list is None or report is None:
+        return
+    target_list.extend(
+        collect_repair_targets(
+            report,
+            default_layer=default_layer,
+            default_artifact=default_artifact,
+        )
+    )
+
+
+def _append_validation_issue(
+    target_list: list[dict[str, Any]],
+    *,
+    artifact: str,
+    layer: str,
+    errors: list[str],
+    recommended_action: str = "",
+    forbidden_action: str = "",
+) -> None:
+    if not errors:
+        return
+    _append_repair_targets(
+        target_list,
+        {
+            "is_valid": False,
+            "errors": errors,
+            "repair_target_layer": layer,
+            "repair_target_artifact": artifact,
+            "recommended_action": recommended_action or f"Repair and rerun validation for {artifact}.",
+            "forbidden_action": forbidden_action,
+        },
+        default_layer=layer,
+        default_artifact=artifact,
+    )
+
+
 def json_files_under(run_dir: Path) -> list[Path]:
     return sorted(path for path in run_dir.rglob("*.json") if "__pycache__" not in path.parts)
 
 
-def validate_content_quality_artifact(path: Path) -> tuple[list[str], list[str]]:
+def validate_content_quality_artifact(
+    path: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     if not path.exists():
         errors.append("missing content quality validation artifact")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/content_quality_validation.json",
+            layer="generation",
+            errors=["missing content quality validation artifact"],
+            recommended_action="Run validate_content_quality.py after generating renderer_spec.json.",
+            forbidden_action="Do not deliver until content quality blocker is cleared.",
+        )
         return errors, warnings
     data = load_json_file(path)
+    _append_repair_targets(
+        repair_targets,
+        data,
+        default_layer="generation",
+        default_artifact="artifacts/content_quality_validation.json",
+    )
     if data.get("is_valid") is False:
         errors.append("content_quality_validation.json is_valid=false")
     warning_count = int(data.get("warning_count") or 0)
@@ -251,7 +313,10 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def validate_formal_research_execution_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_formal_research_execution_artifact(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -261,10 +326,31 @@ def validate_formal_research_execution_artifact(run_dir: Path) -> tuple[list[str
     search_log_path = run_dir / "artifacts/search_log.md"
     if not plan_path.exists():
         errors.append("missing formal_search_plan.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_search_plan.json",
+            layer="research",
+            errors=["missing formal_search_plan.json"],
+            recommended_action="Build formal_search_plan.json before rerunning formal execution validation.",
+        )
     if not report_path.exists():
         errors.append("missing formal_research_execution_report.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_research_execution_report.json",
+            layer="research",
+            errors=["missing formal_research_execution_report.json"],
+            recommended_action="Regenerate formal_research_execution_report.json from search log and plan.",
+        )
     if not search_log_path.exists():
         errors.append("missing search_log.md")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/search_log.md",
+            layer="research",
+            errors=["missing search_log.md"],
+            recommended_action="Run or append search log before rerunning formal execution checks.",
+        )
     if errors:
         return errors, warnings
 
@@ -273,12 +359,38 @@ def validate_formal_research_execution_artifact(run_dir: Path) -> tuple[list[str
         report_data = load_json_file(report_path)
     except Exception as exc:
         errors.append(f"cannot load formal research artifacts: {exc}")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_research_execution_report.json",
+            layer="research",
+            errors=[f"cannot load formal research artifacts: {exc}"],
+            recommended_action="Repair missing or unreadable formal execution artifacts.",
+        )
         return errors, warnings
 
     current_errors, current_warnings = validate_formal_research_execution_data(report_data, plan_data, search_log_path)
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not current_errors,
+            "errors": current_errors,
+            "repair_target_artifact": "artifacts/formal_research_execution_report.json",
+            "repair_target_layer": "research",
+            "repair_plan": {"targets": []},
+        },
+        default_layer="research",
+        default_artifact="artifacts/formal_research_execution_report.json",
+    )
     if current_errors:
         errors.append("current formal research execution validation failed")
         errors.extend(str(item) for item in current_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_research_execution_report.json",
+            layer="research",
+            errors=[str(item) for item in current_errors],
+            recommended_action="Repair formal research execution plan/report consistency and rerun validator.",
+        )
     warnings.extend(str(item) for item in current_warnings)
 
     if artifact_path.exists():
@@ -286,33 +398,94 @@ def validate_formal_research_execution_artifact(run_dir: Path) -> tuple[list[str
             artifact = load_json_file(artifact_path)
         except Exception as exc:
             errors.append(f"cannot read formal_research_execution_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/formal_research_execution_validation.json",
+                layer="research",
+                errors=[f"cannot read formal_research_execution_validation.json: {exc}"],
+                recommended_action="Re-run validator after fixing formal research execution report artifacts.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                artifact,
+                default_layer="research",
+                default_artifact="artifacts/formal_research_execution_validation.json",
+            )
             if artifact.get("is_valid") is False:
                 errors.append("formal_research_execution_validation.json is_valid=false")
             if artifact.get("warning_count", 0):
                 warnings.append(f"formal_research_execution_validation.json contains {artifact.get('warning_count')} warning(s)")
     else:
         errors.append("missing formal_research_execution_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_research_execution_validation.json",
+            layer="research",
+            errors=["missing formal_research_execution_validation.json"],
+            recommended_action="Run validate_formal_research_execution.py and write validation artifact.",
+        )
 
     return errors, warnings
 
 
-def validate_formal_search_plan_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_formal_search_plan_artifact(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     plan_path = run_dir / "artifacts/formal_search_plan.json"
     artifact_path = run_dir / "artifacts/formal_search_plan_validation.json"
     if not plan_path.exists():
-        return ["missing formal_search_plan.json"], warnings
+        message = "missing formal_search_plan.json"
+        errors.append(message)
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_search_plan.json",
+            layer="research",
+            errors=[message],
+            recommended_action="Create or repair formal_search_plan.json with scoped search rows.",
+        )
+        return errors, warnings
     try:
         plan_data = load_json_file(plan_path)
     except Exception as exc:
-        return [f"cannot read formal_search_plan.json: {exc}"], warnings
+        message = f"cannot read formal_search_plan.json: {exc}"
+        errors.append(message)
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_search_plan.json",
+            layer="research",
+            errors=[message],
+            recommended_action="Rebuild formal_search_plan.json and rerun this validator.",
+        )
+        return errors, warnings
 
     current_errors, current_warnings = validate_formal_search_plan_data(plan_data)
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not current_errors,
+            "errors": current_errors,
+            "repair_target_artifact": "artifacts/formal_search_plan.json",
+            "repair_target_layer": "research",
+            "repair_plan": {"targets": []},
+        },
+        default_layer="research",
+        default_artifact="artifacts/formal_search_plan.json",
+    )
     if current_errors:
         errors.append("current formal search plan validation failed")
         errors.extend(str(item) for item in current_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_search_plan.json",
+            layer="research",
+            errors=[str(item) for item in current_errors],
+            recommended_action="Fix execution expectation and taxonomy in formal_search_plan.json.",
+            forbidden_action="Do not map FS rows to source rows without executed attempts.",
+        )
     warnings.extend(str(item) for item in current_warnings)
 
     if artifact_path.exists():
@@ -320,30 +493,91 @@ def validate_formal_search_plan_artifact(run_dir: Path) -> tuple[list[str], list
             artifact = load_json_file(artifact_path)
         except Exception as exc:
             errors.append(f"cannot read formal_search_plan_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/formal_search_plan_validation.json",
+                layer="research",
+                errors=[f"cannot read formal_search_plan_validation.json: {exc}"],
+                recommended_action="Re-run formal_search_plan validator.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                artifact,
+                default_layer="research",
+                default_artifact="artifacts/formal_search_plan_validation.json",
+            )
             if artifact.get("is_valid") is False:
                 errors.append("formal_search_plan_validation.json is_valid=false")
     else:
         errors.append("missing formal_search_plan_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/formal_search_plan_validation.json",
+            layer="research",
+            errors=["missing formal_search_plan_validation.json"],
+            recommended_action="Run validate_formal_search_plan.py and persist output.",
+        )
     return errors, warnings
 
 
-def validate_industry_scope_pack_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_industry_scope_pack_artifact(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     scope_path = run_dir / "artifacts/industry_scope_pack.json"
     artifact_path = run_dir / "artifacts/industry_scope_pack_validation.json"
     if not scope_path.exists():
-        return ["missing industry_scope_pack.json"], warnings
+        message = "missing industry_scope_pack.json"
+        errors.append(message)
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/industry_scope_pack.json",
+            layer="industry",
+            errors=[message],
+            recommended_action="Repair industry_scope_pack.json before final delivery check.",
+            forbidden_action="Do not run final delivery while scope is missing.",
+        )
+        return errors, warnings
     try:
         scope_data = load_json_file(scope_path)
     except Exception as exc:
-        return [f"cannot read industry_scope_pack.json: {exc}"], warnings
+        message = f"cannot read industry_scope_pack.json: {exc}"
+        errors.append(message)
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/industry_scope_pack.json",
+            layer="industry",
+            errors=[message],
+            recommended_action="Rebuild industry_scope_pack.json and rerun validator.",
+        )
+        return errors, warnings
 
     current_errors, current_warnings = validate_industry_scope_pack_data(scope_data)
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not current_errors,
+            "errors": current_errors,
+            "repair_target_artifact": "artifacts/industry_scope_pack.json",
+            "repair_target_layer": "industry",
+            "repair_plan": {"targets": []},
+        },
+        default_layer="industry",
+        default_artifact="artifacts/industry_scope_pack.json",
+    )
     if current_errors:
         errors.append("current industry scope pack validation failed")
         errors.extend(str(item) for item in current_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/industry_scope_pack.json",
+            layer="industry",
+            errors=[str(item) for item in current_errors],
+            recommended_action="Repair boundary definitions and exclusions in industry scope pack.",
+        )
     warnings.extend(str(item) for item in current_warnings)
 
     if artifact_path.exists():
@@ -351,22 +585,55 @@ def validate_industry_scope_pack_artifact(run_dir: Path) -> tuple[list[str], lis
             artifact = load_json_file(artifact_path)
         except Exception as exc:
             errors.append(f"cannot read industry_scope_pack_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/industry_scope_pack_validation.json",
+                layer="industry",
+                errors=[f"cannot read industry_scope_pack_validation.json: {exc}"],
+                recommended_action="Re-run industry scope pack validator.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                artifact,
+                default_layer="industry",
+                default_artifact="artifacts/industry_scope_pack_validation.json",
+            )
             if artifact.get("is_valid") is False:
                 errors.append("industry_scope_pack_validation.json is_valid=false")
     else:
         errors.append("missing industry_scope_pack_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/industry_scope_pack_validation.json",
+            layer="industry",
+            errors=["missing industry_scope_pack_validation.json"],
+            recommended_action="Run industry scope validator and save artifact.",
+        )
 
     return errors, warnings
 
 
-def validate_current_content_quality(run_dir: Path, rules_path: Path) -> tuple[list[str], list[str]]:
+def validate_current_content_quality(
+    run_dir: Path,
+    rules_path: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     renderer_spec_path = run_dir / "renderer_spec.json"
     memo_path = run_dir / "industry_research_pack.md"
     if not renderer_spec_path.exists():
-        return ["cannot recompute content quality: missing renderer_spec.json"], warnings
+        message = "cannot recompute content quality: missing renderer_spec.json"
+        errors.append(message)
+        _append_validation_issue(
+            repair_targets,
+            artifact="renderer_spec.json",
+            layer="generation",
+            errors=[message],
+            recommended_action="Generate renderer_spec.json before current content-quality pass.",
+        )
+        return errors, warnings
 
     result = validate_content_quality(
         renderer_spec_path,
@@ -374,6 +641,12 @@ def validate_current_content_quality(run_dir: Path, rules_path: Path) -> tuple[l
         rules_path,
         text_fit_rules_path=REPO_ROOT / "templates/text_fit_rules.json",
         layout_budget_path=REPO_ROOT / "templates/layout_budget.json",
+    )
+    _append_repair_targets(
+        repair_targets,
+        result,
+        default_layer="generation",
+        default_artifact="renderer_spec.json",
     )
     if result.get("is_valid") is False:
         errors.append("current content quality validation failed")
@@ -466,7 +739,10 @@ def validate_postprocess_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def validate_issue_artifacts(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_issue_artifacts(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     issue_analysis_path = run_dir / "industry_issue_analysis.json"
@@ -485,6 +761,15 @@ def validate_issue_artifacts(run_dir: Path) -> tuple[list[str], list[str]]:
         if not path.exists():
             errors.append(f"missing required issue analysis artifact: {name}")
     if errors:
+        for artifact_name in required_files:
+            _append_validation_issue(
+                repair_targets,
+                artifact=artifact_name,
+                layer="reasoning",
+                errors=[f"missing required issue analysis artifact: {artifact_name}"],
+                recommended_action="Run issue analysis and related upstream validators before final delivery.",
+                forbidden_action="Do not proceed to deck compile/final delivery while core reasoning artifacts are missing.",
+            )
         return errors, warnings
 
     try:
@@ -494,27 +779,94 @@ def validate_issue_artifacts(run_dir: Path) -> tuple[list[str], list[str]]:
         page_contract = load_json_file(page_contract_path)
     except Exception as exc:
         errors.append(f"cannot load issue analysis artifacts: {exc}")
+        _append_validation_issue(
+            repair_targets,
+            artifact="industry_issue_analysis.json",
+            layer="reasoning",
+            errors=[f"cannot load issue analysis artifacts: {exc}"],
+            recommended_action="Repair issue analysis and dependent artifacts, then rerun validators.",
+            forbidden_action="Do not finalize without valid issue-analysis core artifacts.",
+        )
         return errors, warnings
 
     issue_errors, issue_warnings = validate_issue_analysis_data(
         issue_analysis,
         memo_path if memo_path.exists() else None,
     )
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not issue_errors,
+            "errors": issue_errors,
+            "repair_target_layer": "reasoning",
+            "repair_target_artifact": "industry_issue_analysis.json",
+        },
+        default_layer="reasoning",
+        default_artifact="industry_issue_analysis.json",
+    )
     if issue_errors:
         errors.append("current issue analysis validation failed")
         errors.extend(str(item) for item in issue_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="industry_issue_analysis.json",
+            layer="reasoning",
+            errors=[str(item) for item in issue_errors],
+            recommended_action="Fix unsupported or unsupported claims in issue analysis then rerun validate_issue_analysis.py.",
+            forbidden_action="Do not edit deck blueprint before issue analysis is valid.",
+        )
     warnings.extend(str(item) for item in issue_warnings)
 
     template_registry_errors, template_registry_warnings = validate_template_registry_data(template_registry)
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not template_registry_errors,
+            "errors": template_registry_errors,
+            "repair_target_layer": "generation",
+            "repair_target_artifact": "template_registry.json",
+            "repair_plan": {"targets": []},
+        },
+        default_layer="generation",
+        default_artifact="template_registry.json",
+    )
     if template_registry_errors:
         errors.append("current template registry validation failed")
         errors.extend(str(item) for item in template_registry_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="template_registry.json",
+            layer="generation",
+            errors=[str(item) for item in template_registry_errors],
+            recommended_action="Fix template registry and rerun validate_template_registry.py.",
+            forbidden_action="Do not generate deck artifacts while template registry remains invalid.",
+        )
     warnings.extend(str(item) for item in template_registry_warnings)
 
-    deck_errors, deck_warnings = validate_deck_blueprint_data(deck_blueprint, issue_analysis, template_registry)
+    deck_errors, deck_warnings, _ = validate_deck_blueprint_data(deck_blueprint, issue_analysis, template_registry)
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not deck_errors,
+            "errors": deck_errors,
+            "repair_target_layer": "generation",
+            "repair_target_artifact": "deck_blueprint.json",
+            "repair_plan": {"targets": []},
+        },
+        default_layer="generation",
+        default_artifact="deck_blueprint.json",
+    )
     if deck_errors:
         errors.append("current deck blueprint validation failed")
         errors.extend(str(item) for item in deck_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="deck_blueprint.json",
+            layer="generation",
+            errors=[str(item) for item in deck_errors],
+            recommended_action="Repair deck blueprint schema/logic and rerun validate_deck_blueprint.py.",
+            forbidden_action="Do not compile renderer spec until deck blueprint passes.",
+        )
     warnings.extend(str(item) for item in deck_warnings)
 
     page_contract_errors, page_contract_warnings = validate_page_evidence_contract_data(
@@ -522,9 +874,28 @@ def validate_issue_artifacts(run_dir: Path) -> tuple[list[str], list[str]]:
         normalize_deck_blueprint_for_page_plan(deck_blueprint),
         page_contract,
     )
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not page_contract_errors,
+            "errors": page_contract_errors,
+            "repair_target_layer": "generation",
+            "repair_target_artifact": "page_evidence_contract.json",
+        },
+        default_layer="generation",
+        default_artifact="page_evidence_contract.json",
+    )
     if page_contract_errors:
         errors.append("current page evidence contract validation failed")
         errors.extend(str(item) for item in page_contract_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="page_evidence_contract.json",
+            layer="generation",
+            errors=[str(item) for item in page_contract_errors],
+            recommended_action="Repair page evidence contract against deck blueprint and rerun validation.",
+            forbidden_action="Do not finalize renderer spec before page evidence contract passes.",
+        )
     warnings.extend(str(item) for item in page_contract_warnings)
 
     for artifact_name in (
@@ -536,41 +907,137 @@ def validate_issue_artifacts(run_dir: Path) -> tuple[list[str], list[str]]:
         artifact_path = run_dir / "artifacts" / artifact_name
         if not artifact_path.exists():
             errors.append(f"missing {artifact_name}")
+            _append_validation_issue(
+                repair_targets,
+                artifact=f"artifacts/{artifact_name}",
+                layer="generation",
+                errors=[f"missing {artifact_name}"],
+                recommended_action="Run the corresponding validator and save the validation artifact.",
+            )
             continue
         try:
             artifact = load_json_file(artifact_path)
         except Exception as exc:
             errors.append(f"cannot read {artifact_name}: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact=f"artifacts/{artifact_name}",
+                layer="generation",
+                errors=[f"cannot read {artifact_name}: {exc}"],
+                recommended_action="Re-run the corresponding validator and fix malformed artifact.",
+            )
             continue
+        _append_repair_targets(
+            repair_targets,
+            artifact,
+            default_layer="generation",
+            default_artifact=f"artifacts/{artifact_name}",
+        )
         if artifact.get("is_valid") is False:
             errors.append(f"{artifact_name} is_valid=false")
 
     return errors, warnings
 
 
-def validate_renderer_spec_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_renderer_spec_artifact(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     renderer_spec_path = run_dir / "renderer_spec.json"
+    template_registry_path = run_dir / "template_registry.json"
+    deck_blueprint_path = run_dir / "deck_blueprint.json"
+    page_contract_path = run_dir / "page_evidence_contract.json"
+    errors: list[str] = []
+    warnings: list[str] = []
     if not renderer_spec_path.exists():
+        _append_validation_issue(
+            repair_targets,
+            artifact="renderer_spec.json",
+            layer="generation",
+            errors=["missing renderer_spec.json"],
+            recommended_action="Compile deck blueprint to produce renderer_spec.json.",
+            forbidden_action="Do not proceed to replacement dict or PPT generation until renderer spec exists.",
+        )
         return ["missing renderer_spec.json"], []
+    if not template_registry_path.exists():
+        _append_validation_issue(
+            repair_targets,
+            artifact="template_registry.json",
+            layer="generation",
+            errors=["missing template_registry.json"],
+            recommended_action="Extract template registry before renderer spec validation.",
+        )
+        errors.append("missing template_registry.json")
+    if not deck_blueprint_path.exists():
+        _append_validation_issue(
+            repair_targets,
+            artifact="deck_blueprint.json",
+            layer="generation",
+            errors=["missing deck_blueprint.json"],
+            recommended_action="Validate issue analysis and regenerate deck blueprint.",
+        )
+        errors.append("missing deck_blueprint.json")
+    if not page_contract_path.exists():
+        _append_validation_issue(
+            repair_targets,
+            artifact="page_evidence_contract.json",
+            layer="generation",
+            errors=["missing page_evidence_contract.json"],
+            recommended_action="Compile deck blueprint to regenerate page evidence contract.",
+        )
+        errors.append("missing page_evidence_contract.json")
+    if errors:
+        return errors, warnings
+
     errors: list[str] = []
     warnings: list[str] = []
     try:
         result_errors, result_warnings = validate_renderer_spec_data(
             load_json_file(renderer_spec_path),
-            load_json_file(run_dir / "template_registry.json"),
-            normalize_deck_blueprint_for_page_plan(load_json_file(run_dir / "deck_blueprint.json")),
-            load_json_file(run_dir / "page_evidence_contract.json"),
+            load_json_file(template_registry_path),
+            normalize_deck_blueprint_for_page_plan(load_json_file(deck_blueprint_path)),
+            load_json_file(page_contract_path),
         )
     except Exception as exc:
+        _append_validation_issue(
+            repair_targets,
+            artifact="renderer_spec.json",
+            layer="generation",
+            errors=[f"current renderer spec validation failed: {exc}"],
+            recommended_action="Repair schema or field mapping mismatch and rerun compile_deck_blueprint.py.",
+            forbidden_action="Do not patch renderer_spec.json manually.",
+        )
         return [f"current renderer spec validation failed: {exc}"], warnings
+
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not result_errors,
+            "errors": result_errors,
+            "repair_target_layer": "generation",
+            "repair_target_artifact": "renderer_spec.json",
+        },
+        default_layer="generation",
+        default_artifact="renderer_spec.json",
+    )
     if result_errors:
         errors.append("current renderer spec validation failed")
         errors.extend(str(item) for item in result_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="renderer_spec.json",
+            layer="generation",
+            errors=[str(item) for item in result_errors],
+            recommended_action="Fix template-bound field mapping and rerun compile_deck_blueprint.py.",
+        )
     warnings.extend(str(item) for item in result_warnings)
     return errors, warnings
 
 
-def validate_replacement_dict_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_replacement_dict_artifact(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     replacement_path = run_dir / "replacement_dict.json"
     renderer_spec_path = run_dir / "renderer_spec.json"
     ppt_mapping_path = REPO_ROOT / "templates/ppt_mapping.json"
@@ -579,18 +1046,56 @@ def validate_replacement_dict_artifact(run_dir: Path) -> tuple[list[str], list[s
     warnings: list[str] = []
     if not replacement_path.exists():
         errors.append("missing replacement_dict.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="replacement_dict.json",
+            layer="generation",
+            errors=["missing replacement_dict.json"],
+            recommended_action="Regenerate replacement_dict.json from successful pipeline render.",
+            forbidden_action="Do not generate final PPT without replacement_dict.json.",
+        )
         return errors, warnings
     if not artifact_path.exists():
         errors.append("missing replacement_dict_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/replacement_dict_validation.json",
+            layer="generation",
+            errors=["missing replacement_dict_validation.json"],
+            recommended_action="Run validate_replacement_dict.py and persist artifact.",
+        )
     else:
         try:
             artifact = load_json_file(artifact_path)
         except Exception as exc:
             errors.append(f"cannot read replacement_dict_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/replacement_dict_validation.json",
+                layer="generation",
+                errors=[f"cannot read replacement_dict_validation.json: {exc}"],
+                recommended_action="Re-run replacement-dict validation after path normalization.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                artifact,
+                default_layer="generation",
+                default_artifact="artifacts/replacement_dict_validation.json",
+            )
             if artifact.get("is_valid") is False:
                 errors.append("replacement_dict_validation.json is_valid=false")
             warnings.extend(str(item) for item in artifact.get("warnings", []))
+    if not renderer_spec_path.exists():
+        errors.append("missing renderer_spec.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="renderer_spec.json",
+            layer="generation",
+            errors=["missing renderer_spec.json"],
+            recommended_action="Compile renderer spec before validating replacement mapping.",
+        )
+        return errors, warnings
     try:
         result_errors, result_warnings = validate_replacement_dict_data(
             load_json_file(replacement_path),
@@ -601,50 +1106,167 @@ def validate_replacement_dict_artifact(run_dir: Path) -> tuple[list[str], list[s
         )
     except Exception as exc:
         errors.append(f"current replacement dict validation failed: {exc}")
+        _append_validation_issue(
+            repair_targets,
+            artifact="replacement_dict.json",
+            layer="generation",
+            errors=[f"current replacement dict validation failed: {exc}"],
+            recommended_action="Fix replacement_dict schema or ensure renderer_spec keys align.",
+        )
         return errors, warnings
+    _append_repair_targets(
+        repair_targets,
+        {
+            "is_valid": not result_errors,
+            "errors": result_errors,
+            "repair_target_layer": "generation",
+            "repair_target_artifact": "replacement_dict.json",
+        },
+        default_layer="generation",
+        default_artifact="replacement_dict.json",
+    )
     if result_errors:
         errors.append("current replacement dict validation failed")
         errors.extend(str(item) for item in result_errors)
+        _append_validation_issue(
+            repair_targets,
+            artifact="replacement_dict.json",
+            layer="generation",
+            errors=[str(item) for item in result_errors],
+            recommended_action="Regenerate replacement_dict after fixing renderer spec content and mapping.",
+        )
     warnings.extend(str(item) for item in result_warnings)
     return errors, warnings
 
 
-def validate_research_pack_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_research_pack_artifact(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+    source_registry: Optional[Path] = None,
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     db_path = run_dir / "artifacts/research_evidence_db.json"
     db_validation_path = run_dir / "artifacts/research_evidence_db_validation.json"
     if not db_path.exists():
         errors.append("missing artifacts/research_evidence_db.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/research_evidence_db.json",
+            layer="knowledge",
+            errors=["missing artifacts/research_evidence_db.json"],
+            recommended_action="Build research evidence db from reviewed research attempts.",
+        )
     else:
         try:
             db_errors, db_warnings, _ = validate_research_evidence_db_data(load_json_file(db_path))
         except Exception as exc:
             errors.append(f"cannot validate research_evidence_db.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/research_evidence_db.json",
+                layer="knowledge",
+                errors=[f"cannot validate research_evidence_db.json: {exc}"],
+                recommended_action="Repair malformed research evidence DB and rerun validation.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                {
+                    "is_valid": not db_errors,
+                    "errors": db_errors,
+                    "repair_target_layer": "knowledge",
+                    "repair_target_artifact": "artifacts/research_evidence_db.json",
+                },
+                default_layer="knowledge",
+                default_artifact="artifacts/research_evidence_db.json",
+            )
             if db_errors:
                 errors.append("current research evidence db validation failed")
                 errors.extend(str(item) for item in db_errors)
+                _append_validation_issue(
+                    repair_targets,
+                    artifact="artifacts/research_evidence_db.json",
+                    layer="knowledge",
+                    errors=[str(item) for item in db_errors],
+                    recommended_action="Repair DB rows to include full evidence and metric context.",
+                    forbidden_action="Do not promote unreviewed evidence into research pack or later layers.",
+                )
             warnings.extend(str(item) for item in db_warnings)
     if db_validation_path.exists():
         try:
             db_artifact = load_json_file(db_validation_path)
         except Exception as exc:
             errors.append(f"cannot read research_evidence_db_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/research_evidence_db_validation.json",
+                layer="knowledge",
+                errors=[f"cannot read research_evidence_db_validation.json: {exc}"],
+                recommended_action="Re-run research evidence DB validation.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                db_artifact,
+                default_layer="knowledge",
+                default_artifact="artifacts/research_evidence_db_validation.json",
+            )
             if db_artifact.get("is_valid") is False:
                 errors.append("research_evidence_db_validation.json is_valid=false")
+                _append_validation_issue(
+                    repair_targets,
+                    artifact="artifacts/research_evidence_db_validation.json",
+                    layer="knowledge",
+                    errors=["research_evidence_db_validation.json is_valid=false"],
+                    recommended_action="Fix research evidence DB and rerun validation before final delivery.",
+                )
     else:
         errors.append("missing research_evidence_db_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/research_evidence_db_validation.json",
+            layer="knowledge",
+            errors=["missing research_evidence_db_validation.json"],
+            recommended_action="Run validate_research_evidence_db.py and persist output.",
+        )
 
     memo_path = run_dir / "industry_research_pack.md"
     if not memo_path.exists():
         return ["missing industry_research_pack.md"], warnings
-
-    result = validate_research_pack_data(memo_path, run_dir)
+    try:
+        result = validate_research_pack_data(
+            memo_path,
+            run_dir,
+            source_registry_path=source_registry,
+        )
+    except Exception as exc:
+        errors.append(f"current research pack validation failed: {exc}")
+        _append_validation_issue(
+            repair_targets,
+            artifact="industry_research_pack.md",
+            layer="knowledge",
+            errors=[f"current research pack validation failed: {exc}"],
+            recommended_action="Fix research pack format and rerun validate_research_pack.py.",
+        )
+        return errors, warnings
+    _append_repair_targets(
+        repair_targets,
+        result,
+        default_layer="knowledge",
+        default_artifact="industry_research_pack.md",
+    )
     if result.get("is_valid") is False:
         errors.append("current research pack validation failed")
         errors.extend(str(item) for item in result.get("errors", []))
+        _append_validation_issue(
+            repair_targets,
+            artifact="industry_research_pack.md",
+            layer="knowledge",
+            errors=[str(item) for item in result.get("errors", [])],
+            recommended_action="Repair evidence ledger gaps and rerun research pack validation.",
+            forbidden_action="Do not run issue analysis with unresolved critical research-pack gaps.",
+        )
     warnings.extend(str(item) for item in result.get("warnings", []))
 
     artifact_path = run_dir / "artifacts/research_pack_validation.json"
@@ -653,15 +1275,45 @@ def validate_research_pack_artifact(run_dir: Path) -> tuple[list[str], list[str]
             artifact = load_json_file(artifact_path)
         except Exception as exc:
             errors.append(f"cannot read research_pack_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/research_pack_validation.json",
+                layer="knowledge",
+                errors=[f"cannot read research_pack_validation.json: {exc}"],
+                recommended_action="Re-run validate_research_pack.py.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                artifact,
+                default_layer="knowledge",
+                default_artifact="artifacts/research_pack_validation.json",
+            )
             if artifact.get("is_valid") is False:
                 errors.append("research_pack_validation.json is_valid=false")
+                _append_validation_issue(
+                    repair_targets,
+                    artifact="artifacts/research_pack_validation.json",
+                    layer="knowledge",
+                    errors=["research_pack_validation.json is_valid=false"],
+                    recommended_action="Fix research_pack.md content and rerun validator.",
+                )
     else:
         errors.append("missing research_pack_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/research_pack_validation.json",
+            layer="knowledge",
+            errors=["missing research_pack_validation.json"],
+            recommended_action="Run validate_research_pack.py and persist output.",
+        )
     return errors, warnings
 
 
-def validate_source_reviews_artifact(run_dir: Path) -> tuple[list[str], list[str]]:
+def validate_source_reviews_artifact(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     source_reviews_path = run_dir / "artifacts/source_reviews.json"
@@ -674,9 +1326,23 @@ def validate_source_reviews_artifact(run_dir: Path) -> tuple[list[str], list[str
         source_archive_index_path=source_archive_index_path,
         run_dir=run_dir,
     )
+    _append_repair_targets(
+        repair_targets,
+        result,
+        default_layer="knowledge",
+        default_artifact="artifacts/source_reviews.json",
+    )
     if result.get("is_valid") is False:
         errors.append("current source review validation failed")
         errors.extend(str(item) for item in result.get("errors", []))
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/source_reviews.json",
+            layer="knowledge",
+            errors=[str(item) for item in result.get("errors", [])],
+            recommended_action="Repair reviewed source rows and rerun source review validation.",
+            forbidden_action="Do not use unreviewed sources for research pack or issue analysis.",
+        )
     warnings.extend(str(item) for item in result.get("warnings", []))
 
     artifact_path = run_dir / "artifacts/source_reviews_validation.json"
@@ -685,22 +1351,69 @@ def validate_source_reviews_artifact(run_dir: Path) -> tuple[list[str], list[str
             artifact = load_json_file(artifact_path)
         except Exception as exc:
             errors.append(f"cannot read source_reviews_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/source_reviews_validation.json",
+                layer="knowledge",
+                errors=[f"cannot read source_reviews_validation.json: {exc}"],
+                recommended_action="Re-run source review validation with valid source_reviews.json.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                artifact,
+                default_layer="knowledge",
+                default_artifact="artifacts/source_reviews_validation.json",
+            )
             if artifact.get("is_valid") is False:
                 errors.append("source_reviews_validation.json is_valid=false")
     else:
         errors.append("missing source_reviews_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/source_reviews_validation.json",
+            layer="knowledge",
+            errors=["missing source_reviews_validation.json"],
+            recommended_action="Run validate_source_reviews.py and persist validation artifact.",
+        )
     archive_artifact_path = run_dir / "artifacts/source_archive_validation.json"
     if archive_artifact_path.exists():
         try:
             archive_artifact = load_json_file(archive_artifact_path)
         except Exception as exc:
             errors.append(f"cannot read source_archive_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/source_archive_validation.json",
+                layer="knowledge",
+                errors=[f"cannot read source_archive_validation.json: {exc}"],
+                recommended_action="Run source archive validator after fixing source archive index.",
+            )
         else:
+            _append_repair_targets(
+                repair_targets,
+                archive_artifact,
+                default_layer="knowledge",
+                default_artifact="artifacts/source_archive_validation.json",
+            )
             if archive_artifact.get("is_valid") is False:
                 errors.append("source_archive_validation.json is_valid=false")
+                _append_validation_issue(
+                    repair_targets,
+                    artifact="artifacts/source_archive_validation.json",
+                    layer="knowledge",
+                    errors=["source_archive_validation.json is_valid=false"],
+                    recommended_action="Fix source_archive index and rerun source archive validation.",
+                )
     else:
         errors.append("missing source_archive_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/source_archive_validation.json",
+            layer="knowledge",
+            errors=["missing source_archive_validation.json"],
+            recommended_action="Generate and validate source archive index before final delivery.",
+        )
     return errors, warnings
 
 
@@ -709,6 +1422,7 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
     warnings: list[str] = []
     technical_delivery_valid = True
     research_evidence_valid = True
+    repair_targets: list[dict[str, Any]] = []
 
     if (run_dir / "DEBUG_OUTPUT_ONLY.txt").exists():
         errors.append(
@@ -757,28 +1471,45 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
             warnings.extend(input_result["warnings"])
 
     content_errors, content_warnings = validate_content_quality_artifact(
-        run_dir / "artifacts/content_quality_validation.json"
+        run_dir / "artifacts/content_quality_validation.json",
+        repair_targets,
     )
     errors.extend(content_errors)
     warnings.extend(content_warnings)
 
-    scope_errors, scope_warnings = validate_industry_scope_pack_artifact(run_dir)
+    scope_errors, scope_warnings = validate_industry_scope_pack_artifact(
+        run_dir,
+        repair_targets,
+    )
     errors.extend(scope_errors)
     warnings.extend(scope_warnings)
 
-    plan_errors, plan_warnings = validate_formal_search_plan_artifact(run_dir)
+    plan_errors, plan_warnings = validate_formal_search_plan_artifact(
+        run_dir,
+        repair_targets,
+    )
     errors.extend(plan_errors)
     warnings.extend(plan_warnings)
 
-    research_errors, research_warnings = validate_formal_research_execution_artifact(run_dir)
+    research_errors, research_warnings = validate_formal_research_execution_artifact(
+        run_dir,
+        repair_targets,
+    )
     errors.extend(research_errors)
     warnings.extend(research_warnings)
 
-    source_review_errors, source_review_warnings = validate_source_reviews_artifact(run_dir)
+    source_review_errors, source_review_warnings = validate_source_reviews_artifact(
+        run_dir,
+        repair_targets,
+    )
     errors.extend(source_review_errors)
     warnings.extend(source_review_warnings)
 
-    memo_errors, memo_warnings = validate_research_pack_artifact(run_dir)
+    memo_errors, memo_warnings = validate_research_pack_artifact(
+        run_dir,
+        repair_targets,
+        source_registry=source_registry,
+    )
     errors.extend(memo_errors)
     warnings.extend(memo_warnings)
 
@@ -800,21 +1531,28 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
         errors.extend(str(item) for item in current_stage_gate.get("errors", []))
     warnings.extend(str(item) for item in current_stage_gate.get("warnings", []))
 
-    issue_errors, issue_warnings = validate_issue_artifacts(run_dir)
+    issue_errors, issue_warnings = validate_issue_artifacts(run_dir, repair_targets)
     errors.extend(issue_errors)
     warnings.extend(issue_warnings)
 
-    renderer_spec_errors, renderer_spec_warnings = validate_renderer_spec_artifact(run_dir)
+    renderer_spec_errors, renderer_spec_warnings = validate_renderer_spec_artifact(
+        run_dir,
+        repair_targets,
+    )
     errors.extend(renderer_spec_errors)
     warnings.extend(renderer_spec_warnings)
 
-    replacement_errors, replacement_warnings = validate_replacement_dict_artifact(run_dir)
+    replacement_errors, replacement_warnings = validate_replacement_dict_artifact(
+        run_dir,
+        repair_targets,
+    )
     errors.extend(replacement_errors)
     warnings.extend(replacement_warnings)
 
     current_content_errors, current_content_warnings = validate_current_content_quality(
         run_dir,
         REPO_ROOT / "templates/content_quality_rules.json",
+        repair_targets,
     )
     errors.extend(current_content_errors)
     warnings.extend(current_content_warnings)
@@ -891,6 +1629,7 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
         "warnings": warnings,
         "run_dir": str(run_dir),
         "source_registry": str(source_registry) if source_registry else "",
+        "repair_targets": unique_repair_targets(repair_targets),
     }
 
 

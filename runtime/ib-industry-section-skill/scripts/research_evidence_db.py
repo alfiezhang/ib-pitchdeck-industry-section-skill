@@ -13,6 +13,7 @@ from typing import Any
 
 from issue_taxonomy import ISSUE_TOPICS_BY_AREA
 from json_utils import load_json_file
+from source_classification import CANONICAL_SOURCE_TYPES, is_material_type, normalize_source_type
 
 
 EV_RE = re.compile(r"^EV-\d{3}$")
@@ -149,9 +150,14 @@ def build_db(
             {
                 "source_review_id": src_id,
                 "source_name": review_title(item),
-                "source_type": text(item.get("source_type")),
+                "source_type": normalize_source_type(item.get("source_type")),
+                "source_access": text(item.get("source_access") or ("user_provided" if is_material_type(normalize_source_type(item.get("source_type"))) else "public_search")),
+                "source_access_path": text(item.get("source_access_path") or item.get("source_path")),
                 "source_date": text(item.get("source_date")),
                 "geography": text(item.get("geography")),
+                "fact_type": text(item.get("fact_type")),
+                "confidence": text(item.get("confidence")),
+                "scope": text(item.get("scope")),
                 "source_reliability": text(item.get("reliability") or item.get("source_reliability")),
                 "evidence_use_tier": text(item.get("evidence_use_tier")),
                 "claim_use_scope": text(item.get("claim_use_scope")),
@@ -369,9 +375,23 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         if src_id in source_ids:
             errors.append(f"source_materials[{idx}]: duplicate source_review_id {src_id}")
         source_ids.add(src_id)
-        for field in ("source_url", "source_locator", "reviewed_excerpt"):
+        source_type = text(source.get("source_type"))
+        normalized_source_type = normalize_source_type(source_type)
+        if not source_type:
+            errors.append(f"{src_id}: source_materials.source_type is required")
+        elif normalized_source_type not in CANONICAL_SOURCE_TYPES:
+            warnings.append(
+                f"{src_id}: source_type '{source_type}' normalized to 'other'; use one of {sorted(CANONICAL_SOURCE_TYPES)} if possible"
+            )
+        if text(source.get("source_access")) not in {"", "user_provided", "public_search", "repository_retrieval"}:
+            warnings.append(f"{src_id}: source_materials.source_access should be one of user_provided/public_search/repository_retrieval")
+        for field in ("source_url", "source_locator", "reviewed_excerpt", "source_name"):
             if not text(source.get(field)):
                 warnings.append(f"{src_id}: source_materials.{field} is empty")
+        if is_material_type(source_type) and not source.get("source_access_path") and source_type not in {"", "other"} and text(source.get("source_url", "")).lower() in {"", "user-provided"}:
+            warnings.append(
+                f"{src_id}: source_materials.source_access_path missing for material source; add file path / URL / locator source path"
+            )
 
     formal_result_by_id: dict[str, dict[str, Any]] = {}
     ev_to_result: dict[str, dict[str, Any]] = {}
@@ -447,6 +467,14 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         if ev_id in ev_ids:
             errors.append(f"{ev_id}: duplicate evidence_id")
         ev_ids.add(ev_id)
+        source_type = text(row.get("source_type"))
+        normalized_source_type = normalize_source_type(source_type)
+        if not source_type:
+            errors.append(f"{ev_id}: source_type is required")
+        elif normalized_source_type not in CANONICAL_SOURCE_TYPES:
+            warnings.append(
+                f"{ev_id}: source_type '{source_type}' normalized to 'other'; use one of {sorted(CANONICAL_SOURCE_TYPES)} if possible"
+            )
         for field in ("claim_or_metric", "claim_scope", "source_name", "source_url", "source_type", "evidence_status", "source_locator", "raw_excerpt", "reliability", "confidence"):
             if not text(row.get(field)):
                 errors.append(f"{ev_id}: {field} is required")

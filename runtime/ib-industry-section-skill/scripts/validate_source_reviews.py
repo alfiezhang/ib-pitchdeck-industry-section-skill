@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from json_utils import load_json_file
+from source_classification import CANONICAL_SOURCE_TYPES, is_material_type, normalize_source_type
 from validate_research_pack import evidence_ledger_rows
 from validate_formal_research_execution import parse_search_attempts
 from validate_source_archive import validate as validate_source_archive
@@ -92,8 +93,14 @@ def _is_root_url(url: str) -> bool:
     return bool(parsed.netloc) and path in {"", "/"} and not parsed.query and not parsed.fragment
 
 
-def _is_user_source_url(value: str) -> bool:
+def _is_user_source(value: str, source_type: str | None = None) -> bool:
+    if source_type and is_material_type(source_type):
+        return True
     return value.strip().lower() in USER_SOURCE_VALUES
+
+
+def _is_user_source_row(review: dict[str, Any]) -> bool:
+    return _is_user_source(_text(review.get("url")), _text(review.get("source_type")))
 
 
 def _load_reviews(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
@@ -231,9 +238,16 @@ def _validate_review_fields(review: dict[str, Any], idx: int, errors: list[str],
         errors.append(f"{prefix}: source_review_id must follow SRC-001 format")
 
     url = _text(review.get("url"))
+    source_type = _text(review.get("source_type"))
+    normalized_source_type = normalize_source_type(source_type)
+    if not source_type:
+        errors.append(f"{prefix}: source_type is required")
+    elif normalized_source_type not in CANONICAL_SOURCE_TYPES:
+        warnings.append(f"{prefix}: source_type '{source_type}' normalized to 'other'; use one of {sorted(CANONICAL_SOURCE_TYPES)} if possible")
+
     if not url:
         errors.append(f"{prefix}: url is required")
-    elif not _is_user_source_url(url):
+    elif not _is_user_source(url, normalized_source_type):
         if not _is_full_url(url):
             errors.append(f"{prefix}: url must be a full http(s) URL or user-provided")
         elif _is_root_url(url) and _review_is_usable(review):
@@ -293,7 +307,7 @@ def _validate_review_fields(review: dict[str, Any], idx: int, errors: list[str],
             )
 
     attempt_ids = [_text(item) for item in _as_list(review.get("search_attempt_ids")) if _text(item)]
-    if not attempt_ids and not _is_user_source_url(url):
+    if not attempt_ids and not _is_user_source(url, normalized_source_type):
         warnings.append(f"{prefix}: no search_attempt_ids; source may not be traceable to search_log.md")
 
 
@@ -326,7 +340,7 @@ def validate(
     non_user_reviews = [
         review
         for review in reviews
-        if not _is_user_source_url(_text(review.get("url")))
+        if not _is_user_source_row(review)
     ]
     missing_usable = [
         idx
@@ -465,7 +479,7 @@ def validate(
             ev_id = _text(row.get("Evidence ID"))
             source_url = _text(row.get("Source URL"))
             evidence_status = _text(row.get("Evidence Status")).lower()
-            if not ev_id or _is_user_source_url(source_url) or evidence_status == "lead-only":
+            if not ev_id or _is_user_source(source_url) or evidence_status == "lead-only":
                 continue
             if not _is_full_url(source_url):
                 errors.append(f"{ev_id}: Evidence Ledger Source URL must be full URL or user-provided: {source_url}")

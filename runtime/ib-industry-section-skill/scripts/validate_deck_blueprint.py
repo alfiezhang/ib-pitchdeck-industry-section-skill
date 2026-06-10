@@ -70,6 +70,66 @@ CONCLUSION_MARKERS = (
     "captures",
 )
 
+VALID_EVIDENCE_ROLES = {
+    "thesis_anchor",
+    "supporting_evidence",
+    "context_setting",
+    "caveat_only",
+    "open_question",
+}
+
+
+def _append_repair_target(
+    targets: list[dict[str, Any]],
+    *,
+    repair_fields: list[str],
+    repair_hint: str,
+    slide_no: int,
+    error_text: str,
+    active_fields: list[str] | None = None,
+) -> None:
+    target = {
+        "slide_no": slide_no,
+        "repair_target": "deck_blueprint.json",
+        "repair_fields": repair_fields,
+        "error_text": error_text,
+        "repair_hint": repair_hint,
+    }
+    if active_fields is not None:
+        target["active_fields"] = active_fields
+    if not any(
+        existing.get("slide_no") == slide_no
+        and existing.get("repair_fields") == repair_fields
+        for existing in targets
+    ):
+        targets.append(target)
+
+
+def _build_error_repair_plan(errors: list[str], repair_targets: list[dict[str, Any]]) -> dict[str, Any]:
+    if not errors and not repair_targets:
+        return {
+            "status": "no_error_repairs_required",
+            "targets": [],
+            "instruction": "No deck-blueprint hard failures were found for structured repair planning.",
+        }
+    if not repair_targets:
+        return {
+            "status": "repair_target_not_mapped",
+            "targets": [],
+            "instruction": (
+                "Validation produced errors. Re-run with full context and map the blocking fields manually, "
+                "usually in deck_blueprint.json at the listed error line.")
+            ,
+        }
+    return {
+        "status": "mandatory_repair_required",
+        "targets": repair_targets,
+        "instruction": (
+            "Use the mapped repair targets first. After edits rerun scripts/validate_deck_blueprint.py, "
+            "scripts/compile_deck_blueprint.py, and scripts/validate_renderer_spec.py."
+        ),
+    }
+
 
 def _usage(analysis: dict[str, Any]) -> dict[str, Any]:
     usage = analysis.get("downstream_permission")
@@ -272,9 +332,10 @@ def validate(
     deck_blueprint: dict[str, Any],
     issue_analysis: dict[str, Any],
     template_registry: dict[str, Any],
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], list[dict[str, Any]]]:
     errors: list[str] = []
     warnings: list[str] = []
+    error_repair_targets: list[dict[str, Any]] = []
     if deck_blueprint.get("schema_version") != "deck_blueprint_v1":
         errors.append("schema_version must be deck_blueprint_v1")
     if not non_empty_text(deck_blueprint.get("deck_storyline")):
@@ -286,7 +347,7 @@ def validate(
     variants_by_slide = template_variants_by_slide(template_registry)
     slides = deck_blueprint.get("slides") if isinstance(deck_blueprint, dict) else None
     if not isinstance(slides, list):
-        return errors + ["slides must be an array"], warnings
+        return errors + ["slides must be an array"], warnings, []
     if len(slides) != 8:
         errors.append(f"slides must contain exactly 8 entries; found {len(slides)}")
 
@@ -308,12 +369,46 @@ def validate(
         if role != expected_role:
             errors.append(f"{prefix}: fixed_page_role must be '{expected_role}', found '{role}'")
 
-        for field in ("investor_question", "page_thesis", "headline", "main_message", "selected_page_type"):
+        for field in (
+            "investor_question",
+            "page_thesis",
+            "page_argument",
+            "visual_intent",
+            "evidence_role",
+            "headline",
+            "main_message",
+            "selected_page_type",
+        ):
             if not non_empty_text(slide.get(field)):
                 errors.append(f"{prefix}: {field} is required")
+                _append_repair_target(
+                    error_repair_targets,
+                    repair_fields=[f"slides[{slide_no}].{field}"],
+                    repair_hint=f"Complete {field} so the page argument and evidence role are explicit and usable for generation.",
+                    slide_no=int(slide_no),
+                    error_text=f"{prefix}: {field} is required",
+                )
+        evidence_role = str(slide.get("evidence_role") or "").strip()
+        if evidence_role and evidence_role not in VALID_EVIDENCE_ROLES:
+            errors.append(f"{prefix}: evidence_role '{evidence_role}' is invalid. Use one of: {', '.join(sorted(VALID_EVIDENCE_ROLES))}")
+            _append_repair_target(
+                error_repair_targets,
+                repair_fields=[f"slides[{slide_no}].evidence_role"],
+                repair_hint="Set evidence_role to one of: thesis_anchor, supporting_evidence, context_setting, caveat_only, open_question.",
+                slide_no=int(slide_no),
+                error_text=f"{prefix}: evidence_role '{evidence_role}' is invalid",
+            )
+
         claim_strength = str(slide.get("claim_strength") or "").strip()
         if claim_strength not in VALID_CLAIM_STRENGTHS:
             errors.append(f"{prefix}: claim_strength must be one of {sorted(VALID_CLAIM_STRENGTHS)}")
+
+        if (
+            non_empty_text(slide.get("evidence_role"))
+            and str(slide.get("evidence_role")) == "open_question"
+            and claim_strength not in {"open_question", "hypothesis"}
+        ):
+            warnings.append(f"{prefix}: open_question evidence_role should align with open_question/hypothesis claim_strength")
 
         issue_ids = selected_issue_analysis_ids(slide)
         if not issue_ids:
@@ -328,17 +423,37 @@ def validate(
         page_type = str(slide.get("selected_page_type") or "").strip()
         slide_variants = variants_by_slide.get(slide_no, {})
         variant = slide_variants.get(page_type)
+        required_fields = _required_body_fields_for_variant(variant, page_type, slide)
         if not variant:
             errors.append(
                 f"{prefix}: selected_page_type '{page_type}' is not registered for this slide. "
                 f"{_registered_page_types_hint(slide_no, slide_variants)}"
+            )
+            _append_repair_target(
+                error_repair_targets,
+                repair_fields=[f"slides[{slide_no}].selected_page_type"],
+                repair_hint=(
+                    f"Choose one of the formal-allowed page types for slide {slide_no}: {', '.join(sorted(slide_variants)) or 'none available'}. "
+                    f"Then rerun validation. {_registered_page_types_hint(slide_no, slide_variants)}"
+                ),
+                slide_no=int(slide_no),
+                error_text=f"{prefix}: selected_page_type '{page_type}' is not registered for this slide",
+                active_fields=required_fields,
             )
         elif variant.get("formal_allowed") is not True:
             errors.append(
                 f"{prefix}: selected_page_type '{page_type}' is not formal_allowed. "
                 f"{_registered_page_types_hint(slide_no, slide_variants)}"
             )
-        required_fields = _required_body_fields_for_variant(variant, page_type, slide)
+            _append_repair_target(
+                error_repair_targets,
+                repair_fields=[f"slides[{slide_no}].selected_page_type"],
+                repair_hint="Use a formal_allowed page type for all formal runs. Compare against template registry output."
+                ,
+                slide_no=int(slide_no),
+                error_text=f"{prefix}: selected_page_type '{page_type}' is not formal_allowed",
+                active_fields=required_fields,
+            )
         targeted_fields: dict[str, int] = {}
         for block_idx, block in enumerate(_body_blocks(slide), start=1):
             target = _block_target_field(block)
@@ -349,10 +464,29 @@ def validate(
                     f"{prefix}: body_blocks[{block_idx}] target_field '{target}' is not active for selected_page_type '{page_type}'. "
                     f"{_active_fields_hint(slide_no, page_type, required_fields)}"
                 )
+                _append_repair_target(
+                    error_repair_targets,
+                    repair_fields=[f"slides[{slide_no}].body_blocks[{block_idx}].target_field"],
+                    repair_hint=(
+                        "Use one of the active body fields shown in the validator message, or remove target_field and "
+                        "let compiler map by role."
+                    ),
+                    slide_no=int(slide_no),
+                    error_text=f"{prefix}: body_blocks[{block_idx}] target_field '{target}' is not active",
+                    active_fields=required_fields,
+                )
             elif target in targeted_fields:
                 errors.append(
                     f"{prefix}: body_blocks[{block_idx}] duplicates target_field '{target}' already used by body_blocks[{targeted_fields[target]}]. "
                     f"{_active_fields_hint(slide_no, page_type, required_fields)}"
+                )
+                _append_repair_target(
+                    error_repair_targets,
+                    repair_fields=[f"slides[{slide_no}].body_blocks[{block_idx}].target_field", f"slides[{slide_no}].body_blocks[{targeted_fields[target]}].target_field"],
+                    repair_hint="Use unique target_field values so each active template field receives at most one block.",
+                    slide_no=int(slide_no),
+                    error_text=f"{prefix}: body_blocks[{block_idx}] duplicates target_field '{target}'",
+                    active_fields=required_fields,
                 )
             else:
                 targeted_fields[target] = block_idx
@@ -438,7 +572,7 @@ def validate(
     normalized = normalize_deck_blueprint_for_page_plan(deck_blueprint)
     if len(normalized.get("slides") or []) != len(slides):
         errors.append("deck_blueprint cannot be normalized into a page plan")
-    return errors, warnings
+    return errors, warnings, error_repair_targets
 
 
 def main() -> int:
@@ -453,7 +587,7 @@ def main() -> int:
         deck_blueprint_path = Path(args.deck_blueprint)
         issue_analysis_path = Path(args.issue_analysis)
         template_registry_path = Path(args.template_registry)
-        errors, warnings = validate(
+        errors, warnings, repair_targets = validate(
             load_json_file(deck_blueprint_path),
             load_json_file(issue_analysis_path),
             load_json_file(template_registry_path),
@@ -467,7 +601,7 @@ def main() -> int:
             )
         )
     except Exception as exc:
-        errors, warnings = [str(exc)], []
+        errors, warnings, repair_targets = [str(exc)], [], []
 
     result = {
         "is_valid": not errors,
@@ -478,6 +612,7 @@ def main() -> int:
         "warning_count": len(warnings),
         "errors": errors,
         "warnings": warnings,
+        "repair_plan": _build_error_repair_plan(errors, repair_targets),
         "warning_repair_plan": build_warning_repair_plan(warnings),
     }
     text = json.dumps(result, ensure_ascii=False, indent=2)

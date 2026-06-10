@@ -50,6 +50,93 @@ def _analysis_evidence_ids(analysis: dict[str, Any]) -> set[str]:
     return values
 
 
+VALID_EVIDENCE_STATUS = {
+    "supported",
+    "thin",
+    "insufficient",
+    "not_applicable",
+    "unavailable_after_research",
+    "not_researched",
+    "caveat_only",
+}
+
+
+def _analysis_evidence_status(analysis: dict[str, Any]) -> str:
+    raw_status = str(analysis.get("evidence_status") or "").strip()
+    if raw_status in VALID_EVIDENCE_STATUS:
+        return raw_status
+
+    raw_evidence = str(analysis.get("evidence_sufficiency") or "").strip()
+    if raw_evidence == "sufficient":
+        return "supported"
+    if raw_evidence in VALID_EVIDENCE_STATUS:
+        return raw_evidence
+    if str(analysis.get("status") or "").strip() == "rejected":
+        return "not_researched"
+    if not raw_status and not raw_evidence:
+        return "not_researched"
+    return raw_evidence if raw_evidence else "not_researched"
+
+
+def _analysis_downstream_permission(analysis: dict[str, Any]) -> dict[str, bool]:
+    allowed = analysis.get("allowed_deck_usage")
+    if isinstance(allowed, dict):
+        return {
+            "headline_allowed": bool(allowed.get("headline") is True),
+            "main_message_allowed": bool(allowed.get("main_message") is True),
+            "chart_allowed": bool(allowed.get("chart") is True),
+            "body_copy_allowed": bool(allowed.get("body_copy") is True),
+        }
+    usage = _usage(analysis)
+    return {
+        "headline_allowed": bool(usage.get("headline_allowed") is True),
+        "main_message_allowed": bool(usage.get("headline_allowed") is True),
+        "chart_allowed": bool(usage.get("chart_allowed") is True),
+        "body_copy_allowed": bool(usage.get("body_copy_allowed") is True),
+    }
+
+
+EVIDENCE_STATUS_RANK = {
+    "supported": 0,
+    "thin": 1,
+    "caveat_only": 2,
+    "insufficient": 3,
+    "unavailable_after_research": 4,
+    "not_researched": 5,
+}
+
+
+def _aggregate_evidence_status(analysis_ids: list[str], analyses_by_id: dict[str, dict[str, Any]]) -> str:
+    if not analysis_ids:
+        return "insufficient"
+    statuses = [_analysis_evidence_status(analyses_by_id.get(analysis_id) or {}) for analysis_id in analysis_ids if analysis_id]
+    if not statuses:
+        return "insufficient"
+    unique = {status for status in statuses if status}
+    if not unique:
+        return "insufficient"
+    if unique == {"not_applicable"}:
+        return "not_applicable"
+    usable = [status for status in unique if status != "not_applicable"]
+    if not usable:
+        return "not_applicable"
+    return max(usable, key=lambda item: EVIDENCE_STATUS_RANK.get(item, -1))
+
+
+def _union_permission(perms: list[dict[str, bool]]) -> dict[str, bool]:
+    union: dict[str, bool] = {
+        "headline_allowed": False,
+        "main_message_allowed": False,
+        "chart_allowed": False,
+        "body_copy_allowed": False,
+    }
+    for perm in perms:
+        for key in union:
+            if perm.get(key) is True:
+                union[key] = True
+    return union
+
+
 def _unique(items: list[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
@@ -157,6 +244,10 @@ def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict
         primary = analyses_by_id.get(primary_id, {})
         visual_plan = strategy_slide.get("visual_plan") if isinstance(strategy_slide.get("visual_plan"), dict) else {}
         capability = str(visual_plan.get("required_capability") or "").strip()
+        issue_ids = _selected_analysis_ids(strategy_slide)
+        issue_permissions = [_analysis_downstream_permission(analyses_by_id.get(analysis_id) or {}) for analysis_id in issue_ids]
+        evidence_status = _aggregate_evidence_status(issue_ids, analyses_by_id)
+        permission_union = _union_permission(issue_permissions)
         metric_ids = _proof_metric_ids(strategy_slide)
         requested_visual_metric_ids = _visual_metric_ids(strategy_slide, metric_ids)
         visual_metric_ids = _permitted_proof_ids(
@@ -184,10 +275,8 @@ def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict
         )
         proof_points = _proof_points(strategy_slide)
         claim_strength = str(strategy_slide.get("claim_strength") or "").strip()
-        headline_allowed = (
-            _usage(primary).get("headline_allowed") is True
-            and (claim_strength not in {"hypothesis", "open_question"} or slide_no == 8)
-        )
+        headline_allowed = permission_union.get("headline_allowed") is True and (claim_strength not in {"hypothesis", "open_question"} or slide_no == 8)
+        main_message_allowed = permission_union.get("main_message_allowed") is True and (claim_strength not in {"hypothesis", "open_question"} or slide_no == 8)
         slides.append(
             {
                 "slide_no": slide_no,
@@ -205,6 +294,18 @@ def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict
                     "downgrade or caveat any claim outside this boundary."
                 ),
                 "headline_allowed": headline_allowed,
+                "main_message_allowed": main_message_allowed,
+                "downstream_permission": permission_union,
+                "evidence_status": evidence_status,
+                "selected_issue_downstream_permissions": [
+                    {
+                        "analysis_id": str(analysis_id),
+                        "evidence_status": _analysis_evidence_status(analyses_by_id.get(analysis_id) or {}),
+                        "downstream_permission": _analysis_downstream_permission(analyses_by_id.get(analysis_id) or {}),
+                    }
+                    for analysis_id in issue_ids
+                    if str(analysis_id).strip()
+                ],
                 "chart_allowed": chart_allowed,
                 "visual_metric_allowed": visual_metric_allowed,
                 "chart_metric_ids": requested_visual_metric_ids if chart_allowed else [],

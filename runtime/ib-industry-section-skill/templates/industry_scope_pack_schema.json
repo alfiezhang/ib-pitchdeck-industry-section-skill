@@ -8,6 +8,7 @@
     "meta",
     "llm_definition_draft",
     "scope_summary",
+    "scope_classification",
     "market_definitions",
     "ambiguous_boundaries",
     "data_hierarchy",
@@ -57,6 +58,31 @@
         "parent_market": { "type": "string" },
         "broader_market": { "type": "string" },
         "adjacent_markets": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "scope_classification": {
+      "type": "object",
+      "required": ["broad", "core", "adjacent", "excluded"],
+      "properties": {
+        "broad": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "core": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "adjacent": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "excluded": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       },
       "additionalProperties": true
     },

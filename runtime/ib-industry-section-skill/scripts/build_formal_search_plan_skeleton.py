@@ -194,6 +194,7 @@ def build_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[s
                                 f"Find formal evidence for {issue_area}/{subissue}; capture facts, metrics, "
                                 "scope, period, source authority, and limitations."
                             ),
+                            "search_stage": "formal_research_execution",
                             "source_hint": SOURCE_HINTS_BY_AREA.get(issue_area, "industry report, company disclosure, official or authoritative source"),
                         }
                     ],
@@ -203,6 +204,7 @@ def build_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[s
     return {
         "schema_version": "formal_search_plan_v1",
         "meta": meta,
+        "plan_mode": "coverage_audit",
         "industry_scope_pack": {
             "artifact_path": "artifacts/industry_scope_pack.json",
             "purpose": (
