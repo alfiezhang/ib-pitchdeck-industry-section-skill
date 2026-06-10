@@ -8,7 +8,7 @@ import platform
 import sys
 from pathlib import Path
 
-from check_runtime_dependencies import OPTIONAL_SEARCH_MODULE_GROUPS, REQUIRED_IMPORTS, import_check
+import check_runtime_dependencies
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -18,22 +18,20 @@ def script_exists(relative_path: str) -> bool:
     return (REPO_ROOT / relative_path).exists()
 
 
-def main() -> None:
+def runtime_diagnostic_payload() -> dict[str, object]:
     python_version = sys.version_info
-    required_checks = {}
+    required_checks: dict[str, object] = {}
     missing_required = []
-    for item in REQUIRED_IMPORTS:
-        result = import_check(item["module"])
+    for item in check_runtime_dependencies.REQUIRED_IMPORTS:
+        result = check_runtime_dependencies.import_check(item["module"])
         required_checks[item["package"]] = result
         if not result["available"]:
             missing_required.append(item["package"])
 
-    search_provider_details = {}
-    search_providers = {}
-    for provider, module_names in OPTIONAL_SEARCH_MODULE_GROUPS.items():
-        checks_for_provider = [import_check(name) for name in module_names]
-        search_provider_details[provider] = checks_for_provider
-        search_providers[provider] = any(item["available"] for item in checks_for_provider)
+    provider_payload = check_runtime_dependencies.get_search_provider_payload()
+    search_provider_details = provider_payload["search_provider_details"]
+    search_providers = provider_payload["search_providers"]
+    paid_search_available = provider_payload["paid_search_available"]
 
     checks = {
         "python": sys.executable,
@@ -42,6 +40,9 @@ def main() -> None:
         "required_imports": required_checks,
         "search_providers": search_providers,
         "search_provider_details": search_provider_details,
+        "manual_source_mode_supported": True,
+        "paid_search_optional": True,
+        "paid_search_available": paid_search_available,
         "is_ready_for_ppt_pipeline": not missing_required,
         "has_fallback_search": any(search_providers.values()),
         "required_entrypoints": {
@@ -73,6 +74,11 @@ def main() -> None:
         and checks["has_fallback_search"]
         and all(checks["required_entrypoints"].values())
     )
+    return checks
+
+
+def main() -> None:
+    checks = runtime_diagnostic_payload()
     print(json.dumps(checks, ensure_ascii=False, indent=2))
     if not checks["is_valid"]:
         raise SystemExit(1)

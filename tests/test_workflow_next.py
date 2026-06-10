@@ -24,9 +24,7 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def test_workflow_next_produces_pack_stage_repair_commands(tmp_path: Path) -> None:
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
+def _seed_research_pack_ready(run_dir: Path) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir()
 
@@ -34,24 +32,91 @@ def test_workflow_next_produces_pack_stage_repair_commands(tmp_path: Path) -> No
     _write_json(artifacts / "input_card_validation.json", {"is_valid": True})
 
     _write_json(artifacts / "industry_scope_pack.json", {"schema_version": "industry_scope_pack_v1", "scope_summary": {"working_market": "sample"}})
-    _write_json(artifacts / "industry_scope_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "industry_scope_pack_validation.json",
+        {"is_valid": True, "errors": [], "warnings": []},
+    )
 
     _write_json(artifacts / "formal_search_plan.json", {"issue_search_plan": []})
-    _write_json(artifacts / "formal_search_plan_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "formal_search_plan_validation.json",
+        {"is_valid": True, "errors": [], "warnings": []},
+    )
 
     _write_json(artifacts / "source_reviews.json", {"schema_version": "source_reviews_v1", "reviews": []})
-    _write_json(artifacts / "source_reviews_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "source_reviews_validation.json",
+        {"is_valid": True, "errors": [], "warnings": []},
+    )
 
     _write_json(artifacts / "source_archive" / "source_archive_index.json", {"schema_version": "source_archive_index_v1", "entries": []})
-    _write_json(artifacts / "source_archive_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "source_archive_validation.json",
+        {"is_valid": True, "errors": [], "warnings": []},
+    )
 
     _write_json(artifacts / "formal_research_execution_report.json", {"issue_results": []})
-    _write_json(artifacts / "formal_research_execution_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "formal_research_execution_validation.json",
+        {"is_valid": True, "errors": [], "warnings": []},
+    )
 
     _write_json(artifacts / "stage_gate_pre_research_pack_validation.json", {"is_valid": True})
 
     _write_json(artifacts / "research_evidence_db.json", json.loads((FIXTURE_DIR / "research_evidence_db.json").read_text(encoding="utf-8")))
-    _write_json(artifacts / "research_evidence_db_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "research_evidence_db_validation.json",
+        {"is_valid": True, "errors": [], "warnings": []},
+    )
+
+
+def _seed_template_layer_artifacts(run_dir: Path) -> None:
+    artifacts = run_dir / "artifacts"
+    _write_json(
+        artifacts / "template_profile.json",
+        {
+            "schema_version": "template_profile_v1",
+            "template_file": str(ROOT / "runtime/ib-industry-section-skill/assets/industry_section_template_master.pptx"),
+            "layout": {},
+            "visual_style": {},
+        },
+    )
+    _write_json(
+        artifacts / "template_fit_validation.json",
+        {
+            "schema_version": "template_fit_v1",
+            "is_valid": True,
+            "errors": [],
+            "warnings": [],
+            "template_profile": str(artifacts / "template_profile.json"),
+            "renderer_spec": str(run_dir / "renderer_spec.json"),
+            "analysis_source": "template_fit.py",
+        },
+    )
+
+
+def test_workflow_next_prefers_template_profile_repair_stage(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    _seed_research_pack_ready(run_dir)
+
+    payload = next_payload(run_dir)
+    assert payload["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED", payload
+    command_text = "\n".join(item["command"] for item in payload["recommended_next_commands"])
+    assert "template_analyzer.py" in command_text
+    assert "pipeline.py validate-pre-ppt" in command_text
+    assert "pipeline.py render" in command_text
+
+
+def test_workflow_next_produces_pack_stage_repair_commands(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    _seed_research_pack_ready(run_dir)
+    _seed_template_layer_artifacts(run_dir)
+    _write_json(
+        run_dir / "renderer_spec.json",
+        {"schema_version": "renderer_spec_v1", "slides": [], "layout_version": "v1"},
+    )
 
     payload = next_payload(run_dir)
     assert payload["current_stage"] == "RESEARCH_PACK_MISSING_OR_FAILED", payload

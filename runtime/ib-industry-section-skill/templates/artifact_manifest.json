@@ -21,6 +21,8 @@
       "description": "Deterministic artifacts generated from authoring artifacts. Do not hand-author these for formal delivery.",
       "artifacts": [
         "source_archive",
+        "template_profile",
+        "template_fit_validation",
         "research_pack",
         "template_registry",
         "page_evidence_contract",
@@ -105,6 +107,18 @@
       "validator": "scripts/validate_source_archive.py",
       "validation": "artifacts/source_archive_validation.json",
       "inputs": ["source_reviews"]
+    },
+    "template_profile": {
+      "path": "artifacts/template_profile.json",
+      "owner": "script",
+      "builder": "scripts/template_analyzer.py",
+      "inputs": []
+    },
+    "template_fit_validation": {
+      "path": "artifacts/template_fit_validation.json",
+      "owner": "script",
+      "builder": "scripts/template_fit.py",
+      "inputs": ["template_profile", "renderer_spec"]
     },
     "pre_research_pack_gate": {
       "path": "artifacts/stage_gate_pre_research_pack_validation.json",
@@ -242,6 +256,8 @@
     { "gate": "research_evidence_db", "artifact": "research_evidence_db" },
     { "gate": "research_pack", "artifact": "research_pack" },
     { "gate": "issue_analysis", "artifact": "issue_analysis" },
+    { "gate": "template_profile", "artifact": "template_profile" },
+    { "gate": "template_fit_validation", "artifact": "template_fit_validation" },
     { "gate": "template_registry", "artifact": "template_registry" },
     { "gate": "deck_blueprint", "artifact": "deck_blueprint" },
     { "gate": "page_evidence_contract", "artifact": "page_evidence_contract" },

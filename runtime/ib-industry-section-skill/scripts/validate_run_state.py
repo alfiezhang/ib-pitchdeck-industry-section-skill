@@ -30,6 +30,8 @@ from gate_names import (
     SOURCE_REVIEWS,
     FORMAL_RESEARCH_EXECUTION,
     TEMPLATE_REGISTRY,
+    TEMPLATE_PROFILE,
+    TEMPLATE_FIT_VALIDATION,
 )
 
 
@@ -54,6 +56,13 @@ def load_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def load_json_for_state(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(f"cannot read JSON: {exc}") from exc
 
 
 def load_artifact_manifest(path: Path = DEFAULT_ARTIFACT_MANIFEST) -> dict[str, Any]:
@@ -147,6 +156,154 @@ def validation_passed(path: Path, *, require_client_ready: bool = False) -> tupl
     return True, "passed"
 
 
+def _template_profile_check(run_dir: Path) -> dict[str, Any] | None:
+    profile_path = run_dir / "artifacts" / "template_profile.json"
+    if not profile_path.exists():
+        return {
+            "stage": "TEMPLATE_PROFILE_MISSING_OR_FAILED",
+            "artifact": "artifacts/template_profile.json",
+            "gate": TEMPLATE_PROFILE,
+            "status": "missing",
+            "allowed": ["run_template_analyzer", "rerun_template_analyzer", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+            "forbidden": ["run_ppt_pipeline", "publish_final"],
+            "missing_artifacts": ["artifacts/template_profile.json"],
+        }
+    try:
+        profile = load_json_for_state(profile_path)
+        if not isinstance(profile, dict):
+            raise ValueError("template_profile.json must be an object")
+    except Exception as exc:
+        return {
+            "stage": "TEMPLATE_PROFILE_MISSING_OR_FAILED",
+            "artifact": "artifacts/template_profile.json",
+            "gate": TEMPLATE_PROFILE,
+            "status": "failed",
+            "failed_validations": [
+                {
+                    "path": "artifacts/template_profile.json",
+                    "status": "unreadable",
+                    "error": str(exc),
+                }
+            ],
+            "allowed": ["run_template_analyzer", "rerun_template_analyzer", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+            "forbidden": ["run_ppt_pipeline", "publish_final"],
+        }
+
+    required_keys = ["schema_version", "template_file", "layout", "visual_style"]
+    if profile.get("schema_version") != "template_profile_v1" or any(key not in profile for key in required_keys):
+        missing = [key for key in required_keys if key not in profile]
+        if profile.get("schema_version") != "template_profile_v1":
+            errors = [f"template_profile.json schema_version must be template_profile_v1 (got {profile.get('schema_version')})"]
+        else:
+            errors = [f"template_profile.json missing required key(s): {', '.join(missing)}"]
+        return {
+            "stage": "TEMPLATE_PROFILE_MISSING_OR_FAILED",
+            "artifact": "artifacts/template_profile.json",
+            "gate": TEMPLATE_PROFILE,
+            "status": "failed",
+            "failed_validations": [
+                {
+                    "path": "artifacts/template_profile.json",
+                    "status": "failed",
+                    "errors": errors,
+                }
+            ],
+            "allowed": ["run_template_analyzer", "rerun_template_analyzer", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+            "forbidden": ["run_ppt_pipeline", "publish_final"],
+        }
+    return None
+
+
+def _template_fit_validation_check(run_dir: Path) -> dict[str, Any] | None:
+    validation_path = run_dir / "artifacts" / "template_fit_validation.json"
+    profile_path = run_dir / "artifacts" / "template_profile.json"
+    renderer_spec_path = run_dir / "renderer_spec.json"
+    if not renderer_spec_path.exists():
+        return None
+    if not validation_path.exists():
+        return {
+            "stage": "TEMPLATE_FIT_FAILED",
+            "artifact": "artifacts/template_fit_validation.json",
+            "gate": TEMPLATE_FIT_VALIDATION,
+            "status": "missing",
+            "allowed": ["run_template_fit", "run_template_fit_analysis", "rerun_template_fit", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+            "forbidden": ["run_ppt_pipeline", "publish_final"],
+            "missing_artifacts": ["artifacts/template_fit_validation.json"],
+        }
+    try:
+        fit_data = load_json_for_state(validation_path)
+        if not isinstance(fit_data, dict):
+            raise ValueError("template_fit_validation.json must be an object")
+    except Exception as exc:
+        return {
+            "stage": "TEMPLATE_FIT_FAILED",
+            "artifact": "artifacts/template_fit_validation.json",
+            "gate": TEMPLATE_FIT_VALIDATION,
+            "status": "failed",
+            "failed_validations": [
+                {
+                    "path": "artifacts/template_fit_validation.json",
+                    "status": "unreadable",
+                    "error": str(exc),
+                }
+            ],
+            "allowed": ["run_template_fit", "run_template_fit_analysis", "rerun_template_fit", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+            "forbidden": ["run_ppt_pipeline", "publish_final"],
+        }
+    if fit_data.get("is_valid") is not True:
+        error_text = "template_fit_validation.json is_valid=false"
+        return {
+            "stage": "TEMPLATE_FIT_FAILED",
+            "artifact": "artifacts/template_fit_validation.json",
+            "gate": TEMPLATE_FIT_VALIDATION,
+            "status": "failed",
+            "failed_validations": [
+                {
+                    "path": "artifacts/template_fit_validation.json",
+                    "status": "failed",
+                    "errors": [error_text] + [str(item) for item in fit_data.get("errors", [])],
+                }
+            ],
+            "allowed": ["run_template_fit", "run_template_fit_analysis", "rerun_template_fit", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+            "forbidden": ["run_ppt_pipeline", "publish_final"],
+        }
+    try:
+        validation_time = validation_path.stat().st_mtime
+        if profile_path.exists() and profile_path.stat().st_mtime > validation_time + 1.0:
+            return {
+                "stage": "TEMPLATE_FIT_FAILED",
+                "artifact": "artifacts/template_fit_validation.json",
+                "gate": TEMPLATE_FIT_VALIDATION,
+                "status": "stale",
+                "allowed": ["run_template_fit", "run_template_fit_analysis", "rerun_template_fit", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+                "forbidden": ["run_ppt_pipeline", "publish_final"],
+                "stale_validations": [
+                    {
+                        "validation": "artifacts/template_fit_validation.json",
+                        "stale_because_input_is_newer": "artifacts/template_profile.json",
+                    }
+                ],
+            }
+        if renderer_spec_path.exists() and renderer_spec_path.stat().st_mtime > validation_time + 1.0:
+            return {
+                "stage": "TEMPLATE_FIT_FAILED",
+                "artifact": "artifacts/template_fit_validation.json",
+                "gate": TEMPLATE_FIT_VALIDATION,
+                "status": "stale",
+                "allowed": ["run_template_fit", "run_template_fit_analysis", "rerun_template_fit", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
+                "forbidden": ["run_ppt_pipeline", "publish_final"],
+                "stale_validations": [
+                    {
+                        "validation": "artifacts/template_fit_validation.json",
+                        "stale_because_input_is_newer": "renderer_spec.json",
+                    }
+                ],
+            }
+    except OSError:
+        pass
+    return None
+
+
 def gate_is_currently_valid(run_dir: Path, gate_id: str, manifest: dict[str, Any]) -> bool:
     """Return True when a previously blocked gate now has fresh passing validation.
 
@@ -210,6 +367,14 @@ def blocked_retry_gate(run_dir: Path) -> Optional[dict[str, Any]]:
 
 def first_failed_gate(run_dir: Path) -> dict[str, Any]:
     manifest = load_artifact_manifest()
+
+    template_profile_state = _template_profile_check(run_dir)
+    if template_profile_state is not None:
+        return template_profile_state
+    template_fit_state = _template_fit_validation_check(run_dir)
+    if template_fit_state is not None:
+        return template_fit_state
+
     checks = [
         {
             "stage": "INPUT_CARD_MISSING",

@@ -1013,6 +1013,22 @@ with tempfile.TemporaryDirectory() as tmp:
     assert len(plan["issue_search_plan"]) >= 40, len(plan["issue_search_plan"])
     (artifacts / "formal_search_plan_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": plan_warnings}, ensure_ascii=False), encoding="utf-8")
     early_state = validate_run_state(run_dir)
+    if early_state["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED":
+        (artifacts / "template_profile.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "template_profile_v1",
+                    "template_file": str(run_dir / "assets/industry_section_template_master.pptx"),
+                    "layout": {},
+                    "visual_style": {},
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        early_state = validate_run_state(run_dir)
     assert early_state["current_stage"] == "SOURCE_REVIEWS_MISSING_OR_FAILED", early_state
     source_review_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "SOURCE_REVIEWS_MISSING_OR_FAILED"})
     source_review_validation_cmds = [

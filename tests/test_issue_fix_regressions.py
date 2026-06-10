@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -9,12 +10,14 @@ SCRIPT_DIR = ROOT / "runtime" / "ib-industry-section-skill" / "scripts"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+import check_runtime_dependencies  # noqa: E402
 import pipeline  # noqa: E402
-from pipeline import PipelineError, finalize  # noqa: E402
-from validate_final_delivery import _looks_like_research_error  # noqa: E402
-from validate_formal_search_plan import validate as validate_formal_search_plan  # noqa: E402
-from gate_guard import _looks_like_formal_run  # noqa: E402
 from build_formal_search_plan_skeleton import build_plan  # noqa: E402
+from doctor_runtime import runtime_diagnostic_payload  # noqa: E402
+from gate_guard import _looks_like_formal_run  # noqa: E402
+from pipeline import PipelineError, finalize  # noqa: E402
+from validate_final_delivery import _looks_like_research_error, _template_layer_validation  # noqa: E402
+from validate_formal_search_plan import validate as validate_formal_search_plan  # noqa: E402
 
 
 def test_finalize_short_circuits_on_validation_failure(tmp_path: Path) -> None:
@@ -95,13 +98,64 @@ def test_formal_looks_like_formal_run_requires_multiple_markers(tmp_path: Path) 
     assert not _looks_like_formal_run(run_dir)
     (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
     assert not _looks_like_formal_run(run_dir)
-    (run_dir / "artifacts").mkdir(parents=True)
-    (run_dir / "artifacts" / "research_evidence_db.json").write_text("{}", encoding="utf-8")
+
+
+def test_template_layer_validation_detects_missing_and_invalid_artifacts(tmp_path: Path) -> None:
+    run_dir = tmp_path / "attempt_001"
+    run_dir.mkdir(parents=True)
+    repair_targets: list[dict[str, object]] = []
+    errors, warnings = _template_layer_validation(run_dir, repair_targets)
+    assert any("missing artifacts/template_profile.json" in error for error in errors)
+    assert any("missing artifacts/template_fit_validation.json" in error for error in errors)
+    assert any(
+        bool(target.get("repair_target_artifact"))
+        for target in repair_targets
+    )
+    assert warnings == []
+
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    (artifacts / "template_profile.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "template_profile_v1",
+                "template_file": "assets/industry_section_template_master.pptx",
+                "layout": {},
+                "visual_style": {},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (artifacts / "template_fit_validation.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "template_fit_v1",
+                "is_valid": True,
+                "renderer_spec": str(run_dir / "renderer_spec.json"),
+                "template_profile": str(artifacts / "template_profile.json"),
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    repair_targets = []
+    errors, warnings = _template_layer_validation(run_dir, repair_targets)
+    assert not errors
+    assert not warnings
+
+    (artifacts / "research_evidence_db.json").write_text("{}", encoding="utf-8")
+    (artifacts / "formal_search_plan.json").write_text("{}", encoding="utf-8")
     assert _looks_like_formal_run(run_dir)
 
-    (run_dir / "artifacts" / "run_flags.json").write_text("{}", encoding="utf-8")
-    assert _looks_like_formal_run(run_dir)
 
+def test_runtime_dependency_payload_exposes_search_and_paid_flags() -> None:
+    provider_payload = check_runtime_dependencies.get_search_provider_payload()
+    doctor_payload = runtime_diagnostic_payload()
+    assert provider_payload["search_providers"] == doctor_payload["search_providers"]
+    assert provider_payload["search_provider_details"] == doctor_payload["search_provider_details"]
+    assert doctor_payload["manual_source_mode_supported"] is True
+    assert doctor_payload["paid_search_optional"] is True
 
 
 def main() -> int:
@@ -110,8 +164,10 @@ def main() -> int:
         test_finalize_short_circuits_on_validation_failure(tmp_path / "run")
         test_json_helper_raises_on_corrupt_payload(tmp_path / "json")
         test_formal_looks_like_formal_run_requires_multiple_markers(tmp_path / "run2")
+        test_template_layer_validation_detects_missing_and_invalid_artifacts(tmp_path / "template-layer")
     test_formal_search_plan_high_priority_warning_allows_multivariants()
     test_research_error_matching_is_specific()
+    test_runtime_dependency_payload_exposes_search_and_paid_flags()
     print("Issue fix regression tests passed.")
     return 0
 

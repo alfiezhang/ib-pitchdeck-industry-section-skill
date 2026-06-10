@@ -34,6 +34,8 @@ from validation_common import unique_preserve_order
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+TEMPLATE_PROFILE_SCHEMA_VERSION = "template_profile_v1"
+TEMPLATE_FIT_SCHEMA_VERSION = "template_fit_v1"
 FINAL_BLOCKING_CONTENT_WARNING_KEYS = (
     "source_warnings",
     "generic_copy_warnings",
@@ -49,6 +51,8 @@ RESEARCH_EVIDENCE_ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bformal\s+search\b", re.IGNORECASE),
     re.compile(r"\bsearch[\s_-]*plan\b", re.IGNORECASE),
     re.compile(r"\bsearch_log\b|\bsearch[\s_-]*log\b", re.IGNORECASE),
+    re.compile(r"\bsearch\s+execution\s+accounting\b", re.IGNORECASE),
+    re.compile(r"\bsearch\s+attempt[s]?\b", re.IGNORECASE),
     re.compile(r"\bresearch\s+pack\b", re.IGNORECASE),
     re.compile(r"\bresearch\s+evidence\b", re.IGNORECASE),
     re.compile(r"\bsource\s+classification\b", re.IGNORECASE),
@@ -111,6 +115,180 @@ def _append_validation_issue(
     )
 
 
+def _load_artifact_payload(
+    artifact_path: Path,
+    repair_targets: list[dict[str, Any]],
+    errors: list[str],
+    *,
+    layer: str,
+    artifact: str,
+    missing_message: str,
+    missing_recommended_action: str,
+    missing_forbidden_action: str = "",
+    read_recommended_action: str | None = None,
+) -> dict[str, Any] | None:
+    """Load an artifact JSON payload and normalize repair targets."""
+    if not artifact_path.exists():
+        errors.append(missing_message)
+        _append_validation_issue(
+            repair_targets,
+            artifact=artifact,
+            layer=layer,
+            errors=[missing_message],
+            recommended_action=missing_recommended_action,
+            forbidden_action=missing_forbidden_action,
+        )
+        return None
+    try:
+        payload = load_json_file(artifact_path)
+    except Exception as exc:
+        message = f"cannot read {artifact}: {exc}"
+        errors.append(message)
+        _append_validation_issue(
+            repair_targets,
+            artifact=artifact,
+            layer=layer,
+            errors=[message],
+            recommended_action=(
+                read_recommended_action or f"Re-run validation for {artifact} and keep it valid."
+            ),
+        )
+        return None
+    _append_repair_targets(
+        repair_targets,
+        payload,
+        default_layer=layer,
+        default_artifact=artifact,
+    )
+    return payload
+
+
+def _append_payload_validity_messages(
+    payload: dict[str, Any],
+    errors: list[str],
+    warnings: list[str],
+    *,
+    artifact: str,
+    failed_label: str,
+    warning_key: str = "warnings",
+) -> None:
+    """Append generic validity and warning messages from a validation payload."""
+    if payload.get("is_valid") is not True:
+        errors.append(f"{artifact} {failed_label}")
+    for item in payload.get(warning_key, []):
+        warnings.append(str(item))
+
+
+def _template_layer_validation(
+    run_dir: Path,
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    template_profile_path = run_dir / "artifacts" / "template_profile.json"
+    template_fit_path = run_dir / "artifacts" / "template_fit_validation.json"
+    renderer_spec_path = run_dir / "renderer_spec.json"
+    profile_exists = template_profile_path.exists()
+    fit_exists = template_fit_path.exists()
+    if not profile_exists:
+        errors.append("missing artifacts/template_profile.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/template_profile.json",
+            layer="generation",
+            errors=["missing artifacts/template_profile.json"],
+            recommended_action=(
+                "Run template_analyzer.py to generate artifacts/template_profile.json "
+                "before pre-PPT checks or final delivery."
+            ),
+            forbidden_action="Do not proceed to delivery while template profile is missing.",
+        )
+    else:
+        try:
+            profile_data = load_json_file(template_profile_path)
+        except Exception as exc:
+            errors.append(f"cannot read template_profile.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/template_profile.json",
+                layer="generation",
+                errors=[f"cannot read template_profile.json: {exc}"],
+                recommended_action=(
+                    "Re-run template_analyzer.py and verify rendered artifacts/template_profile.json is a valid JSON object."
+                ),
+            )
+            profile_data = None
+        else:
+            _append_repair_targets(
+                repair_targets,
+                profile_data,
+                default_layer="generation",
+                default_artifact="artifacts/template_profile.json",
+            )
+            if profile_data.get("schema_version") != TEMPLATE_PROFILE_SCHEMA_VERSION:
+                errors.append(
+                    f"template_profile.json schema_version is {profile_data.get('schema_version')}; expected {TEMPLATE_PROFILE_SCHEMA_VERSION}"
+                )
+            if not isinstance(profile_data.get("layout"), dict):
+                errors.append("template_profile.json missing required object field: layout")
+            if not isinstance(profile_data.get("visual_style"), dict):
+                errors.append("template_profile.json missing required object field: visual_style")
+            if not isinstance(profile_data.get("template_file"), str) or not profile_data.get("template_file").strip():
+                errors.append("template_profile.json missing required string field: template_file")
+
+    if not fit_exists:
+        errors.append("missing artifacts/template_fit_validation.json")
+        _append_validation_issue(
+            repair_targets,
+            artifact="artifacts/template_fit_validation.json",
+            layer="generation",
+            errors=["missing artifacts/template_fit_validation.json"],
+            recommended_action=(
+                "Run template_fit.py with renderer_spec.json and artifacts/template_profile.json "
+                "before final delivery."
+            ),
+            forbidden_action="Do not finalize while template fit is not validated.",
+        )
+    else:
+        try:
+            fit_data = load_json_file(template_fit_path)
+        except Exception as exc:
+            errors.append(f"cannot read template_fit_validation.json: {exc}")
+            _append_validation_issue(
+                repair_targets,
+                artifact="artifacts/template_fit_validation.json",
+                layer="generation",
+                errors=[f"cannot read template_fit_validation.json: {exc}"],
+                recommended_action=(
+                    "Re-run template_fit.py and repair the template_fit_validation.json payload."
+                ),
+            )
+            fit_data = None
+        else:
+            _append_repair_targets(
+                repair_targets,
+                fit_data,
+                default_layer="generation",
+                default_artifact="artifacts/template_fit_validation.json",
+            )
+            if fit_data.get("schema_version") != TEMPLATE_FIT_SCHEMA_VERSION:
+                errors.append(
+                    f"template_fit_validation.json schema_version is {fit_data.get('schema_version')}; "
+                    f"expected {TEMPLATE_FIT_SCHEMA_VERSION}"
+                )
+            if fit_data.get("is_valid") is not True:
+                errors.append("template_fit_validation.json is_valid=false")
+            if profile_exists and fit_exists and template_profile_path.stat().st_mtime > template_fit_path.stat().st_mtime + 1.0:
+                errors.append("artifacts/template_fit_validation.json is older than artifacts/template_profile.json")
+            if renderer_spec_path.exists() and renderer_spec_path.stat().st_mtime > template_fit_path.stat().st_mtime + 1.0:
+                errors.append("artifacts/template_fit_validation.json is older than renderer_spec.json")
+                warnings.append(
+                    "rerun template_fit.py after regenerating renderer_spec.json"
+                )
+
+    return errors, warnings
+
+
 def json_files_under(run_dir: Path) -> list[Path]:
     return sorted(path for path in run_dir.rglob("*.json") if "__pycache__" not in path.parts)
 
@@ -121,26 +299,26 @@ def validate_content_quality_artifact(
 ) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    if not path.exists():
-        errors.append("missing content quality validation artifact")
-        _append_validation_issue(
-            repair_targets,
-            artifact="artifacts/content_quality_validation.json",
-            layer="generation",
-            errors=["missing content quality validation artifact"],
-            recommended_action="Run validate_content_quality.py after generating renderer_spec.json.",
-            forbidden_action="Do not deliver until content quality blocker is cleared.",
-        )
-        return errors, warnings
-    data = load_json_file(path)
-    _append_repair_targets(
+    data = _load_artifact_payload(
+        path,
         repair_targets,
-        data,
-        default_layer="generation",
-        default_artifact="artifacts/content_quality_validation.json",
+        errors,
+        layer="generation",
+        artifact="artifacts/content_quality_validation.json",
+        missing_message="missing content quality validation artifact",
+        missing_recommended_action="Run validate_content_quality.py after generating renderer_spec.json.",
+        missing_forbidden_action="Do not deliver until content quality blocker is cleared.",
+        read_recommended_action="Re-run validate_content_quality.py with updated renderer_spec and research_pack paths.",
     )
-    if data.get("is_valid") is False:
-        errors.append("content_quality_validation.json is_valid=false")
+    if data is None:
+        return errors, warnings
+    _append_payload_validity_messages(
+        data,
+        errors,
+        warnings,
+        artifact="content_quality_validation.json",
+        failed_label="is_valid=false",
+    )
     warning_count = int(data.get("warning_count") or 0)
     if warning_count:
         warnings.append(f"content_quality_validation.json has {warning_count} advisory warning(s)")
@@ -196,6 +374,8 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
         "artifacts/input_card_validation.json": ["input_card"],
         "artifacts/industry_scope_pack_validation.json": ["scope_pack"],
         "artifacts/formal_search_plan_validation.json": ["formal_search_plan"],
+        "artifacts/template_profile.json": ["template_profile"],
+        "artifacts/template_fit_validation.json": ["template_profile", "renderer_spec"],
         "artifacts/content_quality_validation.json": ["renderer_spec", "research_pack"],
         "artifacts/renderer_spec_validation.json": ["renderer_spec", "template_registry", "deck_blueprint", "page_contract"],
         "artifacts/research_pack_validation.json": ["research_pack", "run_dir"],
@@ -221,6 +401,11 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str]]:
         "artifacts/formal_search_plan_validation.json": [
             run_dir / "artifacts" / "formal_search_plan.json",
             run_dir / "artifacts" / "industry_scope_pack.json",
+        ],
+        "artifacts/template_profile.json": [],
+        "artifacts/template_fit_validation.json": [
+            run_dir / "artifacts" / "template_profile.json",
+            run_dir / "renderer_spec.json",
         ],
         "artifacts/content_quality_validation.json": [
             run_dir / "renderer_spec.json",
@@ -1523,6 +1708,13 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
     )
     errors.extend(memo_errors)
     warnings.extend(memo_warnings)
+
+    template_profile_errors, template_profile_warnings = _template_layer_validation(
+        run_dir,
+        repair_targets,
+    )
+    errors.extend(template_profile_errors)
+    warnings.extend(template_profile_warnings)
 
     stage_gate_artifact = run_dir / "artifacts/stage_gate_pre_ppt_validation.json"
     if not stage_gate_artifact.exists():

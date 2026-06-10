@@ -44,24 +44,41 @@ def _looks_like_formal_run(run_dir: Path) -> bool:
     directory contains the formal package of record, generation must be governed
     by the formal gates and retry state.
     """
-    formal_markers = [
+    formal_foundation_markers = (
         run_dir / "input_card.json",
-        run_dir / "artifacts" / "research_evidence_db.json",
+        run_dir / "artifacts/research_evidence_db.json",
         run_dir / "industry_research_pack.md",
         run_dir / "industry_issue_analysis.json",
-        run_dir / "template_registry.json",
+        run_dir / "industry_section_filled.pptx",
+        run_dir / "artifacts/run_flags.json",
+    )
+    formal_core_artifacts = (
+        run_dir / "artifacts/research_evidence_db.json",
+        run_dir / "industry_research_pack.md",
+        run_dir / "industry_issue_analysis.json",
         run_dir / "deck_blueprint.json",
-        run_dir / "page_evidence_contract.json",
+        run_dir / "template_registry.json",
         run_dir / "renderer_spec.json",
         run_dir / "replacement_dict.json",
-        run_dir / "artifacts" / "run_flags.json",
-        run_dir / "artifacts" / "gate_retry_state.json",
-        run_dir / "artifacts" / "stage_gate_pre_ppt_validation.json",
-    ]
-    if (run_dir / "artifacts" / "run_flags.json").exists():
-        return True
-    present = sum(path.exists() for path in formal_markers)
-    return present >= 2
+        run_dir / "artifacts/industry_scope_pack.json",
+    )
+    evidence_chain = (
+        run_dir / "artifacts/formal_search_plan.json",
+        run_dir / "artifacts/source_reviews.json",
+        run_dir / "artifacts/source_archive/source_archive_index.json",
+        run_dir / "artifacts/formal_research_execution_report.json",
+    )
+
+    # A formal package should look like a coherent pipeline state, not a
+    # one-off diagnostic directory. Require both a baseline input marker and at
+    # least one core evidence/deck artifact.
+    foundation = any(path.exists() for path in formal_foundation_markers)
+    core = any(path.exists() for path in formal_core_artifacts)
+    if not (foundation and core):
+        return False
+
+    optional_checks = sum(path.exists() for path in evidence_chain)
+    return optional_checks >= 1
 
 
 def _blocked_retry_gates(run_dir: Path) -> list[str]:

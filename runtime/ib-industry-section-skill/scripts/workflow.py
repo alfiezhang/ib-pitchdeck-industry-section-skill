@@ -138,6 +138,34 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/compile_deck_blueprint.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
         },
     ],
+    "TEMPLATE_PROFILE_MISSING_OR_FAILED": [
+        {
+            "purpose": "analyze template and generate run-level template profile",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template_analyzer.py --template assets/industry_section_template_master.pptx --layout-config templates/layout_config.json --output {{run_dir}}/artifacts/template_profile.json",
+        },
+        {
+            "purpose": "rerun pre-PPT validation after template profile is generated",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py validate-pre-ppt --run-dir {{run_dir}}",
+        },
+        {
+            "purpose": "rerun full formal render pipeline after template profile refresh",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py render --run-dir {{run_dir}}",
+        },
+    ],
+    "TEMPLATE_FIT_FAILED": [
+        {
+            "purpose": "run template fit checks against latest renderer spec and template profile",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template_fit.py --renderer-spec {{run_dir}}/renderer_spec.json --template-profile {{run_dir}}/artifacts/template_profile.json --output {{run_dir}}/artifacts/template_fit_validation.json",
+        },
+        {
+            "purpose": "rerun pre-PPT stage gate after template fit refresh",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py validate-pre-ppt --run-dir {{run_dir}}",
+        },
+        {
+            "purpose": "rerun formal render after template fit refresh",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py render --run-dir {{run_dir}}",
+        },
+    ],
     "CONTENT_QUALITY_FAILED": [
         {
             "purpose": "rerun content quality after repairing deck_blueprint/recompiling",
