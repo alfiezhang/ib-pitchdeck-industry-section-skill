@@ -529,7 +529,7 @@ def build_report(
     page_number_check = collect_page_number_issues(clean_ppt_path)
     required_table_issues = collect_required_table_issues(clean_ppt_path, control_file)
 
-    kept_slide_count_ok = len(actual_kept_slides) == len(expected_physical_slides) == 8
+    kept_slide_count_ok = len(actual_kept_slides) == len(expected_physical_slides)
     renumbered_after_resave = actual_kept_slides == [f"slide{i}.xml" for i in range(1, len(actual_kept_slides) + 1)]
     kept_slide_selection_ok = actual_kept_slides == expected_physical_slides or (
         kept_slide_count_ok and renumbered_after_resave

@@ -7,6 +7,11 @@ from typing import Optional
 
 
 DEFAULT_TERMINAL_PUNCTUATION = "。．.，,、；;：:！!？?"
+SPACE_UNIT = 0.3
+PUNCTUATION_UNIT = 0.35
+ASCII_UNIT = 0.55
+FULLWIDTH_PUNCTUATION_UNIT = 0.55
+DEFAULT_CHAR_UNIT = 1.0
 
 
 def is_blank(value) -> bool:
@@ -39,15 +44,15 @@ def display_units(text: str) -> float:
         if ch in "\n\r":
             continue
         if ch.isspace():
-            units += 0.3
+            units += SPACE_UNIT
         elif ch in ",.;:!?()[]{}<>/\\|-_+=~'\"":
-            units += 0.35
+            units += PUNCTUATION_UNIT
         elif code < 128:
-            units += 0.55
+            units += ASCII_UNIT
         elif 0xFF61 <= code <= 0xFF9F:
-            units += 0.55
+            units += FULLWIDTH_PUNCTUATION_UNIT
         else:
-            units += 1.0
+            units += DEFAULT_CHAR_UNIT
     return units
 
 

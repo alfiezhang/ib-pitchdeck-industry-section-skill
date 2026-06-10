@@ -400,15 +400,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python", default=sys.executable, help="Python interpreter used for child scripts.")
     sub = parser.add_subparsers(dest="command", required=True)
+    render_parser = None
+    finalize_parser = None
     for name in ("status", "next", "validate-pre-ppt", "render", "finalize"):
         p = sub.add_parser(name)
         p.add_argument("--run-dir", required=True)
-    sub.choices["render"].add_argument(
+        if name == "render":
+            render_parser = p
+        elif name == "finalize":
+            finalize_parser = p
+
+    if render_parser is None or finalize_parser is None:
+        raise RuntimeError("failed to construct parser for render/finalize commands")
+
+    render_parser.add_argument(
         "--skip-preflight",
         action="store_true",
         help="Only for repairing a run whose workflow status is stale but the operator has verified pre-PPT readiness.",
     )
-    sub.choices["finalize"].add_argument("--require-client-ready", action="store_true")
+    finalize_parser.add_argument("--require-client-ready", action="store_true")
     args = parser.parse_args()
 
     try:

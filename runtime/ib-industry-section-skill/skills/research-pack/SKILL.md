@@ -10,6 +10,7 @@ not PPT writing.
 
 Main outputs:
 
+- `input_card.json`
 - `artifacts/industry_scope_pack.json`
 - `artifacts/formal_search_plan.json`
 - `artifacts/search_log.md`

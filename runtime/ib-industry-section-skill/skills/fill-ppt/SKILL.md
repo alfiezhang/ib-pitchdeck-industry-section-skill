@@ -18,17 +18,32 @@ ad-hoc `python-pptx` / PptxGenJS / LibreOffice / Keynote drawing scripts, and do
 not hand-build a PPT when the formal pipeline fails. A custom PPT file is a
 bypass artifact, not a skill delivery.
 
-Default interpreter: the single Python selected by `scripts/bootstrap_runtime.py`. Set `PYTHON_CMD` once and pass the same interpreter to `scripts/pipeline.py`; do not manually run different pipeline steps with different Python interpreters.
+Default interpreter: set once at the skill root and keep it consistent:
+
+```bash
+PYTHON_CMD="$(bash setup.sh --print-python)"
+```
+
+Use the same interpreter for all `scripts/pipeline.py` calls. Do not run
+different pipeline steps with different Python interpreters.
 
 This step should require only PPT/runtime dependencies (`python-pptx`, `lxml`, etc.). Web-search providers are research-stage dependencies and must not block an already validated PPT package from rendering.
 
 Before running direct scripts, select the runtime once:
 
 ```bash
-PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+PYTHON_CMD="$(bash setup.sh --print-python)"
 ```
 
-If `pptx` or `lxml.etree` fails to import on macOS with Python 3.13/3.14, rerun bootstrap with Python 3.9-3.11, for example `python3 scripts/bootstrap_runtime.py --python python3.11 --force`. Do not work around this by ad-hoc installing packages into unrelated system or Node environments, and do not edit deterministic scripts to bypass runtime errors.
+If `pptx` or `lxml.etree` fails to import on macOS with Python 3.13/3.14, rerun bootstrap with Python 3.9-3.11, for example:
+
+```bash
+PYTHON_CMD="$(bash setup.sh --print-python --python python3.11 --force)"
+```
+
+Do not work around this by ad-hoc installing packages into unrelated system or
+Node environments, and do not edit deterministic scripts to bypass runtime
+errors.
 
 All user-facing inputs and outputs should be resolved relative to the user's working materials, not the skill package directory. Only the bundled scripts, templates, assets, and references should be resolved relative to the skill itself.
 

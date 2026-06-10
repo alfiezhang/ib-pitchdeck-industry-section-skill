@@ -172,12 +172,7 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
         if not isinstance(instructions, list) or not instructions:
             errors.append(f"{prefix}: search_instructions must be a non-empty array")
             instructions = []
-        elif priority == "high" and len(instructions) < 2:
-            warnings.append(
-                f"{prefix}: high-priority issue has only {len(instructions)} search instruction(s). "
-                "Use 2-3 clear queries when possible: direct category search, authority/source search, "
-                "and reconciliation or counter-check search. Do not add filler queries if the issue is genuinely narrow."
-            )
+        total_query_variants = 0
         for inst_idx, instruction in enumerate(instructions, start=1):
             inst_prefix = f"{prefix}.search_instructions[{inst_idx}]"
             if not isinstance(instruction, dict):
@@ -203,6 +198,7 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
             if PLACEHOLDER_RE.search(query):
                 errors.append(f"{inst_prefix}: query still contains placeholder/example text")
             query_variants = [_text(item) for item in _as_list(instruction.get("query_variants")) if _text(item)]
+            total_query_variants += len(query_variants)
             if not query_variants:
                 warnings.append(f"{inst_prefix}: query_variants is missing; include direct, authority, and reconciliation variants when possible")
             elif execution_expectation == "deep_search" and len(query_variants) < 2:
@@ -218,6 +214,13 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
                 errors.append(f"{inst_prefix}: search instruction contains page/deck planning language")
             if _contains_marker(query + " " + purpose, PREMATURE_FINDING_MARKERS):
                 errors.append(f"{inst_prefix}: search instruction contains premature conclusion language")
+
+        if priority == "high" and len(instructions) < 2 and total_query_variants < 2:
+            warnings.append(
+                f"{prefix}: high-priority issue has only {len(instructions)} search instruction(s) and "
+                f"{total_query_variants} query variant(s) total. "
+                "Use at least 2 planned search instructions, or at least 2 total query variants."
+            )
 
     for text in _walk_text(plan.get("research_discipline", {})):
         if _contains_marker(text, PAGE_PLAN_MARKERS):

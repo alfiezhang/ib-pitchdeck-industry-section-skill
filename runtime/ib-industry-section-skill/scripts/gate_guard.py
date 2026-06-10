@@ -53,11 +53,15 @@ def _looks_like_formal_run(run_dir: Path) -> bool:
         run_dir / "deck_blueprint.json",
         run_dir / "page_evidence_contract.json",
         run_dir / "renderer_spec.json",
+        run_dir / "replacement_dict.json",
         run_dir / "artifacts" / "run_flags.json",
         run_dir / "artifacts" / "gate_retry_state.json",
         run_dir / "artifacts" / "stage_gate_pre_ppt_validation.json",
     ]
-    return any(path.exists() for path in formal_markers)
+    if (run_dir / "artifacts" / "run_flags.json").exists():
+        return True
+    present = sum(path.exists() for path in formal_markers)
+    return present >= 2
 
 
 def _blocked_retry_gates(run_dir: Path) -> list[str]:

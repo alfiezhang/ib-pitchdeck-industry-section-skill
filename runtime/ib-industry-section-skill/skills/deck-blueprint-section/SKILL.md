@@ -258,6 +258,20 @@ missing or too thin. Do not patch `renderer_spec.json`, `replacement_dict.json`,
 or PPT files to silence content-quality findings unless a deterministic compiler
 bug is confirmed.
 
+## Step 6: Repair and rerun compile chain
+
+If any validator in Step 5 fails, edit the upstream source named in the repair
+plan first, then rerun the compile/validate chain in order:
+
+1. `scripts/validate_deck_blueprint.py`
+2. `scripts/compile_deck_blueprint.py`
+3. `scripts/validate_page_evidence_contract.py`
+4. `scripts/validate_renderer_spec.py`
+5. `scripts/validate_content_quality.py`
+
+Do not fix content-quality blockers by editing `replacement_dict.json`,
+`filled_ppt_validation.json`, or compiled PPT files.
+
 ## Step 7: Pre-PPT Gate
 
 ```bash
