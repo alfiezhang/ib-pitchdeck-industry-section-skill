@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -29,6 +30,7 @@ from validate_source_reviews import validate as validate_source_reviews_data
 from validate_template_registry import validate as validate_template_registry_data
 from validate_formal_search_plan import validate as validate_formal_search_plan_data
 from qc_repair_targets import collect_repair_targets, unique_repair_targets
+from validation_common import unique_preserve_order
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -43,17 +45,26 @@ BENIGN_FINAL_WARNING_FRAGMENTS = (
     "outside material claim",
 )
 
+RESEARCH_EVIDENCE_ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bformal\s+search\b", re.IGNORECASE),
+    re.compile(r"\bsearch[\s_-]*plan\b", re.IGNORECASE),
+    re.compile(r"\bsearch_log\b|\bsearch[\s_-]*log\b", re.IGNORECASE),
+    re.compile(r"\bresearch\s+pack\b", re.IGNORECASE),
+    re.compile(r"\bresearch\s+evidence\b", re.IGNORECASE),
+    re.compile(r"\bsource\s+classification\b", re.IGNORECASE),
+    re.compile(r"\bsource\s+review[s]?\b", re.IGNORECASE),
+    re.compile(r"\bresearch_evidence_db\b", re.IGNORECASE),
+    re.compile(r"\bresearch_evidence\s+db\b", re.IGNORECASE),
+    re.compile(r"\bindustry_research_pack\b", re.IGNORECASE),
+    re.compile(r"\bformal_research\b", re.IGNORECASE),
+    re.compile(r"\bMET-[0-9]+\b", re.IGNORECASE),
+    re.compile(r"\bEV-[0-9]+\b", re.IGNORECASE),
+)
 
-def unique_preserve_order(items: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for item in items:
-        text = str(item)
-        if text in seen:
-            continue
-        seen.add(text)
-        result.append(text)
-    return result
+
+def _looks_like_research_error(error_text: Any) -> bool:
+    message = str(error_text).lower()
+    return any(pattern.search(message) for pattern in RESEARCH_EVIDENCE_ERROR_PATTERNS)
 
 
 def _append_repair_targets(
@@ -1591,29 +1602,7 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None) -> dict[str,
         errors.append("missing final PPT validation input(s): " + ", ".join(missing))
         technical_delivery_valid = False
 
-    research_error_terms = (
-        "research",
-        "formal search",
-        "search plan",
-        "search_log",
-        "search log",
-        "research pack",
-        "evidence",
-        "metric",
-        "MET-",
-        "EV-",
-        "source",
-        "content quality",
-        "issue analysis",
-        "renderer",
-        "deck blueprint",
-        "page plan",
-        "stage_gate",
-    )
-    research_evidence_valid = not any(
-        any(term.lower() in str(error).lower() for term in research_error_terms)
-        for error in errors
-    )
+    research_evidence_valid = not any(_looks_like_research_error(error) for error in errors)
     errors = unique_preserve_order(errors)
     warnings = unique_preserve_order(warnings)
     client_ready = technical_delivery_valid and research_evidence_valid and not errors

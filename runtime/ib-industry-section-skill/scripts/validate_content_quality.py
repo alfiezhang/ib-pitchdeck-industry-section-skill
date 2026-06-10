@@ -22,6 +22,7 @@ from validation_common import (
     check_main_message_terminal_punctuation,
     display_units,
     estimate_lines,
+    unique_preserve_order,
     is_blank,
     layout_budget_findings,
 )
@@ -657,17 +658,6 @@ def check_source_note_specificity(
             f"slide {slide_no}: source_note too short ({len(source_note.strip())} chars); "
             "reference a specific research pack section, source name, or URL"
         )
-
-
-def unique_preserve_order(values: list[str]) -> list[str]:
-    seen = set()
-    result = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        result.append(value)
-    return result
 
 
 DEFAULT_CONTENT_REPAIR_PROFILE = {

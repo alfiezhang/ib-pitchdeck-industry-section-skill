@@ -16,6 +16,7 @@ import os
 import shutil
 import subprocess
 import sys
+from json import JSONDecodeError
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -49,8 +50,12 @@ def _json(path: Path) -> dict[str, Any]:
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    except UnicodeDecodeError as exc:
+        raise PipelineError(f"Failed to decode JSON file as UTF-8: {path}. {exc}") from exc
+    except OSError as exc:
+        raise PipelineError(f"Failed to read JSON file: {path}. {exc}") from exc
+    except JSONDecodeError as exc:
+        raise PipelineError(f"Invalid JSON in file: {path}. {exc}") from exc
 
 
 def _run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
@@ -368,17 +373,17 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
     if require_client_ready:
         cmd.append("--require-client-ready")
     final_returncode = _run_returncode(cmd)
-    _run([python_cmd, SCRIPT_DIR / "generate_run_quality_summary.py", "--run-dir", run_dir])
-    if run_dir.name.startswith("attempt_"):
-        runs_dir = run_dir.parent
-        (runs_dir / "ACTIVE_ATTEMPT.txt").write_text(run_dir.name + "\n", encoding="utf-8")
-        _run([python_cmd, SCRIPT_DIR / "update_runs_index.py", "--runs-dir", runs_dir])
     if final_returncode != 0:
         _mark_not_client_ready(run_dir)
         raise PipelineError(
             "final delivery gate failed; see artifacts/final_delivery_validation.json "
             "and artifacts/run_quality_summary.json for repair targets"
         )
+    _run([python_cmd, SCRIPT_DIR / "generate_run_quality_summary.py", "--run-dir", run_dir])
+    if run_dir.name.startswith("attempt_"):
+        runs_dir = run_dir.parent
+        (runs_dir / "ACTIVE_ATTEMPT.txt").write_text(run_dir.name + "\n", encoding="utf-8")
+        _run([python_cmd, SCRIPT_DIR / "update_runs_index.py", "--runs-dir", runs_dir])
 
 
 def status(run_dir: Path) -> None:

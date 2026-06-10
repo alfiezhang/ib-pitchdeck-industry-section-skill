@@ -19,6 +19,18 @@ def is_blank(value) -> bool:
     return False
 
 
+def unique_preserve_order(values: list[str]) -> list[str]:
+    seen = set[str]()
+    result: list[str] = []
+    for value in values:
+        text = str(value)
+        if text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
 def display_units(text: str) -> float:
     """Approximate rendered line width in CJK-character units."""
     units = 0.0
