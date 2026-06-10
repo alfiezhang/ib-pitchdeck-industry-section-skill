@@ -48,8 +48,12 @@ Runtime requirements:
 
 - Python 3.9+; Python 3.9-3.11 is preferred for `python-pptx` / `lxml`.
 - PPT rendering requires `python-pptx` and `lxml`.
-- Formal research requires either the agent's web-search tool or fallback search
-  packages (`tavily-python` and/or `ddgs`) installed by `setup.sh`.
+- Formal research requires either the agent's native Web Search, script
+  fallback search, or user-provided public/offline sources that can be reviewed.
+- Prefer native Web Search for LLM-led research. Script fallback provider order
+  is `SearXNG -> DuckDuckGo -> Tavily` from
+  `templates/source_registry.json`. Configure `SEARXNG_BASE_URL` first; paid or
+  extra providers such as Tavily/DDG packages are optional.
 - If no network/search provider is available, do not fake searches. Use only
   user-provided/offline sources that can be reviewed, logged, archived, and
   caveated; otherwise stop at the research blocker.
@@ -141,7 +145,7 @@ Common wrong path:
 
 Correct path:
 
-`brief -> scope pack -> full-taxonomy search plan -> formal searches -> source reviews/archive -> execution report -> research_evidence_db -> generated research pack -> issue analysis -> deck blueprint -> compiled contract/renderer -> formal pipeline -> final delivery`
+`brief -> scope pack -> full-taxonomy search plan -> formal searches -> source reviews/archive -> execution report -> research_evidence_db -> generated research pack -> issue analysis -> deck blueprint -> compiled contract/renderer -> template profile/fit -> formal pipeline -> final delivery`
 
 ## Formal Workflow
 
@@ -172,8 +176,12 @@ Core stages:
    support remains caveated or in backlog.
 8. **Deck blueprint**: design pages, headline/main message/body blocks, visual
    intent, caveats, source use, and pitch relevance.
-9. **Compile/render**: compile deterministic artifacts, run content/replacement
-   validation, render PPT, and pass final delivery.
+9. **Template fit**: after renderer spec exists, generate
+   `artifacts/template_profile.json` and
+   `artifacts/template_fit_validation.json`; the Python pipeline can refresh
+   these during pre-PPT validation.
+10. **Compile/render**: run content/replacement validation, render PPT, and pass
+   final delivery.
 
 For detailed step commands, read the relevant sub-skill and run:
 
@@ -254,8 +262,11 @@ the PPT mapping files. Do not invent unsupported slide structures unless the
 template registry and validation logic are updated together.
 
 `deck_blueprint.json` owns page judgment and copy. `page_evidence_contract.json`,
-`renderer_spec.json`, and `replacement_dict.json` are deterministic downstream
-artifacts. If content needs changing, edit the blueprint and recompile.
+`renderer_spec.json`, `template_profile.json`,
+`template_fit_validation.json`, and `replacement_dict.json` are deterministic
+downstream artifacts. If content needs changing, edit the blueprint and
+recompile; if only style/fit analysis is stale, rerun template analyzer / fit or
+`scripts/pipeline.py validate-pre-ppt`.
 
 ## Pipeline
 
@@ -267,8 +278,9 @@ For a validated attempt:
 
 This command operates on the current attempt. It does not perform research,
 create page judgments, or create a new attempt. It runs pre-PPT checks,
-replacement generation, PPT fill/clean/postprocess, filled-PPT validation, final
-delivery validation, run quality summary, and latest-run index updates.
+template analysis/fit, replacement generation, PPT fill/clean/postprocess,
+filled-PPT validation, final delivery validation, run quality summary, and
+latest-run index updates.
 
 `run_pipeline.sh` remains a legacy compatibility wrapper for older automation.
 It delegates to `scripts/pipeline.py render` and no longer creates attempts,

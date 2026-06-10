@@ -60,7 +60,7 @@ PYTHON_CMD="$(bash setup.sh --print-python)"
 
 `setup.sh` 会调用 `scripts/bootstrap_runtime.py`，优先复用可用的 Python；如果缺少依赖，会尝试创建或更新本地 `.venv` 并安装 `requirements.txt`。
 
-正式研究需要联网搜索能力：可以使用 agent 自带的 Web Search，也可以使用 `tavily-python` / `ddgs` 作为脚本 fallback provider。如果完全没有网络或搜索 provider，只能使用用户提供的离线来源，并且仍需完成 source review、source archive 和 evidence trace；不能把未搜索的内容伪装成 formal research。
+正式研究需要搜索或可审阅的公开资料来源。默认优先使用 agent 自带的 Web Search 做 LLM 主导搜索；脚本 fallback 的优先顺序由 `templates/source_registry.json` 控制，当前为 `SearXNG → DuckDuckGo → Tavily`。推荐先配置 `SEARXNG_BASE_URL`，`tavily-python` / `ddgs` 仅作为可选额外 provider。如果完全没有网络或搜索 provider，只能使用用户提供的离线来源，并且仍需完成 source review、source archive 和 evidence trace；不能把未搜索的内容伪装成 formal research。
 
 ### 基本工作流
 
@@ -76,6 +76,7 @@ brief
 → issue analysis
 → deck blueprint
 → page evidence contract / renderer spec
+→ template profile / template fit
 → PPT fill
 → final delivery validation
 ```
@@ -91,6 +92,7 @@ brief
 ```bash
 PYTHON_CMD=python3 bash tests/run_smoke_tests.sh
 PYTHON_CMD=python3 bash tests/run_contract_tests.sh
+python3 -m pytest -q
 ```
 
 如果本地 Python 版本与 `python-pptx` / `lxml` 不兼容，建议使用 Python 3.9-3.11。
@@ -161,7 +163,7 @@ PYTHON_CMD="$(bash setup.sh --print-python)"
 
 `setup.sh` calls `scripts/bootstrap_runtime.py`. It first tries to reuse a compatible Python runtime; if dependencies are missing, it can create/update the local `.venv` and install `requirements.txt`.
 
-Formal research needs search access. The agent may use its own Web Search tool, or the scripts can fall back to `tavily-python` / `ddgs` when configured. If neither network access nor a search provider is available, use only user-provided offline sources that can be reviewed, archived, and traced; do not represent unsearched content as formal research.
+Formal research needs search access or reviewable public materials. Prefer the agent's native Web Search for LLM-led research. Script fallback provider order is controlled by `templates/source_registry.json`; the current default is `SearXNG → DuckDuckGo → Tavily`. Configure `SEARXNG_BASE_URL` first; `tavily-python` / `ddgs` are optional extra providers. If neither network access nor a search provider is available, use only user-provided offline sources that can be reviewed, archived, and traced; do not represent unsearched content as formal research.
 
 ### Workflow
 
@@ -177,6 +179,7 @@ brief
 → issue analysis
 → deck blueprint
 → page evidence contract / renderer spec
+→ template profile / template fit
 → PPT fill
 → final delivery validation
 ```
@@ -192,6 +195,7 @@ Run from the repository root:
 ```bash
 PYTHON_CMD=python3 bash tests/run_smoke_tests.sh
 PYTHON_CMD=python3 bash tests/run_contract_tests.sh
+python3 -m pytest -q
 ```
 
 If your local Python version has compatibility issues with `python-pptx` / `lxml`, use Python 3.9-3.11.

@@ -2,37 +2,44 @@
 
 Use this reference at task start. It prevents skipped steps, late rule discovery, metric drift, and generic output.
 
-## Required References at Task Start
+## Reference Loading Discipline
 
-Before generating research, deck blueprint, renderer spec, or PPT output, read the references needed for the requested task:
+At task start, keep context small. Read only the core execution references and
+the sub-skill for the current stage. Do not bulk-read schemas, tests, fixtures,
+or every template before work begins.
+
+Always read:
 
 - `references/scope_boundary.md`
 - `references/research_policy.md`
-- `templates/industry_scope_pack.template.json`
-- `templates/formal_search_plan.template.json`
-- `templates/formal_research_execution_report.skeleton.json`
-- `templates/source_registry.json`
-- `templates/page_type_rules.json`
-- `templates/content_quality_rules.json`
-- `templates/layout_budget.json`
-- `templates/text_fit_rules.json`
 
-If PPT generation or PPT repair is requested, also read:
+Read stage-specific templates only when creating or repairing that artifact:
+
+- Research scoping/search: `templates/industry_scope_pack.template.json`,
+  `templates/formal_search_plan.template.json`,
+  `templates/formal_research_execution_report.skeleton.json`,
+  and `templates/source_registry.json`.
+- Deck/page planning: `templates/page_type_rules.json`,
+  `templates/slide_registry.json`, and the deck-blueprint sub-skill.
+- Content/template repair: `templates/content_quality_rules.json`,
+  `templates/layout_budget.json`, `templates/text_fit_rules.json`,
+  and `templates/layout_config.json`.
+- PPT generation or PPT repair:
 
 - `references/formatting_rules.md`
 - `references/ppt_visual_qc.md`
-- `templates/slide_registry.json`
 - `templates/ppt_mapping.json`
 - `templates/slide_layout_library.json`
 
-Do not wait until after drafting to discover these rules.
+Use `templates/artifact_manifest.json` and `scripts/workflow.py next` as the
+machine source of truth for stage order and repair commands.
 
 ## Workflow Decision Tree
 
 Choose the smallest workflow that satisfies the user request:
 
 1. New industry section from a brief or attachments:
-   - Run full workflow: intake -> scope boundary -> industry scope pack -> full-taxonomy issue/subissue search plan -> formal research execution -> source reviews/source archive -> research pack -> gap audit -> supplemental research if needed -> issue analysis -> template registry -> deck blueprint -> compile page evidence contract / renderer spec -> replacement dictionary -> PPT fill -> QC.
+   - Run full workflow: intake -> scope boundary -> industry scope pack -> full-taxonomy issue/subissue search plan -> formal research execution -> source reviews/source archive -> research evidence DB -> generated research pack -> gap audit -> supplemental research if needed -> issue analysis -> template registry -> deck blueprint -> compile page evidence contract / renderer spec -> template profile / template fit -> replacement dictionary -> PPT fill -> QC.
 2. Existing industry PPT improvement:
    - Extract current storyline and slide content; audit content gaps, source gaps, metric consistency, and template fit; regenerate only necessary pages unless the user asks for a full rebuild.
 3. Research-only update:
@@ -54,7 +61,8 @@ Maintain this internally for one-shot runs:
 - [ ] Source reviews validation
 - [ ] Source archive validation
 - [ ] Pre-research-pack stage gate
-- [ ] research pack validation
+- [ ] Research evidence DB validation
+- [ ] Generated research pack validation
 - [ ] Research gap audit
 - [ ] Supplemental research if critical gaps exist
 - [ ] Issue analysis
@@ -62,6 +70,7 @@ Maintain this internally for one-shot runs:
 - [ ] Deck blueprint
 - [ ] Compiled page evidence contract and renderer spec
 - [ ] Renderer spec validation
+- [ ] Template profile and template fit validation
 - [ ] Content quality validation
 - [ ] Deterministic replacement dictionary
 - [ ] PPT fill, clean, and visual postprocess

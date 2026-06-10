@@ -50,8 +50,12 @@ Set one interpreter and use it everywhere:
 PYTHON_CMD="$(bash setup.sh --print-python)"
 ```
 
-Formal research requires real search capability: agent Web Search or fallback
-providers (`tavily-python` / `ddgs`). If no search is available, use only
+Formal research requires real search capability or reviewable user-provided
+sources. Prefer the agent's native Web Search for LLM-led research. When a
+script-accessible fallback is needed, use `scripts/web_search.py --provider auto`;
+the provider order comes from `templates/source_registry.json` and currently is
+`SearXNG -> DuckDuckGo -> Tavily`. Configure `SEARXNG_BASE_URL` first; Tavily
+and DDG packages are optional extras. If no search is available, use only
 user-provided/offline sources that can be reviewed and archived; otherwise stop
 at the research blocker.
 
@@ -73,6 +77,24 @@ For a new brief, the research stage runs in this order:
 
 Do not write the execution report before real formal searches, source reviews,
 and source archive exist.
+
+## Search Provider Order
+
+Use search sources in this priority order:
+
+1. User-provided PDFs, URLs, reports, files, and other materials that can be
+   opened, reviewed, logged, and archived.
+2. Agent-native Web Search for LLM-led industry boundary validation and formal
+   research.
+3. Script fallback search with `scripts/web_search.py --provider auto`
+   (`SearXNG -> DuckDuckGo -> Tavily` by default).
+4. Manual URL ingestion if search is rate-limited but the user provides exact
+   source URLs.
+
+All useful results, regardless of provider, still need `S-xxx` log entries,
+source reviews, locators/excerpts, and source archive snapshots. Do not treat a
+search result snippet, planned query, model memory, or provider ranking as
+formal evidence.
 
 ## Input Card
 

@@ -11,10 +11,12 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
 
 ## Baseline
 
-- Web research is mandatory unless the user already provided
-  `industry_research_pack.md` and explicitly said not to expand it.
-- Provided materials are high-priority inputs, but they do not replace public
-  source review for a formal delivery.
+- Web/public-source research is mandatory unless the user already provided
+  sufficient reviewable source materials and explicitly said not to expand them.
+- Provided materials are high-priority inputs. User-provided PDFs, URLs,
+  reports, filings, and company materials should be reviewed first, but they do
+  not replace public source review for a formal delivery unless the user
+  explicitly limits scope to offline/manual-source mode.
 - Keep `input_card.json` transcription-only. Planner-inferred peers, sources,
   risks, or topics belong in the scope pack/search plan, not in the input card.
 - The material is for `pre_mandate_transaction_pitch`: show sector credibility
@@ -31,9 +33,22 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
   Evidence can only flow from actual `S-xxx` searches, reviewed `SRC-xxx`
   sources, and promoted `EV-xxx` / `MET-xxx` rows.
 
-## Source Priority
+## Source Priority And Search Providers
 
-Use unrestricted web search by default. Add domain constraints only when:
+Use source channels in this order:
+
+1. User-provided PDFs, URLs, reports, files, and other materials that can be
+   opened, logged, reviewed, archived, and caveated.
+2. Agent-native Web Search for LLM-led industry boundary validation and formal
+   research.
+3. Script fallback search with `scripts/web_search.py --provider auto`. Provider
+   order comes from `templates/source_registry.json` and currently is
+   `SearXNG -> DuckDuckGo -> Tavily`; configure `SEARXNG_BASE_URL` first.
+4. Manual URL ingestion when search is rate-limited but exact source URLs are
+   available.
+
+Use unrestricted web search by default for ordinary exploratory queries. Add
+domain constraints only when:
 
 1. the user explicitly provided preferred domains or websites;
 2. a source pack/domain was selected after broad discovery;
@@ -42,6 +57,11 @@ Use unrestricted web search by default. Add domain constraints only when:
 Never remove official, regulator, filing, company disclosure, or other
 higher-authority domains merely to reduce a domain count. If research scope is
 too broad, trim lower-authority media or aggregators first.
+
+If the agent's native Web Search is rate-limited or unavailable, switch to
+SearXNG/script fallback or manual source mode and record the limitation in the
+search log / execution report. Do not convert planned queries or model memory
+into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
 
 ## Industry Scope Pack And Search Plan
 
