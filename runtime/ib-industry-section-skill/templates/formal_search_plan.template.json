@@ -1,5 +1,7 @@
 {
   "schema_version": "formal_search_plan_v1",
+  "_template_only": true,
+  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use build_formal_search_plan_skeleton.py then edit each row.",
   "meta": {
     "target_company": "",
     "transaction_type": "",
@@ -42,38 +44,70 @@
       "issue_area": "market_size_growth",
       "subissue": "current_market_size",
       "priority": "high",
-      "research_question": "What is the current relevant market size, and what scope/geography does each source use?",
+      "research_question": "What is the current relevant market size for the target definition, and what is each source's geography/scope?",
       "search_instructions": [
         {
           "instruction_id": "FS-001",
-          "query": "<industry/subsector> <geography> market size latest report",
+          "query": "beauty and personal care current market size by geography and subsegment",
           "purpose": "Find current market-size datapoints and source scope.",
           "search_stage": "formal_research_execution",
-          "source_hint": "official statistics, industry association, broker/consulting report, company disclosure"
-        },
-        {
-          "instruction_id": "FS-002",
-          "query": "<industry/subsector> <geography> market size CAGR forecast",
-          "purpose": "Find growth datapoints or enough periods to reconcile CAGR.",
-          "search_stage": "formal_research_execution",
-          "source_hint": "industry report, broker report, official statistics"
+          "source_hint": "official statistics, industry association, company filing, broker or consulting report",
+          "query_variants": [
+            "beauty and personal care current market size annual report by region",
+            "beauty product market size definition and geographic coverage guide"
+          ]
         }
-      ]
+      ],
+      "execution_expectation": "light_search",
+      "minimum_actual_searches": 1,
+      "coverage_required": true,
+      "terminal_status": "pending"
     },
     {
       "issue_area": "competitive_landscape",
       "subissue": "peer_universe",
       "priority": "high",
-      "research_question": "Who are the relevant top peers and adjacent players for this market definition?",
+      "research_question": "Who are the relevant peers and adjacent players that best define this industry footprint?",
+      "search_instructions": [
+        {
+          "instruction_id": "FS-002",
+          "query": "beauty personal care listed peers peer-set benchmark profiles by revenue mix",
+          "purpose": "Identify peer universe, share indicators, and inclusion rationale.",
+          "search_stage": "formal_research_execution",
+          "source_hint": "company disclosure, public filing, industry report, analyst coverage",
+          "query_variants": [
+            "beauty peer set with comparable geography and channel mix",
+            "adjacent categories with similar customer and distribution profile"
+          ]
+        }
+      ],
+      "execution_expectation": "light_search",
+      "minimum_actual_searches": 1,
+      "coverage_required": true,
+      "terminal_status": "pending"
+    },
+    {
+      "issue_area": "pitch_relevance_target_context",
+      "subissue": "why_sector_relevant",
+      "priority": "medium",
+      "research_question": "Why is this sector relevant to a potential mandate for the target client?",
       "search_instructions": [
         {
           "instruction_id": "FS-003",
-          "query": "<industry/subsector> <geography> leading companies market share",
-          "purpose": "Identify peer universe, share indicators, and inclusion rationale.",
+          "query": "beauty and personal care sector buyer base and diligence relevance for specialty assets",
+          "purpose": "Collect sector context needed for transaction framing.",
           "search_stage": "formal_research_execution",
-          "source_hint": "company disclosure, industry report, platform data"
+          "source_hint": "industry report, strategist notes, transaction precedent context",
+          "query_variants": [
+            "beauty mandate transaction precedent sector themes",
+            "sector transition risks and buyer rationale in similar industries"
+          ]
         }
-      ]
+      ],
+      "execution_expectation": "accounting_only",
+      "minimum_actual_searches": 0,
+      "coverage_required": true,
+      "terminal_status": "pending"
     }
   ],
   "research_discipline": {
