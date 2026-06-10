@@ -16,6 +16,24 @@ and evidence-based.
 This is not a BP, CIM, retained-client sell-side book, target advertisement,
 generic industry report, or quick "make any PPT" template.
 
+## Operating Principles
+
+These principles apply before any artifact work:
+
+1. **Policy first**: write for a pre-mandate client pitch. Do not drift into CIM,
+   DD, retained-client process, or generic research-report mode.
+2. **Boundary before research**: define and validate the target industry boundary
+   before forming industry conclusions.
+3. **Planned search is not evidence**: `FS-xxx` rows are coverage plans. Only
+   actually executed and reviewed `S-xxx` attempts may support evidence.
+4. **Hypothesis is not conclusion**: unsupported or weak hypotheses must become
+   caveats, public research requests, or revised reasoning, not headlines.
+5. **Page argument before template**: decide the page thesis first; use the PPT
+   template only to fit and render the argument.
+6. **LLM judges, scripts synchronize**: use LLM effort for judgment and
+   pitchbook expression; use scripts for IDs, mappings, validation, exports,
+   and rendering.
+
 ## Quick Start
 
 Work from the installed skill root, for example:
