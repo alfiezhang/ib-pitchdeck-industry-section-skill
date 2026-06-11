@@ -2,56 +2,126 @@
 
 ## 中文
 
-这是一个用于生成投行 pitchbook 行业章节的 AI plugin。它面向 pre-mandate pitch 场景：在尚未正式拿下客户、对标的公司了解有限的情况下，先通过行业定界、正式研究、证据溯源、issue analysis 和 deck blueprint，生成一组可用于展示行业理解与交易判断的行业章节 PPT。
+一个面向 **pre-mandate client pitch** 场景的投行行业章节 agent plugin。
 
-这个项目不是“快速生成任意 PPT”的模板。它的核心目标是让 AI 先完成可追溯研究和页面规划，再进入确定性 PPT 渲染流程。
+它的目标不是快速拼出一份通用 PPT，而是在客户资料有限的情况下，帮助 agent 先完成行业边界校准、公开资料补证、证据沉淀、投行判断和页面论点设计，再把内容确定性渲染成 pitchbook 行业章节。
 
-### 目录结构
+### 适用场景
+
+- 潜在客户 pitch 前的行业章节
+- 只有几句话、网页链接、PDF、PPT、Excel 或项目线索的早期项目
+- 需要展示“我们理解行业、理解标的赛道、理解交易机会、理解买方视角”的材料
+- 需要把用户提供的优质行业报告、公开网页和搜索结果纳入同一套证据链
+
+不适用于：
+
+- CIM、Teaser、DD 清单或已签约顾问工作计划
+- 普通行业研究报告
+- 不需要证据链、只想快速美化 PPT 的任务
+- 依赖未披露内部资料或未经验证假设的客户宣传材料
+
+### 核心工作流
 
 ```text
-ib-pitchdeck-agent-industry-section/
-├── runtime/
-│   └── ib-pitchdeck-agent-industry-section/   # 可安装的 plugin package root
-├── tests/                           # 开发与回归测试，不属于安装包
-└── README.md                        # 本文件
+用户材料 / 链接 / 指令
+→ Engagement Policy
+→ Material Intake
+→ Knowledge Repository
+→ Industry Scoping + Boundary Validation Loop
+→ Research / External Evidence Loop
+→ Reasoning / Issue Analysis / Page Arguments
+→ Generation / Deck Blueprint
+→ Template Profile / Template Fit
+→ Deterministic PPT Output
+→ QC / Final Delivery Validation
 ```
 
-真正需要安装给 AI agent 使用的是 plugin package：
+核心原则：
+
+- 先定义行业边界，再做行业研究
+- Knowledge Layer 只沉淀事实和来源，不主动搜索、不做最终判断
+- Research Layer 只补公开资料，不把搜索计划当成证据
+- Reasoning Layer 才形成 supported judgment、hypothesis 和 page argument
+- Generation Layer 先生成页面论点和 slide draft，最后才进入模板适配
+- QC Engine 横向检查事实、边界、研究、判断、页面和模板适配
+
+### Plugin Package
+
+仓库根目录用于开发、测试和发布。可安装的 plugin package 位于：
 
 ```text
 runtime/ib-pitchdeck-agent-industry-section/
 ```
 
-该目录包含平台 plugin manifest、`agents/` 主 agent、role-based `skills/`、scripts、templates、assets 和 runtime references。仓库根目录的 `README.md`、`docs/`、`tests/`、`AGENTS.md` 不属于安装包。
-
-### 安装
-
-不要把这个 package 复制到 `~/.codex/skills/`、`~/.claude/skills/` 或 `~/.workbuddy/skills/`。这是 plugin package，不是 legacy skill 目录。
-
-Codex plugin 安装应走 plugin / marketplace 机制。plugin source root 是：
+包结构：
 
 ```text
 runtime/ib-pitchdeck-agent-industry-section/
+├── .codex-plugin/plugin.json
+├── .claude-plugin/plugin.json
+├── .codebuddy-plugin/plugin.json
+├── agents/
+│   └── ib-pitchdeck-agent-industry-section.md
+├── skills/
+│   ├── material-intake/
+│   ├── knowledge-repository/
+│   ├── industry-scoping/
+│   ├── research-external-evidence/
+│   ├── reasoning/
+│   ├── generation/
+│   ├── template/
+│   ├── qc/
+│   └── output/
+├── scripts/
+├── templates/
+├── references/
+├── assets/
+├── requirements.txt
+├── setup.sh
+└── run_pipeline.sh
 ```
 
-本地开发时，可以把该目录作为 marketplace entry 指向的 plugin source，或复制/同步到本地 plugin source 目录（例如 `~/plugins/ib-pitchdeck-agent-industry-section/`）后通过 `codex plugin add` 安装。Claude / WorkBuddy 如使用 plugin 机制，也应注册同一个 plugin package。只有在某个平台明确只支持 legacy skills 时，才应另行生成 compatibility export；不要把开发仓库根目录或 plugin package 直接塞进 skills 目录。
+`agents/ib-pitchdeck-agent-industry-section.md` 是主 agent / orchestrator。`skills/` 下的目录是角色模块，不是彼此独立的产品入口。
+
+### 安装方式
+
+将 `runtime/ib-pitchdeck-agent-industry-section/` 注册为宿主 agent 的 plugin source。
+
+不同宿主对 plugin 的安装入口不同；本仓库在 runtime package 中提供了 Codex、Claude 和 WorkBuddy/CodeBuddy 风格的 manifest。若某个平台只支持 legacy skills，可从 runtime package 生成兼容导出，但主发布形态是 plugin package。
+
+### 输入与输出
+
+输入可以是：
+
+- 简短项目背景
+- PDF、PPT、Excel、网页链接
+- 用户精选行业报告
+- PPT 模板或母版
+- 公开资料来源或搜索线索
+
+输出包括：
+
+- `industry_section.pptx` 或等价的最终 PPT
+- research evidence database / generated research pack
+- issue analysis
+- deck blueprint
+- page evidence contract
+- renderer spec
+- QC / final delivery validation report
+
+### 研究与证据
+
+正式研究默认优先使用宿主 agent 自带的 Web Search。脚本层的 fallback provider 由 `templates/source_registry.json` 控制，当前顺序为：
 
 ```text
-plugin root:
-  runtime/ib-pitchdeck-agent-industry-section/
-required:
-  .codex-plugin/plugin.json
-  agents/
-  skills/
-  scripts/
-  templates/
-  assets/
-  references/
+SearXNG → DuckDuckGo → Tavily
 ```
 
-### 本地运行检查
+`SEARXNG_BASE_URL`、`ddgs` 和 `tavily-python` 都是可选扩展能力。没有网络或搜索 provider 时，可以使用用户提供的离线资料，但仍必须完成 source review、source archive 和 evidence trace；未执行的搜索计划不能作为证据。
 
-在 plugin package 目录中运行：
+### 开发者校验
+
+开发、打包或排查 runtime 依赖时，可在仓库根目录运行：
 
 ```bash
 cd runtime/ib-pitchdeck-agent-industry-section
@@ -59,40 +129,7 @@ PYTHON_CMD="$(bash setup.sh --print-python)"
 "$PYTHON_CMD" scripts/check_runtime_dependencies.py
 ```
 
-`setup.sh` 会调用 `scripts/bootstrap_runtime.py`，优先复用可用的 Python；如果缺少依赖，会尝试创建或更新本地 `.venv` 并安装 `requirements.txt`。
-
-正式研究需要搜索或可审阅的公开资料来源。默认优先使用 agent 自带的 Web Search 做 LLM 主导搜索；脚本 fallback 的优先顺序由 `templates/source_registry.json` 控制，当前为 `SearXNG → DuckDuckGo → Tavily`。推荐先配置 `SEARXNG_BASE_URL`，`tavily-python` / `ddgs` 仅作为可选额外 provider。如果完全没有网络或搜索 provider，只能使用用户提供的离线来源，并且仍需完成 source review、source archive 和 evidence trace；不能把未搜索的内容伪装成 formal research。
-
-### 基本工作流
-
-该 skill 的正式流程大致为：
-
-```text
-用户材料 / 链接 / 指令
-→ Material Intake
-→ Knowledge Repository
-→ Industry Scoping / Boundary Validation
-→ Research Evidence
-→ Reasoning / Issue Analysis
-→ Generation / Deck Blueprint
-→ Template Profile / Template Fit
-→ Output / PPT Render
-→ QC / Final Delivery Validation
-```
-
-Plugin package 采用主 agent + role skills：主入口和 Orchestrator 是 `agents/ib-pitchdeck-agent-industry-section.md`；角色 skills 包括 `material-intake`、`knowledge-repository`、`industry-scoping`、`research-external-evidence`、`reasoning`、`generation`、`template`、`qc` 和 `output`。plugin package 根目录不放 `SKILL.md`，`skills/` 只放能力模块。
-
-`scripts/pipeline.py render --run-dir <attempt_dir>` 是正式 PPT 渲染和 final gate 的首选入口。它只处理已经通过正式研究和上游校验的 run package，不从 brief 开始做研究，也不创建新的 attempt。`run_pipeline.sh` 仅保留为旧自动化兼容包装器，并且只接受已有 attempt。
-
-当前 runtime 使用固定 8 页行业章节母版。页面类型和变体由 `slide_registry.json`、`page_type_rules.json`、`template_registry.json` 和 PPT mapping 控制；如需新增行业专属页面结构，应同步更新模板、registry、mapping 和验证脚本。
-
-### Plugin Package
-
-`runtime/ib-pitchdeck-agent-industry-section/.codex-plugin/plugin.json` 是 plugin manifest。不要在仓库根目录再放第二套 `.codex-plugin` 或 `skills/` wrapper。
-
-### 开发与测试
-
-从仓库根目录运行：
+回归测试从仓库根目录运行：
 
 ```bash
 PYTHON_CMD=python3 bash tests/run_smoke_tests.sh
@@ -100,66 +137,142 @@ PYTHON_CMD=python3 bash tests/run_contract_tests.sh
 python3 -m pytest -q
 ```
 
-如果本地 Python 版本与 `python-pptx` / `lxml` 不兼容，建议使用 Python 3.9-3.11。
+建议使用 Python 3.9-3.11，尤其是在本地渲染 PPT 时。
 
 ### 打包
 
-如需生成干净安装包，应只打包 `runtime/ib-pitchdeck-agent-industry-section/` 的内容。安装包不应包含仓库根目录的 `tests/`、`docs/`、`dist/`、缓存文件或历史运行结果。
+发布或分发时，只打包：
+
+```text
+runtime/ib-pitchdeck-agent-industry-section/
+```
+
+仓库根目录的 `tests/`、`docs/`、`dist/`、缓存文件和历史 run outputs 不属于 runtime package。
 
 ---
 
 ## English
 
-This repository contains an AI plugin for generating an investment banking pitchbook industry section. It is designed for pre-mandate pitch situations: before the mandate is won and before the target company is fully diligenced, the agent builds sector understanding, runs formal research, tracks evidence, develops issue analysis, plans the deck, and then renders a PPT industry section.
+An investment-banking industry-section agent plugin for **pre-mandate client pitch** work.
 
-This is not a shortcut template for producing any PPT as quickly as possible. The purpose is to make the agent complete source-disciplined research and page-level planning before deterministic PowerPoint rendering.
+It is not a generic PPT generator. The plugin is designed to help an agent turn limited target materials and public evidence into a source-disciplined pitchbook industry section: define the industry boundary, collect and review evidence, form banker judgments, design page arguments, fit the content to a template, and render the final PPT deterministically.
 
-### Repository Layout
+### Use Cases
+
+- Industry sections for pre-mandate client pitches
+- Early-stage target situations with only a short brief, URL, PDF, PPT, Excel file, or project lead
+- Materials that need to show sector understanding, target relevance, transaction opportunity, and likely buyer perspective
+- Workflows that combine user-curated industry reports, public web sources, and search results into one evidence chain
+
+Not intended for:
+
+- CIMs, teasers, diligence request lists, or retained-client work plans
+- Standalone generic industry reports
+- Quick PPT beautification without evidence discipline
+- Client promotion built on undisclosed internal data or unsupported assumptions
+
+### Workflow
 
 ```text
-ib-pitchdeck-agent-industry-section/
-├── runtime/
-│   └── ib-pitchdeck-agent-industry-section/   # Installable plugin package root
-├── tests/                           # Developer regression tests; not installed
-└── README.md                        # This file
+user materials / links / instructions
+→ Engagement Policy
+→ Material Intake
+→ Knowledge Repository
+→ Industry Scoping + Boundary Validation Loop
+→ Research / External Evidence Loop
+→ Reasoning / Issue Analysis / Page Arguments
+→ Generation / Deck Blueprint
+→ Template Profile / Template Fit
+→ Deterministic PPT Output
+→ QC / Final Delivery Validation
 ```
 
-The installable plugin package is:
+Operating principles:
+
+- Define the industry boundary before industry research.
+- The Knowledge Layer stores facts and sources; it does not search or make final judgments.
+- The Research Layer gathers public evidence; planned searches are not evidence.
+- The Reasoning Layer forms supported judgments, hypotheses, and page arguments.
+- The Generation Layer creates page arguments and slide drafts before template fitting.
+- The QC Engine checks facts, boundaries, research quality, reasoning, page quality, and template fit.
+
+### Plugin Package
+
+The repository root is for development, testing, and release packaging. The installable plugin package is:
 
 ```text
 runtime/ib-pitchdeck-agent-industry-section/
 ```
 
-It contains platform plugin manifests, the main agent under `agents/`, role-based `skills/`, scripts, templates, assets, and runtime references. Repository-level `README.md`, `docs/`, `tests/`, and `AGENTS.md` are not part of the installable package.
+Package layout:
+
+```text
+runtime/ib-pitchdeck-agent-industry-section/
+├── .codex-plugin/plugin.json
+├── .claude-plugin/plugin.json
+├── .codebuddy-plugin/plugin.json
+├── agents/
+│   └── ib-pitchdeck-agent-industry-section.md
+├── skills/
+│   ├── material-intake/
+│   ├── knowledge-repository/
+│   ├── industry-scoping/
+│   ├── research-external-evidence/
+│   ├── reasoning/
+│   ├── generation/
+│   ├── template/
+│   ├── qc/
+│   └── output/
+├── scripts/
+├── templates/
+├── references/
+├── assets/
+├── requirements.txt
+├── setup.sh
+└── run_pipeline.sh
+```
+
+`agents/ib-pitchdeck-agent-industry-section.md` is the main agent / orchestrator. The folders under `skills/` are role modules, not separate product entrypoints.
 
 ### Installation
 
-Do not copy this package into `~/.codex/skills/`, `~/.claude/skills/`, or `~/.workbuddy/skills/`. This is a plugin package, not a legacy skill folder.
+Register `runtime/ib-pitchdeck-agent-industry-section/` as the plugin source in the host agent.
 
-Codex installation should use the plugin / marketplace mechanism. The plugin source root is:
+Different hosts expose plugin installation differently. This runtime package includes Codex-, Claude-, and WorkBuddy/CodeBuddy-style manifests. If a platform only supports legacy skills, generate a compatibility export from the runtime package; the primary distribution format is the plugin package.
+
+### Inputs And Outputs
+
+Inputs may include:
+
+- short target briefs
+- PDFs, PPTs, Excel files, and web links
+- user-curated industry reports
+- PPT templates or master decks
+- public-source leads and search prompts
+
+Outputs include:
+
+- `industry_section.pptx` or an equivalent final PPT
+- research evidence database / generated research pack
+- issue analysis
+- deck blueprint
+- page evidence contract
+- renderer spec
+- QC / final delivery validation report
+
+### Research And Evidence
+
+Formal research should prefer the host agent's native Web Search. Script-level fallback providers are controlled by `templates/source_registry.json`; the current order is:
 
 ```text
-runtime/ib-pitchdeck-agent-industry-section/
+SearXNG → DuckDuckGo → Tavily
 ```
 
-For local development, point a marketplace entry at this plugin source, or sync the package to a local plugin source directory such as `~/plugins/ib-pitchdeck-agent-industry-section/` and install it with `codex plugin add`. Claude / WorkBuddy plugin installs should likewise register the plugin package through their plugin mechanisms. If a platform only supports legacy skills, create a separate compatibility export instead of placing this plugin package directly into a skills directory.
+`SEARXNG_BASE_URL`, `ddgs`, and `tavily-python` are optional runtime extensions. If network search is unavailable, user-provided offline sources can be used, but they still need source review, archiving, and evidence traceability. Unexecuted search plans cannot be treated as evidence.
 
-```text
-plugin root:
-  runtime/ib-pitchdeck-agent-industry-section/
-required:
-  .codex-plugin/plugin.json
-  agents/
-  skills/
-  scripts/
-  templates/
-  assets/
-  references/
-```
+### Developer Verification
 
-### Local Runtime Check
-
-Run from the plugin package directory:
+For development, packaging, or runtime diagnostics:
 
 ```bash
 cd runtime/ib-pitchdeck-agent-industry-section
@@ -167,47 +280,7 @@ PYTHON_CMD="$(bash setup.sh --print-python)"
 "$PYTHON_CMD" scripts/check_runtime_dependencies.py
 ```
 
-`setup.sh` calls `scripts/bootstrap_runtime.py`. It first tries to reuse a compatible Python runtime; if dependencies are missing, it can create/update the local `.venv` and install `requirements.txt`.
-
-Formal research needs search access or reviewable public materials. Prefer the agent's native Web Search for LLM-led research. Script fallback provider order is controlled by `templates/source_registry.json`; the current default is `SearXNG → DuckDuckGo → Tavily`. Configure `SEARXNG_BASE_URL` first; `tavily-python` / `ddgs` are optional extra providers. If neither network access nor a search provider is available, use only user-provided offline sources that can be reviewed, archived, and traced; do not represent unsearched content as formal research.
-
-### Workflow
-
-The formal workflow is approximately:
-
-```text
-user materials / links / instructions
-→ Material Intake
-→ Knowledge Repository
-→ Industry Scoping / Boundary Validation
-→ Research Evidence
-→ Reasoning / Issue Analysis
-→ Generation / Deck Blueprint
-→ Template Profile / Template Fit
-→ Output / PPT Render
-→ QC / Final Delivery Validation
-```
-
-The plugin uses a main agent plus role-based skills. The main entrypoint and
-Orchestrator is `agents/ib-pitchdeck-agent-industry-section.md`. Role skills include `material-intake`,
-`knowledge-repository`, `industry-scoping`, `research-external-evidence`,
-`reasoning`, `generation`, `template`, `qc`, and `output`. The plugin package
-root does not contain a `SKILL.md`, and `skills/` contains only capability
-modules.
-
-`scripts/pipeline.py render --run-dir <attempt_dir>` is the preferred entrypoint for formal PPT rendering and final delivery gates. It only operates on a run package that has already passed formal research and upstream validation; it does not start research from a brief or create a new attempt. `run_pipeline.sh` remains only as a compatibility wrapper for older automation and accepts existing attempts only.
-
-The current runtime uses a fixed 8-slide industry-section master template. Page types and variants are controlled by `slide_registry.json`, `page_type_rules.json`, `template_registry.json`, and PPT mappings. New industry-specific page structures should update the template, registries, mappings, and validators together.
-
-### Plugin Package
-
-`runtime/ib-pitchdeck-agent-industry-section/.codex-plugin/plugin.json` is the
-plugin manifest. Do not keep a second `.codex-plugin` or `skills/` wrapper at
-the repository root.
-
-### Development And Tests
-
-Run from the repository root:
+Run regression checks from the repository root:
 
 ```bash
 PYTHON_CMD=python3 bash tests/run_smoke_tests.sh
@@ -215,8 +288,14 @@ PYTHON_CMD=python3 bash tests/run_contract_tests.sh
 python3 -m pytest -q
 ```
 
-If your local Python version has compatibility issues with `python-pptx` / `lxml`, use Python 3.9-3.11.
+Python 3.9-3.11 is recommended, especially for local PPT rendering.
 
 ### Packaging
 
-A clean distributable package should contain only the contents of `runtime/ib-pitchdeck-agent-industry-section/`. It should not include repository-level `tests/`, `docs/`, `dist/`, cache files, or historical run outputs.
+Release packages should contain only:
+
+```text
+runtime/ib-pitchdeck-agent-industry-section/
+```
+
+Repository-level `tests/`, `docs/`, `dist/`, cache files, and historical run outputs are not part of the runtime package.
