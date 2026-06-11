@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from json_utils import load_json_file
+from material_intake_common import text
 
 
 def text(value: Any) -> str:
@@ -29,13 +30,20 @@ def main() -> int:
             {
                 "material_id": text(item.get("material_id")),
                 "source_type": text(item.get("source_type")),
-                "locator": text(item.get("locator")),
+                "source_access": text(item.get("source_access") or item.get("access_level") or "user_provided"),
+                "file_path_or_url": text(item.get("file_path_or_url") or item.get("locator")),
+                "material_kind": text(item.get("material_kind") or ("url" if text(item.get("file_path_or_url") or item.get("locator")).startswith(("http://", "https://")) else "file")),
+                "locator": text(item.get("locator") or item.get("file_path_or_url")),
                 "extraction_status": "pending_llm_extraction",
                 "extracted_facts": [],
                 "extracted_metrics": [],
                 "quoted_excerpts": [],
                 "unknowns_or_conflicts": [],
                 "claim_use_limitations": "Do not use until facts/metrics are extracted with locator and source type.",
+                "extraction_limitations": "not_processed",
+                "can_be_used_as_evidence": False,
+                "extracted_text_path": "",
+                "evidence_snapshot": "",
             }
         )
     payload = {

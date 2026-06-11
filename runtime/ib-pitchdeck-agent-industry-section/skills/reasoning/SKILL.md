@@ -70,6 +70,12 @@ Allowed deck usage:
   --research-request-queue "$RUN_DIR/artifacts/research_request_queue.json" \
   --output "$RUN_DIR/artifacts/research_request_queue_validation.json"
 
+"$PYTHON_CMD" scripts/promote_research_requests.py \
+  --research-request-queue "$RUN_DIR/artifacts/research_request_queue.json" \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --output "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --incremental-search-plan "$RUN_DIR/artifacts/incremental_search_plan.json"
+
 "$PYTHON_CMD" scripts/build_page_argument_pack.py \
   --issue-analysis "$RUN_DIR/industry_issue_analysis.json" \
   --hypothesis-store "$RUN_DIR/artifacts/hypothesis_store.json" \

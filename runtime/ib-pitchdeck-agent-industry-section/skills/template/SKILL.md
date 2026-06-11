@@ -12,12 +12,15 @@ deterministic rendering.
 
 - `artifacts/template_profile.json`
 - `artifacts/template_fit_validation.json`
+- `artifacts/template_fit_plan.json`
 
 ## Responsibilities
 
 - Identify template colors, fonts, layout rules, source areas, chart/table
   capabilities, and information density.
 - Fit renderer spec content into available layout capacity.
+- Produce slot assignments, copy compression recommendations, and structured
+  `template_capacity_conflict` records for Generation repair.
 - Report capacity conflicts back to Generation, not Output.
 
 ## Does Not Do
@@ -38,5 +41,6 @@ deterministic rendering.
 "$PYTHON_CMD" scripts/template_fit.py \
   --renderer-spec "$RUN_DIR/renderer_spec.json" \
   --template-profile "$RUN_DIR/artifacts/template_profile.json" \
-  --output "$RUN_DIR/artifacts/template_fit_validation.json"
+  --output "$RUN_DIR/artifacts/template_fit_validation.json" \
+  --fit-plan-output "$RUN_DIR/artifacts/template_fit_plan.json"
 ```

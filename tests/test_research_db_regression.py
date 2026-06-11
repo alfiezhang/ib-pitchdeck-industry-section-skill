@@ -287,4 +287,38 @@ def test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence() -> Non
     assert any("FR-002" in item and "not_executed" in item for item in db["research_gap_audit"]["critical_gaps"])
 
 
+def test_build_db_imports_repository_sources_as_material_candidates_only() -> None:
+    repository_sources = [
+        {
+            "source_id": "R-REPO-001",
+            "source_title": "Historical Industry Report",
+            "source_type": "industry_report",
+            "source_path": "https://example.com/repo/report",
+            "text_snapshot_path": "/tmp/report.txt",
+            "industry_tags": ["renewables", "energy"],
+            "geography": "CN",
+            "time_period": "2025",
+            "source_quality": "medium",
+            "reuse_limitations": ["requires re-review"],
+            "snapshot_excerpt": "Historical report summary used for context only.",
+        }
+    ]
+
+    db = build_db(
+        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "CN"},
+        scope_pack={"scope_summary": {"working_market": "sample market"}},
+        formal_search_plan={"issue_search_plan": []},
+        execution_report={"issue_results": []},
+        source_reviews={"source_reviews": []},
+        repository_sources=repository_sources,
+    )
+
+    source_rows = db["source_materials"]
+    assert len(source_rows) == 1
+    row = source_rows[0]
+    assert row["source_review_id"] == "R-REPO-001"
+    assert row["source_access"] == "repository_retrieval"
+    assert row["usable_as_evidence"] is False
+    assert row["fact_type"] == "repository_import"
+
 

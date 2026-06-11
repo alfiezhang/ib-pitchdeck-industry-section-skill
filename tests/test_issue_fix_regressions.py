@@ -10,6 +10,35 @@ SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+
+def _seed_material_intake(run_dir: Path) -> None:
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    (artifacts / "material_manifest.json").write_text(
+        '{"schema_version":"material_manifest_v1","created_at":"2026-01-01T00:00:00+00:00","policy_context":"pre_mandate_client_pitch","materials":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","material_kind":"text","extraction_status":"complete","extraction_limitations":"none","can_be_used_as_evidence":true}],"source_type_policy":{}}',
+        encoding="utf-8",
+    )
+    (artifacts / "source_classification.json").write_text(
+        '{"schema_version":"source_classification_v1","generated_at":"2026-01-01T00:00:00+00:00","materials":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","source_hash":"","source_date":"2026-01-01T00:00:00+00:00"}]}',
+        encoding="utf-8",
+    )
+    (artifacts / "material_extracts.json").write_text(
+        '{"schema_version":"material_extracts_v1","materials_source":"artifacts/material_manifest.json","extracts":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","extracted_text_path":"artifacts/material_texts/MAT-001.txt","extraction_status":"complete","extraction_limitations":"none","can_be_used_as_evidence":true,"quoted_excerpts":[]}]',
+        encoding="utf-8",
+    )
+    (artifacts / "material_manifest_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "material_extracts_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+
+
+def _seed_boundary_loop_ready(run_dir: Path) -> None:
+    artifacts = run_dir / "artifacts"
+    (artifacts / "boundary_loop_status.json").write_text(
+        '{"schema_version": "boundary_loop_status_v1", "status": "boundary_ready", "boundary_loop_status": "boundary_ready", '
+        '"is_valid": true, "created_at": "2026-01-01T00:00:00Z", "errors": [], "warnings": [], '
+        '"repair_actions": [], "boundary_inputs": {"scope_pack": true, "material_extracts": true, "research_evidence_db": true}}',
+        encoding="utf-8",
+    )
+
 import check_runtime_dependencies  # noqa: E402
 import pipeline  # noqa: E402
 from build_formal_search_plan_skeleton import build_plan  # noqa: E402
@@ -165,7 +194,7 @@ def test_empty_run_returns_input_card_missing(tmp_path: Path) -> None:
     run_dir = tmp_path / "empty_run"
     run_dir.mkdir(parents=True)
     state = validate_run_state(run_dir)
-    assert state["current_stage"] == "INPUT_CARD_MISSING", state
+    assert state["current_stage"] == "MATERIAL_INTAKE_MISSING_OR_FAILED", state
 
 
 def test_template_profile_requires_renderer_spec(tmp_path: Path) -> None:
@@ -179,6 +208,20 @@ def test_template_profile_requires_renderer_spec(tmp_path: Path) -> None:
     (artifacts / "input_card_validation.json").write_text(
         '{"is_valid": true}', encoding="utf-8"
     )
+    (artifacts / "material_manifest.json").write_text(
+        '{"schema_version":"material_manifest_v1","created_at":"2026-01-01T00:00:00+00:00","policy_context":"pre_mandate_client_pitch","materials":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","material_kind":"text","extraction_status":"complete","extraction_limitations":"none","can_be_used_as_evidence":true}],"source_type_policy":{}}',
+        encoding="utf-8",
+    )
+    (artifacts / "source_classification.json").write_text(
+        '{"schema_version":"source_classification_v1","generated_at":"2026-01-01T00:00:00+00:00","materials":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","source_hash":"","source_date":"2026-01-01T00:00:00+00:00"}]}',
+        encoding="utf-8",
+    )
+    (artifacts / "material_extracts.json").write_text(
+        '{"schema_version":"material_extracts_v1","materials_source":"artifacts/material_manifest.json","extracts":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","extracted_text_path":"artifacts/material_texts/MAT-001.txt","extraction_status":"complete","extraction_limitations":"none","can_be_used_as_evidence":true,"extracted_facts":[],"extracted_metrics":[],"quoted_excerpts":[],"unknowns_or_conflicts":[],"claim_use_limitations":"synthetic","evidence_snapshot":"synthetic"}]}',
+        encoding="utf-8",
+    )
+    (artifacts / "material_manifest_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "material_extracts_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     state = validate_run_state(run_dir)
     # Without renderer_spec, template checks should be skipped
     assert state["current_stage"] != "TEMPLATE_PROFILE_MISSING_OR_FAILED", state
@@ -193,6 +236,20 @@ def test_template_profile_defers_to_earlier_gates(tmp_path: Path) -> None:
     artifacts.mkdir()
     (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
     (artifacts / "input_card_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "material_manifest.json").write_text(
+        '{"schema_version":"material_manifest_v1","created_at":"2026-01-01T00:00:00+00:00","policy_context":"pre_mandate_client_pitch","materials":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","material_kind":"text","extraction_status":"complete","extraction_limitations":"none","can_be_used_as_evidence":true}],"source_type_policy":{}}',
+        encoding="utf-8",
+    )
+    (artifacts / "source_classification.json").write_text(
+        '{"schema_version":"source_classification_v1","generated_at":"2026-01-01T00:00:00+00:00","materials":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","source_hash":"","source_date":"2026-01-01T00:00:00+00:00"}]}',
+        encoding="utf-8",
+    )
+    (artifacts / "material_extracts.json").write_text(
+        '{"schema_version":"material_extracts_v1","materials_source":"artifacts/material_manifest.json","extracts":[{"material_id":"MAT-001","source_type":"project_specific_material","source_access":"user_provided","file_path_or_url":"artifacts/material_texts/sample_contract.txt","extracted_text_path":"artifacts/material_texts/MAT-001.txt","extraction_status":"complete","extraction_limitations":"none","can_be_used_as_evidence":true,"extracted_facts":[],"extracted_metrics":[],"quoted_excerpts":[],"unknowns_or_conflicts":[],"claim_use_limitations":"synthetic","evidence_snapshot":"synthetic"}]}',
+        encoding="utf-8",
+    )
+    (artifacts / "material_manifest_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "material_extracts_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (run_dir / "renderer_spec.json").write_text("{}", encoding="utf-8")
     state = validate_run_state(run_dir)
     # scope_pack is missing, so it fires before template profile
@@ -205,6 +262,7 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     run_dir.mkdir(parents=True)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir()
+    _seed_material_intake(run_dir)
     # Seed everything through renderer_spec
     (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
     (artifacts / "input_card_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
@@ -234,6 +292,7 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     (artifacts / "page_evidence_contract_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (run_dir / "renderer_spec.json").write_text("{}", encoding="utf-8")
     (artifacts / "renderer_spec_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    _seed_boundary_loop_ready(run_dir)
     # No template_profile.json → should fire right after renderer_spec
     state = validate_run_state(run_dir)
     assert state["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED", state
@@ -313,6 +372,3 @@ def test_check_runtime_dependencies_source_registry_path() -> None:
     from check_runtime_dependencies import SOURCE_REGISTRY
     assert SOURCE_REGISTRY.exists(), f"SOURCE_REGISTRY path does not exist: {SOURCE_REGISTRY}"
     assert SOURCE_REGISTRY.name == "source_registry.json"
-
-
-

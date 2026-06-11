@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from research_evidence_db import build_db, load_optional_json
+from json_utils import load_json_file
 
 
 def main() -> int:
@@ -19,6 +20,10 @@ def main() -> int:
     parser.add_argument("--source-reviews", required=True)
     parser.add_argument("--material-manifest")
     parser.add_argument("--material-extracts")
+    parser.add_argument(
+        "--repository-sources",
+        help="Optional repository_retrieve output (JSON dict or list) used as repo-backed source material",
+    )
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -30,6 +35,7 @@ def main() -> int:
         source_reviews=load_optional_json(args.source_reviews),
         material_manifest=load_optional_json(args.material_manifest),
         material_extracts=load_optional_json(args.material_extracts),
+        repository_sources=_load_repository_sources(args.repository_sources),
     )
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,6 +56,19 @@ def main() -> int:
         )
     )
     return 0
+
+
+def _load_repository_sources(path_value: str | None) -> list[dict]:
+    if not path_value:
+        return []
+    payload = load_json_file(Path(path_value))
+    if isinstance(payload, dict):
+        candidates = payload.get("sources")
+        if isinstance(candidates, list):
+            return [item for item in candidates if isinstance(item, dict)]
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    return []
 
 
 if __name__ == "__main__":

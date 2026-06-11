@@ -230,8 +230,9 @@ Core stages:
    intent, caveats, source use, and pitch relevance.
 10. **Template fit**: after renderer spec exists, generate
    `artifacts/template_profile.json` and
-   `artifacts/template_fit_validation.json`; the Python pipeline can refresh
-   these during pre-PPT validation.
+   `artifacts/template_fit_validation.json` plus
+   `artifacts/template_fit_plan.json`; the Python pipeline can refresh these
+   during pre-PPT validation.
 11. **Compile/render**: run content/replacement validation, render PPT, and pass
    final delivery.
 
@@ -307,17 +308,23 @@ excerpts/paraphrases, use scope, provenance tier, and source archive snapshots.
 
 ## Page And Template Discipline
 
-Current delivery uses a fixed 8-slide master template. The fixed sequence is a
-delivery constraint, not a reasoning shortcut. Page-type variants are controlled
+Current default delivery uses the bundled fixed 8-slide master template. The
+fixed sequence is a delivery constraint, not a reasoning shortcut. When a user
+supplies another PPTX template, analyze it into `template_profile.json` and fit
+the existing page arguments to available slots and density; do not let the
+template change claim strength or page thesis. Page-type variants are controlled
 by `slide_registry.json`, `page_type_rules.json`, `template_registry.json`, and
 the PPT mapping files. Do not invent unsupported slide structures unless the
 template registry and validation logic are updated together.
 
 `deck_blueprint.json` owns page judgment and copy. `page_evidence_contract.json`,
 `renderer_spec.json`, `template_profile.json`,
-`template_fit_validation.json`, and `replacement_dict.json` are deterministic
-downstream artifacts. If content needs changing, edit the blueprint and
-recompile; if only style/fit analysis is stale, rerun template analyzer / fit or
+`template_fit_validation.json`, `template_fit_plan.json`, and
+`replacement_dict.json` are deterministic downstream artifacts. If content
+needs changing, edit the blueprint and recompile. If template fit reports
+`template_capacity_conflict`, return to Generation to compress or restructure
+content; do not silently truncate in template or output scripts. If only
+style/fit analysis is stale, rerun template analyzer / fit or
 `scripts/pipeline.py validate-pre-ppt`.
 
 ## Pipeline

@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
+RUNTIME_DIR = SCRIPT_DIR.parent
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _run(script: str, args: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / script), *args],
+        cwd=str(RUNTIME_DIR),
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": str(SCRIPT_DIR)},
+    )
+
+
+def _assert_qc_issue_shape(issue: dict) -> None:
+    required = {
+        "issue_id",
+        "severity",
+        "layer",
+        "artifact",
+        "field_path",
+        "message",
+        "why_it_matters",
+        "repair_owner",
+        "repair_action",
+        "rerun_command",
+        "downstream_blocked",
+    }
+    assert required <= set(issue), issue
+
+
+def test_qc_normalize_report_maps_legacy_errors_to_repair_schema(tmp_path: Path) -> None:
+    report = tmp_path / "legacy_validation.json"
+    output = tmp_path / "normalized.json"
+    _write_json(
+        report,
+        {
+            "is_valid": False,
+            "errors": ["renderer_spec.json missing source_note"],
+        },
+    )
+
+    result = _run(
+        "qc_normalize_report.py",
+        [
+            "--report",
+            str(report),
+            "--layer",
+            "generation",
+            "--artifact",
+            "renderer_spec.json",
+            "--rerun-command",
+            "$PYTHON_CMD scripts/validate_renderer_spec.py ...",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "qc_repair_report_v1"
+    assert payload["is_valid"] is False
+    assert payload["blocking_issue_count"] == 1
+    issue = payload["issues"][0]
+    _assert_qc_issue_shape(issue)
+    assert issue["layer"] == "generation"
+    assert issue["artifact"] == "renderer_spec.json"
+    assert "source_note" in issue["message"]
+
+
+def test_qc_normalize_report_preserves_repair_targets(tmp_path: Path) -> None:
+    report = tmp_path / "validation_with_repair_targets.json"
+    _write_json(
+        report,
+        {
+            "is_valid": False,
+            "repair_targets": [
+                {
+                    "severity": "blocking",
+                    "repair_target_layer": "template",
+                    "repair_target_artifact": "artifacts/template_fit_validation.json",
+                    "field_path": "capacity_conflicts[0]",
+                    "message": "template_capacity_conflict",
+                    "why_it_matters": "Content cannot be rendered without layout overflow.",
+                    "repair_action": "Return to Generation and compress copy.",
+                    "rerun_command": "$PYTHON_CMD scripts/template_fit.py ...",
+                    "downstream_blocked": True,
+                }
+            ],
+        },
+    )
+
+    result = _run("qc_normalize_report.py", ["--report", str(report), "--layer", "qc", "--artifact", "artifacts/template_fit_validation.json"])
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    issue = payload["issues"][0]
+    _assert_qc_issue_shape(issue)
+    assert issue["field_path"] == "capacity_conflicts[0]"
+    assert issue["repair_owner"] == "template"
+    assert issue["repair_action"] == "Return to Generation and compress copy."
+
+
+def test_qc_router_outputs_normalized_issues_for_missing_gate(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    output = tmp_path / "qc_router_report.json"
+
+    result = _run("qc_router.py", ["--run-dir", str(run_dir), "--output", str(output)])
+
+    assert result.returncode == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "qc_router_report_v1"
+    assert payload["repair_schema_version"] == "qc_repair_report_v1"
+    assert payload["is_valid"] is False
+    assert payload["blocking_issue_count"] >= 1
+    issue = payload["issues"][0]
+    _assert_qc_issue_shape(issue)
+    assert issue["repair_owner"] == "material-intake"
+    assert issue["downstream_blocked"] is True

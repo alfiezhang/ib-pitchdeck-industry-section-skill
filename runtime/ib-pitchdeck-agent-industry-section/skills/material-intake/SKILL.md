@@ -44,21 +44,23 @@ Use these categories when classifying materials:
 - User-curated reports are high-priority candidate sources, not automatically true.
 - Do not infer peers, market size, valuation, growth, buyer universe, or page conclusions.
 - Do not start industry research from a raw PDF/PPT; extract facts first.
+- Use deterministic extraction scripts; do not infer content labels from filenames or model
+  guesses.
 
 ## Validation
 
 ```bash
-"$PYTHON_CMD" scripts/build_material_manifest.py \
+"$PYTHON_CMD" scripts/ingest_materials.py \
   --brief-text "<exact user brief, or omit when using files/URLs>" \
-  --output "$RUN_DIR/artifacts/material_manifest.json"
+  --file "<path/to/file1>" --file "<path/to/file2>" \
+  --url "<https://source1>" --url "<https://source2>" \
+  --output-manifest "$RUN_DIR/artifacts/material_manifest.json" \
+  --output-extracts "$RUN_DIR/artifacts/material_extracts.json" \
+  --output-source-classification "$RUN_DIR/artifacts/source_classification.json"
 
 "$PYTHON_CMD" scripts/validate_material_manifest.py \
   --material-manifest "$RUN_DIR/artifacts/material_manifest.json" \
   --output "$RUN_DIR/artifacts/material_manifest_validation.json"
-
-"$PYTHON_CMD" scripts/build_material_extracts_skeleton.py \
-  --material-manifest "$RUN_DIR/artifacts/material_manifest.json" \
-  --output "$RUN_DIR/artifacts/material_extracts.json"
 
 "$PYTHON_CMD" scripts/validate_material_extracts.py \
   --material-extracts "$RUN_DIR/artifacts/material_extracts.json" \

@@ -4,12 +4,18 @@
   "artifact_layers": {
     "authoring": {
       "description": "Artifacts where the LLM performs substantive transcription, research judgment, evidence extraction, or page design. This is the main mental path.",
-      "main_llm_authoring_path": ["input_card", "material_extracts", "research_evidence_db", "hypothesis_store", "issue_analysis", "deck_blueprint"],
+      "main_llm_authoring_path": ["input_card", "material_extracts", "industry_scope_pack", "boundary_loop_status", "formal_search_plan", "research_evidence_db", "hypothesis_store", "issue_analysis", "deck_blueprint"],
       "artifacts": [
         "material_manifest",
         "material_extracts",
+        "source_classification",
+        "repository_retrieval",
+        "repository_index",
+        "repository_fingerprints",
+        "repository_validation",
         "input_card",
         "industry_scope_pack",
+        "boundary_loop_status",
         "industry_boundary_qc",
         "boundary_research_requests",
         "formal_search_plan",
@@ -30,6 +36,7 @@
         "source_archive",
         "template_profile",
         "template_fit_validation",
+        "template_fit_plan",
         "research_pack",
         "template_registry",
         "page_evidence_contract",
@@ -54,20 +61,22 @@
         "evidence_candidate_skeleton",
         "banker_review_report",
         "agent_handoff",
-        "run_quality_summary"
-        ,
-        "qc_router_report"
+        "run_quality_summary",
+        "qc_router_report",
+        "incremental_search_plan",
+        "plugin_package_validation",
+        "legacy_install_audit"
       ]
     }
   },
   "role_layers": {
     "material-intake": {
       "description": "User-provided materials, source classification, explicit extraction, and normalized input card.",
-      "artifacts": ["material_manifest", "material_extracts", "input_card"]
+      "artifacts": ["material_manifest", "material_extracts", "source_classification", "input_card"]
     },
     "industry-scoping": {
       "description": "Target industry definition, boundary validation, excluded scope, and scope risk mapping.",
-      "artifacts": ["industry_scope_pack", "industry_boundary_qc", "boundary_research_requests"]
+      "artifacts": ["industry_scope_pack", "boundary_loop_status", "industry_boundary_qc", "boundary_research_requests"]
     },
     "research-external-evidence": {
       "description": "Formal search plan, actual search log, public/manual evidence collection, reviewed sources, archive, and formal execution accounting.",
@@ -83,11 +92,18 @@
     },
     "knowledge-repository": {
       "description": "Evidence database, facts, metrics, conflicts, gaps, and readable research-pack export.",
-      "artifacts": ["research_evidence_db", "research_pack"]
+      "artifacts": [
+        "research_evidence_db",
+        "research_pack",
+        "repository_retrieval",
+        "repository_index",
+        "repository_fingerprints",
+        "repository_validation"
+      ]
     },
     "reasoning": {
       "description": "Banker judgments, hypothesis resolution, research requests, and issue analysis.",
-      "artifacts": ["hypothesis_store", "research_request_queue", "page_argument_pack", "issue_analysis"]
+      "artifacts": ["hypothesis_store", "research_request_queue", "incremental_search_plan", "page_argument_pack", "issue_analysis"]
     },
     "generation": {
       "description": "Page arguments, deck blueprint, template registry usage, evidence contract, and renderer spec.",
@@ -95,22 +111,22 @@
     },
     "template": {
       "description": "Template style/profile analysis and content-to-template capacity fit.",
-      "artifacts": ["template_profile", "template_fit_validation"]
+      "artifacts": ["template_profile", "template_fit_validation", "template_fit_plan"]
     },
     "qc": {
       "description": "Cross-layer validation, gate status, repair targets, and final delivery audit.",
-      "artifacts": ["chart_metric_binding", "content_quality", "pre_ppt_gate", "final_delivery", "run_quality_summary", "agent_handoff", "qc_router_report"]
+      "artifacts": ["chart_metric_binding", "content_quality", "pre_ppt_gate", "final_delivery", "run_quality_summary", "agent_handoff", "qc_router_report", "plugin_package_validation", "legacy_install_audit"]
     },
     "output": {
       "description": "Deterministic replacement dictionary, PPT rendering, cleanup, and filled-PPT validation.",
       "artifacts": ["replacement_dict", "filled_ppt"]
     }
   },
-  "artifacts": {
+    "artifacts": {
     "material_manifest": {
       "path": "artifacts/material_manifest.json",
       "owner": "script_skeleton_llm_material_intake",
-      "builder": "scripts/build_material_manifest.py",
+      "builder": "scripts/ingest_materials.py",
       "validator": "scripts/validate_material_manifest.py",
       "validation": "artifacts/material_manifest_validation.json",
       "inputs": []
@@ -118,10 +134,42 @@
     "material_extracts": {
       "path": "artifacts/material_extracts.json",
       "owner": "script_skeleton_llm_material_extraction",
-      "builder": "scripts/build_material_extracts_skeleton.py",
+      "builder": "scripts/ingest_materials.py",
       "validator": "scripts/validate_material_extracts.py",
       "validation": "artifacts/material_extracts_validation.json",
       "inputs": ["material_manifest"]
+    },
+    "source_classification": {
+      "path": "artifacts/source_classification.json",
+      "owner": "script_skeleton_llm_material_intake",
+      "builder": "scripts/ingest_materials.py",
+      "inputs": ["material_manifest"]
+    },
+    "repository_retrieval": {
+      "path": "artifacts/repository_retrieval.json",
+      "owner": "script_repository_lookup",
+      "builder": "scripts/repository_retrieve.py",
+      "inputs": []
+    },
+    "repository_index": {
+      "path": "repository/index/research_repository.jsonl",
+      "owner": "script_repository_ingest",
+      "builder": "scripts/repository_ingest.py",
+      "inputs": ["material_manifest", "material_extracts"]
+    },
+    "repository_fingerprints": {
+      "path": "repository/index/source_fingerprints.json",
+      "owner": "script_repository_ingest",
+      "builder": "scripts/repository_ingest.py",
+      "inputs": ["material_manifest", "material_extracts"]
+    },
+    "repository_validation": {
+      "path": "artifacts/repository_validation.json",
+      "owner": "script_repository_validation",
+      "builder": "scripts/repository_validate.py",
+      "validator": "scripts/repository_validate.py",
+      "validation": "artifacts/repository_validation.json",
+      "inputs": ["repository_retrieval"]
     },
     "input_card": {
       "path": "input_card.json",
@@ -136,6 +184,14 @@
       "validator": "scripts/validate_industry_scope_pack.py",
       "validation": "artifacts/industry_scope_pack_validation.json",
       "inputs": ["input_card"]
+    },
+    "boundary_loop_status": {
+      "path": "artifacts/boundary_loop_status.json",
+      "owner": "script_boundary_loop",
+      "builder": "scripts/boundary_loop.py",
+      "validator": "scripts/boundary_loop.py",
+      "validation": "artifacts/boundary_loop_status.json",
+      "inputs": ["industry_scope_pack", "material_extracts", "research_evidence_db", "search_log"]
     },
     "industry_boundary_qc": {
       "path": "artifacts/industry_boundary_qc.json",
@@ -203,6 +259,12 @@
       "builder": "scripts/template_fit.py",
       "inputs": ["template_profile", "renderer_spec"]
     },
+    "template_fit_plan": {
+      "path": "artifacts/template_fit_plan.json",
+      "owner": "script",
+      "builder": "scripts/template_fit.py",
+      "inputs": ["template_profile", "renderer_spec", "template_fit_validation"]
+    },
     "pre_research_pack_gate": {
       "path": "artifacts/stage_gate_pre_research_pack_validation.json",
       "owner": "script",
@@ -225,6 +287,12 @@
       "validator": "scripts/validate_research_request_queue.py",
       "validation": "artifacts/research_request_queue_validation.json",
       "inputs": ["hypothesis_store"]
+    },
+    "incremental_search_plan": {
+      "path": "artifacts/incremental_search_plan.json",
+      "owner": "script_research_request_promotion",
+      "builder": "scripts/promote_research_requests.py",
+      "inputs": ["research_request_queue", "formal_search_plan"]
     },
     "page_argument_pack": {
       "path": "artifacts/page_argument_pack.json",
@@ -325,7 +393,23 @@
       "path": "artifacts/qc_router_report.json",
       "owner": "script",
       "builder": "scripts/qc_router.py",
+      "schema": "templates/qc_repair_schema.json",
+      "normalizer": "scripts/qc_normalize_report.py",
       "inputs": ["final_delivery"]
+    },
+    "plugin_package_validation": {
+      "path": "artifacts/plugin_package_validation.json",
+      "owner": "script_plugin_packaging",
+      "builder": "scripts/validate_plugin_package.py",
+      "validator": "scripts/validate_plugin_package.py",
+      "validation": "artifacts/plugin_package_validation.json",
+      "inputs": []
+    },
+    "legacy_install_audit": {
+      "path": "artifacts/legacy_install_audit.json",
+      "owner": "script_legacy_install_audit",
+      "builder": "scripts/audit_legacy_installs.py",
+      "inputs": []
     },
     "pre_ppt_gate": {
       "path": "artifacts/stage_gate_pre_ppt_validation.json",
@@ -355,12 +439,14 @@
       "owner": "script",
       "validator": "scripts/validate_final_delivery.py",
       "validation": "artifacts/final_delivery_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "template_profile", "template_fit_validation", "replacement_dict", "filled_ppt"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "template_profile", "template_fit_validation", "template_fit_plan", "replacement_dict", "filled_ppt"]
     }
   },
   "gates": [
+    { "gate": "material_intake", "artifact": "material_manifest" },
     { "gate": "input_card", "artifact": "input_card" },
     { "gate": "industry_scope_pack", "artifact": "industry_scope_pack" },
+    { "gate": "boundary_loop", "artifact": "boundary_loop_status" },
     { "gate": "formal_search_plan", "artifact": "formal_search_plan" },
     { "gate": "source_reviews", "artifact": "source_reviews" },
     { "gate": "source_archive", "artifact": "source_archive" },

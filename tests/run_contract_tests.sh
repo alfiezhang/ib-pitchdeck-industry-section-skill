@@ -894,6 +894,93 @@ with tempfile.TemporaryDirectory() as tmp:
 
     (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
     (artifacts / "input_card_validation.json").write_text(json.dumps({"is_valid": True}), encoding="utf-8")
+    (artifacts / "material_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "material_manifest_v1",
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "policy_context": "pre_mandate_client_pitch",
+                "materials": [
+                    {
+                        "material_id": "MAT-001",
+                        "material_title": "Contract test synthetic material",
+                        "source_type": "project_specific_material",
+                        "source_access": "user_provided",
+                        "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                        "locator": "artifacts/material_texts/sample_contract.txt",
+                        "material_kind": "text",
+                        "extraction_status": "complete",
+                        "extraction_limitations": "none",
+                        "can_be_used_as_evidence": True,
+                        "brief_excerpt": "Contract synthetic source.",
+                    }
+                ],
+                "source_type_policy": {
+                    "project_specific_material": "contract test synthetic",
+                    "manual_url_ingestion": "contract test synthetic",
+                    "user_curated_industry_report": "contract test synthetic",
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (artifacts / "source_classification.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "source_classification_v1",
+                "generated_at": "2026-01-01T00:00:00+00:00",
+                "materials": [
+                    {
+                        "material_id": "MAT-001",
+                        "source_type": "project_specific_material",
+                        "source_access": "user_provided",
+                        "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                        "source_hash": "",
+                        "source_date": "2026-01-01T00:00:00+00:00",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (artifacts / "material_extracts.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "material_extracts_v1",
+                "materials_source": "artifacts/material_manifest.json",
+                "extracts": [
+                    {
+                        "material_id": "MAT-001",
+                        "source_type": "project_specific_material",
+                        "source_access": "user_provided",
+                        "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                        "extracted_text_path": "artifacts/material_texts/MAT-001.txt",
+                        "extraction_status": "complete",
+                        "extraction_limitations": "none",
+                        "can_be_used_as_evidence": True,
+                        "extracted_facts": [],
+                        "extracted_metrics": [],
+                        "quoted_excerpts": [],
+                        "unknowns_or_conflicts": [],
+                        "claim_use_limitations": "contract synthetic",
+                        "evidence_snapshot": "Synthetic contract material text.",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (artifacts / "material_manifest_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": []}), encoding="utf-8")
+    (artifacts / "material_extracts_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": []}), encoding="utf-8")
     scope_pack = {
         "schema_version": "industry_scope_pack_v1",
         "meta": {"industry": "example"},
@@ -924,6 +1011,7 @@ with tempfile.TemporaryDirectory() as tmp:
             "adjacent": ["adjacent category"],
             "excluded": ["non-relevant category"],
         },
+        "formal_research_seed_questions": ["Which definitions align with example working market?", "How to exclude adjacent category in comparable metrics?"],
         "market_definitions": {
             "narrow_definition": {
                 "included_segments": ["core segment"],
@@ -1012,6 +1100,29 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not plan_errors, plan_errors
     assert len(plan["issue_search_plan"]) >= 40, len(plan["issue_search_plan"])
     (artifacts / "formal_search_plan_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": plan_warnings}, ensure_ascii=False), encoding="utf-8")
+    (artifacts / "boundary_loop_status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "boundary_loop_status_v1",
+                "status": "boundary_ready",
+                "boundary_loop_status": "boundary_ready",
+                "is_valid": True,
+                "created_at": "2026-01-01T00:00:00Z",
+                "errors": [],
+                "warnings": [],
+                "repair_actions": [],
+                "boundary_inputs": {
+                    "scope_pack": True,
+                    "material_extracts": True,
+                    "research_evidence_db": True,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     early_state = validate_run_state(run_dir)
     if early_state["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED":
         (artifacts / "template_profile.json").write_text(
@@ -1357,6 +1468,18 @@ with tempfile.TemporaryDirectory() as tmp:
     assert db_metrics["evidence_ledger_row_count"] == 2, db_metrics
     (artifacts / "research_evidence_db.json").write_text(json.dumps(research_db, ensure_ascii=False, indent=2), encoding="utf-8")
     (artifacts / "research_evidence_db_validation.json").write_text(json.dumps({"is_valid": True, "errors": [], "warnings": db_warnings}, ensure_ascii=False), encoding="utf-8")
+    from boundary_loop import run_boundary_loop
+
+    refreshed_boundary_status = run_boundary_loop(
+        scope_pack=artifacts / "industry_scope_pack.json",
+        material_extracts=artifacts / "material_extracts.json",
+        research_evidence_db=artifacts / "research_evidence_db.json",
+        boundary_search_results=artifacts / "search_log.md",
+    )
+    (artifacts / "boundary_loop_status.json").write_text(
+        json.dumps(refreshed_boundary_status, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     exported_pack = export_research_pack_from_db(research_db)
     assert "Generated readable export" in exported_pack, exported_pack[:300]
     assert "| EV-001 | Current market size" in exported_pack, exported_pack[:4000]

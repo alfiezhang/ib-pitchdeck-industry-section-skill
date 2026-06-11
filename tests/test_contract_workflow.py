@@ -28,10 +28,34 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(args, text=True, capture_output=True, cwd=str(SKILL_DIR), env=env)
 
 
+def _seed_boundary_loop_ready(run_dir: Path) -> None:
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        artifacts / "boundary_loop_status.json",
+        {
+            "schema_version": "boundary_loop_status_v1",
+            "status": "boundary_ready",
+            "boundary_loop_status": "boundary_ready",
+            "is_valid": True,
+            "created_at": "2026-01-01T00:00:00Z",
+            "errors": [],
+            "warnings": [],
+            "repair_actions": [],
+            "boundary_inputs": {
+                "scope_pack": True,
+                "material_extracts": True,
+                "research_evidence_db": True,
+            },
+        },
+    )
+
+
 class TestRunState:
     def test_run_state_after_full_pipeline(self, _pipeline_run_dir):
         from validate_run_state import validate_run_state
         run_dir = _pipeline_run_dir["run_dir"]
+        _seed_boundary_loop_ready(run_dir)
         state = validate_run_state(run_dir)
         # The fixture seeds artifacts through research_pack + template_registry,
         # so the pipeline should be past the research stages.

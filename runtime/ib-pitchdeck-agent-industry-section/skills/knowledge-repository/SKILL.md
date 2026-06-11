@@ -8,6 +8,12 @@ description: Maintain the current-project evidence database and future reusable 
 Owns the factual store. It receives material extracts and reviewed research
 outputs, then keeps facts, metrics, conflicts, limitations, and unknowns clean.
 
+Repository store (cross-project memory, not tied to one run):
+
+- `repository/index/research_repository.jsonl`
+- `repository/index/source_fingerprints.json`
+- `repository/sources/` (text snapshots)
+
 ## Main Artifact
 
 - `artifacts/research_evidence_db.json` is the evidence source of truth.
@@ -15,7 +21,7 @@ outputs, then keeps facts, metrics, conflicts, limitations, and unknowns clean.
 
 ## Responsibilities
 
-- Preserve source type, access level, locator, period, geography, metric scope,
+ - Preserve source type, access level, locator, period, geography, metric scope,
   and limitations.
 - Distinguish user-provided company facts, user-curated report facts, public web
   facts, repository facts, model inference, and unresolved hypotheses.
@@ -39,11 +45,24 @@ outputs, then keeps facts, metrics, conflicts, limitations, and unknowns clean.
   --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
   --material-manifest "$RUN_DIR/artifacts/material_manifest.json" \
   --material-extracts "$RUN_DIR/artifacts/material_extracts.json" \
+  --repository-sources "$RUN_DIR/artifacts/repository_retrieval.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db.json"
 
 "$PYTHON_CMD" scripts/validate_research_evidence_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
+
+"$PYTHON_CMD" scripts/repository_retrieve.py \
+  --industry-tag "renewables" --max-results 50 \
+  --output "$RUN_DIR/artifacts/repository_retrieval.json"
+
+"$PYTHON_CMD" scripts/repository_ingest.py \
+  --material-manifest "$RUN_DIR/artifacts/material_manifest.json" \
+  --material-extracts "$RUN_DIR/artifacts/material_extracts.json" \
+  --repository-root "$RUN_DIR/repository"
+
+"$PYTHON_CMD" scripts/repository_validate.py \
+  --repository-root "$RUN_DIR/repository"
 
 "$PYTHON_CMD" scripts/export_research_pack_from_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \

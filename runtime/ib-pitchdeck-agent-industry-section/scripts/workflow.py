@@ -16,12 +16,24 @@ PYTHON_COMMAND_TEMPLATE = '"$PYTHON_CMD"'
 COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "INPUT_CARD_MISSING": [
         {
-            "purpose": "optional: register user-provided materials before creating the normalized input card",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_material_manifest.py --brief-text '<paste exact user brief or omit if using files/URLs>' --output {{run_dir}}/artifacts/material_manifest.json",
+            "purpose": "required: ingest user brief/files/URLs into validated material artifacts before input card",
+            "command": (
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/ingest_materials.py "
+                "--brief-text '<paste exact user brief or omit if using files/URLs>' "
+                "--file '<path/to/file1>' --file '<path/to/file2>' "
+                "--url '<https://source1>' --url '<https://source2>' "
+                "--output-manifest {{run_dir}}/artifacts/material_manifest.json "
+                "--output-extracts {{run_dir}}/artifacts/material_extracts.json "
+                "--output-source-classification {{run_dir}}/artifacts/source_classification.json"
+            ),
         },
         {
-            "purpose": "optional: build material extraction skeleton from registered materials",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_material_extracts_skeleton.py --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_extracts.json",
+            "purpose": "validate intake artifacts before transcribing input card",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_material_manifest.py --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_manifest_validation.json",
+        },
+        {
+            "purpose": "validate extracted materials and evidence snapshot coverage",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_material_extracts.py --material-extracts {{run_dir}}/artifacts/material_extracts.json --output {{run_dir}}/artifacts/material_extracts_validation.json",
         },
         {
             "purpose": "validate input card after transcription-only creation",
@@ -34,11 +46,21 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_industry_scope_pack.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/industry_scope_pack_validation.json",
         },
         {
-            "purpose": "build industry boundary QC after scope-pack validation",
+            "purpose": "run boundary loop controller after scope-pack validation",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/boundary_loop.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --boundary-search-results {{run_dir}}/artifacts/search_log.md --output {{run_dir}}/artifacts/boundary_loop_status.json",
+        },
+    ],
+    "BOUNDARY_LOOP_MISSING_OR_FAILED": [
+        {
+            "purpose": "rerun boundary loop when scope needs boundary repair or conflict resolution before formal planning",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/boundary_loop.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --boundary-search-results {{run_dir}}/artifacts/search_log.md --output {{run_dir}}/artifacts/boundary_loop_status.json",
+        },
+        {
+            "purpose": "optional: capture explicit boundary checks from scope when conflict/ambiguity remains",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_industry_boundary_qc.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/industry_boundary_qc.json",
         },
         {
-            "purpose": "optional: build boundary validation research requests for thin/ambiguous boundary points",
+            "purpose": "optional: build boundary repair requests to support boundary search loops",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_boundary_research_requests.py --boundary-qc {{run_dir}}/artifacts/industry_boundary_qc.json --output {{run_dir}}/artifacts/boundary_research_requests.json",
         },
     ],
@@ -95,7 +117,10 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": [
         {
             "purpose": "build research evidence database skeleton from reviewed formal research",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-reviews {{run_dir}}/artifacts/source_reviews.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --output {{run_dir}}/artifacts/research_evidence_db.json",
+            "command": (
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/repository_retrieve.py --max-results 200 --output {{run_dir}}/artifacts/repository_retrieval.json "
+                f"&& {PYTHON_COMMAND_TEMPLATE} scripts/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-reviews {{run_dir}}/artifacts/source_reviews.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --repository-sources {{run_dir}}/artifacts/repository_retrieval.json --output {{run_dir}}/artifacts/research_evidence_db.json"
+            ),
         },
         {
             "purpose": "validate research evidence database after LLM fills extracts/EV/MET/inventory fields",
@@ -132,6 +157,18 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         {
             "purpose": "optional: build public research request queue from unresolved hypotheses",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_research_request_queue.py --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/research_request_queue.json",
+        },
+        {
+            "purpose": "optional: validate research request queue before promotion",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_research_request_queue.py --research-request-queue {{run_dir}}/artifacts/research_request_queue.json --output {{run_dir}}/artifacts/research_request_queue_validation.json",
+        },
+        {
+            "purpose": "optional: promote unresolved research requests into formal search plan rows before downstream planning",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/promote_research_requests.py --research-request-queue {{run_dir}}/artifacts/research_request_queue.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan.json --incremental-search-plan {{run_dir}}/artifacts/incremental_search_plan.json",
+        },
+        {
+            "purpose": "optional: re-validate formal search plan after promotion rows are appended",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
         },
         {
             "purpose": "optional: build page argument pack from issue analysis and resolved hypotheses",
@@ -187,7 +224,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "TEMPLATE_FIT_FAILED": [
         {
             "purpose": "run template fit checks against latest renderer spec and template profile",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template_fit.py --renderer-spec {{run_dir}}/renderer_spec.json --template-profile {{run_dir}}/artifacts/template_profile.json --output {{run_dir}}/artifacts/template_fit_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template_fit.py --renderer-spec {{run_dir}}/renderer_spec.json --template-profile {{run_dir}}/artifacts/template_profile.json --output {{run_dir}}/artifacts/template_fit_validation.json --fit-plan-output {{run_dir}}/artifacts/template_fit_plan.json",
         },
         {
             "purpose": "rerun pre-PPT stage gate after template fit refresh",

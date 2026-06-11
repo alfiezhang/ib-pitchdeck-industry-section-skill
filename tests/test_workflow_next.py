@@ -23,12 +23,78 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _seed_material_intake(run_dir: Path) -> None:
+    artifacts = run_dir / "artifacts"
+    _write_json(
+        run_dir / "input_card.json",
+        {"target_company": "Sample Target", "industry": "sample sector", "geography": "Sampleland"},
+    )
+    _write_json(artifacts / "input_card_validation.json", {"is_valid": True})
+    _write_json(
+        artifacts / "material_manifest.json",
+        {
+            "schema_version": "material_manifest_v1",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "policy_context": "pre_mandate_client_pitch",
+            "materials": [
+                {
+                    "material_id": "MAT-001",
+                    "source_type": "project_specific_material",
+                    "source_access": "user_provided",
+                    "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                    "material_kind": "text",
+                    "extraction_status": "complete",
+                    "extraction_limitations": "none",
+                    "can_be_used_as_evidence": True,
+                }
+            ],
+            "source_type_policy": {},
+        },
+    )
+    _write_json(
+        artifacts / "material_extracts.json",
+        {
+            "schema_version": "material_extracts_v1",
+            "materials_source": "artifacts/material_manifest.json",
+            "extracts": [
+                {
+                    "material_id": "MAT-001",
+                    "source_type": "project_specific_material",
+                    "source_access": "user_provided",
+                    "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                    "extracted_text_path": "artifacts/material_texts/MAT-001.txt",
+                    "extraction_status": "complete",
+                    "extraction_limitations": "none",
+                    "can_be_used_as_evidence": True,
+                }
+            ],
+        },
+    )
+    _write_json(
+        artifacts / "source_classification.json",
+        {
+            "schema_version": "source_classification_v1",
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "materials": [
+                {
+                    "material_id": "MAT-001",
+                    "source_type": "project_specific_material",
+                    "source_access": "user_provided",
+                    "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                    "source_hash": "",
+                    "source_date": "2026-01-01T00:00:00+00:00",
+                }
+            ],
+        },
+    )
+    _write_json(artifacts / "material_manifest_validation.json", {"is_valid": True})
+    _write_json(artifacts / "material_extracts_validation.json", {"is_valid": True})
+
+
 def _seed_research_pack_ready(run_dir: Path) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir()
-
-    _write_json(run_dir / "input_card.json", {"target_company": "Sample Target", "industry": "sample sector", "geography": "Sampleland"})
-    _write_json(artifacts / "input_card_validation.json", {"is_valid": True})
+    _seed_material_intake(run_dir)
 
     _write_json(artifacts / "industry_scope_pack.json", {"schema_version": "industry_scope_pack_v1", "scope_summary": {"working_market": "sample"}})
     _write_json(
@@ -66,6 +132,29 @@ def _seed_research_pack_ready(run_dir: Path) -> None:
     _write_json(
         artifacts / "research_evidence_db_validation.json",
         {"is_valid": True, "errors": [], "warnings": []},
+    )
+    _seed_boundary_loop_ready(run_dir)
+
+
+def _seed_boundary_loop_ready(run_dir: Path) -> None:
+    artifacts = run_dir / "artifacts"
+    _write_json(
+        artifacts / "boundary_loop_status.json",
+        {
+            "schema_version": "boundary_loop_status_v1",
+            "status": "boundary_ready",
+            "boundary_loop_status": "boundary_ready",
+            "is_valid": True,
+            "created_at": "2026-01-01T00:00:00Z",
+            "errors": [],
+            "warnings": [],
+            "repair_actions": [],
+            "boundary_inputs": {
+                "scope_pack": True,
+                "material_extracts": True,
+                "research_evidence_db": True,
+            },
+        },
     )
 
 
@@ -152,12 +241,13 @@ def test_workflow_next_empty_run_returns_input_card_missing(tmp_path: Path) -> N
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)
     payload = next_payload(run_dir)
-    assert payload["current_stage"] == "INPUT_CARD_MISSING", payload
+    assert payload["current_stage"] == "MATERIAL_INTAKE_MISSING_OR_FAILED", payload
 
 
 def _seed_full_research_ready(run_dir: Path) -> None:
     """Seed all artifacts needed to pass research/issue/deck gates."""
     _seed_research_pack_ready(run_dir)
+    _seed_boundary_loop_ready(run_dir)
     artifacts = run_dir / "artifacts"
     # Research pack file and validation
     (run_dir / "industry_research_pack.md").write_text("# Research Pack\n", encoding="utf-8")
@@ -224,6 +314,3 @@ def test_workflow_next_template_profile_without_template_fit(tmp_path: Path) -> 
     assert payload["current_stage"] == "TEMPLATE_FIT_FAILED", payload
     command_text = "\n".join(item["command"] for item in payload["recommended_next_commands"])
     assert "template_fit.py" in command_text
-
-
-

@@ -3,6 +3,7 @@
 
 INPUT_CARD = "input_card"
 INDUSTRY_SCOPE_PACK = "industry_scope_pack"
+BOUNDARY_LOOP = "boundary_loop"
 FORMAL_SEARCH_PLAN = "formal_search_plan"
 FORMAL_RESEARCH_EXECUTION = "formal_research_execution"
 SOURCE_REVIEWS = "source_reviews"
@@ -27,6 +28,7 @@ FINAL_DELIVERY = "final_delivery"
 CANONICAL_GATES = [
     INPUT_CARD,
     INDUSTRY_SCOPE_PACK,
+    BOUNDARY_LOOP,
     FORMAL_SEARCH_PLAN,
     FORMAL_RESEARCH_EXECUTION,
     SOURCE_REVIEWS,

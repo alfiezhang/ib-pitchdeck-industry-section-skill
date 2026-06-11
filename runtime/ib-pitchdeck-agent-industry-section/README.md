@@ -83,3 +83,28 @@ For developer diagnostics:
 PYTHON_CMD="$(bash setup.sh --print-python)"
 "$PYTHON_CMD" scripts/check_runtime_dependencies.py
 ```
+
+For package validation and local plugin-source installation:
+
+```bash
+python3 scripts/validate_plugin_package.py --package .
+python3 scripts/package_plugin.py --output ../../dist/ib-pitchdeck-agent-industry-section.zip
+python3 scripts/install_plugin_local.py \
+  --source ../../dist/ib-pitchdeck-agent-industry-section.zip \
+  --host codex
+```
+
+`package_plugin.py` creates a clean zip and excludes `docs/`, `tests/`,
+`__pycache__`, `.DS_Store`, and build artifacts. `install_plugin_local.py`
+installs the plugin package to a Codex/Claude/CodeBuddy/WorkBuddy plugin source;
+it does not copy this package into legacy standalone skills directories.
+
+To inspect old standalone skill installs:
+
+```bash
+python3 scripts/audit_legacy_installs.py \
+  --output artifacts/legacy_install_audit.json
+```
+
+`remove_legacy_installs.py` is dry-run unless called with
+`--execute --confirm REMOVE_LEGACY_INSTALLS`.

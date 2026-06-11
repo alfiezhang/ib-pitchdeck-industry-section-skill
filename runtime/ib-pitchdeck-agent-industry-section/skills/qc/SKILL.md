@@ -25,15 +25,23 @@ delivery checks, then identifies the correct repair layer.
 
 ## Repair Target Shape
 
-When possible, reports should identify:
+QC reports should follow `templates/qc_repair_schema.json`. Each report should
+identify:
 
-- `issue_type`
+- `is_valid`
+- `blocking_issue_count`
+- `issues[]`
+- `issue_id`
 - `severity`
-- `repair_target_role`
-- `repair_target_artifact`
-- `recommended_action`
-- `forbidden_action`
-- `blocking`
+- `layer`
+- `artifact`
+- `field_path`
+- `message`
+- `why_it_matters`
+- `repair_owner`
+- `repair_action`
+- `rerun_command`
+- `downstream_blocked`
 
 ## Key Commands
 
@@ -43,6 +51,13 @@ When possible, reports should identify:
 "$PYTHON_CMD" scripts/qc_router.py \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/qc_router_report.json"
+
+"$PYTHON_CMD" scripts/qc_normalize_report.py \
+  --report "$RUN_DIR/artifacts/some_validation.json" \
+  --layer qc \
+  --artifact artifacts/some_validation.json \
+  --rerun-command '"$PYTHON_CMD" scripts/workflow.py next --run-dir "$RUN_DIR"' \
+  --output "$RUN_DIR/artifacts/some_validation_repair.json"
 
 "$PYTHON_CMD" scripts/validate_stage_gate.py \
   --stage pre_research_pack \

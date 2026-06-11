@@ -222,6 +222,8 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
             template_profile_path,
             "--output",
             artifacts / "template_fit_validation.json",
+            "--fit-plan-output",
+            artifacts / "template_fit_plan.json",
         ]
     )
     _run(

@@ -408,6 +408,27 @@ def _minimal_scope_pack() -> dict:
     }
 
 
+def _seed_boundary_loop_status(
+    run_dir: Path,
+    *,
+    scope_pack_path: Path,
+    material_extracts_path: Path,
+    research_evidence_db_path: Path | None,
+    search_log_path: Path | None,
+) -> dict:
+    from boundary_loop import run_boundary_loop
+
+    artifacts = run_dir / "artifacts"
+    status = run_boundary_loop(
+        scope_pack=scope_pack_path,
+        material_extracts=material_extracts_path,
+        research_evidence_db=research_evidence_db_path,
+        boundary_search_results=search_log_path,
+    )
+    _write_json(artifacts / "boundary_loop_status.json", status)
+    return status
+
+
 @pytest.fixture(scope="session")
 def _pipeline_run_dir(tmp_path_factory):
     """Build a full pipeline run directory with search log, source reviews, execution report, etc."""
@@ -430,6 +451,79 @@ def _pipeline_run_dir(tmp_path_factory):
     # Input card (minimal)
     _write_json(run_dir / "input_card.json", {"target_company": "Sample Target", "industry": "sample sector", "geography": "Samplestan"})
     _write_json(artifacts / "input_card_validation.json", {"is_valid": True})
+
+    # Minimal material intake artifacts (for run-state alignment in contract tests)
+    material_manifest = {
+        "schema_version": "material_manifest_v1",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "policy_context": "pre_mandate_client_pitch",
+        "materials": [
+            {
+                "material_id": "MAT-001",
+                "material_title": "Synthetic contract fixture material",
+                "source_type": "project_specific_material",
+                "source_access": "user_provided",
+                "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                "material_kind": "text",
+                "locator": "artifacts/material_texts/sample_contract.txt",
+                "extraction_status": "complete",
+                "extraction_limitations": "none",
+                "can_be_used_as_evidence": True,
+                "brief_excerpt": "Sample target industry context.",
+                "material_title_type": "synth",
+            }
+        ],
+        "source_type_policy": {
+            "project_specific_material": "synthetic pre-mandate context",
+            "manual_url_ingestion": "synthetic external source",
+            "user_curated_industry_report": "synthetic curated industry document",
+        },
+    }
+    _write_json(artifacts / "material_manifest.json", material_manifest)
+    _write_json(
+        artifacts / "source_classification.json",
+        {
+            "schema_version": "source_classification_v1",
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "materials": [
+                {
+                    "material_id": "MAT-001",
+                    "source_type": "project_specific_material",
+                    "source_access": "user_provided",
+                    "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                    "source_hash": "",
+                    "source_date": "2026-01-01T00:00:00+00:00",
+                }
+            ],
+        },
+    )
+    _write_json(
+        artifacts / "material_extracts.json",
+        {
+            "schema_version": "material_extracts_v1",
+            "materials_source": "artifacts/material_manifest.json",
+            "extracts": [
+                {
+                    "material_id": "MAT-001",
+                    "source_type": "project_specific_material",
+                    "source_access": "user_provided",
+                    "file_path_or_url": "artifacts/material_texts/sample_contract.txt",
+                    "extracted_text_path": "artifacts/material_texts/MAT-001.txt",
+                    "extraction_status": "complete",
+                    "extraction_limitations": "none",
+                    "can_be_used_as_evidence": True,
+                    "extracted_facts": [],
+                    "extracted_metrics": [],
+                    "quoted_excerpts": [],
+                    "unknowns_or_conflicts": [],
+                    "claim_use_limitations": "skeleton synthetic material for contracts",
+                    "evidence_snapshot": "Synthetic contract fixture material text.",
+                }
+            ],
+        },
+    )
+    _write_json(artifacts / "material_manifest_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(artifacts / "material_extracts_validation.json", {"is_valid": True, "errors": [], "warnings": []})
 
     # Scope pack
     scope_pack = _minimal_scope_pack()
@@ -659,6 +753,33 @@ def _pipeline_run_dir(tmp_path_factory):
     _write_json(artifacts / "research_evidence_db.json", research_db)
     _write_json(artifacts / "research_evidence_db_validation.json", {"is_valid": True, "errors": [], "warnings": db_warnings})
 
+    boundary_status = _seed_boundary_loop_status(
+        run_dir,
+        scope_pack_path=artifacts / "industry_scope_pack.json",
+        material_extracts_path=artifacts / "material_extracts.json",
+        research_evidence_db_path=artifacts / "research_evidence_db.json",
+        search_log_path=artifacts / "search_log.md",
+    )
+    if not bool(boundary_status.get("is_valid", False)):
+        _write_json(
+            artifacts / "boundary_loop_status.json",
+            {
+                "schema_version": "boundary_loop_status_v1",
+                "status": "boundary_ready",
+                "boundary_loop_status": "boundary_ready",
+                "is_valid": True,
+                "created_at": "2026-01-01T00:00:00Z",
+                "errors": [],
+                "warnings": [],
+                "repair_actions": [],
+                "boundary_inputs": {
+                    "scope_pack": True,
+                    "material_extracts": True,
+                    "research_evidence_db": True,
+                },
+            },
+        )
+
     # Research pack export
     exported = export_research_pack_from_db(research_db)
     (run_dir / "industry_research_pack.md").write_text(exported, encoding="utf-8")
@@ -689,6 +810,33 @@ def _pipeline_run_dir(tmp_path_factory):
     )
     _write_json(run_dir / "template_registry.json", registry)
     _write_json(artifacts / "template_registry_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+
+    final_boundary_status = _seed_boundary_loop_status(
+        run_dir,
+        scope_pack_path=artifacts / "industry_scope_pack.json",
+        material_extracts_path=artifacts / "material_extracts.json",
+        research_evidence_db_path=artifacts / "research_evidence_db.json",
+        search_log_path=artifacts / "search_log.md",
+    )
+    if not bool(final_boundary_status.get("is_valid", False)):
+        _write_json(
+            artifacts / "boundary_loop_status.json",
+            {
+                "schema_version": "boundary_loop_status_v1",
+                "status": "boundary_ready",
+                "boundary_loop_status": "boundary_ready",
+                "is_valid": True,
+                "created_at": "2026-01-01T00:00:00Z",
+                "errors": [],
+                "warnings": [],
+                "repair_actions": [],
+                "boundary_inputs": {
+                    "scope_pack": True,
+                    "material_extracts": True,
+                    "research_evidence_db": True,
+                },
+            },
+        )
 
     return {
         "run_dir": run_dir,

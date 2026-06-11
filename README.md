@@ -299,3 +299,39 @@ runtime/ib-pitchdeck-agent-industry-section/
 ```
 
 Repository-level `tests/`, `docs/`, `dist/`, cache files, and historical run outputs are not part of the runtime package.
+
+Build and validate a clean zip from the repository root:
+
+```bash
+python3 runtime/ib-pitchdeck-agent-industry-section/scripts/package_plugin.py \
+  --output dist/ib-pitchdeck-agent-industry-section.zip
+
+python3 runtime/ib-pitchdeck-agent-industry-section/scripts/validate_plugin_package.py \
+  --package dist/ib-pitchdeck-agent-industry-section.zip
+```
+
+The package validator blocks `docs/`, `tests/`, `__pycache__`, `.DS_Store`, and
+other cache/build artifacts. The packager filters those files when creating the
+zip; a raw runtime directory may fail validation if local caches are present.
+
+Install locally to a host plugin source:
+
+```bash
+python3 runtime/ib-pitchdeck-agent-industry-section/scripts/install_plugin_local.py \
+  --source dist/ib-pitchdeck-agent-industry-section.zip \
+  --host codex
+```
+
+Supported `--host` values are `codex`, `claude`, `codebuddy`, and `workbuddy`.
+This installs to the host plugin source, not to legacy standalone skills.
+
+Audit old standalone skill installs without deleting anything:
+
+```bash
+python3 runtime/ib-pitchdeck-agent-industry-section/scripts/audit_legacy_installs.py \
+  --output runtime/ib-pitchdeck-agent-industry-section/artifacts/legacy_install_audit.json
+```
+
+Removal is intentionally separate and dry-run by default. Only run it with
+`--execute --confirm REMOVE_LEGACY_INSTALLS` after confirming no local host still
+depends on the old standalone skill copies.

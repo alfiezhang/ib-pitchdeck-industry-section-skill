@@ -99,6 +99,134 @@ def _most_common(values: list[Any], fallback: str) -> str:
     return counts.most_common(1)[0][0]
 
 
+def _emu_to_inches(value: Any) -> float:
+    try:
+        return round(float(value) / 914400.0, 3)
+    except Exception:
+        return 0.0
+
+
+def _shape_text(shape: Any) -> str:
+    if not getattr(shape, "has_text_frame", False):
+        return ""
+    try:
+        return str(shape.text or "").strip()
+    except Exception:
+        return ""
+
+
+def _placeholder_type(shape: Any) -> str:
+    if not getattr(shape, "is_placeholder", False):
+        return ""
+    try:
+        return str(shape.placeholder_format.type)
+    except Exception:
+        return "unknown"
+
+
+def _shape_role(shape: Any, slide_height: float) -> str:
+    text = _shape_text(shape).lower()
+    y = _emu_to_inches(getattr(shape, "top", 0))
+    if "source" in text or "来源" in text or "资料来源" in text:
+        return "source_footer"
+    if slide_height and y >= slide_height * 0.82 and len(text) <= 180:
+        return "footer_or_source_area"
+    if getattr(shape, "has_chart", False):
+        return "chart_slot"
+    if getattr(shape, "has_table", False):
+        return "table_slot"
+    if getattr(shape, "shape_type", None) is not None and "PICTURE" in str(shape.shape_type):
+        return "image_slot"
+    if getattr(shape, "has_text_frame", False):
+        return "text_slot"
+    return "shape"
+
+
+def _slot_capacity(shape: Any) -> dict[str, Any]:
+    width = _emu_to_inches(getattr(shape, "width", 0))
+    height = _emu_to_inches(getattr(shape, "height", 0))
+    # Conservative text density approximation used only for fit planning.
+    return {
+        "width_in": width,
+        "height_in": height,
+        "area_in2": round(width * height, 3),
+        "estimated_text_units": max(12, int(width * height * 18)) if width and height else 0,
+    }
+
+
+def _collect_template_inventory(template_path: Path) -> tuple[dict[str, Any], list[str]]:
+    warnings: list[str] = []
+    if Presentation is None:
+        return {
+            "slide_count": 0,
+            "slides": [],
+            "analysis_fallback": True,
+        }, ["python-pptx unavailable; template inventory fell back to deterministic config only"]
+
+    try:
+        prs = Presentation(str(template_path))
+    except Exception as exc:
+        return {
+            "slide_count": 0,
+            "slides": [],
+            "analysis_fallback": True,
+            "analysis_error": str(exc),
+        }, [f"could not open PPTX template for inventory: {exc}"]
+
+    page_width = _emu_to_inches(prs.slide_width)
+    page_height = _emu_to_inches(prs.slide_height)
+    slides: list[dict[str, Any]] = []
+    aggregate = Counter()
+    for idx, slide in enumerate(prs.slides, start=1):
+        shapes: list[dict[str, Any]] = []
+        roles = Counter()
+        for shape_idx, shape in enumerate(slide.shapes, start=1):
+            role = _shape_role(shape, page_height)
+            roles[role] += 1
+            aggregate[role] += 1
+            text = _shape_text(shape)
+            shapes.append(
+                {
+                    "shape_index": shape_idx,
+                    "name": str(getattr(shape, "name", "") or ""),
+                    "role": role,
+                    "placeholder_type": _placeholder_type(shape),
+                    "has_text": bool(text),
+                    "text_sample": text[:160],
+                    "token_count": len(TOKEN_PATTERN.findall(text)),
+                    "geometry": {
+                        "x_in": _emu_to_inches(getattr(shape, "left", 0)),
+                        "y_in": _emu_to_inches(getattr(shape, "top", 0)),
+                        **_slot_capacity(shape),
+                    },
+                }
+            )
+        slides.append(
+            {
+                "slide_no": idx,
+                "shape_count": len(shapes),
+                "roles": dict(sorted(roles.items())),
+                "slots": shapes,
+                "supports": {
+                    "chart": roles.get("chart_slot", 0) > 0,
+                    "table": roles.get("table_slot", 0) > 0,
+                    "image": roles.get("image_slot", 0) > 0,
+                    "source_footer": roles.get("source_footer", 0) > 0 or roles.get("footer_or_source_area", 0) > 0,
+                    "text": roles.get("text_slot", 0) > 0,
+                },
+                "information_density": "high" if len(shapes) >= 18 else "medium" if len(shapes) >= 9 else "low",
+            }
+        )
+
+    return {
+        "slide_count": len(slides),
+        "page_size": {"width_in": page_width, "height_in": page_height},
+        "slides": slides,
+        "aggregate_roles": dict(sorted(aggregate.items())),
+        "analysis_fallback": False,
+    }, warnings
+
+
 def _normalize_render_layouts(raw: dict[str, Any]) -> dict[str, Any]:
     if isinstance(raw, dict) and isinstance(raw.get("slides"), dict):
         return raw
@@ -138,12 +266,18 @@ def _collect_template_style(template_path: Path) -> tuple[dict[str, Any], bool]:
 
     for slide in prs.slides:
         for shape in slide.shapes:
-            fill = getattr(shape, "fill", None)
-            if fill is not None and getattr(fill, "fore_color", None) is not None and getattr(fill.fore_color, "type", None) is not None:
-                fill_colors.append(_as_color(fill.fore_color.rgb, DEFAULT_STYLE["colors"]["panel_fill"]))
-            line = getattr(shape, "line", None)
-            if line is not None and getattr(line, "color", None) is not None and getattr(line.color, "type", None) is not None:
-                line_colors.append(_as_color(line.color.rgb, DEFAULT_STYLE["colors"]["grid_gray"]))
+            try:
+                fill = getattr(shape, "fill", None)
+                if fill is not None and getattr(fill, "fore_color", None) is not None and getattr(fill.fore_color, "type", None) is not None:
+                    fill_colors.append(_as_color(fill.fore_color.rgb, DEFAULT_STYLE["colors"]["panel_fill"]))
+            except Exception:
+                pass
+            try:
+                line = getattr(shape, "line", None)
+                if line is not None and getattr(line, "color", None) is not None and getattr(line.color, "type", None) is not None:
+                    line_colors.append(_as_color(line.color.rgb, DEFAULT_STYLE["colors"]["grid_gray"]))
+            except Exception:
+                pass
 
             text_frame = getattr(shape, "text_frame", None)
             if not text_frame:
@@ -167,8 +301,11 @@ def _collect_template_style(template_path: Path) -> tuple[dict[str, Any], bool]:
                                 fonts_headers.append(_as_str(run_font.name))
                         elif is_token:
                             table_sizes.append(pt)
-                    if run_font.color is not None and getattr(run_font.color, "type", None) is not None:
-                        text_colors.append(_as_color(run_font.color.rgb, DEFAULT_STYLE["colors"]["text_gray"]))
+                    try:
+                        if run_font.color is not None and getattr(run_font.color, "type", None) is not None:
+                            text_colors.append(_as_color(run_font.color.rgb, DEFAULT_STYLE["colors"]["text_gray"]))
+                    except Exception:
+                        pass
 
                 if is_token and paragraph.font is not None and paragraph.font.name:
                     fonts_headers.append(_as_str(paragraph.font.name))
@@ -176,8 +313,11 @@ def _collect_template_style(template_path: Path) -> tuple[dict[str, Any], bool]:
                     pt = _as_font_size(paragraph.font.size.pt, DEFAULT_STYLE["typography"]["table_body_pt"])
                     body_sizes.append(pt)
 
-                if paragraph.font is not None and paragraph.font.color is not None and getattr(paragraph.font.color, "type", None) is not None:
-                    text_colors.append(_as_color(paragraph.font.color.rgb, DEFAULT_STYLE["colors"]["text_gray"]))
+                try:
+                    if paragraph.font is not None and paragraph.font.color is not None and getattr(paragraph.font.color, "type", None) is not None:
+                        text_colors.append(_as_color(paragraph.font.color.rgb, DEFAULT_STYLE["colors"]["text_gray"]))
+                except Exception:
+                    pass
 
                 if not is_token and paragraph.font is not None and paragraph.font.name:
                     fonts_body.append(_as_str(paragraph.font.name))
@@ -306,6 +446,10 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
 
     if style_payload.get("analysis_fallback"):
         style_fallback = True
+    inventory, inventory_warnings = _collect_template_inventory(template_path) if not skip_pptextract else (
+        {"slide_count": 0, "slides": [], "analysis_fallback": True},
+        ["template PPTX inventory skipped by --skip-pptextract"],
+    )
 
     layout_budget = _load_json(layout_paths["layout_budget"])
     text_fit_rules = _load_json(layout_paths["text_fit_rules"])
@@ -320,7 +464,7 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
         "analysis_source": "template_analyzer.py",
         "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
         "analysis_fallback": bool(style_fallback),
-        "analysis_errors": [],
+        "analysis_errors": inventory_warnings,
         "render_layouts_source": str(layout_paths["render_layouts"]),
         "text_fit_rules_source": str(layout_paths["text_fit_rules"]),
         "layout_budget_source": str(layout_paths["layout_budget"]),
@@ -337,6 +481,20 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
                 "table_body": style_payload["typography"]["table_body"],
             },
         },
+        "template_inventory": inventory,
+        "dynamic_slots": {
+            "slide_count": inventory.get("slide_count", 0),
+            "slides": [
+                {
+                    "slide_no": item.get("slide_no"),
+                    "supports": item.get("supports", {}),
+                    "information_density": item.get("information_density", "unknown"),
+                    "slot_count": item.get("shape_count", 0),
+                }
+                for item in inventory.get("slides", [])
+                if isinstance(item, dict)
+            ],
+        },
         "layout": {
             "render_layouts": render_layouts,
             "text_fit_rules": {
@@ -348,7 +506,9 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
         "slide_variants": variant_payload,
         "source_policy": {
             "source_footer_fields": source_footer_fields or ["source_footer"],
-            "required_source_footer": True if source_footer_fields else False,
+            "required_source_footer": True if source_footer_fields else bool(
+                any((item.get("supports") or {}).get("source_footer") for item in inventory.get("slides", []) if isinstance(item, dict))
+            ),
         },
         "output_path": str(output_path),
         "template_registry_file": str(layout_paths["slide_registry"]),
@@ -388,13 +548,17 @@ def main() -> int:
         profile = _build_profile(layout_paths, template_path, output, args.skip_pptextract)
         profile["analysis_source"] = "template_analyzer.py" if not args.skip_pptextract else "template_analyzer.py (fallback)"
     except Exception as exc:
+        inventory, inventory_warnings = _collect_template_inventory(template_path) if not args.skip_pptextract else (
+            {"slide_count": 0, "slides": [], "analysis_fallback": True},
+            ["template PPTX inventory skipped by --skip-pptextract"],
+        )
         profile = {
             "schema_version": "template_profile_v1",
             "template_file": str(template_path),
             "analysis_source": "template_analyzer.py (fallback)",
             "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
             "analysis_fallback": True,
-            "analysis_errors": [str(exc)],
+            "analysis_errors": [str(exc)] + inventory_warnings,
             "render_layouts_source": str(layout_paths["render_layouts"]),
             "text_fit_rules_source": str(layout_paths["text_fit_rules"]),
             "layout_budget_source": str(layout_paths["layout_budget"]),
@@ -404,6 +568,20 @@ def main() -> int:
                 "typography": DEFAULT_STYLE["typography"],
             },
             "text_geometry": {"analysis_fallback": True},
+            "template_inventory": inventory,
+            "dynamic_slots": {
+                "slide_count": inventory.get("slide_count", 0),
+                "slides": [
+                    {
+                        "slide_no": item.get("slide_no"),
+                        "supports": item.get("supports", {}),
+                        "information_density": item.get("information_density", "unknown"),
+                        "slot_count": item.get("shape_count", 0),
+                    }
+                    for item in inventory.get("slides", [])
+                    if isinstance(item, dict)
+                ],
+            },
             "layout": {
                 "render_layouts": _normalize_render_layouts(_load_json(layout_paths["render_layouts"])),
                 "text_fit_rules": {

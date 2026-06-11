@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from qc_normalize_report import normalize_report
 from validate_run_state import validate_run_state
 
 
@@ -29,7 +30,7 @@ def payload_for_run(run_dir: Path) -> dict[str, Any]:
     state = validate_run_state(run_dir)
     role = str(state.get("repair_target_role") or state.get("owner_role") or "orchestrator")
     blocking_gate = str(state.get("blocking_gate") or "")
-    return {
+    payload = {
         "schema_version": "qc_router_report_v1",
         "run_dir": str(run_dir),
         "current_stage": state.get("current_stage"),
@@ -49,6 +50,17 @@ def payload_for_run(run_dir: Path) -> dict[str, Any]:
         "failed_validations": state.get("failed_validations", []),
         "stale_validations": state.get("stale_validations", []),
     }
+    normalized = normalize_report(
+        payload,
+        default_layer=role,
+        default_artifact=str(payload.get("repair_target_artifact") or blocking_gate),
+        rerun_command=f"$PYTHON_CMD scripts/workflow.py next --run-dir {run_dir}",
+    )
+    payload["repair_schema_version"] = normalized["schema_version"]
+    payload["is_valid"] = normalized["is_valid"]
+    payload["blocking_issue_count"] = normalized["blocking_issue_count"]
+    payload["issues"] = normalized["issues"]
+    return payload
 
 
 def main() -> int:

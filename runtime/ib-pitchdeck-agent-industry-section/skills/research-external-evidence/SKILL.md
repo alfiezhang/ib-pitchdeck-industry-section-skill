@@ -44,6 +44,16 @@ Provider order for script fallback is configured in
   --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
   --output "$RUN_DIR/artifacts/formal_search_plan.json"
 
+"$PYTHON_CMD" scripts/validate_formal_search_plan.py \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --output "$RUN_DIR/artifacts/formal_search_plan_validation.json"
+
+"$PYTHON_CMD" scripts/promote_research_requests.py \
+  --research-request-queue "$RUN_DIR/artifacts/research_request_queue.json" \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --output "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --incremental-search-plan "$RUN_DIR/artifacts/incremental_search_plan.json"
+
 "$PYTHON_CMD" scripts/append_search_attempt.py \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --query "<exact query actually searched>" \

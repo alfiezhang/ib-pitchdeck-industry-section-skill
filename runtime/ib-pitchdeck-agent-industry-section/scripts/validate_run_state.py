@@ -14,6 +14,7 @@ from gate_names import (
     CHART_METRIC_BINDING,
     FILLED_PPT,
     FINAL_DELIVERY,
+    BOUNDARY_LOOP,
     FORMAL_SEARCH_PLAN,
     INDUSTRY_SCOPE_PACK,
     INPUT_CARD,
@@ -51,8 +52,10 @@ ROOT_DIR = SCRIPT_DIR.parent
 DEFAULT_ARTIFACT_MANIFEST = ROOT_DIR / "templates" / "artifact_manifest.json"
 
 ROLE_BY_STAGE = {
+    "MATERIAL_INTAKE_MISSING_OR_FAILED": "material-intake",
     "INPUT_CARD_MISSING": "material-intake",
     "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED": "industry-scoping",
+    "BOUNDARY_LOOP_MISSING_OR_FAILED": "industry-scoping",
     "FORMAL_SEARCH_PLAN_MISSING": "research-external-evidence",
     "SOURCE_REVIEWS_MISSING_OR_FAILED": "research-external-evidence",
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": "research-external-evidence",
@@ -295,6 +298,7 @@ def _template_fit_validation_check(run_dir: Path) -> dict[str, Any] | None:
         }
     if fit_data.get("is_valid") is not True:
         error_text = "template_fit_validation.json is_valid=false"
+        capacity_conflicts = fit_data.get("capacity_conflicts") if isinstance(fit_data.get("capacity_conflicts"), list) else []
         return {
             "stage": "TEMPLATE_FIT_FAILED",
             "artifact": "artifacts/template_fit_validation.json",
@@ -305,6 +309,11 @@ def _template_fit_validation_check(run_dir: Path) -> dict[str, Any] | None:
                     "path": "artifacts/template_fit_validation.json",
                     "status": "failed",
                     "errors": [error_text] + [str(item) for item in fit_data.get("errors", [])],
+                    "capacity_conflicts": capacity_conflicts,
+                    "repair_owner": "generation" if fit_data.get("template_capacity_conflict") else "template",
+                    "repair_action": "repair deck_blueprint/renderer_spec content density or choose a compatible template; do not truncate content silently"
+                    if fit_data.get("template_capacity_conflict")
+                    else "rerun template_fit.py and repair template profile or renderer inputs",
                 }
             ],
             "allowed": ["run_template_fit", "run_template_fit_analysis", "rerun_template_fit", "rerun_pre_ppt_gate", "rerun_pipeline_validate_pre_ppt"],
@@ -413,6 +422,22 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
 
     checks = [
         {
+            "stage": "MATERIAL_INTAKE_MISSING_OR_FAILED",
+            "artifact": "artifacts/material_manifest.json",
+            "validation": "artifacts/material_manifest_validation.json",
+            "gate": "material_intake",
+            "allowed": ["run_material_ingest", "rerun_material_intake", "run_material_manifest_validation", "run_material_extracts_validation"],
+            "forbidden": [
+                "create_material_only_summary",
+                "write_industry_scope_pack",
+                "write_formal_search_plan",
+                "run_ppt_pipeline",
+                "publish_final",
+            ],
+            "extra_artifacts": ["artifacts/material_extracts.json", "artifacts/source_classification.json"],
+            "extra_validations": ["artifacts/material_extracts_validation.json"],
+        },
+        {
             "stage": "INPUT_CARD_MISSING",
             "artifact": "input_card.json",
             "validation": "artifacts/input_card_validation.json",
@@ -427,6 +452,20 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
             "gate": INDUSTRY_SCOPE_PACK,
             "allowed": ["create_industry_scope_pack", "rerun_industry_scope_pack_validation"],
             "forbidden": ["write_research_pack", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
+        },
+        {
+            "stage": "BOUNDARY_LOOP_MISSING_OR_FAILED",
+            "artifact": "artifacts/boundary_loop_status.json",
+            "validation": "artifacts/boundary_loop_status.json",
+            "gate": BOUNDARY_LOOP,
+            "allowed": ["run_boundary_loop", "rerun_boundary_loop", "update_industry_scope_pack", "rerun_industry_scope_pack_validation"],
+            "forbidden": [
+                "write_formal_search_plan",
+                "run_formal_research",
+                "run_ppt_pipeline",
+                "publish_final",
+                "build_formal_search_plan",
+            ],
         },
         {
             "stage": "FORMAL_SEARCH_PLAN_MISSING",
@@ -699,6 +738,12 @@ def message_for_state(state: dict[str, Any], debug_only: bool) -> str:
     stage = state.get("stage")
     if stage == "CLIENT_READY":
         return "Run is client-ready. Publish only the PPT referenced by the latest-final pointer."
+    if stage in {"BOUNDARY_LOOP_MISSING_OR_FAILED"}:
+        status = state.get("blocking_gate") or "boundary_loop"
+        return (
+            f"{status} is not ready. Run boundary loop repair for scope confidence and repair "
+            "any scope-definition conflicts before formal search planning."
+        )
     if stage == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
         return (
             "formal_research_execution is not complete. Reconcile every planned FS-xxx row against actual S-xxx searches; "

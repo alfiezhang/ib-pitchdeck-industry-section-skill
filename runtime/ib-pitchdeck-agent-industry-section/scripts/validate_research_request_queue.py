@@ -11,12 +11,25 @@ from typing import Any
 from json_utils import load_json_file
 
 
+ALLOWED_SOURCE_TYPES = {
+    "public_search",
+    "user_curated_industry_report",
+    "manual_url_ingestion",
+    "repository_retrieval",
+    "internal_data_request",
+}
+
+ALLOWED_DOWNSTREAM_PERMISSION = {
+    "headline_disallowed",
+    "caveat_or_diligence_question_only",
+    "context_only",
+    "body_only",
+    "disallowed_as_claim",
+}
+
+
 def text(value: Any) -> str:
     return str(value or "").strip()
-
-
-def as_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
 
 
 def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -28,27 +41,52 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
     if not isinstance(requests, list):
         errors.append("requests must be an array")
         return errors, warnings
+
     seen: set[str] = set()
     for idx, item in enumerate(requests, start=1):
         if not isinstance(item, dict):
             errors.append(f"requests[{idx}] must be an object")
             continue
-        req_id = text(item.get("research_request_id"))
+
+        req_id = text(item.get("request_id") or item.get("research_request_id"))
         if not req_id:
-            errors.append(f"requests[{idx}].research_request_id is required")
+            errors.append(f"requests[{idx}].request_id is required")
         elif req_id in seen:
-            errors.append(f"duplicate research_request_id: {req_id}")
+            errors.append(f"duplicate request_id: {req_id}")
         seen.add(req_id)
+
+        if not text(item.get("origin_issue_id")):
+            warnings.append(f"{req_id or idx}: origin_issue_id is recommended for traceability")
+
+        if not text(item.get("hypothesis_id")):
+            errors.append(f"{req_id or idx}: hypothesis_id is required")
+
         if not text(item.get("research_question")):
             errors.append(f"{req_id or idx}: research_question is required")
-        forbidden_text = " ".join(text(value).lower() for value in as_list(item.get("forbidden")))
+
+        source_type = text(item.get("required_source_type"))
+        if source_type not in ALLOWED_SOURCE_TYPES:
+            warnings.append(f"{req_id or idx}: unsupported required_source_type '{source_type}', treat as public_search")
+
+        minimum_actual_searches = item.get("minimum_actual_searches")
+        if not isinstance(minimum_actual_searches, int) or minimum_actual_searches < 0:
+            errors.append(f"{req_id or idx}: minimum_actual_searches must be a non-negative integer")
+
+        downstream_permission = text(item.get("downstream_permission_if_unresolved") or item.get("downstream_permission_until_resolved"))
+        if not downstream_permission:
+            errors.append(f"{req_id or idx}: downstream_permission_if_unresolved is required")
+        elif downstream_permission not in ALLOWED_DOWNSTREAM_PERMISSION:
+            warnings.append(
+                f"{req_id or idx}: downstream_permission_if_unresolved '{downstream_permission}' is not a canonical value. "
+                "Use caveat_or_diligence_question_only for unresolved queue rows."
+            )
+            if downstream_permission.lower() == "headline_allowed":
+                errors.append(f"{req_id or idx}: unresolved research request cannot be headline_allowed")
+
         question_text = text(item.get("research_question")).lower()
         if "client" in question_text and any(token in question_text for token in ["internal", "confidential", "sensitive", "management data"]):
             errors.append(f"{req_id or idx}: research request appears to ask client for sensitive internal data")
-        if "ask_potential_client_for_sensitive_internal_data" not in forbidden_text:
-            warnings.append(f"{req_id or idx}: forbidden should include ask_potential_client_for_sensitive_internal_data")
-        if text(item.get("downstream_permission_until_resolved")) == "headline_allowed":
-            errors.append(f"{req_id or idx}: unresolved research request cannot be headline_allowed")
+
     return errors, warnings
 
 
@@ -62,6 +100,7 @@ def main() -> int:
         errors, warnings = validate(payload)
     except Exception as exc:
         errors, warnings = [f"cannot read research request queue: {exc}"], []
+
     result = {
         "is_valid": not errors,
         "error_count": len(errors),
@@ -71,7 +110,9 @@ def main() -> int:
         "repair_plan": {
             "primary_repair_target": "artifacts/research_request_queue.json",
             "repair_target_role": "reasoning",
-        } if errors else {},
+        }
+        if errors
+        else {},
     }
     if args.output:
         out = Path(args.output)
@@ -83,3 +124,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

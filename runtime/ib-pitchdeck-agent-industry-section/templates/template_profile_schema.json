@@ -56,6 +56,31 @@
       "type": "object",
       "additionalProperties": true
     },
+    "template_inventory": {
+      "type": "object",
+      "properties": {
+        "slide_count": { "type": "integer", "minimum": 0 },
+        "page_size": { "type": "object", "additionalProperties": true },
+        "slides": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        "aggregate_roles": { "type": "object", "additionalProperties": true },
+        "analysis_fallback": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "dynamic_slots": {
+      "type": "object",
+      "properties": {
+        "slide_count": { "type": "integer", "minimum": 0 },
+        "slides": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "additionalProperties": true
+    },
     "layout": {
       "type": "object",
       "properties": {

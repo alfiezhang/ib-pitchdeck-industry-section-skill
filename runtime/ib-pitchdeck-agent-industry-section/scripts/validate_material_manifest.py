@@ -43,10 +43,18 @@ def validate_manifest(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
             warnings.append(f"{material_id or idx}: source_type normalized to other")
         if not text(item.get("material_kind")):
             errors.append(f"{material_id or idx}: material_kind is required")
-        if not text(item.get("locator")):
-            warnings.append(f"{material_id or idx}: locator is empty; inline text should use locator=inline_user_text")
-        if text(item.get("source_type")) == "user_curated_industry_report" and text(item.get("parse_status")) == "complete":
-            warnings.append(f"{material_id or idx}: user_curated_industry_report still requires reconciliation before claim use")
+        if not text(item.get("file_path_or_url")):
+            errors.append(f"{material_id or idx}: file_path_or_url is required")
+        if not text(item.get("source_access")):
+            warnings.append(f"{material_id or idx}: source_access is recommended")
+        if not text(item.get("extraction_status")):
+            warnings.append(f"{material_id or idx}: extraction_status is required (pending/complete/failed)")
+        if "extraction_limitations" not in item:
+            warnings.append(f"{material_id or idx}: extraction_limitations is required")
+        if text(item.get("locator")) and text(item.get("file_path_or_url")) == "inline_user_text":
+            warnings.append(f"{material_id or idx}: locator should not replace file_path_or_url for text material")
+        if text(item.get("source_type")) == "user_curated_industry_report" and text(item.get("can_be_used_as_evidence")) == "true":
+            warnings.append(f"{material_id or idx}: user_curated_industry_report should remain false until formal review")
     if not materials:
         warnings.append("material_manifest has no materials; direct input_card transcription may still be possible")
     return errors, warnings
