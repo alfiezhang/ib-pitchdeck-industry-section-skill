@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Industry Scope Pack",
+  "description": "Thin scoping artifact for industry definition, category boundaries, data hierarchy, reconciliation requirements, and unvalidated leads. It must not contain confirmed industry conclusions.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "meta",
+    "llm_definition_draft",
+    "scope_summary",
+    "scope_classification",
+    "market_definitions",
+    "ambiguous_boundaries",
+    "data_hierarchy",
+    "unvalidated_leads",
+    "required_reconciliations",
+    "formal_research_seed_questions",
+    "do_not_use_as_claims"
+  ],
+  "properties": {
+    "schema_version": { "const": "industry_scope_pack_v1" },
+    "meta": { "type": "object", "additionalProperties": true },
+    "llm_definition_draft": {
+      "type": "object",
+      "description": "LLM-only pre-search definition draft. It guides scoping searches and must not contain validated market findings.",
+      "required": [
+        "working_market_draft",
+        "included_segments_draft",
+        "excluded_segments_draft",
+        "adjacent_markets_draft",
+        "ambiguous_boundaries_to_check",
+        "data_scope_questions",
+        "scoping_search_queries"
+      ],
+      "properties": {
+        "purpose": { "type": "string" },
+        "working_market_draft": { "type": "string", "minLength": 2 },
+        "parent_market_draft": { "type": "string" },
+        "broader_market_draft": { "type": "string" },
+        "included_segments_draft": { "type": "array", "items": { "type": "string" } },
+        "excluded_segments_draft": { "type": "array", "items": { "type": "string" } },
+        "adjacent_markets_draft": { "type": "array", "items": { "type": "string" } },
+        "ambiguous_boundaries_to_check": { "type": "array", "items": { "type": "string" } },
+        "data_scope_questions": { "type": "array", "items": { "type": "string" } },
+        "scoping_search_queries": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 6 },
+          "minItems": 2
+        }
+      },
+      "additionalProperties": true
+    },
+    "scope_summary": {
+      "type": "object",
+      "required": ["working_market", "parent_market", "broader_market", "adjacent_markets"],
+      "properties": {
+        "working_market": { "type": "string", "minLength": 2 },
+        "parent_market": { "type": "string" },
+        "broader_market": { "type": "string" },
+        "adjacent_markets": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "scope_classification": {
+      "type": "object",
+      "required": ["broad", "core", "adjacent", "excluded"],
+      "properties": {
+        "broad": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "core": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "adjacent": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "excluded": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "market_definitions": {
+      "type": "object",
+      "required": ["narrow_definition", "broad_definition"],
+      "properties": {
+        "narrow_definition": {
+          "type": "object",
+          "required": ["included_segments", "excluded_segments", "use_case"],
+          "properties": {
+            "included_segments": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+            "excluded_segments": { "type": "array", "items": { "type": "string" } },
+            "use_case": { "type": "string", "minLength": 4 }
+          },
+          "additionalProperties": true
+        },
+        "broad_definition": {
+          "type": "object",
+          "required": ["included_segments", "additional_segments", "use_case"],
+          "properties": {
+            "included_segments": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+            "additional_segments": { "type": "array", "items": { "type": "string" } },
+            "use_case": { "type": "string", "minLength": 4 }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "ambiguous_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item", "why_ambiguous", "research_treatment"],
+        "properties": {
+          "item": { "type": "string", "minLength": 1 },
+          "why_ambiguous": { "type": "string", "minLength": 6 },
+          "research_treatment": { "type": "string", "minLength": 6 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "scope_confidence_rationale": {
+      "type": "string",
+      "description": "Required when ambiguous_boundaries is empty. Explain why no material category/scope ambiguity was identified at the scoping stage."
+    },
+    "data_hierarchy": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["level", "metric_scope", "can_be_compared_with", "cannot_be_compared_with"],
+        "properties": {
+          "level": { "type": "integer", "minimum": 1 },
+          "metric_scope": { "type": "string", "minLength": 2 },
+          "can_be_compared_with": { "type": "array", "items": { "type": "string" } },
+          "cannot_be_compared_with": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      },
+      "minItems": 3
+    },
+    "unvalidated_leads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["lead", "claim_type", "source_hint", "must_validate"],
+        "properties": {
+          "lead": { "type": "string", "minLength": 2 },
+          "claim_type": { "type": "string" },
+          "source_hint": { "type": "string" },
+          "must_validate": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required_reconciliations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["topic", "why_it_matters", "formal_research_requirement"],
+        "properties": {
+          "topic": { "type": "string", "minLength": 2 },
+          "why_it_matters": { "type": "string", "minLength": 6 },
+          "formal_research_requirement": { "type": "string", "minLength": 6 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "reconciliation_policy": {
+      "type": "string",
+      "description": "Required when required_reconciliations is empty. Explain why no material scope/metric reconciliation issue was identified at the scoping stage."
+    },
+    "formal_research_seed_questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 6 },
+      "minItems": 3
+    },
+    "do_not_use_as_claims": { "const": true }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,120 @@
+{
+  "schema_version": "formal_search_plan_v1",
+  "_template_only": true,
+  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use build_formal_search_plan_skeleton.py then edit each row.",
+  "meta": {
+    "target_company": "",
+    "transaction_type": "",
+    "industry": "",
+    "subsector": "",
+    "geography": "",
+    "language": "English",
+    "prepared_date": "",
+    "research_as_of_date": ""
+  },
+  "plan_mode": "coverage_audit",
+  "industry_scope_pack": {
+    "artifact_path": "artifacts/industry_scope_pack.json",
+    "purpose": "Use the scope pack as a research map: market definition, category boundaries, data hierarchy, required reconciliations, unvalidated leads, and seed questions. Do not convert scope-pack leads into findings here.",
+    "scope_inputs_to_use": [
+      "llm_definition_draft",
+      "scope_summary",
+      "market_definitions",
+      "ambiguous_boundaries",
+      "data_hierarchy",
+      "unvalidated_leads",
+      "required_reconciliations",
+      "formal_research_seed_questions"
+    ]
+  },
+  "builder_instruction": "Do not copy this template as a final plan. First run scripts/build_formal_search_plan_skeleton.py to generate one issue_search_plan row for every canonical issue_area/subissue, then edit the generated research questions, queries, purposes, and source hints. The validator requires full taxonomy coverage.",
+  "allowed_issue_taxonomy": {
+    "instruction": "Use only these issue_area/subissue pairs. Do not invent new subissue names; if a topic does not fit, choose the closest valid subissue and note the limitation in research_question.",
+    "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],
+    "demand_customer_logic": ["customer_segments", "demand_drivers", "willingness_to_pay", "repeat_or_replacement", "channel_behavior", "unmet_needs"],
+    "industry_structure": ["concentration", "value_chain", "profit_pool", "business_models", "barriers_to_entry", "supplier_customer_power"],
+    "key_trends_drivers": ["secular_tailwinds", "headwinds_and_risks", "technology_disruption", "regulatory_developments", "channel_or_go_to_market_shift", "mna_and_consolidation"],
+    "competitive_landscape": ["peer_universe", "competitor_profiles", "peer_financials", "strategic_positioning", "product_or_service_focus", "channel_footprint", "recent_developments", "valuation_snapshot_peer_fact"],
+    "competitive_dynamics": ["basis_of_competition", "winners_losers", "new_entrants", "substitutes_or_adjacent_risk", "differentiation_durability", "consolidation_logic"],
+    "pitch_relevance_target_context": ["why_sector_relevant", "target_context_fit", "evidence_limits", "discussion_implications"]
+  },
+  "planning_instruction": "Cover every canonical issue_area/subissue after reading industry_scope_pack.json. For each entry, write clear executable search instructions: exact query strings the next step should actually run. Cover required reconciliations and important unvalidated leads. Do not write investment hypotheses, validated findings, slide conclusions, or page plans. Do not delete low-relevance subissues; execute them and later mark findings thin/insufficient/unavailable if evidence is weak.",
+  "issue_search_plan": [
+    {
+      "issue_area": "market_size_growth",
+      "subissue": "current_market_size",
+      "priority": "high",
+      "research_question": "What is the current relevant market size for the target definition, and what is each source's geography/scope?",
+      "search_instructions": [
+        {
+          "instruction_id": "FS-001",
+          "query": "beauty and personal care current market size by geography and subsegment",
+          "purpose": "Find current market-size datapoints and source scope.",
+          "search_stage": "formal_research_execution",
+          "source_hint": "official statistics, industry association, company filing, broker or consulting report",
+          "query_variants": [
+            "beauty and personal care current market size annual report by region",
+            "beauty product market size definition and geographic coverage guide"
+          ]
+        }
+      ],
+      "execution_expectation": "light_search",
+      "minimum_actual_searches": 1,
+      "coverage_required": true,
+      "terminal_status": "pending"
+    },
+    {
+      "issue_area": "competitive_landscape",
+      "subissue": "peer_universe",
+      "priority": "high",
+      "research_question": "Who are the relevant peers and adjacent players that best define this industry footprint?",
+      "search_instructions": [
+        {
+          "instruction_id": "FS-002",
+          "query": "beauty personal care listed peers peer-set benchmark profiles by revenue mix",
+          "purpose": "Identify peer universe, share indicators, and inclusion rationale.",
+          "search_stage": "formal_research_execution",
+          "source_hint": "company disclosure, public filing, industry report, analyst coverage",
+          "query_variants": [
+            "beauty peer set with comparable geography and channel mix",
+            "adjacent categories with similar customer and distribution profile"
+          ]
+        }
+      ],
+      "execution_expectation": "light_search",
+      "minimum_actual_searches": 1,
+      "coverage_required": true,
+      "terminal_status": "pending"
+    },
+    {
+      "issue_area": "pitch_relevance_target_context",
+      "subissue": "why_sector_relevant",
+      "priority": "medium",
+      "research_question": "Why is this sector relevant to a potential mandate for the target client?",
+      "search_instructions": [
+        {
+          "instruction_id": "FS-003",
+          "query": "beauty and personal care sector buyer base and diligence relevance for specialty assets",
+          "purpose": "Collect sector context needed for transaction framing.",
+          "search_stage": "formal_research_execution",
+          "source_hint": "industry report, strategist notes, transaction precedent context",
+          "query_variants": [
+            "beauty mandate transaction precedent sector themes",
+            "sector transition risks and buyer rationale in similar industries"
+          ]
+        }
+      ],
+      "execution_expectation": "accounting_only",
+      "minimum_actual_searches": 0,
+      "coverage_required": true,
+      "terminal_status": "pending"
+    }
+  ],
+  "research_discipline": {
+    "do_not_generate_hypotheses": true,
+    "formal_validation_lives_in": "artifacts/formal_research_execution_report.json",
+    "execution_report_inherits_plan_taxonomy": "In formal_research_execution_report.json, copy issue_area, subissue, and research_question from the issue_search_plan item associated with each executed FS-xxx. Do not reclassify taxonomy in the execution report.",
+    "fs_vs_s_id_discipline": "FS-xxx IDs are planned search instructions only. After writing this plan, run actual searches and log them as S-xxx entries in artifacts/search_log.md. In the execution report, search_instruction_ids uses FS-xxx and search_attempt_ids uses S-xxx.",
+    "if_evidence_is_insufficient": "Record the issue/subissue as thin, insufficient, or unavailable_after_research in the formal execution report and research pack; do not invent a page claim."
+  }
+}

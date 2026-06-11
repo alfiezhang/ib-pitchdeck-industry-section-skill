@@ -1,0 +1,7 @@
+[project]
+name = "ib-pitchdeck-agent-industry-section"
+requires-python = ">=3.9"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["runtime/ib-pitchdeck-agent-industry-section/scripts"]

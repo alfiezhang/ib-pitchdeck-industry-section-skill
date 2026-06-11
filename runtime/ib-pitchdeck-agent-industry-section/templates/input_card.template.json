@@ -1,0 +1,58 @@
+{
+  "_provenance": {
+    "_description": "Input card is transcription-only. Copy user-provided facts faithfully; do not enrich, infer, rewrite into highlights, or add planner-generated peers/sources/topics. Mark every populated field source.",
+    "request_language": "",
+    "user_provided_paths": [],
+    "normalized_metadata_paths": [
+      "engagement_context.stage",
+      "engagement_context.audience",
+      "engagement_context.objective",
+      "engagement_context.tone"
+    ]
+  },
+  "target_company": "",
+  "transaction_type": "",
+  "industry": "",
+  "subsector": "",
+  "geography": "",
+  "language": "",
+  "deal_context": "",
+  "engagement_context": {
+    "_description": "Default skill context. This is safe normalized metadata unless the user specifies a different engagement mode.",
+    "stage": "pre_mandate_transaction_pitch",
+    "audience": "potential_client_or_management",
+    "objective": "demonstrate sector understanding first, then transaction-relevant judgment and selective target context where supported",
+    "tone": "insightful_but_not_over_selling"
+  },
+  "target_business_summary": "",
+  "user_provided_target_facts": [],
+  "known_risks_or_open_questions": [],
+  "source_materials": [
+    {
+      "source_name": "",
+      "source_type": "project_specific_material | user_curated_industry_report | company_material | web_search_result | repository_retrieval | official_filing | company_disclosure | industry_report | regulator | business_media | database | other",
+      "source_access": "user_provided | public_search | repository_retrieval",
+      "source_access_path": "file path, internal path, or URL",
+      "source_date": "",
+      "geography": "",
+      "fact_type": "factual | directional | contextual | comparison_metric | methodology",
+      "confidence": "low | medium | high",
+      "scope": "industry-level | target-level | transaction-inference",
+      "notes": ""
+    }
+  ],
+  "management_hypotheses": [],
+  "peer_set": [],
+  "must_cover_topics": [],
+  "must_avoid_topics": [],
+  "research_direction": {
+    "_description": "Optional user-provided controls only. Leave empty unless the user explicitly specified preferred websites, domains, source packs, topics, peers, or exclusions. Planner-generated research choices belong in artifacts/formal_search_plan.json.",
+    "priority_websites": [],
+    "preferred_source_domains": [],
+    "preferred_source_packs": [],
+    "priority_topics": [],
+    "peer_set": [],
+    "avoid_topics": [],
+    "avoid_sources": []
+  }
+}

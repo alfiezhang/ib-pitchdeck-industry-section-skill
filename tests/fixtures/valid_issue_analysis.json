@@ -31,7 +31,15 @@
         }
       ],
       "evidence_sufficiency": "sufficient",
+      "evidence_status": "supported",
+      "allowed_deck_usage": {
+        "headline": true,
+        "main_message": true,
+        "chart": true,
+        "body_copy": true
+      },
       "status": "validated",
+      "hypothesis_resolution": "resolved",
       "evidence_ids": ["EV-001", "EV-002"],
       "metric_ids": ["MET-001", "MET-002"],
       "limitations": [],
@@ -60,7 +68,15 @@
         }
       ],
       "evidence_sufficiency": "thin",
+      "evidence_status": "thin",
+      "allowed_deck_usage": {
+        "headline": false,
+        "main_message": false,
+        "chart": true,
+        "body_copy": true
+      },
       "status": "partially_validated",
+      "hypothesis_resolution": "resolved",
       "evidence_ids": ["EV-001", "EV-002"],
       "metric_ids": ["MET-003"],
       "limitations": ["Metric coverage is single-source."],
@@ -89,7 +105,15 @@
         }
       ],
       "evidence_sufficiency": "sufficient",
+      "evidence_status": "supported",
+      "allowed_deck_usage": {
+        "headline": true,
+        "main_message": true,
+        "chart": false,
+        "body_copy": true
+      },
       "status": "validated",
+      "hypothesis_resolution": "resolved",
       "evidence_ids": ["EV-001", "EV-003"],
       "metric_ids": [],
       "limitations": [],
@@ -118,14 +142,22 @@
         }
       ],
       "evidence_sufficiency": "thin",
+      "evidence_status": "caveat_only",
+      "allowed_deck_usage": {
+        "headline": false,
+        "main_message": false,
+        "chart": false,
+        "body_copy": false
+      },
       "status": "unverified",
+      "hypothesis_resolution": "caveat_only",
       "evidence_ids": ["EV-003"],
       "metric_ids": [],
       "limitations": ["Requires management or expert validation."],
       "downstream_permission": {
         "headline_allowed": false,
         "chart_allowed": false,
-        "body_copy_allowed": true
+        "body_copy_allowed": false
       },
       "candidate_use_cases": ["open_question"]
     }

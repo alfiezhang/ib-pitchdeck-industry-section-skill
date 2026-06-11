@@ -1,0 +1,163 @@
+{
+  "schema_version": "research_evidence_db_v1",
+  "source_of_truth": true,
+  "meta": {
+    "target_company": "Sample Target",
+    "transaction_type": "control sale",
+    "industry": "sample sector",
+    "subsector": "sample subsector",
+    "geography": "Sampleland",
+    "language": "English",
+    "prepared_date": "2026-06-09",
+    "research_as_of_date": "2026-06-09"
+  },
+  "scope_summary": {
+    "working_market": "sample market",
+    "parent_market": "sample parent market",
+    "sub_markets": [
+      "sample product"
+    ],
+    "excluded_scope": [
+      "unrelated market"
+    ]
+  },
+  "formal_research_results": [
+    {
+      "result_id": "FR-001",
+      "issue_area": "market_size_growth",
+      "subissue": "current_market_size",
+      "research_question": "What is the current market size?",
+      "status": "supported",
+      "terminal_status": "executed_with_evidence",
+      "downstream_permission": "may_support_claim",
+      "minimum_actual_searches": 1,
+      "actual_search_attempt_count": 1,
+      "search_instruction_ids": [
+        "FS-001"
+      ],
+      "search_attempt_ids": [
+        "S-001"
+      ],
+      "source_review_ids": [
+        "SRC-001"
+      ],
+      "evidence_ids": [
+        "EV-001"
+      ],
+      "metric_ids": [
+        "MET-001"
+      ],
+      "findings_summary": "Reviewed source supports sample market size.",
+      "limitations": [
+        "Regression fixture only."
+      ],
+      "research_pack_handling": "Use as a regression fixture row."
+    }
+  ],
+  "formal_research_extracts": [
+    {
+      "extract_id": "FX-001",
+      "result_id": "FR-001",
+      "issue_area": "market_size_growth",
+      "subissue": "current_market_size",
+      "source_review_id": "SRC-001",
+      "search_attempt_ids": [
+        "S-001"
+      ],
+      "source_url": "https://example.com/report",
+      "source_locator": "section 1",
+      "reviewed_excerpt_or_paraphrase": "The sample market was RMB 100bn in 2026.",
+      "extracted_fact_or_metric_candidate": "Sample market size was RMB 100bn in 2026.",
+      "status": "supported",
+      "terminal_status": "executed_with_evidence",
+      "promoted_evidence_ids": [
+        "EV-001"
+      ],
+      "promoted_metric_ids": [
+        "MET-001"
+      ],
+      "limitations": [
+        "Regression fixture only."
+      ]
+    }
+  ],
+  "source_materials": [
+    {
+      "source_review_id": "SRC-001",
+      "source_name": "Example Industry Report",
+      "source_type": "industry_report",
+      "source_date": "2026-06-01",
+      "geography": "Sampleland",
+      "source_reliability": "high",
+      "evidence_use_tier": "primary",
+      "claim_use_scope": "industry-level",
+      "usable_as_evidence": true,
+      "source_url": "https://example.com/report",
+      "source_locator": "section 1",
+      "reviewed_excerpt": "The sample market was RMB 100bn in 2026.",
+      "limitations": "Regression fixture only."
+    }
+  ],
+  "evidence_ledger": [
+    {
+      "evidence_id": "EV-001",
+      "claim_or_metric": "Sample market size was RMB 100bn in 2026.",
+      "claim_scope": "industry-level",
+      "source_review_id": "SRC-001",
+      "source_name": "Example Industry Report",
+      "source_url": "https://example.com/report",
+      "source_type": "industry_report",
+      "evidence_status": "primary-reviewed",
+      "source_date": "2026-06-01",
+      "data_period": "2026",
+      "source_locator": "section 1",
+      "raw_excerpt": "The sample market was RMB 100bn in 2026.",
+      "reliability": "high",
+      "confidence": "high"
+    }
+  ],
+  "metric_reconciliation": [
+    {
+      "metric_group": "Market sizing",
+      "metric_id": "MET-001",
+      "metric_name": "Sample market size",
+      "metric_type": "retail_sales",
+      "market_definition": "sample market",
+      "channel_scope": "all_channel",
+      "geography": "Sampleland",
+      "data_period": "2026",
+      "value": "100",
+      "unit": "RMB bn",
+      "comparable_with": "",
+      "parent_metric_id": "",
+      "cagr_endpoint_ids": "",
+      "conflict_status": "single-source",
+      "resolution": "Use only as a regression fixture.",
+      "chart_ready": true
+    }
+  ],
+  "issue_fact_inventory": [
+    {
+      "issue_area": "market_size_growth",
+      "subissue": "current_market_size",
+      "evidence_ids": [
+        "EV-001"
+      ],
+      "metric_ids": [
+        "MET-001"
+      ],
+      "fact_status": "sufficient",
+      "notes": "Regression fixture inventory row."
+    }
+  ],
+  "research_gap_audit": {
+    "critical_gaps": [],
+    "metric_consistency_check": {
+      "GMV vs revenue": "No conflict.",
+      "Cross-slide repeated metric consistency": "No repeated metric conflict.",
+      "Target financials consistency": "No target financials.",
+      "User-provided vs external-source discrepancy": "No discrepancy.",
+      "Chart number consistency": "MET-001 is chart ready."
+    }
+  }
+}

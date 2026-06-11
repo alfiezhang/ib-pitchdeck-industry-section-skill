@@ -1,0 +1,14 @@
+{
+  "schema_version": "layout_config_v1",
+  "description": "Canonical index for layout and PPT mapping configuration files used by the deterministic render path. The source files remain separate because they are edited and validated independently.",
+  "files": {
+    "template_profile": "templates/template_profile.json",
+    "slide_registry": "templates/slide_registry.json",
+    "page_type_rules": "templates/page_type_rules.json",
+    "slide_layout_library": "templates/slide_layout_library.json",
+    "render_layouts": "templates/render_layouts.json",
+    "layout_budget": "templates/layout_budget.json",
+    "text_fit_rules": "templates/text_fit_rules.json",
+    "ppt_mapping": "templates/ppt_mapping.json"
+  }
+}
