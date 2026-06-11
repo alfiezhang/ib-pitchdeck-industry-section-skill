@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_DIR = ROOT / "runtime" / "ib-industry-section-skill" / "scripts"
+SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
@@ -75,7 +75,7 @@ def _seed_template_layer_artifacts(run_dir: Path) -> None:
         artifacts / "template_profile.json",
         {
             "schema_version": "template_profile_v1",
-            "template_file": str(ROOT / "runtime/ib-industry-section-skill/assets/industry_section_template_master.pptx"),
+            "template_file": str(ROOT / "runtime/ib-pitchdeck-agent-industry-section/assets/industry_section_template_master.pptx"),
             "layout": {},
             "visual_style": {},
         },
@@ -215,7 +215,7 @@ def test_workflow_next_template_profile_without_template_fit(tmp_path: Path) -> 
         artifacts / "template_profile.json",
         {
             "schema_version": "template_profile_v1",
-            "template_file": str(ROOT / "runtime/ib-industry-section-skill/assets/industry_section_template_master.pptx"),
+            "template_file": str(ROOT / "runtime/ib-pitchdeck-agent-industry-section/assets/industry_section_template_master.pptx"),
             "layout": {},
             "visual_style": {},
         },

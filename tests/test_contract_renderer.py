@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-SKILL_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-industry-section-skill"
+SKILL_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section"
 SCRIPT_DIR = SKILL_DIR / "scripts"
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 

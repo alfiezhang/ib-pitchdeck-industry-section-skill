@@ -1,0 +1,385 @@
+{
+  "schema_version": "artifact_manifest_v1",
+  "description": "Canonical artifact and gate manifest for the formal IB industry section workflow. Use this file as the machine source of truth for artifact paths, validators, builders, and stale-validation input relationships.",
+  "artifact_layers": {
+    "authoring": {
+      "description": "Artifacts where the LLM performs substantive transcription, research judgment, evidence extraction, or page design. This is the main mental path.",
+      "main_llm_authoring_path": ["input_card", "material_extracts", "research_evidence_db", "hypothesis_store", "issue_analysis", "deck_blueprint"],
+      "artifacts": [
+        "material_manifest",
+        "material_extracts",
+        "input_card",
+        "industry_scope_pack",
+        "industry_boundary_qc",
+        "boundary_research_requests",
+        "formal_search_plan",
+        "search_log",
+        "source_reviews",
+        "formal_research_execution_report",
+        "research_evidence_db",
+        "hypothesis_store",
+        "research_request_queue",
+        "page_argument_pack",
+        "issue_analysis",
+        "deck_blueprint"
+      ]
+    },
+    "derived": {
+      "description": "Deterministic artifacts generated from authoring artifacts. Do not hand-author these for formal delivery.",
+      "artifacts": [
+        "source_archive",
+        "template_profile",
+        "template_fit_validation",
+        "research_pack",
+        "template_registry",
+        "page_evidence_contract",
+        "renderer_spec",
+        "replacement_dict",
+        "filled_ppt"
+      ]
+    },
+    "validation": {
+      "description": "Gate and validation artifacts. Repair upstream authoring files instead of editing these outputs.",
+      "artifacts": [
+        "pre_research_pack_gate",
+        "chart_metric_binding",
+        "content_quality",
+        "pre_ppt_gate",
+        "final_delivery"
+      ]
+    },
+    "diagnostic": {
+      "description": "Optional helper artifacts for debugging or role handoff. They are not part of the main workflow path and should not be required for delivery.",
+      "artifacts": [
+        "evidence_candidate_skeleton",
+        "banker_review_report",
+        "agent_handoff",
+        "run_quality_summary"
+        ,
+        "qc_router_report"
+      ]
+    }
+  },
+  "role_layers": {
+    "material-intake": {
+      "description": "User-provided materials, source classification, explicit extraction, and normalized input card.",
+      "artifacts": ["material_manifest", "material_extracts", "input_card"]
+    },
+    "industry-scoping": {
+      "description": "Target industry definition, boundary validation, excluded scope, and scope risk mapping.",
+      "artifacts": ["industry_scope_pack", "industry_boundary_qc", "boundary_research_requests"]
+    },
+    "research-external-evidence": {
+      "description": "Formal search plan, actual search log, public/manual evidence collection, reviewed sources, archive, and formal execution accounting.",
+      "artifacts": [
+        "formal_search_plan",
+        "search_log",
+        "source_reviews",
+        "source_archive",
+        "formal_research_execution_report",
+        "pre_research_pack_gate",
+        "evidence_candidate_skeleton"
+      ]
+    },
+    "knowledge-repository": {
+      "description": "Evidence database, facts, metrics, conflicts, gaps, and readable research-pack export.",
+      "artifacts": ["research_evidence_db", "research_pack"]
+    },
+    "reasoning": {
+      "description": "Banker judgments, hypothesis resolution, research requests, and issue analysis.",
+      "artifacts": ["hypothesis_store", "research_request_queue", "page_argument_pack", "issue_analysis"]
+    },
+    "generation": {
+      "description": "Page arguments, deck blueprint, template registry usage, evidence contract, and renderer spec.",
+      "artifacts": ["template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "banker_review_report"]
+    },
+    "template": {
+      "description": "Template style/profile analysis and content-to-template capacity fit.",
+      "artifacts": ["template_profile", "template_fit_validation"]
+    },
+    "qc": {
+      "description": "Cross-layer validation, gate status, repair targets, and final delivery audit.",
+      "artifacts": ["chart_metric_binding", "content_quality", "pre_ppt_gate", "final_delivery", "run_quality_summary", "agent_handoff", "qc_router_report"]
+    },
+    "output": {
+      "description": "Deterministic replacement dictionary, PPT rendering, cleanup, and filled-PPT validation.",
+      "artifacts": ["replacement_dict", "filled_ppt"]
+    }
+  },
+  "artifacts": {
+    "material_manifest": {
+      "path": "artifacts/material_manifest.json",
+      "owner": "script_skeleton_llm_material_intake",
+      "builder": "scripts/build_material_manifest.py",
+      "validator": "scripts/validate_material_manifest.py",
+      "validation": "artifacts/material_manifest_validation.json",
+      "inputs": []
+    },
+    "material_extracts": {
+      "path": "artifacts/material_extracts.json",
+      "owner": "script_skeleton_llm_material_extraction",
+      "builder": "scripts/build_material_extracts_skeleton.py",
+      "validator": "scripts/validate_material_extracts.py",
+      "validation": "artifacts/material_extracts_validation.json",
+      "inputs": ["material_manifest"]
+    },
+    "input_card": {
+      "path": "input_card.json",
+      "owner": "llm_transcription",
+      "validator": "scripts/validate_input_card.py",
+      "validation": "artifacts/input_card_validation.json",
+      "inputs": []
+    },
+    "industry_scope_pack": {
+      "path": "artifacts/industry_scope_pack.json",
+      "owner": "llm_scoping",
+      "validator": "scripts/validate_industry_scope_pack.py",
+      "validation": "artifacts/industry_scope_pack_validation.json",
+      "inputs": ["input_card"]
+    },
+    "industry_boundary_qc": {
+      "path": "artifacts/industry_boundary_qc.json",
+      "owner": "script_boundary_qc",
+      "builder": "scripts/build_industry_boundary_qc.py",
+      "inputs": ["industry_scope_pack"]
+    },
+    "boundary_research_requests": {
+      "path": "artifacts/boundary_research_requests.json",
+      "owner": "script_from_boundary_qc",
+      "builder": "scripts/build_boundary_research_requests.py",
+      "inputs": ["industry_boundary_qc"]
+    },
+    "formal_search_plan": {
+      "path": "artifacts/formal_search_plan.json",
+      "owner": "script_skeleton_llm_query_planning",
+      "builder": "scripts/build_formal_search_plan_skeleton.py",
+      "validator": "scripts/validate_formal_search_plan.py",
+      "validation": "artifacts/formal_search_plan_validation.json",
+      "inputs": ["input_card", "industry_scope_pack"]
+    },
+    "search_log": {
+      "path": "artifacts/search_log.md",
+      "owner": "script_assisted_research_log",
+      "inputs": ["formal_search_plan"]
+    },
+    "formal_research_execution_report": {
+      "path": "artifacts/formal_research_execution_report.json",
+      "owner": "script_skeleton_llm_judgment",
+      "builder": "scripts/build_formal_research_execution_report_skeleton.py",
+      "validator": "scripts/validate_formal_research_execution.py",
+      "validation": "artifacts/formal_research_execution_validation.json",
+      "inputs": ["formal_search_plan", "search_log", "source_reviews", "source_archive"]
+    },
+    "source_reviews": {
+      "path": "artifacts/source_reviews.json",
+      "owner": "script_skeleton_llm_source_review_audit",
+      "builder": "scripts/build_source_reviews_skeleton.py",
+      "validator": "scripts/validate_source_reviews.py",
+      "validation": "artifacts/source_reviews_validation.json",
+      "inputs": ["search_log"]
+    },
+    "evidence_candidate_skeleton": {
+      "path": "artifacts/evidence_candidate_skeleton.json",
+      "owner": "script_candidate_workspace",
+      "builder": "scripts/build_evidence_candidate_skeleton.py",
+      "inputs": ["formal_research_execution_report", "source_reviews"]
+    },
+    "source_archive": {
+      "path": "artifacts/source_archive/source_archive_index.json",
+      "owner": "script_excerpt_snapshot_builder",
+      "validator": "scripts/validate_source_archive.py",
+      "validation": "artifacts/source_archive_validation.json",
+      "inputs": ["source_reviews"]
+    },
+    "template_profile": {
+      "path": "artifacts/template_profile.json",
+      "owner": "script",
+      "builder": "scripts/template_analyzer.py",
+      "inputs": []
+    },
+    "template_fit_validation": {
+      "path": "artifacts/template_fit_validation.json",
+      "owner": "script",
+      "builder": "scripts/template_fit.py",
+      "inputs": ["template_profile", "renderer_spec"]
+    },
+    "pre_research_pack_gate": {
+      "path": "artifacts/stage_gate_pre_research_pack_validation.json",
+      "owner": "script",
+      "validator": "scripts/validate_stage_gate.py --stage pre_research_pack",
+      "validation": "artifacts/stage_gate_pre_research_pack_validation.json",
+      "inputs": ["material_manifest", "material_extracts", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
+    },
+    "hypothesis_store": {
+      "path": "artifacts/hypothesis_store.json",
+      "owner": "script_skeleton_llm_hypothesis_resolution",
+      "builder": "scripts/build_hypothesis_store_skeleton.py",
+      "validator": "scripts/validate_hypothesis_store.py",
+      "validation": "artifacts/hypothesis_store_validation.json",
+      "inputs": ["research_evidence_db", "issue_analysis"]
+    },
+    "research_request_queue": {
+      "path": "artifacts/research_request_queue.json",
+      "owner": "script_from_hypothesis_store",
+      "builder": "scripts/build_research_request_queue.py",
+      "validator": "scripts/validate_research_request_queue.py",
+      "validation": "artifacts/research_request_queue_validation.json",
+      "inputs": ["hypothesis_store"]
+    },
+    "page_argument_pack": {
+      "path": "artifacts/page_argument_pack.json",
+      "owner": "script_skeleton_llm_page_argument_editor",
+      "builder": "scripts/build_page_argument_pack.py",
+      "validator": "scripts/validate_page_argument_pack.py",
+      "validation": "artifacts/page_argument_pack_validation.json",
+      "inputs": ["issue_analysis", "hypothesis_store"]
+    },
+    "research_pack": {
+      "path": "industry_research_pack.md",
+      "owner": "script_export_from_research_evidence_db",
+      "builder": "scripts/export_research_pack_from_db.py",
+      "validator": "scripts/validate_research_pack.py",
+      "validation": "artifacts/research_pack_validation.json",
+      "inputs": ["research_evidence_db"]
+    },
+    "research_evidence_db": {
+      "path": "artifacts/research_evidence_db.json",
+      "owner": "script_skeleton_llm_evidence_extraction",
+      "builder": "scripts/build_research_evidence_db.py",
+      "validator": "scripts/validate_research_evidence_db.py",
+      "validation": "artifacts/research_evidence_db_validation.json",
+      "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
+    },
+    "issue_analysis": {
+      "path": "industry_issue_analysis.json",
+      "owner": "script_skeleton_llm_issue_analysis",
+      "builder": "scripts/build_issue_analysis_skeleton.py",
+      "validator": "scripts/validate_issue_analysis.py",
+      "validation": "artifacts/issue_analysis_validation.json",
+      "inputs": ["research_evidence_db", "research_pack", "formal_research_execution_report"]
+    },
+    "template_registry": {
+      "path": "template_registry.json",
+      "owner": "script",
+      "builder": "scripts/extract_template_registry.py",
+      "validator": "scripts/validate_template_registry.py",
+      "validation": "artifacts/template_registry_validation.json",
+      "inputs": []
+    },
+    "deck_blueprint": {
+      "path": "deck_blueprint.json",
+      "owner": "llm_deck_designer",
+      "validator": "scripts/validate_deck_blueprint.py",
+      "validation": "artifacts/deck_blueprint_validation.json",
+      "inputs": ["issue_analysis", "template_registry"]
+    },
+    "page_evidence_contract": {
+      "path": "page_evidence_contract.json",
+      "owner": "script",
+      "builder": "scripts/compile_deck_blueprint.py",
+      "validator": "scripts/validate_page_evidence_contract.py",
+      "validation": "artifacts/page_evidence_contract_validation.json",
+      "inputs": ["issue_analysis", "deck_blueprint"]
+    },
+    "renderer_spec": {
+      "path": "renderer_spec.json",
+      "owner": "script",
+      "builder": "scripts/compile_deck_blueprint.py",
+      "validator": "scripts/validate_renderer_spec.py",
+      "validation": "artifacts/renderer_spec_validation.json",
+      "inputs": ["template_registry", "deck_blueprint", "page_evidence_contract"]
+    },
+    "chart_metric_binding": {
+      "path": "artifacts/chart_metric_binding_validation.json",
+      "owner": "script",
+      "validator": "scripts/validate_chart_metric_binding.py",
+      "validation": "artifacts/chart_metric_binding_validation.json",
+      "inputs": ["research_pack", "page_evidence_contract", "renderer_spec"]
+    },
+    "content_quality": {
+      "path": "artifacts/content_quality_validation.json",
+      "owner": "script",
+      "validator": "scripts/validate_content_quality.py",
+      "validation": "artifacts/content_quality_validation.json",
+      "inputs": ["research_pack", "page_evidence_contract", "renderer_spec"]
+    },
+    "banker_review_report": {
+      "path": "artifacts/banker_review_report.json",
+      "owner": "script_skeleton_llm_banker_review",
+      "builder": "scripts/build_banker_review_report_skeleton.py",
+      "inputs": ["deck_blueprint", "page_evidence_contract", "renderer_spec"]
+    },
+    "agent_handoff": {
+      "path": "artifacts/agent_handoff/agent_handoff_index.json",
+      "owner": "script_role_handoff",
+      "builder": "scripts/build_agent_handoff.py",
+      "inputs": ["input_card", "research_pack", "issue_analysis", "deck_blueprint", "renderer_spec"]
+    },
+    "run_quality_summary": {
+      "path": "artifacts/run_quality_summary.json",
+      "owner": "script",
+      "builder": "scripts/generate_run_quality_summary.py",
+      "inputs": ["source_reviews", "research_pack", "issue_analysis", "deck_blueprint", "renderer_spec", "filled_ppt", "final_delivery"]
+    },
+    "qc_router_report": {
+      "path": "artifacts/qc_router_report.json",
+      "owner": "script",
+      "builder": "scripts/qc_router.py",
+      "inputs": ["final_delivery"]
+    },
+    "pre_ppt_gate": {
+      "path": "artifacts/stage_gate_pre_ppt_validation.json",
+      "owner": "script",
+      "validator": "scripts/validate_stage_gate.py --stage pre_ppt",
+      "validation": "artifacts/stage_gate_pre_ppt_validation.json",
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "chart_metric_binding", "content_quality"]
+    },
+    "replacement_dict": {
+      "path": "replacement_dict.json",
+      "owner": "script",
+      "builder": "scripts/generate_replacement_dict.py",
+      "validator": "scripts/validate_replacement_dict.py",
+      "validation": "artifacts/replacement_dict_validation.json",
+      "inputs": ["renderer_spec", "pre_ppt_gate"]
+    },
+    "filled_ppt": {
+      "path": "industry_section_filled_clean.pptx",
+      "owner": "script",
+      "builder": "scripts/pipeline.py render",
+      "validator": "scripts/validate_filled_ppt.py",
+      "validation": "filled_ppt_validation.json",
+      "inputs": ["renderer_spec", "page_evidence_contract", "pre_ppt_gate", "replacement_dict"]
+    },
+    "final_delivery": {
+      "path": "artifacts/final_delivery_validation.json",
+      "owner": "script",
+      "validator": "scripts/validate_final_delivery.py",
+      "validation": "artifacts/final_delivery_validation.json",
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "template_profile", "template_fit_validation", "replacement_dict", "filled_ppt"]
+    }
+  },
+  "gates": [
+    { "gate": "input_card", "artifact": "input_card" },
+    { "gate": "industry_scope_pack", "artifact": "industry_scope_pack" },
+    { "gate": "formal_search_plan", "artifact": "formal_search_plan" },
+    { "gate": "source_reviews", "artifact": "source_reviews" },
+    { "gate": "source_archive", "artifact": "source_archive" },
+    { "gate": "formal_research_execution", "artifact": "formal_research_execution_report" },
+    { "gate": "pre_research_pack", "artifact": "pre_research_pack_gate" },
+    { "gate": "research_evidence_db", "artifact": "research_evidence_db" },
+    { "gate": "research_pack", "artifact": "research_pack" },
+    { "gate": "issue_analysis", "artifact": "issue_analysis" },
+    { "gate": "template_registry", "artifact": "template_registry" },
+    { "gate": "deck_blueprint", "artifact": "deck_blueprint" },
+    { "gate": "page_evidence_contract", "artifact": "page_evidence_contract" },
+    { "gate": "renderer_spec", "artifact": "renderer_spec" },
+    { "gate": "template_profile", "artifact": "template_profile" },
+    { "gate": "template_fit_validation", "artifact": "template_fit_validation" },
+    { "gate": "chart_metric_binding", "artifact": "chart_metric_binding" },
+    { "gate": "content_quality", "artifact": "content_quality" },
+    { "gate": "pre_ppt", "artifact": "pre_ppt_gate" },
+    { "gate": "replacement_dict", "artifact": "replacement_dict" },
+    { "gate": "filled_ppt", "artifact": "filled_ppt" },
+    { "gate": "final_delivery", "artifact": "final_delivery", "require_client_ready": true }
+  ]
+}

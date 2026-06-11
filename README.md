@@ -1,59 +1,60 @@
-# IB Industry Section Skill
+# IB Pitchdeck Agent - Industry Section
 
 ## 中文
 
-这是一个用于生成投行 pitchbook 行业章节的 AI skill。它面向 pre-mandate pitch 场景：在尚未正式拿下客户、对标的公司了解有限的情况下，先通过行业定界、正式研究、证据溯源、issue analysis 和 deck blueprint，生成一组可用于展示行业理解与交易判断的行业章节 PPT。
+这是一个用于生成投行 pitchbook 行业章节的 AI plugin。它面向 pre-mandate pitch 场景：在尚未正式拿下客户、对标的公司了解有限的情况下，先通过行业定界、正式研究、证据溯源、issue analysis 和 deck blueprint，生成一组可用于展示行业理解与交易判断的行业章节 PPT。
 
 这个项目不是“快速生成任意 PPT”的模板。它的核心目标是让 AI 先完成可追溯研究和页面规划，再进入确定性 PPT 渲染流程。
 
 ### 目录结构
 
 ```text
-ib-industry-section-skill/
+ib-pitchdeck-agent-industry-section/
 ├── runtime/
-│   └── ib-industry-section-skill/   # 可直接安装/复制的 skill 目录
+│   └── ib-pitchdeck-agent-industry-section/   # 可安装的 plugin package root
 ├── tests/                           # 开发与回归测试，不属于安装包
-├── agents/                          # 开发元数据，不属于安装包
 └── README.md                        # 本文件
 ```
 
-真正需要安装给 AI agent 使用的是：
+真正需要安装给 AI agent 使用的是 plugin package：
 
 ```text
-runtime/ib-industry-section-skill/
+runtime/ib-pitchdeck-agent-industry-section/
 ```
 
-该目录故意不放 `README.md`，以减少 agent 执行时的干扰。Agent 应从 `SKILL.md` 进入。
+该目录包含平台 plugin manifest、`agents/` 主 agent、role-based `skills/`、scripts、templates、assets 和 runtime references。仓库根目录的 `README.md`、`docs/`、`tests/`、`AGENTS.md` 不属于安装包。
 
 ### 安装
 
-把 runtime 下的 skill 文件夹复制到对应 agent 的 skills 目录：
+不要把这个 package 复制到 `~/.codex/skills/`、`~/.claude/skills/` 或 `~/.workbuddy/skills/`。这是 plugin package，不是 legacy skill 目录。
 
-```bash
-cp -R runtime/ib-industry-section-skill ~/.codex/skills/
-```
-
-或复制到其他支持 skills 的 agent 目录，例如：
+Codex plugin 安装应走 plugin / marketplace 机制。plugin source root 是：
 
 ```text
-~/.claude/skills/
-~/.workbuddy/skills/
+runtime/ib-pitchdeck-agent-industry-section/
 ```
 
-安装后的结构应类似：
+本地开发时，可以把该目录作为 marketplace entry 指向的 plugin source，或复制/同步到本地 plugin source 目录（例如 `~/plugins/ib-pitchdeck-agent-industry-section/`）后通过 `codex plugin add` 安装。Claude / WorkBuddy 如使用 plugin 机制，也应注册同一个 plugin package。只有在某个平台明确只支持 legacy skills 时，才应另行生成 compatibility export；不要把开发仓库根目录或 plugin package 直接塞进 skills 目录。
 
 ```text
-~/.codex/skills/ib-industry-section-skill/SKILL.md
+plugin root:
+  runtime/ib-pitchdeck-agent-industry-section/
+required:
+  .codex-plugin/plugin.json
+  agents/
+  skills/
+  scripts/
+  templates/
+  assets/
+  references/
 ```
 
-不要把仓库根目录整体复制到 agent skills 目录。根目录包含测试和开发文件，会干扰 agent 执行。
+### 本地运行检查
 
-### 首次运行检查
-
-安装后，在 skill 目录中运行：
+在 plugin package 目录中运行：
 
 ```bash
-cd ~/.codex/skills/ib-industry-section-skill
+cd runtime/ib-pitchdeck-agent-industry-section
 PYTHON_CMD="$(bash setup.sh --print-python)"
 "$PYTHON_CMD" scripts/check_runtime_dependencies.py
 ```
@@ -67,23 +68,27 @@ PYTHON_CMD="$(bash setup.sh --print-python)"
 该 skill 的正式流程大致为：
 
 ```text
-brief
-→ industry scope pack
-→ formal search plan
-→ formal research execution
-→ research evidence DB
-→ generated research pack
-→ issue analysis
-→ deck blueprint
-→ page evidence contract / renderer spec
-→ template profile / template fit
-→ PPT fill
-→ final delivery validation
+用户材料 / 链接 / 指令
+→ Material Intake
+→ Knowledge Repository
+→ Industry Scoping / Boundary Validation
+→ Research Evidence
+→ Reasoning / Issue Analysis
+→ Generation / Deck Blueprint
+→ Template Profile / Template Fit
+→ Output / PPT Render
+→ QC / Final Delivery Validation
 ```
+
+Plugin package 采用主 agent + role skills：主入口和 Orchestrator 是 `agents/ib-pitchdeck-agent-industry-section.md`；角色 skills 包括 `material-intake`、`knowledge-repository`、`industry-scoping`、`research-external-evidence`、`reasoning`、`generation`、`template`、`qc` 和 `output`。plugin package 根目录不放 `SKILL.md`，`skills/` 只放能力模块。
 
 `scripts/pipeline.py render --run-dir <attempt_dir>` 是正式 PPT 渲染和 final gate 的首选入口。它只处理已经通过正式研究和上游校验的 run package，不从 brief 开始做研究，也不创建新的 attempt。`run_pipeline.sh` 仅保留为旧自动化兼容包装器，并且只接受已有 attempt。
 
 当前 runtime 使用固定 8 页行业章节母版。页面类型和变体由 `slide_registry.json`、`page_type_rules.json`、`template_registry.json` 和 PPT mapping 控制；如需新增行业专属页面结构，应同步更新模板、registry、mapping 和验证脚本。
+
+### Plugin Package
+
+`runtime/ib-pitchdeck-agent-industry-section/.codex-plugin/plugin.json` 是 plugin manifest。不要在仓库根目录再放第二套 `.codex-plugin` 或 `skills/` wrapper。
 
 ### 开发与测试
 
@@ -99,64 +104,65 @@ python3 -m pytest -q
 
 ### 打包
 
-如需生成干净安装包，应只打包 `runtime/ib-industry-section-skill/` 的内容。安装包不应包含 `tests/`、`agents/`、`dist/`、缓存文件或历史运行结果。
+如需生成干净安装包，应只打包 `runtime/ib-pitchdeck-agent-industry-section/` 的内容。安装包不应包含仓库根目录的 `tests/`、`docs/`、`dist/`、缓存文件或历史运行结果。
 
 ---
 
 ## English
 
-This repository contains an AI skill for generating an investment banking pitchbook industry section. It is designed for pre-mandate pitch situations: before the mandate is won and before the target company is fully diligenced, the agent builds sector understanding, runs formal research, tracks evidence, develops issue analysis, plans the deck, and then renders a PPT industry section.
+This repository contains an AI plugin for generating an investment banking pitchbook industry section. It is designed for pre-mandate pitch situations: before the mandate is won and before the target company is fully diligenced, the agent builds sector understanding, runs formal research, tracks evidence, develops issue analysis, plans the deck, and then renders a PPT industry section.
 
 This is not a shortcut template for producing any PPT as quickly as possible. The purpose is to make the agent complete source-disciplined research and page-level planning before deterministic PowerPoint rendering.
 
 ### Repository Layout
 
 ```text
-ib-industry-section-skill/
+ib-pitchdeck-agent-industry-section/
 ├── runtime/
-│   └── ib-industry-section-skill/   # Installable skill directory
+│   └── ib-pitchdeck-agent-industry-section/   # Installable plugin package root
 ├── tests/                           # Developer regression tests; not installed
-├── agents/                          # Development metadata; not installed
 └── README.md                        # This file
 ```
 
-The directory to install into an agent is:
+The installable plugin package is:
 
 ```text
-runtime/ib-industry-section-skill/
+runtime/ib-pitchdeck-agent-industry-section/
 ```
 
-The runtime skill directory intentionally does not include a `README.md`, so the agent enters through `SKILL.md` without extra repository-maintenance context.
+It contains platform plugin manifests, the main agent under `agents/`, role-based `skills/`, scripts, templates, assets, and runtime references. Repository-level `README.md`, `docs/`, `tests/`, and `AGENTS.md` are not part of the installable package.
 
 ### Installation
 
-Copy the runtime skill directory into your agent's skills directory:
+Do not copy this package into `~/.codex/skills/`, `~/.claude/skills/`, or `~/.workbuddy/skills/`. This is a plugin package, not a legacy skill folder.
 
-```bash
-cp -R runtime/ib-industry-section-skill ~/.codex/skills/
-```
-
-Other compatible agent skill directories may include:
+Codex installation should use the plugin / marketplace mechanism. The plugin source root is:
 
 ```text
-~/.claude/skills/
-~/.workbuddy/skills/
+runtime/ib-pitchdeck-agent-industry-section/
 ```
 
-The installed layout should look like:
+For local development, point a marketplace entry at this plugin source, or sync the package to a local plugin source directory such as `~/plugins/ib-pitchdeck-agent-industry-section/` and install it with `codex plugin add`. Claude / WorkBuddy plugin installs should likewise register the plugin package through their plugin mechanisms. If a platform only supports legacy skills, create a separate compatibility export instead of placing this plugin package directly into a skills directory.
 
 ```text
-~/.codex/skills/ib-industry-section-skill/SKILL.md
+plugin root:
+  runtime/ib-pitchdeck-agent-industry-section/
+required:
+  .codex-plugin/plugin.json
+  agents/
+  skills/
+  scripts/
+  templates/
+  assets/
+  references/
 ```
 
-Do not copy the repository root into the agent skills directory. The repository root contains tests and development metadata that can distract execution agents.
+### Local Runtime Check
 
-### First-Run Check
-
-After installation, run from the skill directory:
+Run from the plugin package directory:
 
 ```bash
-cd ~/.codex/skills/ib-industry-section-skill
+cd runtime/ib-pitchdeck-agent-industry-section
 PYTHON_CMD="$(bash setup.sh --print-python)"
 "$PYTHON_CMD" scripts/check_runtime_dependencies.py
 ```
@@ -170,23 +176,34 @@ Formal research needs search access or reviewable public materials. Prefer the a
 The formal workflow is approximately:
 
 ```text
-brief
-→ industry scope pack
-→ formal search plan
-→ formal research execution
-→ research evidence DB
-→ generated research pack
-→ issue analysis
-→ deck blueprint
-→ page evidence contract / renderer spec
-→ template profile / template fit
-→ PPT fill
-→ final delivery validation
+user materials / links / instructions
+→ Material Intake
+→ Knowledge Repository
+→ Industry Scoping / Boundary Validation
+→ Research Evidence
+→ Reasoning / Issue Analysis
+→ Generation / Deck Blueprint
+→ Template Profile / Template Fit
+→ Output / PPT Render
+→ QC / Final Delivery Validation
 ```
+
+The plugin uses a main agent plus role-based skills. The main entrypoint and
+Orchestrator is `agents/ib-pitchdeck-agent-industry-section.md`. Role skills include `material-intake`,
+`knowledge-repository`, `industry-scoping`, `research-external-evidence`,
+`reasoning`, `generation`, `template`, `qc`, and `output`. The plugin package
+root does not contain a `SKILL.md`, and `skills/` contains only capability
+modules.
 
 `scripts/pipeline.py render --run-dir <attempt_dir>` is the preferred entrypoint for formal PPT rendering and final delivery gates. It only operates on a run package that has already passed formal research and upstream validation; it does not start research from a brief or create a new attempt. `run_pipeline.sh` remains only as a compatibility wrapper for older automation and accepts existing attempts only.
 
 The current runtime uses a fixed 8-slide industry-section master template. Page types and variants are controlled by `slide_registry.json`, `page_type_rules.json`, `template_registry.json`, and PPT mappings. New industry-specific page structures should update the template, registries, mappings, and validators together.
+
+### Plugin Package
+
+`runtime/ib-pitchdeck-agent-industry-section/.codex-plugin/plugin.json` is the
+plugin manifest. Do not keep a second `.codex-plugin` or `skills/` wrapper at
+the repository root.
 
 ### Development And Tests
 
@@ -202,4 +219,4 @@ If your local Python version has compatibility issues with `python-pptx` / `lxml
 
 ### Packaging
 
-A clean distributable package should contain only the contents of `runtime/ib-industry-section-skill/`. It should not include `tests/`, `agents/`, `dist/`, cache files, or historical run outputs.
+A clean distributable package should contain only the contents of `runtime/ib-pitchdeck-agent-industry-section/`. It should not include repository-level `tests/`, `docs/`, `dist/`, cache files, or historical run outputs.

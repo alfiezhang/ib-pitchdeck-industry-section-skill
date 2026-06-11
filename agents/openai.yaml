@@ -1,4 +1,0 @@
-interface:
-  display_name: "IB Industry Section"
-  short_description: "Draft and fill a pre-mandate IB industry section"
-  default_prompt: "Use $ib-industry-section to create a source-disciplined, issue-analysis-driven investment banking industry section anchored by target context, with research pack, issue analysis, deck blueprint, compiled renderer spec, and validated PPT output if requested."

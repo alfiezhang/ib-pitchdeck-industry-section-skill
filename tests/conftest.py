@@ -1,4 +1,4 @@
-"""Shared pytest configuration and fixtures for ib-industry-section-skill tests."""
+"""Shared pytest configuration and fixtures for ib-pitchdeck-agent-industry-section tests."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_DIR = ROOT / "runtime" / "ib-industry-section-skill"
+SKILL_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
 SCRIPT_DIR = SKILL_DIR / "scripts"
 FIXTURES_DIR = ROOT / "tests" / "fixtures"
 

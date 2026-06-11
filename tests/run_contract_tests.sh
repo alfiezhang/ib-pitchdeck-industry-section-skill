@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SKILL_DIR="$ROOT_DIR/runtime/ib-industry-section-skill"
+SKILL_DIR="$ROOT_DIR/runtime/ib-pitchdeck-agent-industry-section"
 FIXTURES_DIR="../../tests/fixtures"
 PYTHON_CMD="${PYTHON_CMD:-python3}"
 TMP_DIR="$(mktemp -d)"

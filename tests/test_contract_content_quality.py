@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-industry-section-skill" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 

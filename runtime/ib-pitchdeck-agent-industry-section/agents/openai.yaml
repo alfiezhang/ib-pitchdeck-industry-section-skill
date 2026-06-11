@@ -1,0 +1,4 @@
+interface:
+  display_name: "IB Industry Section"
+  short_description: "Role-based pre-mandate IB industry section workflow"
+  default_prompt: "Use the IB Pitchdeck Industry Section agent to create a pre-mandate investment banking industry section from user materials and public evidence. Follow the role-based path: material intake, knowledge repository, industry scoping, research/external evidence, reasoning, generation, template, QC, and deterministic PPT output."
