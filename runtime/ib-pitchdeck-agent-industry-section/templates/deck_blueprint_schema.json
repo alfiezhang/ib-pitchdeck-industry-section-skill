@@ -36,7 +36,7 @@
           "body_blocks"
         ],
         "properties": {
-          "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+          "slide_no": { "type": "integer", "minimum": 1 },
           "fixed_page_role": { "type": "string" },
           "investor_question": { "type": "string" },
           "page_thesis": { "type": "string" },

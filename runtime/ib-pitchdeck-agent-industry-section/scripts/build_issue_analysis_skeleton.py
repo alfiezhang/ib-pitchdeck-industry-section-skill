@@ -22,7 +22,7 @@ from json_utils import load_json_file
 from validate_research_pack import issue_fact_inventory_rows
 
 
-SUPPORTED_STATUSES = {"sufficient", "thin", "not_applicable"}
+ANALYSIS_CANDIDATE_STATUSES = {"sufficient", "thin", "not_applicable"}
 
 
 def _as_int(value: Any, *, default: int = 0) -> int:
@@ -32,39 +32,7 @@ def _as_int(value: Any, *, default: int = 0) -> int:
         return default
 
 
-def _evidence_status(fact_status: str) -> str:
-    if fact_status == "sufficient":
-        return "supported"
-    if fact_status == "thin":
-        return "thin"
-    if fact_status == "not_applicable":
-        return "caveat_only"
-    return "insufficient"
-
-
-def _hypothesis_resolution(fact_status: str) -> str:
-    if fact_status == "sufficient":
-        return "resolved"
-    if fact_status == "thin":
-        return "caveat_only"
-    return "not_researched"
-
-
 def _allowed_deck_usage(fact_status: str, metric_ids: list[str]) -> dict[str, bool]:
-    if fact_status == "sufficient":
-        return {
-            "headline": True,
-            "main_message": True,
-            "chart": bool(metric_ids),
-            "body_copy": True,
-        }
-    if fact_status == "thin":
-        return {
-            "headline": False,
-            "main_message": False,
-            "chart": False,
-            "body_copy": True,
-        }
     return {
         "headline": False,
         "main_message": False,
@@ -137,17 +105,19 @@ def _evidence_readiness_from_db(db: dict[str, Any]) -> dict[str, Any]:
     metric_rows = _as_int(len(_as_list(db.get("metric_reconciliation"))))
     gap_audit = db.get("research_gap_audit") if isinstance(db.get("research_gap_audit"), dict) else {}
     critical_gaps = len(_as_list(gap_audit.get("critical_gaps")))
-    enough_for_client_pitch = (evidence_rows + metric_rows) >= 2
-    evidence_limited_pitch_outline = not enough_for_client_pitch
     return {
         "schema_version": "evidence_readiness_v1",
-        "enough_for_client_pitch": enough_for_client_pitch,
-        "evidence_limited_pitch_outline": evidence_limited_pitch_outline,
-        "research_first_required": False,
+        "decision_status": "needs_llm_decision",
+        "decision_owner": "reasoning",
+        "decision_note": "Skeleton telemetry only. LLM must decide deliverable depth after reviewing evidence quality and gaps.",
+        "enough_for_client_pitch": False,
+        "evidence_limited_pitch_outline": True,
+        "research_first_required": evidence_rows == 0 and metric_rows == 0,
         "critical_gap_count": critical_gaps,
         "evidence_row_count": evidence_rows,
         "metric_row_count": metric_rows,
         "research_pack_exists": True,
+        "telemetry_only": True,
     }
 
 
@@ -204,30 +174,16 @@ def _analysis_type(area: str, subissue: str) -> str:
 
 
 def _status_for_fact_status(fact_status: str) -> str:
-    if fact_status == "sufficient":
-        return "validated"
-    if fact_status == "thin":
-        return "partially_validated"
+    # Script-generated issue analysis is a decision workspace. The Reasoning/QC
+    # role must decide validation status after reviewing source quality.
     return "unverified"
 
 
 def _permission(fact_status: str, metric_ids: list[str]) -> dict[str, bool]:
-    if fact_status == "sufficient":
-        return {
-            "headline_allowed": True,
-            "chart_allowed": bool(metric_ids),
-            "body_copy_allowed": True,
-        }
-    if fact_status == "thin":
-        return {
-            "headline_allowed": False,
-            "chart_allowed": False,
-            "body_copy_allowed": True,
-        }
     return {
         "headline_allowed": False,
         "chart_allowed": False,
-        "body_copy_allowed": True,
+        "body_copy_allowed": False,
     }
 
 
@@ -260,19 +216,26 @@ def build_issue_analysis_skeleton(
         rows = issue_fact_inventory_rows(text)
         evidence_readiness = {
             "schema_version": "evidence_readiness_v1",
+            "decision_status": "needs_llm_decision",
+            "decision_owner": "reasoning",
+            "decision_note": "Skeleton telemetry only. LLM must decide deliverable depth after reviewing evidence quality and gaps.",
             "enough_for_client_pitch": False,
             "evidence_limited_pitch_outline": True,
             "research_first_required": True,
             "critical_gap_count": 0,
-            "evidence_row_count": 0,
-            "metric_row_count": 0,
-            "research_pack_exists": False,
+            "evidence_row_count": len({ev for row in rows for ev in _ids(row.get("Evidence IDs", ""), "EV")}),
+            "metric_row_count": len({met for row in rows for met in _ids(row.get("Metric IDs", ""), "MET")}),
+            "research_pack_exists": True,
+            "telemetry_only": True,
         }
     else:
         text = ""
         rows = []
         evidence_readiness = {
             "schema_version": "evidence_readiness_v1",
+            "decision_status": "needs_llm_decision",
+            "decision_owner": "reasoning",
+            "decision_note": "Skeleton telemetry only. LLM must decide deliverable depth after reviewing evidence quality and gaps.",
             "enough_for_client_pitch": False,
             "evidence_limited_pitch_outline": True,
             "research_first_required": True,
@@ -280,6 +243,7 @@ def build_issue_analysis_skeleton(
             "evidence_row_count": 0,
             "metric_row_count": 0,
             "research_pack_exists": False,
+            "telemetry_only": True,
         }
     rows_by_pair: dict[tuple[str, str], dict[str, str]] = {}
     for row in rows:
@@ -304,7 +268,7 @@ def build_issue_analysis_skeleton(
             source_result_ids = _source_result_ids(result, fallback_fr_index)
             fallback_fr_index += 1
 
-            if fact_status in SUPPORTED_STATUSES and (fact_status == "not_applicable" or evidence_ids or metric_ids):
+            if fact_status in ANALYSIS_CANDIDATE_STATUSES and (fact_status == "not_applicable" or evidence_ids or metric_ids):
                 analysis_id = f"IA-{len(issue_analyses) + 1:03d}"
                 point_role = "open_gap" if fact_status == "not_applicable" else "primary_fact"
                 issue_analyses.append(
@@ -314,8 +278,10 @@ def build_issue_analysis_skeleton(
                         "issue_area": area,
                         "subissue": subissue,
                         "analysis_type": "evidence_gap" if fact_status == "not_applicable" else _analysis_type(area, subissue),
-                        "evidence_status": _evidence_status(fact_status),
-                        "hypothesis_resolution": _hypothesis_resolution(fact_status),
+                        "evidence_status": "insufficient",
+                        "hypothesis_resolution": "not_researched",
+                        "llm_decision_required": True,
+                        "candidate_fact_status": fact_status,
                         "core_statement": f"TODO_REPLACE_WITH_CORE_STATEMENT for {area}/{subissue}. Current inventory note: {notes}",
                         "analysis_text": (
                             f"TODO_REPLACE_WITH_SUBSTANTIVE_ANALYSIS for {area}/{subissue}. "
@@ -328,11 +294,11 @@ def build_issue_analysis_skeleton(
                                 "evidence_ids": evidence_ids,
                                 "metric_ids": metric_ids,
                                 "role": point_role,
-                                "evidence_sufficiency": fact_status,
+                                "evidence_sufficiency": "insufficient",
                             }
                         ],
-                        "evidence_sufficiency": fact_status,
-                        "status": _status_for_fact_status(fact_status),
+                        "evidence_sufficiency": "insufficient",
+                        "status": "unverified",
                         "allowed_deck_usage": _allowed_deck_usage(fact_status, metric_ids),
                         "evidence_ids": evidence_ids,
                         "metric_ids": metric_ids,
@@ -342,7 +308,7 @@ def build_issue_analysis_skeleton(
                             if _text(item)
                         ]
                         or ([notes] if notes else ["LLM must add limitations from the research evidence pack."]),
-                        "downstream_permission": _permission(fact_status, metric_ids),
+                        "downstream_permission": _permission("insufficient", []),
                     }
                 )
             else:

@@ -232,7 +232,7 @@ def proof_points_from_blueprint_slide(slide: dict[str, Any]) -> list[dict[str, A
                 "source_analysis_ids": unique(source_analysis_ids),
                 "evidence_ids": unique([str(item).strip() for item in as_list(block.get("evidence_ids")) if str(item).strip()]),
                 "metric_ids": unique([str(item).strip() for item in as_list(block.get("metric_ids")) if str(item).strip()]),
-                "claim_strength": str(block.get("claim_strength") or slide.get("claim_strength") or "supported_inference").strip(),
+                "claim_strength": str(block.get("claim_strength") or slide.get("claim_strength") or "").strip(),
                 "visual_role": str(block.get("role") or block.get("visual_role") or "").strip(),
             }
         )
@@ -248,7 +248,7 @@ def proof_points_from_blueprint_slide(slide: dict[str, Any]) -> list[dict[str, A
                 "source_analysis_ids": issue_ids,
                 "evidence_ids": visual_evidence_ids,
                 "metric_ids": visual_metric_ids,
-                "claim_strength": str(slide.get("claim_strength") or "supported_inference").strip(),
+                "claim_strength": str(slide.get("claim_strength") or "").strip(),
                 "visual_role": "primary_visual",
             }
         )
@@ -278,7 +278,7 @@ def normalize_deck_blueprint_for_page_plan(deck_blueprint: dict[str, Any]) -> di
                 ],
                 "proof_points": proof_points_from_blueprint_slide(slide),
                 "visual_plan": visual_plan_from_blueprint_slide(slide),
-                "claim_strength": slide.get("claim_strength", "supported_inference"),
+                "claim_strength": slide.get("claim_strength", ""),
                 "caveats": slide.get("caveats", []),
                 "open_questions": slide.get("open_questions", []),
                 "strategy_checks": slide.get("strategy_checks", {}),

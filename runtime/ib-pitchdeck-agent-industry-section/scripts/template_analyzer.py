@@ -24,6 +24,15 @@ except Exception:
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
 
+
+def _profile_path(path: Path | str) -> str:
+    p = Path(path)
+    try:
+        return str(p.resolve().relative_to(ROOT))
+    except Exception:
+        return str(path)
+
+
 DEFAULT_STYLE = {
     "colors": {
         "brand_primary": "#0D57AA",
@@ -574,15 +583,15 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
 
     return {
         "schema_version": "template_profile_v1",
-        "template_file": str(template_path),
+        "template_file": _profile_path(template_path),
         "analysis_source": "template_analyzer.py",
         "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
         "analysis_fallback": bool(style_fallback),
         "analysis_errors": inventory_warnings,
-        "render_layouts_source": str(layout_paths["render_layouts"]),
-        "text_fit_rules_source": str(layout_paths["text_fit_rules"]),
-        "layout_budget_source": str(layout_paths["layout_budget"]),
-        "ppt_mapping_source": str(layout_paths["ppt_mapping"]),
+        "render_layouts_source": _profile_path(layout_paths["render_layouts"]),
+        "text_fit_rules_source": _profile_path(layout_paths["text_fit_rules"]),
+        "layout_budget_source": _profile_path(layout_paths["layout_budget"]),
+        "ppt_mapping_source": _profile_path(layout_paths["ppt_mapping"]),
         "visual_style": {
             "colors": style_payload["colors"],
             "typography": style_payload["typography"],
@@ -624,7 +633,7 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
         "slide_variants": variant_payload,
         "source_policy": source_policy,
         "output_path": str(output_path),
-        "template_registry_file": str(layout_paths["slide_registry"]),
+        "template_registry_file": _profile_path(layout_paths["slide_registry"]),
     }
 
 
@@ -676,15 +685,15 @@ def main() -> int:
         }
         profile = {
             "schema_version": "template_profile_v1",
-            "template_file": str(template_path),
+            "template_file": _profile_path(template_path),
             "analysis_source": "template_analyzer.py (fallback)",
             "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
             "analysis_fallback": True,
             "analysis_errors": [str(exc)] + inventory_warnings,
-            "render_layouts_source": str(layout_paths["render_layouts"]),
-            "text_fit_rules_source": str(layout_paths["text_fit_rules"]),
-            "layout_budget_source": str(layout_paths["layout_budget"]),
-            "ppt_mapping_source": str(layout_paths["ppt_mapping"]),
+            "render_layouts_source": _profile_path(layout_paths["render_layouts"]),
+            "text_fit_rules_source": _profile_path(layout_paths["text_fit_rules"]),
+            "layout_budget_source": _profile_path(layout_paths["layout_budget"]),
+            "ppt_mapping_source": _profile_path(layout_paths["ppt_mapping"]),
             "visual_style": {
                 "colors": DEFAULT_STYLE["colors"],
                 "typography": DEFAULT_STYLE["typography"],
@@ -719,7 +728,7 @@ def main() -> int:
             "slide_variants": [],
             "source_policy": fallback_source_policy,
             "output_path": str(output),
-            "template_registry_file": str(layout_paths["slide_registry"]),
+            "template_registry_file": _profile_path(layout_paths["slide_registry"]),
         }
 
     # Keep warnings in both schema and report channels explicit.

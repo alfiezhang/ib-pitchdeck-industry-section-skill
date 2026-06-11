@@ -15,7 +15,7 @@
         "type": "object",
         "required": ["slide_no", "fixed_page_role", "slide_key", "selection_mode", "variants"],
         "properties": {
-          "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+          "slide_no": { "type": "integer", "minimum": 1 },
           "fixed_page_role": { "type": "string" },
           "slide_key": { "type": "string" },
           "selection_mode": { "type": "string", "enum": ["fixed", "controlled_choice"] },

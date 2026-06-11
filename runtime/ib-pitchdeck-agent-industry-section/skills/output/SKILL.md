@@ -22,6 +22,8 @@ client-ready PPT, and if not, which upstream role owns the repair?**
 - `artifacts/template_fit_validation.json`
 - current pre-PPT gate
 - current final-delivery requirements
+- `artifacts/qc_warning_disposition.json` when any upstream validation warning
+  remains material
 
 ## Outputs
 
@@ -41,6 +43,8 @@ client-ready PPT, and if not, which upstream role owns the repair?**
   - token/placeholder/rendering issue -> Output;
   - final client-ready false -> QC.
 - Report final status accurately. An existing PPT file is not enough.
+- If final delivery reports unresolved warning disposition, route to QC. Output
+  must not decide warning acceptance or downstream limits.
 
 ## What Scripts Handle
 
@@ -75,6 +79,7 @@ A good Output result has:
 - no unresolved placeholders;
 - clean final PPT path;
 - final delivery validation with `client_ready=true`;
+- no unresolved QC warning dispositions;
 - clear blocked status when client-ready is false.
 
 ## Avoid These Failure Modes

@@ -41,6 +41,8 @@ the pitch reasoning, and what remains unresearched?**
     listed peers;
   - reconciliation query when definitions may conflict.
 - Prefer source-specific searches over generic keyword soup.
+- Treat `LLM_REWRITE_REQUIRED` query rows as unfinished workspace. Rewrite them
+  into real, human-searchable queries before running any search.
 - Open and review sources before marking them usable.
 - Decide source use scope:
   - primary evidence;
@@ -49,6 +51,9 @@ the pitch reasoning, and what remains unresearched?**
   - lead only;
   - rejected/unusable.
 - Record what a source supports and what it does not support.
+- Source quality is a research/QC judgment. Script warnings about reposts,
+  snippets, mirrors, or unavailable methodology are cues for review, not an
+  automatic accept/reject decision.
 - Account for unexecuted or unavailable coverage honestly.
 
 ## What Scripts Handle
@@ -64,6 +69,7 @@ Python may:
 Python must not:
 
 - decide that a source is credible enough for a claim;
+- decide source quality solely from URL/domain/string markers;
 - invent S-IDs for unexecuted searches;
 - convert planned queries into evidence.
 

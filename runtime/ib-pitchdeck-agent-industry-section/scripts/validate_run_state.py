@@ -47,6 +47,9 @@ DOWNSTREAM_ACTIONS = [
     "copy_debug_ppt_to_final_name",
 ]
 
+READINESS_DECISION_STATUSES = {"llm_decided", "qc_confirmed"}
+READINESS_DECISION_OWNERS = {"reasoning", "qc"}
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
 DEFAULT_ARTIFACT_MANIFEST = ROOT_DIR / "templates" / "artifact_manifest.json"
@@ -294,13 +297,19 @@ def _merge_evidence_readiness(
     mission_state["research_pack_exists"] = bool(readiness.get("research_pack_exists", False))
     mission_state["evidence_row_count"] = _coerce_int(readiness.get("evidence_row_count"), default=0)
     mission_state["metric_row_count"] = _coerce_int(readiness.get("metric_row_count"), default=0)
-    mission_state["evidence_readiness_note"] = "Enough evidence checks computed from research_evidence_db.json"
+    mission_state["evidence_readiness_decision_status"] = str(readiness.get("decision_status") or "needs_llm_decision")
+    mission_state["evidence_readiness_decision_owner"] = str(readiness.get("decision_owner") or "reasoning")
+    mission_state["evidence_readiness_note"] = str(
+        readiness.get("decision_note")
+        or "Evidence readiness is telemetry until Reasoning/QC records an explicit decision."
+    )
     return mission_state
 
 
 def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, Any]:
     db_path = run_dir / "artifacts" / "research_evidence_db.json"
     pack_path = run_dir / "industry_research_pack.md"
+    issue_analysis_path = run_dir / "industry_issue_analysis.json"
     gap_count = 0
     evidence_rows = 0
     metric_rows = 0
@@ -312,24 +321,30 @@ def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, 
         gap_count = len(_as_list(gap_audit.get("critical_gaps")))
 
     pack_exists = pack_path.exists()
-    total_evidence_score = max(evidence_rows, 0) + max(metric_rows, 0)
-    stage_is_ready_for_output = current_stage not in {
-        "MATERIAL_INTAKE_MISSING_OR_FAILED",
-        "INPUT_CARD_MISSING",
-        "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED",
-        "BOUNDARY_LOOP_MISSING_OR_FAILED",
-        "FORMAL_SEARCH_PLAN_MISSING",
-        "SOURCE_REVIEWS_MISSING_OR_FAILED",
-        "SOURCE_ARCHIVE_MISSING_OR_FAILED",
-        "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED",
-        "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED",
-        "RESEARCH_PACK_MISSING_OR_FAILED",
-        "ISSUE_ANALYSIS_MISSING_OR_FAILED",
-    }
-    enough_for_client_pitch = total_evidence_score >= 2 and stage_is_ready_for_output
-    outline_mode = not enough_for_client_pitch
-    research_first_required = not pack_exists
+    decision_status = "needs_llm_decision"
+    decision_owner = "reasoning"
+    decision_note = "Evidence counts are telemetry only; Reasoning/QC has not recorded a readiness decision."
+    enough_for_client_pitch = False
+    outline_mode = True
+    research_first_required = not pack_exists or (evidence_rows == 0 and metric_rows == 0)
+    if issue_analysis_path.exists():
+        try:
+            issue_payload = load_json(issue_analysis_path)
+        except Exception:
+            issue_payload = {}
+        issue_readiness = issue_payload.get("evidence_readiness") if isinstance(issue_payload, dict) else {}
+        if isinstance(issue_readiness, dict):
+            decision_status = str(issue_readiness.get("decision_status") or decision_status)
+            decision_owner = str(issue_readiness.get("decision_owner") or decision_owner)
+            decision_note = str(issue_readiness.get("decision_note") or decision_note)
+            if decision_status in READINESS_DECISION_STATUSES and decision_owner in READINESS_DECISION_OWNERS:
+                enough_for_client_pitch = bool(issue_readiness.get("enough_for_client_pitch", False))
+                outline_mode = bool(issue_readiness.get("evidence_limited_pitch_outline", not enough_for_client_pitch))
+                research_first_required = bool(issue_readiness.get("research_first_required", research_first_required))
     return {
+        "decision_status": decision_status,
+        "decision_owner": decision_owner,
+        "decision_note": decision_note,
         "enough_for_client_pitch": enough_for_client_pitch,
         "evidence_limited_pitch_outline": outline_mode,
         "research_first_required": research_first_required,

@@ -18,7 +18,7 @@ FIXTURES_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from conftest import _write_json, _minimal_scope_pack  # noqa: E402
+from conftest import _rewrite_plan_queries_for_contract_test, _write_json, _minimal_scope_pack  # noqa: E402
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess:
@@ -130,6 +130,9 @@ class TestFormalSearchPlan:
             {"industry": "sample sector", "geography": "Samplestan"},
             {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
         )
+        skeleton_errors, _ = validate_formal_search_plan(plan)
+        assert skeleton_errors
+        _rewrite_plan_queries_for_contract_test(plan)
         errors, warnings = validate_formal_search_plan(plan)
         assert not errors, errors
         assert len(plan["issue_search_plan"]) >= 40, len(plan["issue_search_plan"])
@@ -202,8 +205,8 @@ class TestSourceReviews:
         assert any("evidence_ids are present but usable_as_evidence is false" in e for e in result["errors"]), result
         assert any("all referenced reviews are usable_as_evidence=false" in e for e in result["errors"]), result
 
-    def test_weak_source_rejected_then_recovered(self, _pipeline_run_dir):
-        """Weak-source marker without methodology_locator should fail; with it should pass."""
+    def test_weak_source_warns_until_recovered(self, _pipeline_run_dir):
+        """Weak-source marker requires LLM/QC assessment, not script rejection."""
         from validate_source_reviews import validate as validate_source_reviews
         artifacts = _pipeline_run_dir["artifacts"]
         source_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
@@ -217,8 +220,8 @@ class TestSourceReviews:
             source_archive_index_path=artifacts / "source_archive" / "source_archive_index.json",
             run_dir=_pipeline_run_dir["run_dir"],
         )
-        assert not result["is_valid"], result
-        assert any("weak-source marker" in e for e in result["errors"]), result
+        assert result["is_valid"], result
+        assert any("weak-source marker" in w for w in result["warnings"]), result
         # Recover with methodology_locator
         weak_reviews["reviews"][0]["methodology_locator"] = "Original report methodology and table 2 were reviewed directly."
         recovered_path = artifacts / "source_reviews_weak_with_original.json"
@@ -230,6 +233,7 @@ class TestSourceReviews:
             run_dir=_pipeline_run_dir["run_dir"],
         )
         assert result2["is_valid"], result2
+        assert not any("weak-source marker" in w for w in result2["warnings"]), result2
 
     def test_alias_key_accepted(self, _pipeline_run_dir):
         """source_reviews alias for 'reviews' key should be accepted."""

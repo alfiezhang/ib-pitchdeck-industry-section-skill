@@ -714,7 +714,7 @@ def export_markdown(db: dict[str, Any]) -> str:
         "---",
         "",
         "## Scope Boundary",
-        "Engagement Context: pre_mandate_transaction_pitch",
+        f"Engagement Context: {text(meta.get('engagement_context') or meta.get('stage') or 'pre_mandate_client_pitch')}",
         "Purpose: demonstrate sector understanding, transaction relevance, and selective target context or open questions where supported",
         "Not A Generic Industry Report: yes",
         "Not A Full Consulting Study: yes",

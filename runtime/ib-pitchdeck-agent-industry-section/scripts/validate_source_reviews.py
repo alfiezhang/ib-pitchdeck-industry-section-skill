@@ -300,10 +300,10 @@ def _validate_review_fields(review: dict[str, Any], idx: int, errors: list[str],
         combined = _combined_review_text(review)
         matched_marker = next((marker for marker in WEAK_SOURCE_MARKERS if marker in combined), "")
         if matched_marker and not _has_original_review_support(review):
-            errors.append(
-                f"{prefix}: usable_as_evidence=true conflicts with weak-source marker '{matched_marker}'. "
-                "Use usable_as_evidence=false for search snippets, reposts, mirrors, aggregators, unavailable reports, "
-                "or pages without clear original methodology unless a reviewed original source/methodology locator is linked."
+            warnings.append(
+                f"{prefix}: weak-source marker '{matched_marker}' detected. "
+                "LLM/QC source assessment required: confirm source quality, methodology access, and claim-use limits; "
+                "do not rely on marker matching alone to accept or reject the source."
             )
 
     attempt_ids = [_text(item) for item in _as_list(review.get("search_attempt_ids")) if _text(item)]

@@ -52,6 +52,11 @@ render PPT.
   - `enough_for_client_pitch`;
   - `evidence_limited_pitch_outline`;
   - `research_first_required`.
+- Record that decision explicitly in `evidence_readiness`:
+  - `decision_status`: `llm_decided` when Reasoning makes the decision, or
+    `qc_confirmed` when QC confirms it;
+  - `decision_owner`: `reasoning` or `qc`;
+  - `decision_note`: one sentence explaining the evidence quality basis.
 - Create page/section argument candidates only from supported or appropriately
   caveated judgments.
 
@@ -81,10 +86,13 @@ Python may:
 - normalize mechanical fields;
 - validate evidence IDs and metric IDs;
 - build hypothesis and page-argument skeletons.
+- provide evidence counts, gap counts, and candidate rows as telemetry.
 
 Python must not:
 
 - decide that evidence is persuasive;
+- decide deliverable depth from the number of EV/MET rows;
+- grant headline/chart/body permission by default;
 - write banker conclusions;
 - promote hypotheses into supported judgments.
 
@@ -111,6 +119,7 @@ A good Reasoning output has:
 
 - a clear client-pitch point of view;
 - explicit evidence status for each major claim;
+- an explicit `evidence_readiness` decision before Generation starts;
 - useful research requests for gaps;
 - no hypothesis disguised as conclusion;
 - enough material for Generation to write slides without inventing facts.

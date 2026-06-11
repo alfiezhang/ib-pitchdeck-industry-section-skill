@@ -3,7 +3,7 @@
   "title": "Industry Issue Analysis",
   "description": "Machine-readable issue-by-issue industry analysis produced after research pack drafting. This artifact is not a one-line insight list. Each block covers one IB industry subissue with a substantive analysis paragraph, supporting points, evidence sufficiency, limitations, and downstream usage permission. Page selection and template decisions belong downstream in deck_blueprint.",
   "type": "object",
-  "required": ["meta", "issue_analyses", "research_backlog", "rejected_or_deprioritized_analyses"],
+  "required": ["meta", "evidence_readiness", "issue_analyses", "research_backlog", "rejected_or_deprioritized_analyses"],
   "properties": {
     "meta": {
       "type": "object",
@@ -13,6 +13,41 @@
         "industry": { "type": "string" },
         "geography": { "type": "string" },
         "research_as_of_date": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "evidence_readiness": {
+      "type": "object",
+      "required": [
+        "decision_status",
+        "decision_owner",
+        "enough_for_client_pitch",
+        "evidence_limited_pitch_outline",
+        "research_first_required",
+        "critical_gap_count",
+        "evidence_row_count",
+        "metric_row_count",
+        "research_pack_exists"
+      ],
+      "properties": {
+        "schema_version": { "type": "string" },
+        "decision_status": {
+          "type": "string",
+          "enum": ["needs_llm_decision", "llm_decided", "qc_confirmed"]
+        },
+        "decision_owner": {
+          "type": "string",
+          "enum": ["reasoning", "qc"]
+        },
+        "decision_note": { "type": "string" },
+        "enough_for_client_pitch": { "type": "boolean" },
+        "evidence_limited_pitch_outline": { "type": "boolean" },
+        "research_first_required": { "type": "boolean" },
+        "critical_gap_count": { "type": "integer" },
+        "evidence_row_count": { "type": "integer" },
+        "metric_row_count": { "type": "integer" },
+        "research_pack_exists": { "type": "boolean" },
+        "telemetry_only": { "type": "boolean" }
       },
       "additionalProperties": true
     },

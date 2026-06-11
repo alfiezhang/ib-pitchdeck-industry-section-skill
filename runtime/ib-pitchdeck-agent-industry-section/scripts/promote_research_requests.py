@@ -126,8 +126,8 @@ def _execution_expectation(request: dict[str, Any]) -> tuple[str, int, str]:
 def _build_search_query(request: dict[str, Any], issue_area: str, issue_subissue: str) -> str:
     question = as_text(request.get("research_question"))
     if question:
-        return question
-    return f"Find evidence for: {issue_area}/{issue_subissue}"
+        return f"LLM_REWRITE_REQUIRED: rewrite research request into executable source-specific query: {question}"
+    return f"LLM_REWRITE_REQUIRED: write executable source-specific query for {issue_area}/{issue_subissue}"
 
 
 def _build_plan_row(
@@ -167,8 +167,8 @@ def _build_plan_row(
                 "query": query,
                 "query_variants": [
                     query,
-                    f"{query} with official or regulatory source language.",
-                    f"{query} with secondary public source for reconciliation.",
+                    f"LLM_REWRITE_REQUIRED: authority/source-specific query for {issue_area}/{issue_subissue}",
+                    f"LLM_REWRITE_REQUIRED: reconciliation query for {issue_area}/{issue_subissue}",
                 ],
                 "purpose": "Promote unresolved hypothesis to formal execution queue.",
                 "search_stage": "formal_research_execution",

@@ -47,6 +47,14 @@ FINAL_BLOCKING_CONTENT_WARNING_KEYS = (
 BENIGN_FINAL_WARNING_FRAGMENTS = (
     "outside material claim",
 )
+QC_WARNING_ACCEPTED_DISPOSITIONS = {"advisory_only", "qc_accept_with_limits"}
+QC_WARNING_BLOCKING_DISPOSITIONS = {"unresolved", "repair_before_downstream"}
+QC_WARNING_SCAN_SKIP = {
+    "final_delivery_validation.json",
+    "qc_repair_brief.json",
+    "qc_router_report.json",
+    "qc_warning_disposition.json",
+}
 
 RESEARCH_EVIDENCE_ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bformal\s+search\b", re.IGNORECASE),
@@ -75,6 +83,8 @@ def _looks_like_research_error(error_text: Any) -> bool:
 def _evidence_readiness_payload(run_dir: Path) -> dict[str, Any]:
     db_path = run_dir / "artifacts" / "research_evidence_db.json"
     issue_analysis_path = run_dir / "industry_issue_analysis.json"
+    accepted_statuses = {"llm_decided", "qc_confirmed"}
+    accepted_owners = {"reasoning", "qc"}
     issue_payload = {}
     if issue_analysis_path.exists():
         try:
@@ -83,13 +93,20 @@ def _evidence_readiness_payload(run_dir: Path) -> dict[str, Any]:
             issue_payload = {}
     issue_readiness = issue_payload.get("evidence_readiness")
     if isinstance(issue_readiness, dict):
-        enough = bool(issue_readiness.get("enough_for_client_pitch", False))
-        evidence_limited = bool(issue_readiness.get("evidence_limited_pitch_outline", True))
-        research_first_required = bool(issue_readiness.get("research_first_required", True))
+        decision_status = str(issue_readiness.get("decision_status") or "needs_llm_decision")
+        decision_owner = str(issue_readiness.get("decision_owner") or "reasoning")
+        has_decision = decision_status in accepted_statuses and decision_owner in accepted_owners
+        enough = bool(issue_readiness.get("enough_for_client_pitch", False)) if has_decision else False
+        evidence_limited = bool(issue_readiness.get("evidence_limited_pitch_outline", True)) if has_decision else True
+        research_first_required = bool(issue_readiness.get("research_first_required", True)) if has_decision else True
         critical_gap_count = int(issue_readiness.get("critical_gap_count", 0) or 0)
         evidence_row_count = int(issue_readiness.get("evidence_row_count", 0) or 0)
         metric_row_count = int(issue_readiness.get("metric_row_count", 0) or 0)
         return {
+            "decision_status": decision_status,
+            "decision_owner": decision_owner,
+            "decision_missing": not has_decision,
+            "decision_note": str(issue_readiness.get("decision_note") or ""),
             "enough_for_client_pitch": enough,
             "evidence_limited_pitch_outline": evidence_limited,
             "research_first_required": research_first_required,
@@ -108,10 +125,13 @@ def _evidence_readiness_payload(run_dir: Path) -> dict[str, Any]:
         evidence_rows = len(db.get("evidence_ledger", [])) if isinstance(db, dict) else 0
         metric_rows = len(db.get("metric_reconciliation", [])) if isinstance(db, dict) else 0
 
-    enough = (evidence_rows + metric_rows) >= 2
     return {
-        "enough_for_client_pitch": enough,
-        "evidence_limited_pitch_outline": not enough,
+        "decision_status": "needs_llm_decision",
+        "decision_owner": "reasoning",
+        "decision_missing": True,
+        "decision_note": "No issue_analysis evidence_readiness decision found. Reasoning/QC must decide deliverable depth.",
+        "enough_for_client_pitch": False,
+        "evidence_limited_pitch_outline": True,
         "research_first_required": evidence_rows == 0 and metric_rows == 0,
         "critical_gap_count": 0,
         "evidence_row_count": int(evidence_rows),
@@ -277,6 +297,137 @@ def _load_saved_validation_artifact(
     if check_warning_count and payload.get("warning_count", 0):
         errors.append(f"{artifact} contains {payload.get('warning_count')} warning(s)")
     return payload
+
+
+def _validation_warning_artifacts(run_dir: Path) -> list[str]:
+    """Return validation artifacts that currently contain warnings.
+
+    This is intentionally broad and mechanical. QC owns deciding whether these
+    warnings are advisory, repaired, or accepted with limits.
+    """
+    out: list[str] = []
+    candidates: list[Path] = []
+    artifacts = run_dir / "artifacts"
+    if artifacts.exists():
+        candidates.extend(sorted(artifacts.glob("*.json")))
+    filled = run_dir / "filled_ppt_validation.json"
+    if filled.exists():
+        candidates.append(filled)
+    for path in candidates:
+        if path.name in QC_WARNING_SCAN_SKIP:
+            continue
+        if "validation" not in path.name and not path.name.endswith("_status.json"):
+            continue
+        try:
+            payload = load_json_file(path)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        has_warnings = bool(payload.get("warnings")) or int(payload.get("warning_count") or 0) > 0
+        if has_warnings:
+            try:
+                out.append(str(path.relative_to(run_dir)))
+            except ValueError:
+                out.append(str(path))
+    return unique_preserve_order(out)
+
+
+def _validate_qc_warning_disposition(
+    run_dir: Path,
+    current_warnings: list[str],
+    repair_targets: list[dict[str, Any]],
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    """Validate QC handling for advisory warnings before final delivery."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    warning_artifacts = _validation_warning_artifacts(run_dir)
+    warnings_present = bool(current_warnings) or bool(warning_artifacts)
+    disposition_path = run_dir / "artifacts" / "qc_warning_disposition.json"
+    summary: dict[str, Any] = {
+        "warnings_present": warnings_present,
+        "warning_artifacts": warning_artifacts,
+        "disposition_artifact": "artifacts/qc_warning_disposition.json",
+        "disposition_present": disposition_path.exists(),
+        "warning_count": 0,
+        "unresolved_warning_count": 0,
+        "accepted_with_limits_count": 0,
+    }
+
+    if not warnings_present:
+        return errors, warnings, summary
+
+    if not disposition_path.exists():
+        message = (
+            "validation warnings are present but artifacts/qc_warning_disposition.json is missing; "
+            "run qc_router.py and let QC classify each warning before treating the run as client-ready"
+        )
+        warnings.append(message)
+        _append_repair_targets(
+            repair_targets,
+            {
+                "is_valid": True,
+                "warnings": [message],
+                "repair_targets": [
+                    {
+                        "severity": "warning",
+                        "repair_target_layer": "qc",
+                        "repair_target_artifact": "artifacts/qc_warning_disposition.json",
+                        "message": message,
+                        "why_it_matters": "Warnings need explicit routing or acceptance limits before downstream reliance.",
+                        "repair_action": "Run qc_router.py, review qc_warning_disposition.json, and repair or accept warnings with limits.",
+                        "rerun_command": f"$PYTHON_CMD scripts/qc_router.py --run-dir {run_dir} --output {run_dir}/artifacts/qc_router_report.json",
+                        "downstream_blocked": False,
+                    }
+                ],
+            },
+            default_layer="qc",
+            default_artifact="artifacts/qc_warning_disposition.json",
+        )
+        return errors, warnings, summary
+
+    try:
+        payload = load_json_file(disposition_path)
+    except Exception as exc:
+        errors.append(f"cannot read artifacts/qc_warning_disposition.json: {exc}")
+        return errors, warnings, summary
+
+    if not isinstance(payload, dict):
+        errors.append("artifacts/qc_warning_disposition.json is not a JSON object")
+        return errors, warnings, summary
+    if payload.get("schema_version") != "qc_warning_disposition_v1":
+        errors.append("artifacts/qc_warning_disposition.json has invalid schema_version")
+
+    rows = payload.get("warnings", [])
+    if not isinstance(rows, list):
+        errors.append("artifacts/qc_warning_disposition.json missing warnings list")
+        rows = []
+    summary["warning_count"] = len(rows)
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        disposition = str(row.get("disposition") or "unresolved")
+        blocked = bool(row.get("downstream_blocked")) or bool(row.get("requires_qc_disposition"))
+        if disposition in QC_WARNING_BLOCKING_DISPOSITIONS or blocked:
+            errors.append(
+                "unresolved QC warning disposition: "
+                f"{row.get('warning_id', '')} {row.get('source_report', '')} {row.get('message', '')}"
+            )
+            summary["unresolved_warning_count"] = int(summary["unresolved_warning_count"]) + 1
+        elif disposition == "qc_accept_with_limits":
+            summary["accepted_with_limits_count"] = int(summary["accepted_with_limits_count"]) + 1
+            if not str(row.get("downstream_limit") or "").strip():
+                errors.append(f"{row.get('warning_id', 'warning')} accepts with limits but downstream_limit is blank")
+            if not str(row.get("acceptance_rationale") or "").strip():
+                errors.append(f"{row.get('warning_id', 'warning')} accepts with limits but acceptance_rationale is blank")
+            if not str(row.get("accepted_by") or "").strip():
+                errors.append(f"{row.get('warning_id', 'warning')} accepts with limits but accepted_by is blank")
+        elif disposition == "advisory_only":
+            if not str(row.get("acceptance_rationale") or "").strip():
+                warnings.append(f"{row.get('warning_id', 'warning')} marked advisory_only without acceptance_rationale")
+        elif disposition not in QC_WARNING_ACCEPTED_DISPOSITIONS:
+            errors.append(f"{row.get('warning_id', 'warning')} has unknown warning disposition: {disposition}")
+    return errors, warnings, summary
 
 
 def _run_validator_and_report(
@@ -1851,6 +2002,19 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None, python_cmd: 
 
     research_evidence_valid = not any(_looks_like_research_error(error) for error in errors)
     evidence_readiness = _evidence_readiness_payload(run_dir)
+    if evidence_readiness.get("decision_missing"):
+        errors.append(
+            "missing Reasoning/QC evidence readiness decision: industry_issue_analysis.json "
+            "must set evidence_readiness.decision_status to llm_decided or qc_confirmed before final delivery"
+        )
+        research_evidence_valid = False
+    warning_disposition_errors, warning_disposition_warnings, warning_disposition = _validate_qc_warning_disposition(
+        run_dir,
+        warnings,
+        repair_targets,
+    )
+    errors.extend(warning_disposition_errors)
+    warnings.extend(warning_disposition_warnings)
     content_ready_threshold = bool(evidence_readiness.get("enough_for_client_pitch", False))
     errors = unique_preserve_order(errors)
     warnings = unique_preserve_order(warnings)
@@ -1867,6 +2031,7 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None, python_cmd: 
         "delivery_mode": "evidence_limited_outline" if not content_client_ready else "full_pitchbook",
         "client_ready": client_ready,
         "evidence_readiness": evidence_readiness,
+        "warning_disposition": warning_disposition,
         "error_count": len(errors),
         "warning_count": len(warnings),
         "errors": errors,

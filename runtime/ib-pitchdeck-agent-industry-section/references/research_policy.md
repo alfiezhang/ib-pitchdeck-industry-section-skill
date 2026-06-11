@@ -111,6 +111,9 @@ Recommended sequence:
    ```
    Use `templates/formal_search_plan.template.json` for field meaning, not as a
    final copy/paste artifact.
+   The skeleton intentionally emits `LLM_REWRITE_REQUIRED` query workspaces.
+   Research must replace them with real, executable, source-specific queries
+   before validation or search execution.
 9. Validate `artifacts/formal_search_plan.json` with
    `scripts/validate_formal_search_plan.py` before executing formal searches.
 

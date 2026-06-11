@@ -183,7 +183,7 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool 
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
+def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
     template_profile_path = artifacts / "template_profile.json"
@@ -224,7 +224,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
             python_cmd,
             SCRIPT_DIR / "template_analyzer.py",
             "--template",
-            TEMPLATE,
+            template_path,
             "--layout-config",
             ROOT_DIR / "templates" / "layout_config.json",
             "--output",
@@ -261,8 +261,13 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
     )
 
 
-def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> None:
-    _append_failure_memory(run_dir, "pipeline_render", outcome="start", command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir}")
+def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, template_path: Path = TEMPLATE) -> None:
+    _append_failure_memory(
+        run_dir,
+        "pipeline_render",
+        outcome="start",
+        command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir} --template {template_path}",
+    )
     run_dir = _ensure_run_dir(run_dir)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
@@ -271,13 +276,13 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render", preflight_skipped=skip_preflight)
 
     try:
-        validate_pre_ppt(run_dir, python_cmd)
+        validate_pre_ppt(run_dir, python_cmd, template_path=template_path)
         _run(
             [
                 python_cmd,
                 SCRIPT_DIR / "check_template_tokens.py",
                 "--template",
-                TEMPLATE,
+                template_path,
                 "--ppt-mapping",
                 PPT_MAPPING,
                 "--output",
@@ -316,7 +321,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
                 python_cmd,
                 SCRIPT_DIR / "fill_ppt_tokens.py",
                 "--template",
-                TEMPLATE,
+                template_path,
                 "--replacement-dict",
                 run_dir / "replacement_dict.json",
                 "--output",
@@ -384,8 +389,8 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
             run_dir,
             "pipeline_render",
             outcome="failure",
-            command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir}",
-            details={"skip_preflight": skip_preflight},
+            command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir} --template {template_path}",
+            details={"skip_preflight": skip_preflight, "template": str(template_path)},
         )
         _mark_not_client_ready(run_dir)
         raise
@@ -394,8 +399,8 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
             run_dir,
             "pipeline_render",
             outcome="success",
-            command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir}",
-            details={"skip_preflight": skip_preflight},
+            command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir} --template {template_path}",
+            details={"skip_preflight": skip_preflight, "template": str(template_path)},
         )
 
 
@@ -488,19 +493,28 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python", default=sys.executable, help="Python interpreter used for child scripts.")
     sub = parser.add_subparsers(dest="command", required=True)
+    validate_pre_ppt_parser = None
     render_parser = None
     finalize_parser = None
     for name in ("status", "next", "validate-pre-ppt", "render", "finalize"):
         p = sub.add_parser(name)
         p.add_argument("--run-dir", required=True)
-        if name == "render":
+        if name == "validate-pre-ppt":
+            validate_pre_ppt_parser = p
+        elif name == "render":
             render_parser = p
         elif name == "finalize":
             finalize_parser = p
 
-    if render_parser is None or finalize_parser is None:
+    if validate_pre_ppt_parser is None or render_parser is None or finalize_parser is None:
         raise RuntimeError("failed to construct parser for render/finalize commands")
 
+    for template_parser in (validate_pre_ppt_parser, render_parser):
+        template_parser.add_argument(
+            "--template",
+            default=str(TEMPLATE),
+            help="PPTX template to analyze and fill. Defaults to the bundled industry section template.",
+        )
     render_parser.add_argument(
         "--skip-preflight",
         action="store_true",
@@ -517,9 +531,14 @@ def main() -> int:
         elif args.command == "next":
             next_action(run_dir)
         elif args.command == "validate-pre-ppt":
-            validate_pre_ppt(_ensure_run_dir(run_dir), args.python)
+            validate_pre_ppt(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template))
         elif args.command == "render":
-            render(_ensure_run_dir(run_dir), args.python, skip_preflight=args.skip_preflight)
+            render(
+                _ensure_run_dir(run_dir),
+                args.python,
+                skip_preflight=args.skip_preflight,
+                template_path=Path(args.template),
+            )
         elif args.command == "finalize":
             finalize(_ensure_run_dir(run_dir), args.python, require_client_ready=args.require_client_ready)
     except subprocess.CalledProcessError as exc:

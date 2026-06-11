@@ -73,6 +73,8 @@ VALID_RESEARCH_ACTIONS = {
     "request_user_or_management_input",
     "mark_unavailable_after_research",
 }
+VALID_READINESS_DECISION_STATUSES = {"needs_llm_decision", "llm_decided", "qc_confirmed"}
+VALID_READINESS_DECISION_OWNERS = {"reasoning", "qc"}
 PLACEHOLDER_MARKERS = (
     "TODO",
     "TODO_REPLACE",
@@ -248,6 +250,23 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
     if evidence_readiness is not None and not isinstance(evidence_readiness, dict):
         errors.append("evidence_readiness must be an object")
     elif isinstance(evidence_readiness, dict):
+        decision_status = str(evidence_readiness.get("decision_status") or "").strip()
+        decision_owner = str(evidence_readiness.get("decision_owner") or "").strip()
+        if decision_status not in VALID_READINESS_DECISION_STATUSES:
+            errors.append(
+                "evidence_readiness.decision_status must be one of "
+                f"{sorted(VALID_READINESS_DECISION_STATUSES)}"
+            )
+        if decision_owner not in VALID_READINESS_DECISION_OWNERS:
+            errors.append(
+                "evidence_readiness.decision_owner must be one of "
+                f"{sorted(VALID_READINESS_DECISION_OWNERS)}"
+            )
+        if decision_status == "needs_llm_decision":
+            errors.append(
+                "evidence_readiness still needs LLM decision; Reasoning/QC must decide "
+                "enough_for_client_pitch, evidence_limited_pitch_outline, and research_first_required before deck generation"
+            )
         if not isinstance(evidence_readiness.get("enough_for_client_pitch"), bool):
             warnings.append("evidence_readiness.enough_for_client_pitch should be boolean")
         if not isinstance(evidence_readiness.get("evidence_limited_pitch_outline"), bool):

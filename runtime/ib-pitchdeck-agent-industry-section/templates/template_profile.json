@@ -1,14 +1,14 @@
 {
   "schema_version": "template_profile_v1",
-  "template_file": "/Users/htlh/Desktop/用所选项目新建的文件夹/ib-pitchdeck-agent-industry-section/runtime/ib-pitchdeck-agent-industry-section/assets/industry_section_template_master.pptx",
+  "template_file": "assets/industry_section_template_master.pptx",
   "analysis_source": "template_analyzer.py",
   "analysis_timestamp": "2026-06-10T10:34:25.424458+00:00",
   "analysis_fallback": true,
   "analysis_errors": [],
-  "render_layouts_source": "/Users/htlh/Desktop/用所选项目新建的文件夹/ib-pitchdeck-agent-industry-section/runtime/ib-pitchdeck-agent-industry-section/templates/render_layouts.json",
-  "text_fit_rules_source": "/Users/htlh/Desktop/用所选项目新建的文件夹/ib-pitchdeck-agent-industry-section/runtime/ib-pitchdeck-agent-industry-section/templates/text_fit_rules.json",
-  "layout_budget_source": "/Users/htlh/Desktop/用所选项目新建的文件夹/ib-pitchdeck-agent-industry-section/runtime/ib-pitchdeck-agent-industry-section/templates/layout_budget.json",
-  "ppt_mapping_source": "/Users/htlh/Desktop/用所选项目新建的文件夹/ib-pitchdeck-agent-industry-section/runtime/ib-pitchdeck-agent-industry-section/templates/ppt_mapping.json",
+  "render_layouts_source": "templates/render_layouts.json",
+  "text_fit_rules_source": "templates/text_fit_rules.json",
+  "layout_budget_source": "templates/layout_budget.json",
+  "ppt_mapping_source": "templates/ppt_mapping.json",
   "visual_style": {
     "colors": {
       "brand_primary": "#0D57AA",
@@ -1331,5 +1331,5 @@
     "required_source_footer": true
   },
   "output_path": "runtime/ib-pitchdeck-agent-industry-section/templates/template_profile.json",
-  "template_registry_file": "/Users/htlh/Desktop/用所选项目新建的文件夹/ib-pitchdeck-agent-industry-section/runtime/ib-pitchdeck-agent-industry-section/templates/slide_registry.json"
+  "template_registry_file": "templates/slide_registry.json"
 }

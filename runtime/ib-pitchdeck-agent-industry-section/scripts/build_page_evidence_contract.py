@@ -275,8 +275,8 @@ def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict
         )
         proof_points = _proof_points(strategy_slide)
         claim_strength = str(strategy_slide.get("claim_strength") or "").strip()
-        headline_allowed = permission_union.get("headline_allowed") is True and (claim_strength not in {"hypothesis", "open_question"} or slide_no == 8)
-        main_message_allowed = permission_union.get("main_message_allowed") is True and (claim_strength not in {"hypothesis", "open_question"} or slide_no == 8)
+        headline_allowed = permission_union.get("headline_allowed") is True and claim_strength not in {"hypothesis", "open_question"}
+        main_message_allowed = permission_union.get("main_message_allowed") is True and claim_strength not in {"hypothesis", "open_question"}
         slides.append(
             {
                 "slide_no": slide_no,

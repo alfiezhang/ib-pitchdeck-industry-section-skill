@@ -21,7 +21,7 @@ from json_utils import load_json_file
 SCHEMA_VERSION = "formal_search_plan_v1"
 FS_RE = re.compile(r"^FS-\d{3}$")
 PLACEHOLDER_RE = re.compile(
-    r"(<[^>]+>|TODO|TBD|N/A|xxxx|yyyy|placeholder|待补|待搜索|示例|example)",
+    r"(<[^>]+>|TODO|TBD|N/A|xxxx|yyyy|placeholder|LLM_REWRITE_REQUIRED|待补|待搜索|示例|example)",
     flags=re.IGNORECASE,
 )
 PAGE_PLAN_MARKERS = (

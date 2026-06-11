@@ -488,6 +488,22 @@ def _source_note(slide: dict[str, Any], evidence_ids: list[str]) -> str:
     return "Sources: " + "; ".join(ids) if ids else ""
 
 
+def _slide_numbers_from_template_registry(template_registry: dict[str, Any]) -> list[int]:
+    slide_numbers: list[int] = []
+    for slide in as_list(template_registry.get("slides")):
+        if not isinstance(slide, dict):
+            continue
+        try:
+            slide_no = int(slide.get("slide_no"))
+        except Exception:
+            continue
+        if slide_no > 0:
+            slide_numbers.append(slide_no)
+    if not slide_numbers:
+        raise ValueError("template_registry has no usable slides; run template analysis/registry extraction first")
+    return sorted(set(slide_numbers))
+
+
 def build_renderer_spec_from_deck_blueprint(
     deck_blueprint: dict[str, Any],
     template_registry: dict[str, Any],
@@ -498,7 +514,7 @@ def build_renderer_spec_from_deck_blueprint(
     slides: list[dict[str, Any]] = []
     template_binding: dict[str, str] = {}
     section_meta = deck_blueprint.get("section_meta") if isinstance(deck_blueprint.get("section_meta"), dict) else {}
-    for slide_no in range(1, 9):
+    for slide_no in _slide_numbers_from_template_registry(template_registry):
         slide = slides_by_no.get(slide_no)
         if not slide:
             raise ValueError(f"slide {slide_no}: missing from deck_blueprint")
@@ -527,7 +543,7 @@ def build_renderer_spec_from_deck_blueprint(
             "selected_page_type": page_type,
             "primary_issue_analysis_id": primary,
             "issue_analysis_ids": issue_ids,
-            "claim_strength": str(contract.get("claim_strength") or slide.get("claim_strength") or "supported_inference").strip(),
+            "claim_strength": str(contract.get("claim_strength") or slide.get("claim_strength") or "").strip(),
             "headline": str(slide.get("headline") or "").strip(),
             "main_message": str(slide.get("main_message") or "").strip(),
             "body_copy": body_copy,

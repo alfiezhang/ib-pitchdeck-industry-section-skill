@@ -116,6 +116,41 @@ def test_qc_normalize_report_preserves_repair_targets(tmp_path: Path) -> None:
     assert issue["repair_action"] == "Return to Generation and compress copy."
 
 
+def test_qc_normalize_report_routes_warnings_to_owner_with_disposition(tmp_path: Path) -> None:
+    report = tmp_path / "validation_with_warning.json"
+    _write_json(
+        report,
+        {
+            "is_valid": True,
+            "warnings": ["weak-source marker: SRC-001 is reposted and method is unclear"],
+        },
+    )
+
+    result = _run(
+        "qc_normalize_report.py",
+        [
+            "--report",
+            str(report),
+            "--layer",
+            "qc",
+            "--artifact",
+            "artifacts/source_reviews_validation.json",
+        ],
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["warning_issue_count"] == 1
+    assert payload["requires_qc_disposition_count"] == 1
+    issue = payload["issues"][0]
+    _assert_qc_issue_shape(issue)
+    assert issue["severity"] == "warning"
+    assert issue["repair_owner"] == "research-external-evidence"
+    assert issue["warning_disposition"] == "unresolved"
+    assert issue["requires_qc_disposition"] is True
+    assert "headline" in issue["downstream_limit"]
+
+
 def test_qc_router_outputs_normalized_issues_for_missing_gate(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()
@@ -133,3 +168,31 @@ def test_qc_router_outputs_normalized_issues_for_missing_gate(tmp_path: Path) ->
     _assert_qc_issue_shape(issue)
     assert issue["repair_owner"] == "material-intake"
     assert issue["downstream_blocked"] is True
+
+
+def test_qc_router_writes_warning_disposition_file(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True)
+    _write_json(
+        artifacts / "content_quality_validation.json",
+        {
+            "is_valid": True,
+            "warning_count": 1,
+            "warnings": ["slide 1 body copy may exceed advisory capacity"],
+        },
+    )
+    output = artifacts / "qc_router_report.json"
+
+    result = _run("qc_router.py", ["--run-dir", str(run_dir), "--output", str(output)])
+
+    assert result.returncode == 0
+    disposition_path = artifacts / "qc_warning_disposition.json"
+    assert disposition_path.exists()
+    payload = json.loads(disposition_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "qc_warning_disposition_v1"
+    assert payload["warning_count"] == 1
+    assert payload["unresolved_warning_count"] == 1
+    warning = payload["warnings"][0]
+    assert warning["repair_owner"] == "template"
+    assert warning["disposition"] == "unresolved"

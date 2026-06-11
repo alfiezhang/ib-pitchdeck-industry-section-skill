@@ -36,7 +36,7 @@
           "open_questions"
         ],
         "properties": {
-          "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+          "slide_no": { "type": "integer", "minimum": 1 },
           "page_role": { "type": "string" },
           "page_question": {
             "type": "string",

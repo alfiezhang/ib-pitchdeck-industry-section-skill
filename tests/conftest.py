@@ -32,6 +32,29 @@ def _run_script(script_name: str, args: list[str], *, cwd: Path | None = None) -
     )
 
 
+def _rewrite_plan_queries_for_contract_test(plan: dict, *, market: str = "sample sector") -> dict:
+    """Simulate Research-role query editing for fixtures.
+
+    The production skeleton intentionally emits LLM_REWRITE_REQUIRED workspaces.
+    Contract fixtures need an executable plan, so tests rewrite every query
+    before validating.
+    """
+
+    for row in plan.get("issue_search_plan", []):
+        issue_area = row.get("issue_area", "industry")
+        subissue = row.get("subissue", "topic")
+        variants = [
+            f"{market} {subissue} industry report 2026",
+            f"{market} {subissue} official data association filing",
+            f"{market} {subissue} methodology scope comparison",
+        ]
+        for instruction in row.get("search_instructions", []):
+            instruction["query"] = variants[0]
+            instruction["query_variants"] = variants
+            instruction["source_hint"] = instruction.get("source_hint") or f"{issue_area} source review"
+    return plan
+
+
 @pytest.fixture
 def root_dir() -> Path:
     return ROOT
@@ -538,6 +561,7 @@ def _pipeline_run_dir(tmp_path_factory):
         {"industry": "sample sector", "geography": "Samplestan"},
         {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
     )
+    _rewrite_plan_queries_for_contract_test(plan)
 
     def fs_for(area, subissue):
         for row in plan["issue_search_plan"]:

@@ -131,7 +131,7 @@ def _normalize_sufficiency(value: Any, evidence_ids: list[str], metric_ids: list
     candidate = aliases.get(text, text)
     if candidate in VALID_EVIDENCE_SUFFICIENCY:
         return candidate
-    return "sufficient" if (evidence_ids or metric_ids) else "insufficient"
+    return "insufficient"
 
 
 def _normalize_evidence_status(value: Any, sufficiency: str) -> str:
@@ -150,14 +150,6 @@ def _normalize_evidence_status(value: Any, sufficiency: str) -> str:
         "caveat_only": "caveat_only",
     }
     candidate = aliases.get(text, "")
-    if not candidate:
-        candidate = {
-            "sufficient": "supported",
-            "thin": "thin",
-            "insufficient": "insufficient",
-            "not_applicable": "not_applicable",
-            "unavailable_after_research": "unavailable_after_research",
-        }.get(sufficiency, sufficiency)
     if candidate in VALID_EVIDENCE_STATUS:
         return candidate
     return "insufficient"
@@ -178,11 +170,9 @@ def _normalize_hypothesis_resolution(value: Any, evidence_status: str, status: s
     candidate = aliases.get(text, text)
     if candidate in VALID_HYPOTHESIS_RESOLUTION:
         return candidate
-    if status == "rejected":
-        return "rejected"
     if evidence_status in {"not_researched", "caveat_only"}:
         return evidence_status
-    return "resolved" if status in {"validated", "partially_validated"} else "deprioritized"
+    return "deprioritized"
 
 
 def _normalize_issue_area(value: Any, subissue: str) -> str:
@@ -206,15 +196,7 @@ def _normalize_permission(value: Any, *, sufficiency: str, metric_ids: list[str]
             "chart_allowed": bool(value.get("chart_allowed")),
             "body_copy_allowed": bool(value.get("body_copy_allowed")),
         }
-    if sufficiency in {"insufficient", "unavailable_after_research"}:
-        return {"headline_allowed": False, "chart_allowed": False, "body_copy_allowed": False}
-    if sufficiency == "not_applicable":
-        return {"headline_allowed": False, "chart_allowed": False, "body_copy_allowed": True}
-    return {
-        "headline_allowed": sufficiency == "sufficient",
-        "chart_allowed": bool(metric_ids) and sufficiency == "sufficient",
-        "body_copy_allowed": True,
-    }
+    return {"headline_allowed": False, "chart_allowed": False, "body_copy_allowed": False}
 
 
 def _normalize_meta(meta: Any, pool: dict[str, Any]) -> dict[str, str]:

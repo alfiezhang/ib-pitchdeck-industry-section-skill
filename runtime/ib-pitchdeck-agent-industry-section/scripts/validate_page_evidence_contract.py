@@ -14,16 +14,6 @@ from json_utils import load_json_file
 from upstream_validation import COMPILE_UPSTREAM_VALIDATIONS, assert_formal_upstream_valid
 
 
-VALID_SLIDE_ROLES = {
-    1: "industry_overview",
-    2: "market_size_segmentation",
-    3: "key_industry_drivers",
-    4: "value_chain_profit_pool",
-    5: "key_barriers_value_drivers",
-    6: "competitive_landscape",
-    7: "industry_trends_future_evolution",
-    8: "transaction_implications",
-}
 VALID_CLAIM_STRENGTHS = {
     "hard_fact",
     "supported_inference",
@@ -342,8 +332,9 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
     slides = page_contract.get("slides") if isinstance(page_contract, dict) else None
     if not isinstance(slides, list):
         return ["slides must be an array"], warnings
-    if len(slides) != 8:
-        errors.append(f"slides must contain exactly 8 entries; found {len(slides)}")
+    expected_slide_numbers = set(strategy_by_no)
+    if expected_slide_numbers and len(slides) != len(expected_slide_numbers):
+        errors.append(f"slides must contain exactly {len(expected_slide_numbers)} entries; found {len(slides)}")
 
     seen_slide_numbers: set[int] = set()
     for idx, slide in enumerate(slides, start=1):
@@ -359,9 +350,9 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             errors.append(f"{prefix}: duplicate slide_no")
         seen_slide_numbers.add(slide_no)
 
-        expected_role = VALID_SLIDE_ROLES.get(slide_no)
+        expected_role = str((strategy_by_no.get(slide_no) or {}).get("fixed_page_role") or "").strip()
         page_role = str(slide.get("page_role") or "").strip()
-        if page_role != expected_role:
+        if expected_role and page_role != expected_role:
             errors.append(f"{prefix}: page_role must be '{expected_role}', found '{page_role}'")
 
         for field in ("page_question", "proof_standard", "evidence_gap_handling", "headline_claim"):
@@ -485,7 +476,7 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             expected_headline_allowed = (
                 bool(expected_downstream_permission.get("headline_allowed"))
                 and claim_strength not in {"hypothesis", "open_question"}
-            ) or slide_no == 8 and bool(expected_downstream_permission.get("headline_allowed"))
+            )
             if expected_headline_allowed is False:
                 expected_headline_allowed = False
             if headline_allowed != expected_headline_allowed:
@@ -493,7 +484,7 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             expected_main_message_allowed = (
                 bool(expected_downstream_permission.get("main_message_allowed"))
                 and claim_strength not in {"hypothesis", "open_question"}
-            ) or slide_no == 8 and bool(expected_downstream_permission.get("main_message_allowed"))
+            )
             if expected_main_message_allowed is False:
                 expected_main_message_allowed = False
             if main_message_allowed != expected_main_message_allowed:
@@ -624,12 +615,12 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
 
         if claim_strength == "hard_fact" and not (body_evidence_ids or _as_list(slide.get("chart_metric_ids"))):
             errors.append(f"{prefix}: hard_fact requires body_evidence_ids or chart_metric_ids")
-        if claim_strength in {"hypothesis", "open_question"} and headline_allowed and slide_no != 8:
-            errors.append(f"{prefix}: hypothesis/open_question cannot be a confident headline except on slide 8")
+        if claim_strength in {"hypothesis", "open_question"} and headline_allowed:
+            errors.append(f"{prefix}: hypothesis/open_question cannot be a confident headline")
         if not body_evidence_ids and not _as_list(slide.get("chart_metric_ids")) and not _as_list(slide.get("open_questions")):
             errors.append(f"{prefix}: slide has no evidence, metrics, or open_questions")
 
-    missing_slide_numbers = set(VALID_SLIDE_ROLES) - seen_slide_numbers
+    missing_slide_numbers = expected_slide_numbers - seen_slide_numbers
     if missing_slide_numbers:
         errors.append("missing slide_no entries: " + ", ".join(str(num) for num in sorted(missing_slide_numbers)))
 

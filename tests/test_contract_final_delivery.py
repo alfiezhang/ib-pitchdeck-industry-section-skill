@@ -59,6 +59,52 @@ class TestFinalDeliveryIssueArtifacts:
         errors, _ = validate_issue_artifacts(run_dir, [])
         assert "deck_blueprint_validation.json is_valid=false" in errors, errors
 
+    def test_qc_warning_disposition_blocks_unresolved_warnings(self, tmp_path):
+        from validate_final_delivery import _validate_qc_warning_disposition
+
+        run_dir = tmp_path / "warning_run"
+        artifacts = run_dir / "artifacts"
+        artifacts.mkdir(parents=True)
+        _write_json(
+            artifacts / "content_quality_validation.json",
+            {"is_valid": True, "warning_count": 1, "warnings": ["slide 1 layout warning"]},
+        )
+        _write_json(
+            artifacts / "qc_warning_disposition.json",
+            {
+                "schema_version": "qc_warning_disposition_v1",
+                "run_dir": str(run_dir),
+                "generated_at": "2026-01-01T00:00:00Z",
+                "warning_count": 1,
+                "unresolved_warning_count": 1,
+                "warnings": [
+                    {
+                        "warning_id": "WARN-001",
+                        "source_issue_id": "QC-001",
+                        "source_report": "artifacts/content_quality_validation.json",
+                        "category": "template",
+                        "layer": "template",
+                        "artifact": "artifacts/content_quality_validation.json",
+                        "field_path": "",
+                        "message": "slide 1 layout warning",
+                        "repair_owner": "template",
+                        "disposition": "unresolved",
+                        "requires_qc_disposition": True,
+                        "downstream_blocked": True,
+                        "downstream_limit": "Do not finalize affected page.",
+                        "accepted_by": "",
+                        "acceptance_rationale": "",
+                        "rerun_command": "",
+                    }
+                ],
+            },
+        )
+
+        errors, warnings, summary = _validate_qc_warning_disposition(run_dir, [], [])
+        assert any("unresolved QC warning disposition" in error for error in errors), errors
+        assert not warnings
+        assert summary["unresolved_warning_count"] == 1
+
 
 class TestUpstreamFailurePropagation:
     @pytest.fixture

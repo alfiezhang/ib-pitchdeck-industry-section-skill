@@ -370,11 +370,8 @@ def check_target_advocacy_language(
     """Block target-advocacy headlines where target context is not central and evidence-scoped."""
     if not target_advocacy_phrases:
         return
-    slide_no = slide.get("slide_no")
     target_context_type, claim_strength = _slide_policy_values(slide)
-    allowed_central_headline = slide_no == 8 and (
-        not target_context_type or target_context_type in {"central", "selective"}
-    )
+    allowed_central_headline = bool(target_context_type in {"central", "selective"})
     fields = collect_slide_text_fields(slide)
 
     blocking_findings: list[str] = []

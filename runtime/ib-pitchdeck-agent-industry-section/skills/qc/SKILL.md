@@ -28,6 +28,7 @@ owns it?**
 - `artifacts/qc_router_report.json`;
 - `artifacts/qc_repair_brief.json`;
 - `artifacts/qc_repair_brief.md`;
+- `artifacts/qc_warning_disposition.json`;
 - blocked/not-client-ready status with next owner role.
 
 ## How To Think
@@ -41,6 +42,20 @@ owns it?**
   - stale validation;
   - output/render failure.
 - Group many errors into a small number of repair targets.
+- Treat warnings as workflow signals, not decoration. Classify each warning as:
+  - `advisory_only`: may proceed, but record why it is harmless;
+  - `repair_before_downstream`: owner role must repair before the next layer;
+  - `qc_accept_with_limits`: may proceed only with explicit rationale and
+    downstream-use limits.
+- Any warning without a disposition remains unresolved. If unresolved warnings
+  are present, route to the owner role or write the QC acceptance limits before
+  final delivery.
+- When scripts report source-quality warnings, decide whether the source can be
+  used, downgraded, or rejected based on locator, methodology access, source
+  authority, recency, and claim scope. Do not treat marker matching as the
+  decision.
+- Confirm or reject Reasoning's `evidence_readiness` decision before final
+  delivery when evidence depth is close or warnings are material.
 - Route each target to the correct role:
   - Material;
   - Knowledge;
@@ -51,6 +66,10 @@ owns it?**
   - Template;
   - Output.
 - State forbidden shortcuts for the current failure.
+- If accepting a warning, state what the downstream may and may not do with it
+  (for example: context-only, body-only, caveat-only, not headline support).
+- `qc_warning_disposition.json` is the machine-readable record of that decision.
+  Do not let the main agent infer warning acceptance from a passing validator.
 - Preserve common failure memory when a pattern should be avoided next time.
 
 ## What Scripts Handle
@@ -66,6 +85,7 @@ Python may:
 Python must not:
 
 - decide banker judgment;
+- decide source quality or client-readiness from counts alone;
 - write source evidence;
 - repair deck copy;
 - patch validators during a production run.
@@ -108,6 +128,8 @@ QC reports should follow `templates/qc_repair_schema.json` and identify:
 A good QC output tells the next agent:
 
 - what actually failed;
+- which warnings are accepted, repaired, or routed;
+- whether `qc_warning_disposition.json` has unresolved warnings;
 - why it matters for a pre-mandate pitch;
 - which artifact to repair;
 - what not to patch;
@@ -135,6 +157,9 @@ artifact, field path, repair action, and rerun command.
 "$PYTHON_CMD" scripts/qc_router.py \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/qc_router_report.json"
+
+# Writes qc_router_report.json, qc_repair_brief.json/md, and
+# qc_warning_disposition.json.
 
 "$PYTHON_CMD" scripts/qc_normalize_report.py \
   --report "$RUN_DIR/artifacts/some_validation.json" \

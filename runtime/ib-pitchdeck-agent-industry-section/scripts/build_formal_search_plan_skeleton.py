@@ -109,8 +109,10 @@ def _to_text_query(text: Any) -> str:
 def _query_variant(query: str, issue_area: str) -> tuple[str, str]:
     english_query = _to_text_query(query)
     if not english_query:
-        english_query = f"{issue_area} evidence"
-    chinese_query = f"{issue_area} {english_query}"
+        english_query = f"LLM_REWRITE_REQUIRED: write an executable English/source-specific query for {issue_area}"
+    else:
+        english_query = f"LLM_REWRITE_REQUIRED: rewrite research question into executable query: {english_query}"
+    chinese_query = f"LLM_REWRITE_REQUIRED: write an executable Chinese/source-specific query for {issue_area}"
     return (
         english_query,
         chinese_query,
@@ -240,9 +242,9 @@ def _priority_for_expectation(expectation: str) -> str:
 
 
 def _query_variants(market_terms: str, issue_label: str, subissue_label: str, expectation: str) -> list[str]:
-    direct = f"{market_terms} {issue_label} {subissue_label} industry report"
-    authority = f"{market_terms} {subissue_label} official data industry association broker report"
-    reconciliation = f"{market_terms} {subissue_label} methodology scope comparison conflicting data"
+    direct = f"LLM_REWRITE_REQUIRED: direct category query for {subissue_label} in {market_terms}"
+    authority = f"LLM_REWRITE_REQUIRED: source-specific authority query for {subissue_label} using reports, filings, associations, or official data"
+    reconciliation = f"LLM_REWRITE_REQUIRED: reconciliation query for scope, denominator, period, geography, or methodology conflicts on {subissue_label}"
     if expectation == "deep_search":
         return [direct, authority, reconciliation]
     if expectation == "light_search":

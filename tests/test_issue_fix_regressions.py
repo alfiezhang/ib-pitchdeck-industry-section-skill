@@ -10,6 +10,8 @@ SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from conftest import _rewrite_plan_queries_for_contract_test  # noqa: E402
+
 
 def _seed_material_intake(run_dir: Path) -> None:
     artifacts = run_dir / "artifacts"
@@ -106,6 +108,7 @@ def test_research_error_matching_is_specific() -> None:
 
 def test_formal_search_plan_high_priority_warning_allows_multivariants() -> None:
     plan = build_plan({}, {})
+    _rewrite_plan_queries_for_contract_test(plan)
     for issue in plan["issue_search_plan"]:
         if issue.get("priority") == "high":
             issue["search_instructions"] = [

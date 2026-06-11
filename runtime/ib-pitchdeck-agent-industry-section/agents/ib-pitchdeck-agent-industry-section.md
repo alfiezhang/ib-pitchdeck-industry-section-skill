@@ -61,7 +61,21 @@ Then:
 2. Load only that `owner_skill`.
 3. Let that role do its specific thinking and artifact work.
 4. Run the recommended validator or pipeline command.
-5. Return to `workflow.py next`.
+5. Inspect the script result before moving on:
+   - if it has `errors`, `repair_targets`, `client_ready=false`, `is_valid=false`,
+     stale artifacts, or a failed return code, stop at that layer and route the
+     repair through `workflow.py next`;
+   - if it has `warnings`, do not ignore them by default. Decide whether each
+     warning is advisory-only, must be repaired before downstream use, or needs
+     QC routing;
+   - a warning is safe to proceed past only when the owner role repairs it, or QC
+     explicitly accepts it with rationale and downstream-use limits.
+6. When warnings remain after the owner role has reviewed them, run QC routing
+   and require `artifacts/qc_warning_disposition.json` to show one of:
+   `advisory_only`, `repair_before_downstream`, or `qc_accept_with_limits`.
+   Unresolved warnings are not final-delivery permission.
+7. Rerun the same validator after repair or QC acceptance.
+8. Return to `workflow.py next`.
 
 If the state is failed, stale, blocked, or not client-ready, stay at that layer.
 Do not write downstream artifacts or render a PPT to get around the problem.
@@ -93,6 +107,16 @@ attempt to escape a failed gate.
 - Scripts handle IDs, validation, exports, and rendering.
 - LLMs handle judgment, source interpretation, page argument, and repair
   reasoning.
+- Source quality, evidence readiness, and headline/chart/body-copy permission
+  are role decisions made by Research, Reasoning, and QC. Do not infer them from
+  counts, URLs, domains, or placeholder defaults.
+- If a script emits `needs_llm_decision`, `LLM_REWRITE_REQUIRED`, or a QC repair
+  target, route to the owner role instead of continuing downstream.
+- Warnings are not permission to proceed. They are unresolved workflow signals
+  until repaired or explicitly accepted by QC with rationale.
+- The main agent receives all script output first. If a script has warnings,
+  errors, failed state, or `client_ready=false`, the main agent must route the
+  issue to the relevant owner skill or QC; it must not silently proceed.
 
 ## Guardrails
 
