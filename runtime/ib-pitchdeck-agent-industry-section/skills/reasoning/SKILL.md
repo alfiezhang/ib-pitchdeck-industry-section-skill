@@ -5,23 +5,55 @@ description: Produce banker judgment for the IB industry section from validated 
 
 # Reasoning
 
-Owns industry and transaction judgment. It consumes scoped industry definitions
-and validated evidence; it does not search or render.
+## Your Job
+
+Turn validated evidence into banker judgment for a pre-mandate client pitch.
+This role decides what can be said, what is only directional, what remains a
+hypothesis, and whether the run has enough evidence for a client-ready industry
+section.
+
+Reasoning does not search, manage sources, design slides, fit templates, or
+render PPT.
+
+## Inputs
+
+- `artifacts/research_evidence_db.json`
+- `industry_research_pack.md`
+- `artifacts/formal_research_execution_report.json`
+- `artifacts/coverage_accounting.json`
+- `artifacts/industry_scope_pack.json`
 
 ## Outputs
 
 - `industry_issue_analysis.json`
-- Future artifacts:
-  - `artifacts/hypothesis_store.json`
-  - `artifacts/research_request_queue.json`
-  - `artifacts/reasoning_qc_report.json`
+- `artifacts/hypothesis_store.json`
+- `artifacts/research_request_queue.json`
+- `artifacts/page_argument_pack.json`
 
-## Responsibilities
+## How To Think
 
-- Decide which findings are supported, directional, caveated, or not researched.
-- Explain buyer relevance and pre-mandate pitch relevance.
-- Generate research requests when evidence is insufficient.
-- Convert supported judgments into page/section argument candidates.
+- Read evidence status before forming judgment:
+  - supported;
+  - directional;
+  - caveat only;
+  - not researched.
+- Decide which industry questions matter for this target and transaction.
+- Interpret buyer relevance:
+  - why this industry matters to a potential client;
+  - what buyers will likely test;
+  - what makes the timing or positioning credible;
+  - where the story is weak.
+- Separate:
+  - supported judgment;
+  - hypothesis;
+  - research request;
+  - caveat/diligence question.
+- Decide deliverable depth:
+  - `enough_for_client_pitch`;
+  - `evidence_limited_pitch_outline`;
+  - `research_first_required`.
+- Create page/section argument candidates only from supported or appropriately
+  caveated judgments.
 
 ## Hypothesis Resolution
 
@@ -29,8 +61,9 @@ and validated evidence; it does not search or render.
 Hypothesis Store
   -> Hypothesis Resolution
       -> supported by evidence -> Supported Judgments
-      -> weak/directional -> Research Request Queue
+      -> weak/directional -> Research Request Queue or body-only context
       -> unresolved -> Caveat / Diligence Question Block
+      -> contradicted -> reject or reframe
 ```
 
 Allowed deck usage:
@@ -40,7 +73,62 @@ Allowed deck usage:
 - `caveat_only`: caveat or diligence question only.
 - `not_researched`: not allowed in deck claims.
 
-## Commands
+## What Scripts Handle
+
+Python may:
+
+- build issue-analysis skeletons;
+- normalize mechanical fields;
+- validate evidence IDs and metric IDs;
+- build hypothesis and page-argument skeletons.
+
+Python must not:
+
+- decide that evidence is persuasive;
+- write banker conclusions;
+- promote hypotheses into supported judgments.
+
+## What You May Edit
+
+LLM may edit:
+
+- substantive issue analysis;
+- hypothesis treatment;
+- research request prioritization;
+- page argument rationale;
+- deliverable depth decision.
+
+LLM must not:
+
+- change evidence IDs to pass validation;
+- delete weak evidence instead of caveating it;
+- write conclusions unsupported by evidence;
+- skip research requests when evidence is thin.
+
+## Good Output Looks Like
+
+A good Reasoning output has:
+
+- a clear client-pitch point of view;
+- explicit evidence status for each major claim;
+- useful research requests for gaps;
+- no hypothesis disguised as conclusion;
+- enough material for Generation to write slides without inventing facts.
+
+## Avoid These Failure Modes
+
+- Producing a full 8-page argument when evidence only supports an outline.
+- Treating user brief facts as externally validated.
+- Turning market-size leads into supported claims without source quality.
+- Writing generic industry statements unrelated to the target's pitch.
+- Sending every weak point to the deck instead of resolving or caveating it.
+
+## Hand Off
+
+Hand off `page_argument_pack` to Generation. If depth is insufficient, hand off
+research requests to Research instead of forcing a full deck.
+
+## Useful Commands
 
 ```bash
 "$PYTHON_CMD" scripts/build_issue_analysis_skeleton.py \
@@ -58,30 +146,12 @@ Allowed deck usage:
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/artifacts/hypothesis_store.json"
 
-"$PYTHON_CMD" scripts/validate_hypothesis_store.py \
-  --hypothesis-store "$RUN_DIR/artifacts/hypothesis_store.json" \
-  --output "$RUN_DIR/artifacts/hypothesis_store_validation.json"
-
 "$PYTHON_CMD" scripts/build_research_request_queue.py \
   --hypothesis-store "$RUN_DIR/artifacts/hypothesis_store.json" \
   --output "$RUN_DIR/artifacts/research_request_queue.json"
-
-"$PYTHON_CMD" scripts/validate_research_request_queue.py \
-  --research-request-queue "$RUN_DIR/artifacts/research_request_queue.json" \
-  --output "$RUN_DIR/artifacts/research_request_queue_validation.json"
-
-"$PYTHON_CMD" scripts/promote_research_requests.py \
-  --research-request-queue "$RUN_DIR/artifacts/research_request_queue.json" \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
-  --output "$RUN_DIR/artifacts/formal_search_plan.json" \
-  --incremental-search-plan "$RUN_DIR/artifacts/incremental_search_plan.json"
 
 "$PYTHON_CMD" scripts/build_page_argument_pack.py \
   --issue-analysis "$RUN_DIR/industry_issue_analysis.json" \
   --hypothesis-store "$RUN_DIR/artifacts/hypothesis_store.json" \
   --output "$RUN_DIR/artifacts/page_argument_pack.json"
-
-"$PYTHON_CMD" scripts/validate_page_argument_pack.py \
-  --page-argument-pack "$RUN_DIR/artifacts/page_argument_pack.json" \
-  --output "$RUN_DIR/artifacts/page_argument_pack_validation.json"
 ```

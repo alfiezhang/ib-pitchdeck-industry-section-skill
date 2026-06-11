@@ -5,32 +5,92 @@ description: Run and interpret QC, validation, and gate scripts for the IB indus
 
 # QC
 
-Owns horizontal quality control. QC runs validators, stage gates, and final
-delivery checks, then identifies the correct repair layer.
+## Your Job
 
-## Responsibilities
+Run quality control and route repairs. QC is not a content author. Its job is to
+explain what failed, why it matters, which layer owns the fix, and what command
+or artifact should be handled next.
 
-- Run validation and gate scripts.
-- Interpret failures as repair targets.
-- Route issues to Material, Knowledge, Scoping, Research, Reasoning, Generation,
-  Template Fit, or Output.
-- Prevent downstream work when current gate is missing, failed, stale, or blocked.
+The core question is: **what is the smallest correct upstream repair, and who
+owns it?**
 
-## Does Not Do
+## Inputs
 
-- Does not write evidence rows.
-- Does not write issue analysis or deck copy.
-- Does not modify PPTs.
-- Does not patch validators during a client run.
+- validation artifacts under `artifacts/`
+- `workflow.py next` payload
+- `qc_router_report.json`
+- `final_delivery_validation.json`
+- optional failure memory from prior runs
+
+## Outputs
+
+- normalized repair reports;
+- `artifacts/qc_router_report.json`;
+- `artifacts/qc_repair_brief.json`;
+- `artifacts/qc_repair_brief.md`;
+- blocked/not-client-ready status with next owner role.
+
+## How To Think
+
+- Distinguish symptom from root cause:
+  - bad query quality;
+  - evidence too thin;
+  - unsupported page claim;
+  - template capacity conflict;
+  - derived artifact hand-edit;
+  - stale validation;
+  - output/render failure.
+- Group many errors into a small number of repair targets.
+- Route each target to the correct role:
+  - Material;
+  - Knowledge;
+  - Scoping;
+  - Research;
+  - Reasoning;
+  - Generation;
+  - Template;
+  - Output.
+- State forbidden shortcuts for the current failure.
+- Preserve common failure memory when a pattern should be avoided next time.
+
+## What Scripts Handle
+
+Python may:
+
+- run validators and gates;
+- normalize reports into a common schema;
+- generate stage state;
+- detect stale artifacts;
+- compile final delivery status.
+
+Python must not:
+
+- decide banker judgment;
+- write source evidence;
+- repair deck copy;
+- patch validators during a production run.
+
+## What You May Edit
+
+LLM may write:
+
+- normalized repair reports;
+- QC summaries;
+- repair briefs that identify owner, target, action, and rerun command.
+
+LLM must not directly edit:
+
+- evidence DB content;
+- issue-analysis conclusions;
+- deck copy;
+- renderer/replacement artifacts;
+- PPT files;
+- validator code during a production run.
 
 ## Repair Target Shape
 
-QC reports should follow `templates/qc_repair_schema.json`. Each report should
-identify:
+QC reports should follow `templates/qc_repair_schema.json` and identify:
 
-- `is_valid`
-- `blocking_issue_count`
-- `issues[]`
 - `issue_id`
 - `severity`
 - `layer`
@@ -43,7 +103,31 @@ identify:
 - `rerun_command`
 - `downstream_blocked`
 
-## Key Commands
+## Good Output Looks Like
+
+A good QC output tells the next agent:
+
+- what actually failed;
+- why it matters for a pre-mandate pitch;
+- which artifact to repair;
+- what not to patch;
+- which command to rerun;
+- whether final delivery can be claimed.
+
+## Avoid These Failure Modes
+
+- Reporting 80 validator messages without root-cause grouping.
+- Treating format repair as content quality repair.
+- Sending template capacity problems to Output.
+- Allowing a final PPT path to be reported when `client_ready=false`.
+- Forgetting to record repeated failure patterns.
+
+## Hand Off
+
+Handoff is a repair brief, not content. The next role should receive the layer,
+artifact, field path, repair action, and rerun command.
+
+## Useful Commands
 
 ```bash
 "$PYTHON_CMD" scripts/workflow.py next --run-dir "$RUN_DIR"
@@ -58,11 +142,6 @@ identify:
   --artifact artifacts/some_validation.json \
   --rerun-command '"$PYTHON_CMD" scripts/workflow.py next --run-dir "$RUN_DIR"' \
   --output "$RUN_DIR/artifacts/some_validation_repair.json"
-
-"$PYTHON_CMD" scripts/validate_stage_gate.py \
-  --stage pre_research_pack \
-  --run-dir "$RUN_DIR" \
-  --output "$RUN_DIR/artifacts/stage_gate_pre_research_pack_validation.json"
 
 "$PYTHON_CMD" scripts/pipeline.py validate-pre-ppt --run-dir "$RUN_DIR"
 

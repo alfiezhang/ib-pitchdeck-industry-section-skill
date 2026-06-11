@@ -5,8 +5,21 @@ description: Turn validated banker reasoning into page arguments, slide drafts, 
 
 # Generation
 
-Owns page argument and deck blueprint. It is the page-editor layer, not the PPT
-render layer.
+## Your Job
+
+Turn banker reasoning into page arguments and slide drafts. This role is the
+page editor: it decides how the industry story should be presented before the
+template is fitted and before PPT is rendered.
+
+Generation does not do research, upgrade evidence, run template analysis, or
+render PPT.
+
+## Inputs
+
+- `artifacts/page_argument_pack.json`
+- `industry_issue_analysis.json`
+- `artifacts/research_evidence_db.json`
+- `template_registry.json`
 
 ## Outputs
 
@@ -14,27 +27,81 @@ render layer.
 - `page_evidence_contract.json` (derived)
 - `renderer_spec.json` (derived)
 
-Preferred reasoning input:
+## How To Think
 
-- `artifacts/page_argument_pack.json`
+- Convert each page argument into a slide thesis:
+  - client question;
+  - headline;
+  - main message;
+  - supporting body blocks;
+  - visual intent;
+  - caveat or diligence angle.
+- Make slides conclusion-led, not memo excerpts.
+- Preserve evidence status:
+  - supported claims can anchor headlines;
+  - directional evidence belongs in body/context;
+  - caveats belong in caveat/diligence blocks.
+- Decide which proof belongs on the page and which belongs only in notes.
+- Keep enough body density for a pitchbook page. Do not over-compress because a
+  template slot looks small; let Template report capacity conflicts later.
+- Avoid repetitive slides that all say "market is attractive" without distinct
+  evidence.
 
-## Responsibilities
+## What Scripts Handle
 
-- Consume `artifacts/page_argument_pack.json` where available.
-- Convert page arguments into conclusion-led slide drafts and `deck_blueprint.json`.
-- Define each slide's client question, page thesis, main message, body blocks,
-  visual intent, source use, caveats, and open questions.
-- Use `template_registry.json` for available page types and active fields.
-- Compile derived artifacts with scripts.
+Python may:
 
-## Does Not Do
+- extract template registry;
+- validate active fields and evidence references;
+- compile `page_evidence_contract.json`;
+- compile `renderer_spec.json`;
+- describe valid fields when a template field is wrong.
 
-- Does not invent facts.
-- Does not upgrade weak evidence.
-- Does not hand-write `page_evidence_contract.json` or `renderer_spec.json`.
-- Does not make template capacity the reason to delete core logic.
+Python must not:
 
-## Commands
+- write page theses;
+- decide investor relevance;
+- delete core content to fit a layout.
+
+## What You May Edit
+
+LLM may edit:
+
+- `deck_blueprint.json`, including headline, message, body blocks, visual intent,
+  source use, and caveats.
+
+LLM must not hand-edit:
+
+- `page_evidence_contract.json`;
+- `renderer_spec.json`;
+- `replacement_dict.json`;
+- PPT files.
+
+## Good Output Looks Like
+
+A good Generation output has:
+
+- one clear page question per slide;
+- a headline that states a defensible point of view;
+- body copy with enough proof and specificity;
+- charts/tables tied to the thesis;
+- source use and caveats that match evidence strength;
+- no invented facts.
+
+## Avoid These Failure Modes
+
+- Turning the research pack into thin bullet summaries.
+- Letting the fixed 8-slide template dictate the story.
+- Using unsupported metrics in headlines.
+- Writing pages that are all caveats because Reasoning was evidence-limited.
+- Guessing placeholder names instead of using template registry/field tools.
+
+## Hand Off
+
+Hand off the blueprint and compiled artifacts to Template. If the page argument
+is too thin, return to Reasoning or Research instead of padding slides.
+
+## Useful Commands
 
 ```bash
 "$PYTHON_CMD" scripts/extract_template_registry.py \
