@@ -415,6 +415,114 @@ def _build_variants(template_registry: dict[str, Any], layout_budget: dict[str, 
     return variants
 
 
+def _merge_supports(current: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    keys = sorted(set(current) | set(incoming) | {"chart", "table", "matrix", "cards", "image", "source_footer", "text"})
+    return {key: bool(current.get(key)) or bool(incoming.get(key)) for key in keys}
+
+
+def _build_page_type_capability(variants: list[dict[str, Any]], inventory: dict[str, Any]) -> dict[str, Any]:
+    capabilities: dict[str, dict[str, Any]] = {}
+    inventory_by_slide: dict[int, dict[str, Any]] = {}
+    for item in inventory.get("slides", []):
+        if not isinstance(item, dict):
+            continue
+        try:
+            inventory_by_slide[int(item.get("slide_no"))] = item
+        except Exception:
+            continue
+
+    for variant in variants:
+        page_type = _as_str(variant.get("page_type"))
+        if not page_type:
+            continue
+        slide_no = int(variant.get("slide_no") or 0)
+        inv = inventory_by_slide.get(slide_no, {})
+        inv_supports = inv.get("supports") if isinstance(inv.get("supports"), dict) else {}
+        supports = _merge_supports(variant.get("supports") if isinstance(variant.get("supports"), dict) else {}, inv_supports)
+        row = capabilities.setdefault(
+            page_type,
+            {
+                "page_type": page_type,
+                "slides": [],
+                "supports": {},
+                "required_body_fields": [],
+                "render_layouts": [],
+                "density_classes": [],
+            },
+        )
+        row["slides"].append(slide_no)
+        row["supports"] = _merge_supports(row.get("supports", {}), supports)
+        for field in variant.get("required_body_fields", []):
+            if field not in row["required_body_fields"]:
+                row["required_body_fields"].append(field)
+        render_layout = _as_str(variant.get("render_layout"))
+        if render_layout and render_layout not in row["render_layouts"]:
+            row["render_layouts"].append(render_layout)
+        density = _as_str(inv.get("information_density")) or "unknown"
+        if density not in row["density_classes"]:
+            row["density_classes"].append(density)
+
+    return {
+        "schema_version": "page_type_capability_v1",
+        "page_types": dict(sorted(capabilities.items())),
+    }
+
+
+def _build_source_area(inventory: dict[str, Any], source_policy: dict[str, Any]) -> dict[str, Any]:
+    source_slots: list[dict[str, Any]] = []
+    for slide in inventory.get("slides", []):
+        if not isinstance(slide, dict):
+            continue
+        for slot in slide.get("slots", []):
+            if not isinstance(slot, dict):
+                continue
+            role = _as_str(slot.get("role"))
+            if role not in {"source_footer", "footer_or_source_area"}:
+                continue
+            source_slots.append(
+                {
+                    "slide_no": slide.get("slide_no"),
+                    "shape_index": slot.get("shape_index"),
+                    "role": role,
+                    "geometry": slot.get("geometry", {}),
+                    "text_sample": slot.get("text_sample", ""),
+                }
+            )
+    return {
+        "schema_version": "source_area_v1",
+        "required_source_footer": bool(source_policy.get("required_source_footer")),
+        "source_footer_fields": source_policy.get("source_footer_fields", ["source_footer"]),
+        "source_slots": source_slots,
+        "has_detected_source_area": bool(source_slots),
+    }
+
+
+def _build_density_budget(layout_budget: dict[str, Any], variants: list[dict[str, Any]]) -> dict[str, Any]:
+    slide_budgets = layout_budget.get("slide_budgets") if isinstance(layout_budget.get("slide_budgets"), dict) else {}
+    rows: list[dict[str, Any]] = []
+    for variant in variants:
+        slide_no = int(variant.get("slide_no") or 0)
+        page_type = _as_str(variant.get("page_type"))
+        key = f"{slide_no}:{page_type}"
+        budget = slide_budgets.get(key, {}) if isinstance(slide_budgets.get(key), dict) else {}
+        body_fields = budget.get("body_fields_max_units") if isinstance(budget.get("body_fields_max_units"), dict) else {}
+        rows.append(
+            {
+                "slide_no": slide_no,
+                "page_type": page_type,
+                "body_fields_max_units": body_fields,
+                "table": budget.get("table", {}),
+                "matrix": budget.get("matrix", {}),
+                "max_body_units_total": sum(float(value or 0) for value in body_fields.values()) if body_fields else 0,
+            }
+        )
+    return {
+        "schema_version": "density_budget_v1",
+        "global": layout_budget.get("global", {}),
+        "slides": rows,
+    }
+
+
 def _load_paths(args) -> tuple[dict[str, Path], Path]:
     layout_paths = layout_config_paths(args.layout_config)
     if args.slide_registry is not None:
@@ -457,6 +565,12 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
     source_footer_fields = _extract_source_footer_fields(template_registry)
     render_layouts = _normalize_render_layouts(_load_json(layout_paths["render_layouts"]))
     variant_payload = _build_variants(template_registry, layout_budget, source_footer_fields)
+    source_policy = {
+        "source_footer_fields": source_footer_fields or ["source_footer"],
+        "required_source_footer": True if source_footer_fields else bool(
+            any((item.get("supports") or {}).get("source_footer") for item in inventory.get("slides", []) if isinstance(item, dict))
+        ),
+    }
 
     return {
         "schema_version": "template_profile_v1",
@@ -482,6 +596,10 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
             },
         },
         "template_inventory": inventory,
+        "render_layouts": render_layouts,
+        "page_type_capability": _build_page_type_capability(variant_payload, inventory),
+        "source_area": _build_source_area(inventory, source_policy),
+        "density_budget": _build_density_budget(layout_budget, variant_payload),
         "dynamic_slots": {
             "slide_count": inventory.get("slide_count", 0),
             "slides": [
@@ -504,12 +622,7 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
             "layout_budget": layout_budget,
         },
         "slide_variants": variant_payload,
-        "source_policy": {
-            "source_footer_fields": source_footer_fields or ["source_footer"],
-            "required_source_footer": True if source_footer_fields else bool(
-                any((item.get("supports") or {}).get("source_footer") for item in inventory.get("slides", []) if isinstance(item, dict))
-            ),
-        },
+        "source_policy": source_policy,
         "output_path": str(output_path),
         "template_registry_file": str(layout_paths["slide_registry"]),
     }
@@ -523,6 +636,9 @@ def _validate_profile(profile: dict[str, Any]) -> list[str]:
         errors.append("visual_style is required")
     if "layout" not in profile:
         errors.append("layout is required")
+    for key in ("render_layouts", "page_type_capability", "source_area", "density_budget"):
+        if not isinstance(profile.get(key), dict):
+            errors.append(f"{key} is required")
     return errors
 
 
@@ -552,6 +668,12 @@ def main() -> int:
             {"slide_count": 0, "slides": [], "analysis_fallback": True},
             ["template PPTX inventory skipped by --skip-pptextract"],
         )
+        fallback_render_layouts = _normalize_render_layouts(_load_json(layout_paths["render_layouts"]))
+        fallback_layout_budget = _load_json(layout_paths["layout_budget"])
+        fallback_source_policy = {
+            "source_footer_fields": ["source_footer"],
+            "required_source_footer": False,
+        }
         profile = {
             "schema_version": "template_profile_v1",
             "template_file": str(template_path),
@@ -569,6 +691,10 @@ def main() -> int:
             },
             "text_geometry": {"analysis_fallback": True},
             "template_inventory": inventory,
+            "render_layouts": fallback_render_layouts,
+            "page_type_capability": _build_page_type_capability([], inventory),
+            "source_area": _build_source_area(inventory, fallback_source_policy),
+            "density_budget": _build_density_budget(fallback_layout_budget, []),
             "dynamic_slots": {
                 "slide_count": inventory.get("slide_count", 0),
                 "slides": [
@@ -583,18 +709,15 @@ def main() -> int:
                 ],
             },
             "layout": {
-                "render_layouts": _normalize_render_layouts(_load_json(layout_paths["render_layouts"])),
+                "render_layouts": fallback_render_layouts,
                 "text_fit_rules": {
                     "fields": _load_json(layout_paths["text_fit_rules"]).get("fields", {}),
                     "renderer_field_aliases": _load_json(layout_paths["text_fit_rules"]).get("renderer_field_aliases", {}),
                 },
-                "layout_budget": _load_json(layout_paths["layout_budget"]),
+                "layout_budget": fallback_layout_budget,
             },
             "slide_variants": [],
-            "source_policy": {
-                "source_footer_fields": ["source_footer"],
-                "required_source_footer": False,
-            },
+            "source_policy": fallback_source_policy,
             "output_path": str(output),
             "template_registry_file": str(layout_paths["slide_registry"]),
         }

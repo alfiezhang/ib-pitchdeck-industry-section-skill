@@ -15,6 +15,7 @@ pitch judgment.
 - `artifacts/source_reviews.json`
 - `artifacts/source_archive/source_archive_index.json`
 - `artifacts/formal_research_execution_report.json`
+- `artifacts/coverage_accounting.json`
 - evidence inputs for `artifacts/research_evidence_db.json`
 
 ## Search Discipline
@@ -74,7 +75,8 @@ Provider order for script fallback is configured in
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
   --include-unexecuted \
-  --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+  --output "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+  --coverage-accounting "$RUN_DIR/artifacts/coverage_accounting.json"
 ```
 
 ## Loop 2: Evidence Supplementation

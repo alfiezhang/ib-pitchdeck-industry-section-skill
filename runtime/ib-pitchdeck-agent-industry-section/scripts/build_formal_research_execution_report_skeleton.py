@@ -336,12 +336,73 @@ def build_report(
     }
 
 
+def build_coverage_accounting(report: dict[str, Any]) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    counters = {
+        "planned": 0,
+        "executed": 0,
+        "not_executed": 0,
+        "not_material": 0,
+        "executed_with_evidence": 0,
+        "executed_no_usable_source": 0,
+    }
+    for item in _as_list(report.get("fs_row_execution_status")):
+        if not isinstance(item, dict):
+            continue
+        terminal_status = _text(item.get("terminal_status"))
+        counters["planned"] += 1
+        if terminal_status == "executed_with_evidence":
+            coverage_status = "executed"
+            counters["executed"] += 1
+            counters["executed_with_evidence"] += 1
+        elif terminal_status == "executed_no_usable_source":
+            coverage_status = "executed"
+            counters["executed"] += 1
+            counters["executed_no_usable_source"] += 1
+        elif terminal_status == "accounting_only":
+            coverage_status = "not_material"
+            counters["not_material"] += 1
+        else:
+            coverage_status = "not_executed"
+            counters["not_executed"] += 1
+        rows.append(
+            {
+                "fs_id": _text(item.get("fs_id")),
+                "result_id": _text(item.get("result_id")),
+                "issue_area": _text(item.get("issue_area")),
+                "subissue": _text(item.get("subissue")),
+                "execution_expectation": _text(item.get("execution_expectation")),
+                "minimum_actual_searches": int(item.get("minimum_actual_searches") or 0),
+                "actual_search_attempt_count": int(item.get("actual_search_attempt_count") or 0),
+                "actual_search_attempt_ids": _as_list(item.get("actual_search_attempt_ids")),
+                "terminal_status": terminal_status,
+                "coverage_status": coverage_status,
+                "downstream_permission": _text(item.get("downstream_permission")),
+                "can_support_evidence": terminal_status == "executed_with_evidence",
+                "can_support_deck_claim": terminal_status == "executed_with_evidence",
+            }
+        )
+    return {
+        "schema_version": "coverage_accounting_v1",
+        "source_artifact": "artifacts/formal_research_execution_report.json",
+        "summary": counters,
+        "rows": rows,
+        "policy": {
+            "planned_rows_are_not_evidence": True,
+            "not_executed_rows_cannot_support_research_pack": True,
+            "not_material_rows_are_accounting_only": True,
+            "research_evidence_db_uses_only_executed_with_evidence_rows": True,
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--formal-search-plan", required=True)
     parser.add_argument("--search-log", required=True)
     parser.add_argument("--source-reviews")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--coverage-accounting", help="Optional artifacts/coverage_accounting.json output path")
     parser.add_argument("--search-log-ref", default="artifacts/search_log.md")
     parser.add_argument("--include-unexecuted", action="store_true", help="Include planned FS-xxx instructions with no S-xxx attempts as insufficient FR rows.")
     args = parser.parse_args()
@@ -358,7 +419,13 @@ def main() -> int:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"is_valid": True, "output": str(output_path), "issue_result_count": len(report["issue_results"])}, ensure_ascii=False, indent=2))
+    coverage_output = ""
+    if args.coverage_accounting:
+        coverage_path = Path(args.coverage_accounting)
+        coverage_path.parent.mkdir(parents=True, exist_ok=True)
+        coverage_path.write_text(json.dumps(build_coverage_accounting(report), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        coverage_output = str(coverage_path)
+    print(json.dumps({"is_valid": True, "output": str(output_path), "coverage_accounting": coverage_output, "issue_result_count": len(report["issue_results"])}, ensure_ascii=False, indent=2))
     return 0
 
 

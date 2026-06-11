@@ -341,13 +341,24 @@ def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, 
 
 
 def _gate_artifact_io(manifest: dict[str, Any], state: dict[str, Any]) -> tuple[list[str], list[str]]:
-    stage_gate = str(state.get("stage") or "")
+    stage_gate = str(state.get("gate") or "")
     artifact_spec, _ = manifest_gate_artifact(manifest, stage_gate)
     if not artifact_spec:
         return [], []
+    artifacts = manifest.get("artifacts") if isinstance(manifest.get("artifacts"), dict) else {}
     inputs = artifact_spec.get("inputs")
+    input_paths: list[str] = []
+    for item in _as_list(inputs):
+        source = artifacts.get(str(item))
+        if isinstance(source, dict) and source.get("path"):
+            input_paths.append(str(source["path"]))
+        else:
+            input_paths.append(str(item))
     outputs = [str(artifact_spec.get("path") or artifact_spec.get("validation") or "")]
-    return _as_list(inputs), outputs
+    validation = str(artifact_spec.get("validation") or "")
+    if validation and validation not in outputs:
+        outputs.append(validation)
+    return input_paths, outputs
 
 
 def _template_profile_check(run_dir: Path) -> dict[str, Any] | None:
@@ -836,6 +847,8 @@ def validate_run_state(run_dir: Path) -> dict[str, Any]:
         debug_only = True
 
     state = blocked_retry_gate(run_dir) or first_failed_gate(run_dir)
+    manifest = load_artifact_manifest()
+    input_artifacts, output_artifacts = _gate_artifact_io(manifest, state)
     mission_state = _load_or_default_mission_state(run_dir, str(state.get("stage", "")), str(state.get("status", "")))
     evidence_readiness = _evidence_readiness_metrics(run_dir, state.get("stage", ""))
     _merge_evidence_readiness(mission_state, evidence_readiness)
@@ -865,6 +878,8 @@ def validate_run_state(run_dir: Path) -> dict[str, Any]:
         "repair_target_role": owner_role,
         "status": state["status"],
         "blocking_gate": state.get("gate", ""),
+        "input_artifacts": input_artifacts,
+        "output_artifacts": output_artifacts,
         "missing_artifacts": state.get("missing_artifacts", []),
         "failed_validations": state.get("failed_validations", []),
         "stale_validations": state.get("stale_validations", []),

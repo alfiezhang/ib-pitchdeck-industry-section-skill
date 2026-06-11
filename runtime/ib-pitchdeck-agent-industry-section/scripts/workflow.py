@@ -77,7 +77,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
         {
             "purpose": "rebuild planned-vs-actual execution accounting from plan/log/reviews; include unexecuted FS rows explicitly",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_formal_research_execution_report_skeleton.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --search-log {{run_dir}}/artifacts/search_log.md --source-reviews {{run_dir}}/artifacts/source_reviews.json --include-unexecuted --output {{run_dir}}/artifacts/formal_research_execution_report.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_formal_research_execution_report_skeleton.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --search-log {{run_dir}}/artifacts/search_log.md --source-reviews {{run_dir}}/artifacts/source_reviews.json --include-unexecuted --output {{run_dir}}/artifacts/formal_research_execution_report.json --coverage-accounting {{run_dir}}/artifacts/coverage_accounting.json",
         },
         {
             "purpose": "validate formal research execution accounting; planned FS rows without actual S-xxx attempts must be marked not_executed/not_material/accounting_only, not faked",
@@ -310,6 +310,8 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "repair_target_role": state.get("repair_target_role", state.get("owner_role", "orchestrator")),
         "status": state["status"],
         "blocking_gate": state["blocking_gate"],
+        "input_artifacts": state.get("input_artifacts", []),
+        "output_artifacts": state.get("output_artifacts", []),
         "missing_artifacts": state.get("missing_artifacts", []),
         "failed_validations": state.get("failed_validations", []),
         "stale_validations": state.get("stale_validations", []),

@@ -24,6 +24,7 @@
         "search_log",
         "source_reviews",
         "formal_research_execution_report",
+        "coverage_accounting",
         "research_evidence_db",
         "hypothesis_store",
         "research_request_queue",
@@ -106,6 +107,7 @@
         "source_reviews",
         "source_archive",
         "formal_research_execution_report",
+        "coverage_accounting",
         "pre_research_pack_gate",
         "evidence_candidate_skeleton"
       ]
@@ -284,6 +286,12 @@
       "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": ["formal_search_plan", "search_log", "source_reviews", "source_archive"]
     },
+    "coverage_accounting": {
+      "path": "artifacts/coverage_accounting.json",
+      "owner": "script_execution_accounting",
+      "builder": "scripts/build_formal_research_execution_report_skeleton.py",
+      "inputs": ["formal_research_execution_report"]
+    },
     "source_reviews": {
       "path": "artifacts/source_reviews.json",
       "owner": "script_skeleton_llm_source_review_audit",
@@ -328,7 +336,7 @@
       "owner": "script",
       "validator": "scripts/validate_stage_gate.py --stage pre_research_pack",
       "validation": "artifacts/stage_gate_pre_research_pack_validation.json",
-      "inputs": ["material_manifest", "material_extracts", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
+      "inputs": ["material_manifest", "material_extracts", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "coverage_accounting", "source_reviews", "source_archive"]
     },
     "hypothesis_store": {
       "path": "artifacts/hypothesis_store.json",
@@ -374,7 +382,7 @@
       "builder": "scripts/build_research_evidence_db.py",
       "validator": "scripts/validate_research_evidence_db.py",
       "validation": "artifacts/research_evidence_db_validation.json",
-      "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive"]
+      "inputs": ["industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "coverage_accounting", "source_reviews", "source_archive"]
     },
     "issue_analysis": {
       "path": "industry_issue_analysis.json",
@@ -556,7 +564,7 @@
       "owner": "script",
       "validator": "scripts/validate_stage_gate.py --stage pre_ppt",
       "validation": "artifacts/stage_gate_pre_ppt_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "chart_metric_binding", "content_quality"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "search_log", "formal_research_execution_report", "coverage_accounting", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "chart_metric_binding", "content_quality"]
     },
     "replacement_dict": {
       "path": "replacement_dict.json",
@@ -579,7 +587,7 @@
       "owner": "script",
       "validator": "scripts/validate_final_delivery.py",
       "validation": "artifacts/final_delivery_validation.json",
-      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "template_profile", "template_fit_validation", "template_fit_plan", "replacement_dict", "filled_ppt"]
+      "inputs": ["input_card", "industry_scope_pack", "formal_search_plan", "formal_research_execution_report", "coverage_accounting", "source_reviews", "source_archive", "research_evidence_db", "research_pack", "issue_analysis", "template_registry", "deck_blueprint", "page_evidence_contract", "renderer_spec", "template_profile", "template_fit_validation", "template_fit_plan", "replacement_dict", "filled_ppt"]
     }
   },
   "gates": [

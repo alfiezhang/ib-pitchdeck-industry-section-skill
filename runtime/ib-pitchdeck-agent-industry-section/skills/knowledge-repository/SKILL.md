@@ -22,6 +22,8 @@ Do not store the long-lived repository inside the runtime plugin package.
 
 - `artifacts/research_evidence_db.json` is the evidence source of truth.
 - `industry_research_pack.md` is a generated readable export.
+- `artifacts/coverage_accounting.json` records planned/executed/not-executed
+  search coverage. It is not evidence and must not be exported as source facts.
 
 ## Responsibilities
 
@@ -30,6 +32,8 @@ Do not store the long-lived repository inside the runtime plugin package.
 - Distinguish user-provided company facts, user-curated report facts, public web
   facts, repository facts, model inference, and unresolved hypotheses.
 - Export the Markdown research pack from the DB.
+- Keep coverage accounting separate from the evidence DB extract/fact/metric
+  rows; only `executed_with_evidence` source-reviewed rows may become evidence.
 
 ## Does Not Do
 

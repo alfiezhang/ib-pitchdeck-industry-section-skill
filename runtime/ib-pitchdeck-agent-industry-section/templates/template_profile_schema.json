@@ -8,6 +8,10 @@
     "template_file",
     "visual_style",
     "text_geometry",
+    "render_layouts",
+    "page_type_capability",
+    "source_area",
+    "density_budget",
     "source_policy"
   ],
   "properties": {
@@ -67,6 +71,66 @@
         },
         "aggregate_roles": { "type": "object", "additionalProperties": true },
         "analysis_fallback": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "render_layouts": {
+      "type": "object",
+      "required": ["slides"],
+      "properties": {
+        "slides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "page_type_capability": {
+      "type": "object",
+      "required": ["schema_version", "page_types"],
+      "properties": {
+        "schema_version": { "type": "string", "const": "page_type_capability_v1" },
+        "page_types": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["page_type", "slides", "supports"],
+            "properties": {
+              "page_type": { "type": "string" },
+              "slides": { "type": "array", "items": { "type": "integer" } },
+              "supports": { "type": "object", "additionalProperties": { "type": "boolean" } },
+              "required_body_fields": { "type": "array", "items": { "type": "string" } },
+              "render_layouts": { "type": "array", "items": { "type": "string" } },
+              "density_classes": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "source_area": {
+      "type": "object",
+      "required": ["schema_version", "source_footer_fields", "source_slots", "has_detected_source_area"],
+      "properties": {
+        "schema_version": { "type": "string", "const": "source_area_v1" },
+        "required_source_footer": { "type": "boolean" },
+        "source_footer_fields": { "type": "array", "items": { "type": "string" } },
+        "source_slots": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "has_detected_source_area": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "density_budget": {
+      "type": "object",
+      "required": ["schema_version", "slides"],
+      "properties": {
+        "schema_version": { "type": "string", "const": "density_budget_v1" },
+        "global": { "type": "object", "additionalProperties": true },
+        "slides": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
       },
       "additionalProperties": true
     },
