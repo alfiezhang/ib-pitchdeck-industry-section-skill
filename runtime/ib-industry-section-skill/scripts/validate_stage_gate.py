@@ -384,14 +384,14 @@ def check_search_coverage(
     except Exception:
         return
 
-    results = report_data.get("results", [])
+    results = report_data.get("issue_results", [])
     if not results:
         return
 
     total = len(results)
     executed = sum(
         1 for r in results
-        if r.get("evidence_status") not in {"not_executed", "accounting_only"}
+        if r.get("terminal_status") not in {"not_executed", "accounting_only"}
     )
     ratio = executed / total if total else 0.0
 

@@ -609,14 +609,24 @@ def check_layout_budget(
         if not isinstance(rules, dict):
             continue
 
+        # Build field→text map from body_copy or body_blocks.
         body_copy = slide.get("body_copy")
-        if not isinstance(body_copy, dict):
+        if isinstance(body_copy, dict):
+            field_text = {str(k): str(v or "").strip() for k, v in body_copy.items() if isinstance(v, str) and v.strip()}
+        else:
+            field_text = {}
+            for block in _body_blocks(slide):
+                target = _block_target_field(block)
+                if not target:
+                    continue
+                text = str(block.get("copy") or block.get("point") or "").strip()
+                if text:
+                    field_text[target] = text
+        if not field_text:
             continue
 
         field_limits = rules.get("body_fields_max_units", {})
-        for field_name, value in body_copy.items():
-            if not isinstance(value, str) or not value.strip():
-                continue
+        for field_name, value in field_text.items():
             field_limit = float(field_limits.get(field_name, default_limit))
             actual = display_units(value)
             if actual > field_limit * _LAYOUT_BUDGET_HARD_OVERFLOW:

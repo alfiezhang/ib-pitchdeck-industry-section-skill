@@ -486,7 +486,9 @@ _STALE_RERUN_COMMANDS: dict[str, list[str]] = {
         "{python}", "scripts/validate_source_reviews.py",
         "--source-reviews", "{run_dir}/artifacts/source_reviews.json",
         "--search-log", "{run_dir}/artifacts/search_log.md",
-        "--source-archive", "{run_dir}/artifacts/source_archive/source_archive_index.json",
+        "--formal-research-execution-report", "{run_dir}/artifacts/formal_research_execution_report.json",
+        "--source-archive-index", "{run_dir}/artifacts/source_archive/source_archive_index.json",
+        "--run-dir", "{run_dir}",
         "--output", "{run_dir}/artifacts/source_reviews_validation.json",
     ],
     "artifacts/page_evidence_contract_validation.json": [
