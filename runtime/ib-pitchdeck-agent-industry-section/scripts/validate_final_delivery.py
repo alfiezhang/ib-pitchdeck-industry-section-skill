@@ -72,6 +72,53 @@ def _looks_like_research_error(error_text: Any) -> bool:
     return any(pattern.search(message) for pattern in RESEARCH_EVIDENCE_ERROR_PATTERNS)
 
 
+def _evidence_readiness_payload(run_dir: Path) -> dict[str, Any]:
+    db_path = run_dir / "artifacts" / "research_evidence_db.json"
+    issue_analysis_path = run_dir / "industry_issue_analysis.json"
+    issue_payload = {}
+    if issue_analysis_path.exists():
+        try:
+            issue_payload = load_json_file(issue_analysis_path)
+        except Exception:
+            issue_payload = {}
+    issue_readiness = issue_payload.get("evidence_readiness")
+    if isinstance(issue_readiness, dict):
+        enough = bool(issue_readiness.get("enough_for_client_pitch", False))
+        evidence_limited = bool(issue_readiness.get("evidence_limited_pitch_outline", True))
+        research_first_required = bool(issue_readiness.get("research_first_required", True))
+        critical_gap_count = int(issue_readiness.get("critical_gap_count", 0) or 0)
+        evidence_row_count = int(issue_readiness.get("evidence_row_count", 0) or 0)
+        metric_row_count = int(issue_readiness.get("metric_row_count", 0) or 0)
+        return {
+            "enough_for_client_pitch": enough,
+            "evidence_limited_pitch_outline": evidence_limited,
+            "research_first_required": research_first_required,
+            "critical_gap_count": critical_gap_count,
+            "evidence_row_count": evidence_row_count,
+            "metric_row_count": metric_row_count,
+        }
+
+    evidence_rows = 0
+    metric_rows = 0
+    if db_path.exists():
+        try:
+            db = load_json_file(db_path)
+        except Exception:
+            db = {}
+        evidence_rows = len(db.get("evidence_ledger", [])) if isinstance(db, dict) else 0
+        metric_rows = len(db.get("metric_reconciliation", [])) if isinstance(db, dict) else 0
+
+    enough = (evidence_rows + metric_rows) >= 2
+    return {
+        "enough_for_client_pitch": enough,
+        "evidence_limited_pitch_outline": not enough,
+        "research_first_required": evidence_rows == 0 and metric_rows == 0,
+        "critical_gap_count": 0,
+        "evidence_row_count": int(evidence_rows),
+        "metric_row_count": int(metric_rows),
+    }
+
+
 def _append_repair_targets(
     target_list: list[dict[str, Any]],
     report: dict[str, Any] | None,
@@ -1803,15 +1850,23 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None, python_cmd: 
         technical_delivery_valid = False
 
     research_evidence_valid = not any(_looks_like_research_error(error) for error in errors)
+    evidence_readiness = _evidence_readiness_payload(run_dir)
+    content_ready_threshold = bool(evidence_readiness.get("enough_for_client_pitch", False))
     errors = unique_preserve_order(errors)
     warnings = unique_preserve_order(warnings)
-    client_ready = technical_delivery_valid and research_evidence_valid and not errors
+    technical_client_ready = bool(technical_delivery_valid and not errors)
+    content_client_ready = bool(technical_client_ready and research_evidence_valid and content_ready_threshold)
+    client_ready = technical_client_ready and content_client_ready
 
     return {
         "is_valid": not errors,
         "technical_delivery_valid": technical_delivery_valid,
         "research_evidence_valid": research_evidence_valid,
+        "technical_client_ready": technical_client_ready,
+        "content_client_ready": content_client_ready,
+        "delivery_mode": "evidence_limited_outline" if not content_client_ready else "full_pitchbook",
         "client_ready": client_ready,
+        "evidence_readiness": evidence_readiness,
         "error_count": len(errors),
         "warning_count": len(warnings),
         "errors": errors,

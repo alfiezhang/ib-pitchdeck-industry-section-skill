@@ -16,8 +16,8 @@ import os
 import shutil
 import subprocess
 import sys
-from json import JSONDecodeError
 from datetime import datetime, timezone
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +43,7 @@ TEMPLATE_PROFILE = LAYOUT_PATHS["template_profile"]
 
 FILLED_PPT = "industry_section_filled.pptx"
 CLEAN_PPT = "industry_section_filled_clean.pptx"
+FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
 
 
 class PipelineError(RuntimeError):
@@ -73,6 +74,24 @@ def _run_returncode(cmd: list[str], *, cwd: Path | None = None, env: dict[str, s
     print(f"[pipeline] {printable}")
     completed = subprocess.run([str(part) for part in cmd], cwd=str(cwd or ROOT_DIR), env=env, check=False)
     return completed.returncode
+
+
+def _append_failure_memory(run_dir: Path, event: str, *, outcome: str, command: str = "", details: dict[str, Any] | None = None) -> None:
+    if not run_dir:
+        return
+    path = run_dir / FAILURE_MEMORY
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "run_dir": str(run_dir),
+        "event": event,
+        "outcome": outcome,
+        "command": command,
+    }
+    if details:
+        payload["details"] = details
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
 def _ensure_run_dir(run_dir: Path) -> Path:
@@ -243,6 +262,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str) -> None:
 
 
 def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> None:
+    _append_failure_memory(run_dir, "pipeline_render", outcome="start", command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir}")
     run_dir = _ensure_run_dir(run_dir)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
@@ -360,8 +380,23 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False) -> N
         finalize(run_dir, python_cmd, require_client_ready=True)
         _clear_not_client_ready(run_dir)
     except Exception:
+        _append_failure_memory(
+            run_dir,
+            "pipeline_render",
+            outcome="failure",
+            command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir}",
+            details={"skip_preflight": skip_preflight},
+        )
         _mark_not_client_ready(run_dir)
         raise
+    else:
+        _append_failure_memory(
+            run_dir,
+            "pipeline_render",
+            outcome="success",
+            command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir}",
+            details={"skip_preflight": skip_preflight},
+        )
 
 
 def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> None:
@@ -383,11 +418,25 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
         cmd.append("--require-client-ready")
     final_returncode = _run_returncode(cmd)
     if final_returncode != 0:
+        _append_failure_memory(
+            run_dir,
+            "pipeline_finalize",
+            outcome="failure",
+            command=" ".join(str(part) for part in cmd),
+            details={"require_client_ready": require_client_ready, "return_code": final_returncode},
+        )
         _mark_not_client_ready(run_dir)
         raise PipelineError(
             "final delivery gate failed; see artifacts/final_delivery_validation.json "
             "and artifacts/run_quality_summary.json for repair targets"
         )
+    _append_failure_memory(
+        run_dir,
+        "pipeline_finalize",
+        outcome="success",
+        command=" ".join(str(part) for part in cmd),
+        details={"require_client_ready": require_client_ready, "return_code": final_returncode},
+    )
     _run([python_cmd, SCRIPT_DIR / "generate_run_quality_summary.py", "--run-dir", run_dir])
     if run_dir.name.startswith("attempt_"):
         runs_dir = run_dir.parent

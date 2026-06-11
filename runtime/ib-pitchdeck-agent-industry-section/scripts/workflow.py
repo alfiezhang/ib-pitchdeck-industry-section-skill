@@ -66,8 +66,8 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "FORMAL_SEARCH_PLAN_MISSING": [
         {
-            "purpose": "build full-taxonomy formal search plan skeleton as coverage_audit (coverage rows only, formal_research_execution stage)",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_formal_search_plan_skeleton.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/formal_search_plan.json",
+            "purpose": "export searchable coverage map and executable search batch for downstream planning and repair traceability",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_formal_search_plan_skeleton.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/formal_search_plan.json --coverage-map {{run_dir}}/artifacts/coverage_map.json --search-batch {{run_dir}}/artifacts/search_batch.json",
         },
         {
             "purpose": "validate formal search plan after editing executable queries",
@@ -299,6 +299,8 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
     payload = {
         "schema_version": "workflow_next_v1",
         "run_dir": state["run_dir"],
+        "current_mission": state.get("mission_state", {}).get("current_mission") if isinstance(state.get("mission_state"), dict) else "",
+        "current_phase": state.get("mission_state", {}).get("current_phase") if isinstance(state.get("mission_state"), dict) else "",
         "source_run_dir": state.get("source_run_dir", ""),
         "output_run_dir": state.get("output_run_dir", state["run_dir"]),
         "package_of_record": state.get("package_of_record", state["run_dir"]),
@@ -318,6 +320,17 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "forbidden_actions": state["forbidden_actions"],
         "debug_only": state["debug_only"],
         "final_delivery_valid": state["final_delivery_valid"],
+        "mission_state": state.get("mission_state", {}),
+        "evidence_readiness": state.get("evidence_readiness", {}),
+        "handoff_packet_targets": [
+            "artifacts/handoff_material_to_scoping.json",
+            "artifacts/handoff_scoping_to_research.json",
+            "artifacts/handoff_research_to_reasoning.json",
+            "artifacts/handoff_reasoning_to_generation.json",
+            "artifacts/handoff_generation_to_template.json",
+            "artifacts/handoff_template_to_output.json",
+        ],
+        "failure_memory_tail": state.get("failure_memory_tail", []),
         "message": state["message"],
     }
     if state.get("owner_skill"):

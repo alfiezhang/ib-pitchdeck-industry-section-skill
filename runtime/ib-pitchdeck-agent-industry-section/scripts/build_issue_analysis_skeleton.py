@@ -25,6 +25,13 @@ from validate_research_pack import issue_fact_inventory_rows
 SUPPORTED_STATUSES = {"sufficient", "thin", "not_applicable"}
 
 
+def _as_int(value: Any, *, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
 def _evidence_status(fact_status: str) -> str:
     if fact_status == "sufficient":
         return "supported"
@@ -122,6 +129,25 @@ def _meta_from_db(db: dict[str, Any]) -> dict[str, str]:
         "industry": _text(meta.get("industry")) or "Unknown industry",
         "geography": _text(meta.get("geography")) or "Unknown geography",
         "research_as_of_date": _text(meta.get("research_as_of_date")) or date.today().isoformat(),
+    }
+
+
+def _evidence_readiness_from_db(db: dict[str, Any]) -> dict[str, Any]:
+    evidence_rows = _as_int(len(_as_list(db.get("evidence_ledger"))))
+    metric_rows = _as_int(len(_as_list(db.get("metric_reconciliation"))))
+    gap_audit = db.get("research_gap_audit") if isinstance(db.get("research_gap_audit"), dict) else {}
+    critical_gaps = len(_as_list(gap_audit.get("critical_gaps")))
+    enough_for_client_pitch = (evidence_rows + metric_rows) >= 2
+    evidence_limited_pitch_outline = not enough_for_client_pitch
+    return {
+        "schema_version": "evidence_readiness_v1",
+        "enough_for_client_pitch": enough_for_client_pitch,
+        "evidence_limited_pitch_outline": evidence_limited_pitch_outline,
+        "research_first_required": False,
+        "critical_gap_count": critical_gaps,
+        "evidence_row_count": evidence_rows,
+        "metric_row_count": metric_rows,
+        "research_pack_exists": True,
     }
 
 
@@ -228,12 +254,33 @@ def build_issue_analysis_skeleton(
     if db:
         text = ""
         rows = _db_inventory_rows(db)
+        evidence_readiness = _evidence_readiness_from_db(db)
     elif research_pack_path:
         text = research_pack_path.read_text(encoding="utf-8")
         rows = issue_fact_inventory_rows(text)
+        evidence_readiness = {
+            "schema_version": "evidence_readiness_v1",
+            "enough_for_client_pitch": False,
+            "evidence_limited_pitch_outline": True,
+            "research_first_required": True,
+            "critical_gap_count": 0,
+            "evidence_row_count": 0,
+            "metric_row_count": 0,
+            "research_pack_exists": False,
+        }
     else:
         text = ""
         rows = []
+        evidence_readiness = {
+            "schema_version": "evidence_readiness_v1",
+            "enough_for_client_pitch": False,
+            "evidence_limited_pitch_outline": True,
+            "research_first_required": True,
+            "critical_gap_count": 0,
+            "evidence_row_count": 0,
+            "metric_row_count": 0,
+            "research_pack_exists": False,
+        }
     rows_by_pair: dict[tuple[str, str], dict[str, str]] = {}
     for row in rows:
         area = _text(row.get("Issue Area"))
@@ -314,6 +361,7 @@ def build_issue_analysis_skeleton(
 
     return {
         "meta": _meta_from_db(db) if db else _meta_from_pack(text),
+        "evidence_readiness": evidence_readiness,
         "issue_analyses": issue_analyses,
         "research_backlog": backlog,
         "rejected_or_deprioritized_analyses": [],

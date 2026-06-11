@@ -29,6 +29,16 @@ SOURCE_HINTS_BY_AREA = {
     "pitch_relevance_target_context": "company-provided materials, peer transactions, investor commentary, sector reports",
 }
 
+SOURCE_SPECIFIC_HINTS = {
+    "market_size_growth": "official statistics, industry associations, regulatory or sector reports",
+    "demand_customer_logic": "company filings, company calls/transcripts, user or purchaser research",
+    "industry_structure": "industry reports, value-chain studies, financial filings",
+    "key_trends_drivers": "industry report, regulator/standard body, M&A and company announcements",
+    "competitive_landscape": "company filings, peer filings, transaction updates",
+    "competitive_dynamics": "financial results, M&A databases, strategic announcements",
+    "pitch_relevance_target_context": "company disclosures, peer transactions, sector commentary",
+}
+
 DEEP_SEARCH_PAIRS = {
     ("market_size_growth", "current_market_size"),
     ("market_size_growth", "historical_growth"),
@@ -53,6 +63,89 @@ ACCOUNTING_ONLY_PAIRS = {
     ("competitive_landscape", "valuation_snapshot_peer_fact"),
     ("pitch_relevance_target_context", "evidence_limits"),
 }
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _build_coverage_map(plan: dict[str, Any]) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for row in _as_list(plan.get("issue_search_plan")):
+        if not isinstance(row, dict):
+            continue
+        area = _text(row.get("issue_area"))
+        subissue = _text(row.get("subissue"))
+        rows.append(
+            {
+                "issue_area": area,
+                "subissue": subissue,
+                "execution_expectation": _text(row.get("execution_expectation")),
+                "minimum_actual_searches": int(row.get("minimum_actual_searches", 0)),
+                "execution_rationale": _text(row.get("execution_rationale")),
+                "source_specific_query_type": _text(row.get("execution_expectation")),
+                "expected_source_type": _expected_source_type(area),
+                "research_question": _text(row.get("research_question")),
+                "plan_row": _text(row.get("search_instructions", [{}])[0].get("instruction_id", "")) if row.get("search_instructions") else "",
+            }
+        )
+    return {
+        "schema_version": "coverage_map_v1",
+        "coverage_mode": "canonical_taxonomy_vs_subissues",
+        "language": "mixed",
+        "scope": "industry_research_scope",
+        "rows": rows,
+    }
+
+
+def _expected_source_type(issue_area: str) -> str:
+    return SOURCE_SPECIFIC_HINTS.get(issue_area, "public_search")
+
+
+def _to_text_query(text: Any) -> str:
+    return " ".join(_text(text).split()) if text is not None else ""
+
+
+def _query_variant(query: str, issue_area: str) -> tuple[str, str]:
+    english_query = _to_text_query(query)
+    if not english_query:
+        english_query = f"{issue_area} evidence"
+    chinese_query = f"{issue_area} {english_query}"
+    return (
+        english_query,
+        chinese_query,
+    )
+
+
+def _build_search_batch(plan: dict[str, Any]) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for row in _as_list(plan.get("issue_search_plan")):
+        if not isinstance(row, dict):
+            continue
+        issue_area = _text(row.get("issue_area"))
+        subissue = _text(row.get("subissue"))
+        research_question = _to_text_query(row.get("research_question"))
+        english_query, chinese_query = _query_variant(research_question, issue_area)
+        rows.append(
+            {
+                "issue_area": issue_area,
+                "subissue": subissue,
+                "english_query": english_query,
+                "chinese_query": chinese_query,
+                "source_specific_query": row.get("search_instructions", [{}])[0].get("query", ""),
+                "expected_source_type": _expected_source_type(issue_area),
+                "why_this_search_matters": _text(row.get("execution_rationale")) or _to_text_query(row.get("research_question")),
+                "how_result_will_be_used": (
+                    "Drive source-reviewed evidence for the paired issue/subissue and map it to issue analysis deck rows."
+                ),
+            }
+        )
+    return {
+        "schema_version": "search_batch_v1",
+        "source_language": "mixed",
+        "scope": "industry_research_scope",
+        "batches": rows,
+    }
 
 
 def _text(value: Any) -> str:
@@ -257,15 +350,27 @@ def main() -> int:
     parser.add_argument("--input-card", help="Optional input_card.json path")
     parser.add_argument("--scope-pack", help="Optional artifacts/industry_scope_pack.json path")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--coverage-map", help="Optional artifacts/coverage_map.json output path")
+    parser.add_argument("--search-batch", help="Optional artifacts/search_batch.json output path")
     args = parser.parse_args()
 
     input_card = _load_optional(args.input_card)
     scope_pack = _load_optional(args.scope_pack)
     plan = build_plan(input_card, scope_pack)
+    coverage_map = _build_coverage_map(plan)
+    search_batch = _build_search_batch(plan)
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if args.coverage_map:
+        coverage_map_path = Path(args.coverage_map)
+        coverage_map_path.parent.mkdir(parents=True, exist_ok=True)
+        coverage_map_path.write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if args.search_batch:
+        search_batch_path = Path(args.search_batch)
+        search_batch_path.parent.mkdir(parents=True, exist_ok=True)
+        search_batch_path.write_text(json.dumps(search_batch, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"is_valid": True, "output": str(output_path), "issue_search_plan_count": len(plan["issue_search_plan"])}, ensure_ascii=False, indent=2))
     return 0
 

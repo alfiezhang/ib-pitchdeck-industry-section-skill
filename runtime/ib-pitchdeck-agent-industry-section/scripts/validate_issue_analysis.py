@@ -244,6 +244,26 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
     if not isinstance(backlog, list):
         errors.append("research_backlog must be an array")
         backlog = []
+    evidence_readiness = pool.get("evidence_readiness")
+    if evidence_readiness is not None and not isinstance(evidence_readiness, dict):
+        errors.append("evidence_readiness must be an object")
+    elif isinstance(evidence_readiness, dict):
+        if not isinstance(evidence_readiness.get("enough_for_client_pitch"), bool):
+            warnings.append("evidence_readiness.enough_for_client_pitch should be boolean")
+        if not isinstance(evidence_readiness.get("evidence_limited_pitch_outline"), bool):
+            warnings.append("evidence_readiness.evidence_limited_pitch_outline should be boolean")
+        if not isinstance(evidence_readiness.get("research_first_required"), bool):
+            warnings.append("evidence_readiness.research_first_required should be boolean")
+        for field in ("critical_gap_count", "evidence_row_count", "metric_row_count"):
+            if not isinstance(evidence_readiness.get(field), int):
+                try:
+                    int(evidence_readiness.get(field) or 0)
+                except Exception:
+                    warnings.append(f"evidence_readiness.{field} should be an integer")
+        if evidence_readiness.get("research_pack_exists") is False:
+            warnings.append("research_pack_exists is false; deck should be an evidence-limited outline until research pack is complete.")
+        if evidence_readiness.get("evidence_limited_pitch_outline") is True:
+            warnings.append("evidence_limited_pitch_outline is true; recommend issue-analysis depth guard before full deck claims.")
 
     memo_ev_ids, memo_met_ids = _load_id_sets(memo_path)
     fact_inventory = _load_fact_inventory(memo_path)

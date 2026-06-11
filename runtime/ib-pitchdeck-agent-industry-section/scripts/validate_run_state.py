@@ -50,6 +50,8 @@ DOWNSTREAM_ACTIONS = [
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
 DEFAULT_ARTIFACT_MANIFEST = ROOT_DIR / "templates" / "artifact_manifest.json"
+DEFAULT_MISSION_STATE = "artifacts/mission_state.json"
+DEFAULT_FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
 
 ROLE_BY_STAGE = {
     "MATERIAL_INTAKE_MISSING_OR_FAILED": "material-intake",
@@ -197,6 +199,155 @@ def validation_passed(path: Path, *, require_client_ready: bool = False) -> tupl
     if require_client_ready and data.get("client_ready") is not True:
         return False, "not_client_ready"
     return True, "passed"
+
+
+def _read_jsonl_tail(path: Path, limit: int = 10) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    for line in lines[-limit:]:
+        try:
+            payload = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(payload, dict):
+            records.append(payload)
+    return records
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _manifest_name(path: Path | str) -> str:
+    return str(path)
+
+
+def _default_mission_state(run_dir: Path, stage: str, status: str) -> dict[str, Any]:
+    return {
+        "schema_version": "mission_state_v1",
+        "run_dir": str(run_dir),
+        "current_delivery_type": "Pre-mandate Client Pitchbook Industry Section",
+        "current_mission": "Build and validate a pre-mandate client-facing industry section only",
+        "target_product": "industry section for pre-mandate client mandate prep",
+        "not_cim_or_dd": "CIM, DD, and generic industry report outputs are prohibited unless explicitly approved by user",
+        "current_stage": stage,
+        "current_phase": stage,
+        "current_evidence_stage": stage,
+        "status": status,
+        "enough_for_client_pitch": False,
+        "evidence_limited_pitch_outline": True,
+        "research_first_required": True,
+        "can_publish_client_ready": False,
+        "ready_for_next_stage": True,
+        "evidence_readiness_note": "Run has not yet produced final evidence readiness telemetry.",
+        "current_forbidden": ["hand-edit replacement_dict", "rebuild template_profile manually", "manually drop S-xxx IDs"],
+    }
+
+
+def _load_or_default_mission_state(run_dir: Path, stage: str, status: str) -> dict[str, Any]:
+    path = run_dir / DEFAULT_MISSION_STATE
+    if not path.exists():
+        return _default_mission_state(run_dir, stage, status)
+    payload = load_json(path)
+    if not isinstance(payload, dict):
+        return _default_mission_state(run_dir, stage, status)
+    payload.setdefault("schema_version", "mission_state_v1")
+    payload.setdefault("run_dir", str(run_dir))
+    payload.setdefault("current_delivery_type", "Pre-mandate Client Pitchbook Industry Section")
+    payload.setdefault("current_mission", "Build and validate a pre-mandate client-facing industry section only")
+    payload.setdefault("current_evidence_stage", stage)
+    payload.setdefault("current_stage", stage)
+    payload.setdefault("current_phase", stage)
+    payload.setdefault("ready_for_next_stage", True)
+    payload.setdefault("status", status)
+    payload.setdefault("can_publish_client_ready", False)
+    payload.setdefault("enough_for_client_pitch", False)
+    payload.setdefault("evidence_limited_pitch_outline", True)
+    payload.setdefault("research_first_required", True)
+    return payload
+
+
+def _coerce_int(value: Any, *, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _merge_evidence_readiness(
+    mission_state: dict[str, Any],
+    readiness: dict[str, Any],
+) -> dict[str, Any]:
+    mission_state["enough_for_client_pitch"] = bool(readiness.get("enough_for_client_pitch", False))
+    mission_state["evidence_limited_pitch_outline"] = bool(readiness.get("evidence_limited_pitch_outline", False))
+    mission_state["research_first_required"] = bool(readiness.get("research_first_required", False))
+    mission_state["critical_gap_count"] = _coerce_int(readiness.get("critical_gap_count"), default=0)
+    mission_state["research_pack_exists"] = bool(readiness.get("research_pack_exists", False))
+    mission_state["evidence_row_count"] = _coerce_int(readiness.get("evidence_row_count"), default=0)
+    mission_state["metric_row_count"] = _coerce_int(readiness.get("metric_row_count"), default=0)
+    mission_state["evidence_readiness_note"] = "Enough evidence checks computed from research_evidence_db.json"
+    return mission_state
+
+
+def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, Any]:
+    db_path = run_dir / "artifacts" / "research_evidence_db.json"
+    pack_path = run_dir / "industry_research_pack.md"
+    gap_count = 0
+    evidence_rows = 0
+    metric_rows = 0
+    if db_path.exists():
+        payload = load_json(db_path)
+        evidence_rows = len(_as_list(payload.get("evidence_ledger")))
+        metric_rows = len(_as_list(payload.get("metric_reconciliation")))
+        gap_audit = payload.get("research_gap_audit") if isinstance(payload.get("research_gap_audit"), dict) else {}
+        gap_count = len(_as_list(gap_audit.get("critical_gaps")))
+
+    pack_exists = pack_path.exists()
+    total_evidence_score = max(evidence_rows, 0) + max(metric_rows, 0)
+    stage_is_ready_for_output = current_stage not in {
+        "MATERIAL_INTAKE_MISSING_OR_FAILED",
+        "INPUT_CARD_MISSING",
+        "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED",
+        "BOUNDARY_LOOP_MISSING_OR_FAILED",
+        "FORMAL_SEARCH_PLAN_MISSING",
+        "SOURCE_REVIEWS_MISSING_OR_FAILED",
+        "SOURCE_ARCHIVE_MISSING_OR_FAILED",
+        "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED",
+        "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED",
+        "RESEARCH_PACK_MISSING_OR_FAILED",
+        "ISSUE_ANALYSIS_MISSING_OR_FAILED",
+    }
+    enough_for_client_pitch = total_evidence_score >= 2 and stage_is_ready_for_output
+    outline_mode = not enough_for_client_pitch
+    research_first_required = not pack_exists
+    return {
+        "enough_for_client_pitch": enough_for_client_pitch,
+        "evidence_limited_pitch_outline": outline_mode,
+        "research_first_required": research_first_required,
+        "evidence_row_count": evidence_rows,
+        "metric_row_count": metric_rows,
+        "critical_gap_count": gap_count,
+        "research_pack_exists": pack_exists,
+    }
+
+
+def _gate_artifact_io(manifest: dict[str, Any], state: dict[str, Any]) -> tuple[list[str], list[str]]:
+    stage_gate = str(state.get("stage") or "")
+    artifact_spec, _ = manifest_gate_artifact(manifest, stage_gate)
+    if not artifact_spec:
+        return [], []
+    inputs = artifact_spec.get("inputs")
+    outputs = [str(artifact_spec.get("path") or artifact_spec.get("validation") or "")]
+    return _as_list(inputs), outputs
 
 
 def _template_profile_check(run_dir: Path) -> dict[str, Any] | None:
@@ -685,6 +836,15 @@ def validate_run_state(run_dir: Path) -> dict[str, Any]:
         debug_only = True
 
     state = blocked_retry_gate(run_dir) or first_failed_gate(run_dir)
+    mission_state = _load_or_default_mission_state(run_dir, str(state.get("stage", "")), str(state.get("status", "")))
+    evidence_readiness = _evidence_readiness_metrics(run_dir, state.get("stage", ""))
+    _merge_evidence_readiness(mission_state, evidence_readiness)
+    mission_state_path = run_dir / DEFAULT_MISSION_STATE
+    mission_state_path.parent.mkdir(parents=True, exist_ok=True)
+    mission_state_path.write_text(
+        json.dumps(mission_state, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     owner_role = ROLE_BY_STAGE.get(str(state.get("stage") or ""), "orchestrator")
     final_gate = load_json(run_dir / "artifacts" / "final_delivery_validation.json")
     final_delivery_valid = final_gate.get("is_valid") is True and final_gate.get("client_ready") is True and not debug_only
@@ -716,6 +876,11 @@ def validate_run_state(run_dir: Path) -> dict[str, Any]:
         "source_run_dir": run_flags.get("source_run_dir") or "",
         "output_run_dir": run_flags.get("output_run_dir") or str(run_dir),
         "package_of_record": run_flags.get("package_of_record") or str(run_dir),
+        "mission_state": mission_state,
+        "evidence_readiness": evidence_readiness,
+        "failure_memory_tail": _read_jsonl_tail(run_dir / DEFAULT_FAILURE_MEMORY),
+        "current_phase": mission_state.get("current_phase", state.get("stage", "")),
+        "current_mission": mission_state.get("current_mission", ""),
         "message": message_for_state(state, debug_only),
     }
 

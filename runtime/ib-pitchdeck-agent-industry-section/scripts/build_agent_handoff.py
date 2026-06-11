@@ -98,6 +98,174 @@ ROLES: dict[str, dict[str, Any]] = {
 }
 
 
+HANDOFF_PACKETS: dict[str, dict[str, Any]] = {
+    "handoff_material_to_scoping": {
+        "from_role": "material-intake",
+        "to_role": "industry-scoping",
+        "title": "Material → Scoping",
+        "completed": [
+            "material manifest extracted and validated",
+            "material extracts generated with evidence-aware status and can_be_used_as_evidence flags",
+        ],
+        "available_evidence": [
+            "artifacts/material_manifest.json",
+            "artifacts/material_extracts.json",
+            "artifacts/source_classification.json",
+            "artifacts/material_manifest_validation.json",
+            "artifacts/material_extracts_validation.json",
+        ],
+        "required_for_next": [
+            "artifacts/source_classification.json",
+            "artifacts/material_extracts.json",
+            "artifacts/material_manifest.json",
+        ],
+        "downstream_not_allowed": [
+            "draft template_profile.json",
+            "draft template_fit_validation.json",
+            "deck_blueprint.json",
+            "industry_issue_analysis.json",
+            "page_evidence_contract.json",
+            "renderer_spec.json",
+        ],
+    },
+    "handoff_scoping_to_research": {
+        "from_role": "industry-scoping",
+        "to_role": "research-external-evidence",
+        "title": "Scoping → Research",
+        "completed": [
+            "industry boundary defined and validated",
+            "boundary loop status captured (including missing/insufficient items)",
+            "formal search plan seeded from canonical taxonomy",
+        ],
+        "available_evidence": [
+            "artifacts/industry_scope_pack.json",
+            "artifacts/boundary_loop_status.json",
+            "artifacts/formal_search_plan.json",
+        ],
+        "required_for_next": [
+            "artifacts/industry_scope_pack.json",
+            "artifacts/boundary_loop_status.json",
+            "artifacts/formal_search_plan.json",
+        ],
+        "downstream_not_allowed": [
+            "manually edited search results without append_search_attempt",
+            "final deck artifacts (deck_blueprint.json, replacement_dict.json)",
+            "industry_section_filled_clean.pptx",
+        ],
+    },
+    "handoff_research_to_reasoning": {
+        "from_role": "research-external-evidence",
+        "to_role": "reasoning",
+        "title": "Research → Reasoning",
+        "completed": [
+            "formal searches executed and reconciled",
+            "source reviews archived with locator/excerpts",
+            "research evidence DB built from reviewed sources only",
+            "coverage accounting records not executed rows",
+        ],
+        "available_evidence": [
+            "artifacts/formal_research_execution_report.json",
+            "artifacts/source_reviews.json",
+            "artifacts/source_archive/source_archive_index.json",
+            "artifacts/research_evidence_db.json",
+            "industry_research_pack.md",
+            "artifacts/formal_research_execution_validation.json",
+            "artifacts/research_evidence_db_validation.json",
+        ],
+        "required_for_next": [
+            "artifacts/formal_research_execution_report.json",
+            "artifacts/source_reviews.json",
+            "artifacts/research_evidence_db.json",
+        ],
+        "downstream_not_allowed": [
+            "draft deck_blueprint.json",
+            "renderer_spec.json",
+            "replacement_dict.json",
+            "template_profile.json",
+            "template_fit_validation.json",
+        ],
+    },
+    "handoff_reasoning_to_generation": {
+        "from_role": "reasoning",
+        "to_role": "generation",
+        "title": "Reasoning → Generation",
+        "completed": [
+            "issue analysis written per-subissue with evidence-backed statements",
+            "research requests represented as actionable caveats and blockers",
+            "research gaps separated from validated findings",
+        ],
+        "available_evidence": [
+            "industry_issue_analysis.json",
+            "artifacts/hypothesis_store.json",
+            "artifacts/research_request_queue.json",
+            "artifacts/issue_analysis_validation.json",
+        ],
+        "required_for_next": [
+            "industry_issue_analysis.json",
+            "artifacts/issue_analysis_validation.json",
+        ],
+        "downstream_not_allowed": [
+            "hand-edit renderer_spec.json",
+            "append deck text directly without issue permissions",
+            "skip source-backed evidence mapping in deck_blueprint.json",
+        ],
+    },
+    "handoff_generation_to_template": {
+        "from_role": "generation",
+        "to_role": "template",
+        "title": "Generation → Template",
+        "completed": [
+            "deck blueprint mapped to source-evidence contract",
+            "chart/table placement and page-type intention resolved",
+        ],
+        "available_evidence": [
+            "deck_blueprint.json",
+            "artifacts/page_argument_pack.json",
+            "template_registry.json",
+        ],
+        "required_for_next": [
+            "deck_blueprint.json",
+            "template_registry.json",
+            "artifacts/issue_analysis_validation.json",
+        ],
+        "downstream_not_allowed": [
+            "hand-edit template_profile.json",
+            "run replacement dict before pre-ppt gate",
+            "insert S-IDs into PPT without renderer_spec mapping",
+        ],
+    },
+    "handoff_template_to_output": {
+        "from_role": "template",
+        "to_role": "output",
+        "title": "Template → Output",
+        "completed": [
+            "template profile and fit validated for target PPT",
+            "page evidence contract + renderer spec generated",
+        ],
+        "available_evidence": [
+            "artifacts/template_profile.json",
+            "artifacts/template_fit_validation.json",
+            "artifacts/template_fit_plan.json",
+            "page_evidence_contract.json",
+            "renderer_spec.json",
+        ],
+        "required_for_next": [
+            "artifacts/template_profile.json",
+            "artifacts/template_fit_validation.json",
+            "page_evidence_contract.json",
+            "renderer_spec.json",
+            "template_registry.json",
+            "deck_blueprint.json",
+        ],
+        "downstream_not_allowed": [
+            "manual replacement_dict edits",
+            "run copy into final output before validate_final_delivery passes",
+            "edit artifact values in output files to pass gates",
+        ],
+    },
+}
+
+
 def _json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
@@ -113,6 +281,75 @@ def _exists(run_dir: Path, rels: list[str]) -> list[dict[str, Any]]:
         path = run_dir / rel
         rows.append({"path": rel, "exists": path.exists()})
     return rows
+
+
+def _status_lines(run_dir: Path, rels: list[str]) -> tuple[list[str], list[str]]:
+    available: list[str] = []
+    unavailable: list[str] = []
+    for rel in rels:
+        if (run_dir / rel).exists():
+            available.append(rel)
+        else:
+            unavailable.append(rel)
+    return available, unavailable
+
+
+def _packet_lines(path: Path, title: str, packet: dict[str, Any], available: list[str], unavailable: list[str]) -> str:
+    unavailable_lines = ["- none"] if not unavailable else [f"- {item}" for item in unavailable]
+    current_gap_lines = [f"- {item}" for item in packet.get("required_for_next", []) if item in unavailable]
+    if not current_gap_lines:
+        current_gap_lines = ["- none"]
+    lines = [
+        f"# {title} Packet",
+        f"Run Dir: `{path}`",
+        f"Date: {date.today().isoformat()}",
+        f"From: `{packet['from_role']}`",
+        f"To: `{packet['to_role']}`",
+        "",
+        "## 已完成什么",
+    ]
+    for item in packet.get("completed", []):
+        lines.append(f"- {item}")
+    lines.extend([
+        "",
+        "## 可用 evidence",
+        *(f"- {item}" for item in available),
+        "",
+        "## 不可用 evidence",
+        *unavailable_lines,
+        "",
+        "## 当前缺口",
+        *current_gap_lines,
+    ])
+    lines.extend([
+        "",
+        "## 下游禁止误用什么",
+        *(f"- {item}" for item in packet.get("downstream_not_allowed", [])),
+    ])
+    if not packet.get("downstream_not_allowed"):
+        lines.append("- none")
+    return "\n".join(lines)
+
+
+def _build_handoff_packet(run_dir: Path, packet_key: str, packet: dict[str, Any]) -> dict[str, Any]:
+    completed = packet.get("completed", [])
+    available_evidence_keys = list(packet.get("available_evidence", []))
+    unavailable_evidence_keys = list(packet.get("available_evidence", []))
+    available, unavailable = _status_lines(run_dir, available_evidence_keys)
+    return {
+        "schema_version": "handoff_packet_v1",
+        "handoff_id": packet_key,
+        "run_dir": str(run_dir),
+        "from_role": packet.get("from_role", ""),
+        "to_role": packet.get("to_role", ""),
+        "completed": completed,
+        "available_evidence": {
+            "present": available,
+            "missing": unavailable,
+        },
+        "current_gaps": [path for path in packet.get("required_for_next", []) if path in unavailable],
+        "forbidden_for_downstream": packet.get("downstream_not_allowed", []),
+    }
 
 
 def _md_packet(role_key: str, role: dict[str, Any], run_dir: Path, state: dict[str, Any]) -> str:
@@ -175,6 +412,30 @@ def build_handoff(run_dir: Path, output_dir: Path) -> dict[str, Any]:
                 "helpers": role["helpers"],
             }
         )
+    handoff_entries: list[dict[str, Any]] = []
+    for packet_key, packet in HANDOFF_PACKETS.items():
+        json_path = output_dir / f"{packet_key}.json"
+        payload = _build_handoff_packet(run_dir, packet_key, packet)
+        json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        md_path = output_dir / f"{packet_key}.md"
+        available = payload["available_evidence"]["present"]
+        unavailable = payload["available_evidence"]["missing"]
+        md_path.write_text(
+            _packet_lines(run_dir, packet["title"], packet, available, unavailable) + "\n",
+            encoding="utf-8",
+        )
+        handoff_entries.append(
+            {
+                "handoff_id": packet_key,
+                "from": packet["from_role"],
+                "to": packet["to_role"],
+                "packet_json": str(json_path),
+                "packet_md": str(md_path),
+                "completed": payload["completed"],
+                "current_gaps": payload["current_gaps"],
+                "forbidden_for_downstream": payload["forbidden_for_downstream"],
+            }
+        )
     index = {
         "schema_version": "agent_handoff_index_v1",
         "run_dir": str(run_dir),
@@ -183,6 +444,7 @@ def build_handoff(run_dir: Path, output_dir: Path) -> dict[str, Any]:
         "workflow_status": state.get("status"),
         "blocking_gate": state.get("blocking_gate"),
         "roles": roles,
+        "handoff_packets": handoff_entries,
     }
     (output_dir / "agent_handoff_index.json").write_text(
         json.dumps(index, ensure_ascii=False, indent=2) + "\n",
