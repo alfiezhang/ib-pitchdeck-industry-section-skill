@@ -43,7 +43,11 @@ def _extract_zip_clean(zip_path: Path, target_dir: Path) -> int:
             rel = name[len(prefix):] if prefix and name.startswith(prefix) else name
             if not rel:
                 continue
-            dest = target_dir / rel
+            rel_path = Path(rel)
+            if rel_path.is_absolute() or any(part in {"", ".", ".."} for part in rel_path.parts):
+                raise ValueError(f"unsafe path in plugin zip: {name}")
+            dest = target_dir / rel_path
+            ensure_inside(dest.resolve(), target_dir.resolve())
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(zf.read(name))
             count += 1

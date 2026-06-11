@@ -54,6 +54,8 @@ def validate_entries(entries: dict[str, bytes]) -> dict[str, Any]:
 
     for name in sorted(normalized):
         parts = Path(name).parts
+        if Path(name).is_absolute() or any(part in {"", ".", ".."} for part in parts):
+            errors.append(f"unsafe path in package: {name}")
         forbidden_parts = [part for part in parts if part in FORBIDDEN_PARTS]
         if forbidden_parts:
             errors.append(f"forbidden path in package: {name}")

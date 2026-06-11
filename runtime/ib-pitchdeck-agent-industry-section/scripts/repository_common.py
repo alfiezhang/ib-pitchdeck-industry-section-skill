@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -180,4 +181,7 @@ def write_fingerprints(index_path: Path, payload: dict[str, Any]) -> None:
 
 
 def repository_root_default() -> Path:
-    return Path(__file__).resolve().parent.parent / "repository"
+    override = text(os.environ.get("IB_PITCHDECK_REPOSITORY_DIR"))
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".ib-pitchdeck-agent-industry-section" / "repository"

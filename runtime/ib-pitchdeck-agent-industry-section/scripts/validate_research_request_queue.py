@@ -16,7 +16,6 @@ ALLOWED_SOURCE_TYPES = {
     "user_curated_industry_report",
     "manual_url_ingestion",
     "repository_retrieval",
-    "internal_data_request",
 }
 
 ALLOWED_DOWNSTREAM_PERMISSION = {
@@ -67,6 +66,11 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
         source_type = text(item.get("required_source_type"))
         if source_type not in ALLOWED_SOURCE_TYPES:
             warnings.append(f"{req_id or idx}: unsupported required_source_type '{source_type}', treat as public_search")
+        if source_type == "internal_data_request":
+            errors.append(
+                f"{req_id or idx}: internal_data_request is not allowed in the public research request queue; "
+                "move it to a caveat or diligence-question block"
+            )
 
         minimum_actual_searches = item.get("minimum_actual_searches")
         if not isinstance(minimum_actual_searches, int) or minimum_actual_searches < 0:
@@ -124,4 +128,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

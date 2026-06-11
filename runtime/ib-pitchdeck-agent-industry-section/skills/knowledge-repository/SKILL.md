@@ -10,9 +10,13 @@ outputs, then keeps facts, metrics, conflicts, limitations, and unknowns clean.
 
 Repository store (cross-project memory, not tied to one run):
 
-- `repository/index/research_repository.jsonl`
-- `repository/index/source_fingerprints.json`
-- `repository/sources/` (text snapshots)
+- Default root: `$IB_PITCHDECK_REPOSITORY_DIR` if set, otherwise
+  `~/.ib-pitchdeck-agent-industry-section/repository`.
+- `index/research_repository.jsonl`
+- `index/source_fingerprints.json`
+- `sources/` (text snapshots)
+
+Do not store the long-lived repository inside the runtime plugin package.
 
 ## Main Artifact
 
@@ -58,11 +62,9 @@ Repository store (cross-project memory, not tied to one run):
 
 "$PYTHON_CMD" scripts/repository_ingest.py \
   --material-manifest "$RUN_DIR/artifacts/material_manifest.json" \
-  --material-extracts "$RUN_DIR/artifacts/material_extracts.json" \
-  --repository-root "$RUN_DIR/repository"
+  --material-extracts "$RUN_DIR/artifacts/material_extracts.json"
 
-"$PYTHON_CMD" scripts/repository_validate.py \
-  --repository-root "$RUN_DIR/repository"
+"$PYTHON_CMD" scripts/repository_validate.py
 
 "$PYTHON_CMD" scripts/export_research_pack_from_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \

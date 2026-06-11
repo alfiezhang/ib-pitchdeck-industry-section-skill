@@ -185,7 +185,7 @@ def ingest_materials(
         material, classification_entry = _emit_entry(
             material_id=_new_material_id(idx),
             source="inline_user_text",
-            source_type=normalize_source_type_hint("inline_user_text", "user_curated_industry_report"),
+            source_type=normalize_source_type_hint("inline_user_text", "project_specific_material"),
             source_access="user_provided",
             title="User inline brief",
             brief_excerpt=brief_text,

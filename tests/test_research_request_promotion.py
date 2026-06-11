@@ -14,6 +14,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-age
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from promote_research_requests import promote_requests  # noqa: E402
+from validate_research_request_queue import validate as validate_research_request_queue  # noqa: E402
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -69,6 +70,28 @@ def _valid_queue_payload() -> dict:
             },
         ],
     }
+
+
+def test_research_request_queue_rejects_internal_data_request() -> None:
+    payload = {
+        "schema_version": "research_request_queue_v1",
+        "requests": [
+            {
+                "request_id": "RQ-001",
+                "hypothesis_id": "HYP-001",
+                "origin_issue_id": "IA-001",
+                "research_question": "Can the client provide confidential internal management data?",
+                "required_source_type": "internal_data_request",
+                "minimum_actual_searches": 0,
+                "downstream_permission_if_unresolved": "caveat_or_diligence_question_only",
+            }
+        ],
+    }
+
+    errors, warnings = validate_research_request_queue(payload)
+
+    assert any("internal_data_request is not allowed" in item for item in errors)
+    assert warnings
 
 
 def test_promote_requests_appends_new_fs_rows_without_io_side_effects(tmp_path: Path) -> None:

@@ -53,6 +53,7 @@ def test_package_plugin_builds_clean_zip_and_validator_accepts_it(tmp_path: Path
     assert "ib-pitchdeck-agent-industry-section/.claude-plugin/plugin.json" in names
     assert "ib-pitchdeck-agent-industry-section/.codebuddy-plugin/plugin.json" in names
     assert not any("/docs/" in f"/{name}/" or "/tests/" in f"/{name}/" for name in names)
+    assert not any("/repository/" in f"/{name}/" for name in names)
     assert not any("__pycache__" in name or name.endswith(".pyc") or name.endswith(".DS_Store") for name in names)
 
 
@@ -81,3 +82,28 @@ def test_install_plugin_local_installs_clean_zip_to_target_root(tmp_path: Path) 
     assert (installed / ".codex-plugin" / "plugin.json").exists()
     assert (installed / "agents" / "ib-pitchdeck-agent-industry-section.md").exists()
     assert not any("__pycache__" in str(path) or path.name == ".DS_Store" for path in installed.rglob("*"))
+
+
+def test_validate_plugin_package_rejects_unsafe_zip_paths(tmp_path: Path) -> None:
+    package = tmp_path / "unsafe.zip"
+    with zipfile.ZipFile(package, "w") as zf:
+        zf.writestr("ib-pitchdeck-agent-industry-section/.codex-plugin/plugin.json", '{"name":"x","version":"1"}')
+        zf.writestr("ib-pitchdeck-agent-industry-section/.claude-plugin/plugin.json", '{"name":"x","version":"1"}')
+        zf.writestr("ib-pitchdeck-agent-industry-section/.codebuddy-plugin/plugin.json", '{"name":"x","version":"1"}')
+        zf.writestr("ib-pitchdeck-agent-industry-section/agents/main.md", "agent")
+        zf.writestr("ib-pitchdeck-agent-industry-section/skills/readme.md", "skill")
+        zf.writestr("ib-pitchdeck-agent-industry-section/scripts/run.py", "print('x')")
+        zf.writestr("ib-pitchdeck-agent-industry-section/templates/t.json", "{}")
+        zf.writestr("ib-pitchdeck-agent-industry-section/assets/.keep", "")
+        zf.writestr("ib-pitchdeck-agent-industry-section/references/r.md", "ref")
+        zf.writestr("ib-pitchdeck-agent-industry-section/README.md", "readme")
+        zf.writestr("ib-pitchdeck-agent-industry-section/requirements.txt", "")
+        zf.writestr("ib-pitchdeck-agent-industry-section/setup.sh", "echo setup")
+        zf.writestr("ib-pitchdeck-agent-industry-section/run_pipeline.sh", "echo run")
+        zf.writestr("ib-pitchdeck-agent-industry-section/../escape.txt", "bad")
+
+    validation = _run("validate_plugin_package.py", ["--package", str(package)])
+
+    assert validation.returncode == 1
+    payload = json.loads(validation.stdout)
+    assert any("unsafe path" in item for item in payload["errors"])

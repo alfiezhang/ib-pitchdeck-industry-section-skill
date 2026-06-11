@@ -51,8 +51,8 @@ def _write_minimal_xlsx(path: Path) -> None:
     sheet_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <sheetData>
-    <row r="1"><c r="A1" t="inlineStr"><v>Industry</v></c><c r="B1"><v>DataX</v></c></row>
-    <row r="2"><c r="A2" t="inlineStr"><v>Revenue</v></c><c r="B2"><v>100</v></c></row>
+    <row r="1"><c r="A1" t="inlineStr"><is><t>Industry</t></is></c><c r="B1" t="inlineStr"><is><t>DataX</t></is></c></row>
+    <row r="2"><c r="A2" t="inlineStr"><is><t>Revenue</t></is></c><c r="B2"><v>100</v></c></row>
   </sheetData>
 </worksheet>"""
     rels_xml = """<?xml version="1.0" encoding="UTF-8"?>
@@ -151,6 +151,8 @@ def test_ingest_materials_end_to_end_from_multiple_sources(tmp_path: Path) -> No
     assert len(extract_entries) == 5
 
     by_id = {m["material_id"]: m for m in materials}
+    inline_brief = next(m for m in materials if m["file_path_or_url"] == "inline_user_text")
+    assert inline_brief["source_type"] == "project_specific_material"
     for material in materials:
         assert material["source_type"] in {
             "project_specific_material",

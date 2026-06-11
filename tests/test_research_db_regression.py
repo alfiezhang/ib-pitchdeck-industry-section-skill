@@ -322,3 +322,40 @@ def test_build_db_imports_repository_sources_as_material_candidates_only() -> No
     assert row["fact_type"] == "repository_import"
 
 
+def test_build_db_preserves_new_material_manifest_fields() -> None:
+    db = build_db(
+        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "CN"},
+        scope_pack={"scope_summary": {"working_market": "sample market"}},
+        formal_search_plan={"issue_search_plan": []},
+        execution_report={"issue_results": []},
+        source_reviews={"source_reviews": []},
+        material_manifest={
+            "schema_version": "material_manifest_v1",
+            "materials": [
+                {
+                    "material_id": "MAT-001",
+                    "material_title": "User Brief",
+                    "source_type": "project_specific_material",
+                    "source_access": "user_provided",
+                    "file_path_or_url": "inline_user_text",
+                    "brief_excerpt": "Target sells base makeup products in China.",
+                },
+                {
+                    "material_id": "MAT-002",
+                    "material_title": "Curated Report",
+                    "source_type": "user_curated_industry_report",
+                    "source_access": "user_provided",
+                    "file_path_or_url": "https://example.com/report",
+                    "material_kind": "url",
+                    "brief_excerpt": "Report excerpt.",
+                },
+            ],
+        },
+    )
+
+    by_id = {row["material_id"]: row for row in db["source_materials"]}
+    assert by_id["MAT-001"]["source_name"] == "User Brief"
+    assert by_id["MAT-001"]["source_access_path"] == "inline_user_text"
+    assert by_id["MAT-001"]["reviewed_excerpt"] == "Target sells base makeup products in China."
+    assert by_id["MAT-002"]["source_url"] == "https://example.com/report"
+

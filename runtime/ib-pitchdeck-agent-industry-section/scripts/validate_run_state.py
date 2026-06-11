@@ -81,7 +81,7 @@ ROLE_BY_STAGE = {
 }
 
 ROLE_SKILL_PATH = {
-    "orchestrator": "SKILL.md",
+    "orchestrator": "agents/ib-pitchdeck-agent-industry-section.md",
     "material-intake": "skills/material-intake/SKILL.md",
     "knowledge-repository": "skills/knowledge-repository/SKILL.md",
     "industry-scoping": "skills/industry-scoping/SKILL.md",

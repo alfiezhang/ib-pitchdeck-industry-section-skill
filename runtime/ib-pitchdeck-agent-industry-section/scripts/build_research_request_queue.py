@@ -24,7 +24,6 @@ ALLOWED_SOURCE_TYPES = {
     "user_curated_industry_report",
     "manual_url_ingestion",
     "repository_retrieval",
-    "internal_data_request",
 }
 DOWNSTREAM_PERMISSIONS = {
     "headline_disallowed",
@@ -45,6 +44,8 @@ def _clamp_source_type(value: str) -> str:
         return "manual_url_ingestion"
     if candidate and "industry report" in candidate.lower():
         return "user_curated_industry_report"
+    if candidate and any(token in candidate.lower() for token in ["client", "confidential", "internal", "sensitive"]):
+        return "public_search"
     return "public_search"
 
 

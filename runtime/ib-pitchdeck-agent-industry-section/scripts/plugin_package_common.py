@@ -30,7 +30,19 @@ REQUIRED_PATHS = [
     "run_pipeline.sh",
 ]
 
-FORBIDDEN_PARTS = {"docs", "tests", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".git", "runs", "dist", "artifacts"}
+FORBIDDEN_PARTS = {
+    "docs",
+    "tests",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".git",
+    "runs",
+    "dist",
+    "artifacts",
+    "repository",
+}
 FORBIDDEN_NAMES = {".DS_Store"}
 
 
@@ -40,6 +52,8 @@ def relpath(path: Path, root: Path) -> str:
 
 def should_exclude(rel: str) -> bool:
     parts = Path(rel).parts
+    if Path(rel).is_absolute() or any(part in {"", ".", ".."} for part in parts):
+        return True
     if any(part in FORBIDDEN_PARTS for part in parts):
         return True
     if parts and parts[-1] in FORBIDDEN_NAMES:

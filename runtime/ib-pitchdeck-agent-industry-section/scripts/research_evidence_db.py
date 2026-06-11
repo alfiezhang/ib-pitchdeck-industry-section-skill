@@ -157,14 +157,18 @@ def build_db(
     source_materials: list[dict[str, Any]] = []
     for item in material_manifest_items(material_manifest or {}):
         material_id = text(item.get("material_id"))
+        title = text(item.get("material_title") or item.get("title") or material_id)
+        source_access = text(item.get("source_access") or item.get("access_level") or "user_provided")
+        source_access_path = text(item.get("file_path_or_url") or item.get("locator"))
+        reviewed_excerpt = text(item.get("brief_excerpt") or item.get("extracted_text_preview") or item.get("notes"))
         source_materials.append(
             {
                 "source_review_id": material_id,
                 "material_id": material_id,
-                "source_name": text(item.get("title") or material_id),
+                "source_name": title,
                 "source_type": normalize_source_type(item.get("source_type")),
-                "source_access": text(item.get("access_level") or "user_provided"),
-                "source_access_path": text(item.get("locator")),
+                "source_access": source_access,
+                "source_access_path": source_access_path,
                 "source_date": text(item.get("source_date")),
                 "geography": text(item.get("geography")),
                 "fact_type": "material_intake",
@@ -174,9 +178,9 @@ def build_db(
                 "evidence_use_tier": "candidate",
                 "claim_use_scope": "Material intake only until extracted and reconciled.",
                 "usable_as_evidence": False,
-                "source_url": text(item.get("locator")) if text(item.get("material_kind")) == "url" else "",
-                "source_locator": text(item.get("locator")),
-                "reviewed_excerpt": text(item.get("notes")),
+                "source_url": source_access_path if text(item.get("material_kind")) == "url" else "",
+                "source_locator": source_access_path,
+                "reviewed_excerpt": reviewed_excerpt,
                 "limitations": "Material intake record; promote through extraction/review before claim use.",
             }
         )

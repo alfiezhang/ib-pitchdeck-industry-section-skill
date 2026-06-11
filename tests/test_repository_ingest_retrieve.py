@@ -13,6 +13,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from repository_dedupe import dedupe as dedupe_repository
 from repository_ingest import ingest as ingest_to_repository
+from repository_common import repository_root_default
 from repository_retrieve import retrieve as retrieve_from_repository
 from repository_validate import validate as validate_repository
 
@@ -76,6 +77,21 @@ def _build_manifest_and_extracts(tmp_path: Path) -> tuple[Path, Path]:
     )
     _write_text(tmp_path / "artifacts" / "MAT-001.txt", material_text.read_text(encoding="utf-8"))
     return manifest_path, extracts_path
+
+
+def test_repository_default_uses_user_data_dir_not_runtime(monkeypatch) -> None:
+    monkeypatch.delenv("IB_PITCHDECK_REPOSITORY_DIR", raising=False)
+    default_root = repository_root_default()
+
+    assert ".ib-pitchdeck-agent-industry-section" in default_root.parts
+    assert "runtime" not in default_root.parts
+
+
+def test_repository_default_honors_env_override(tmp_path: Path, monkeypatch) -> None:
+    override = tmp_path / "shared_repository"
+    monkeypatch.setenv("IB_PITCHDECK_REPOSITORY_DIR", str(override))
+
+    assert repository_root_default() == override
 
 
 def test_repository_ingest_detects_duplicates_on_reimport(tmp_path: Path) -> None:

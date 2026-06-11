@@ -81,8 +81,6 @@ def _source_hint(required_source_type: str) -> str:
         return "curated industry report or filing list"
     if source_type == "manual_url_ingestion":
         return "manual URL or user-curated source list"
-    if source_type == "internal_data_request":
-        return "publicly safe, non-sensitive target materials if explicitly available"
     return "public search with verified source and date"
 
 

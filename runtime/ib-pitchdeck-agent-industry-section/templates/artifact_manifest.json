@@ -152,13 +152,13 @@
       "inputs": []
     },
     "repository_index": {
-      "path": "repository/index/research_repository.jsonl",
+      "path": "$REPOSITORY_ROOT/index/research_repository.jsonl",
       "owner": "script_repository_ingest",
       "builder": "scripts/repository_ingest.py",
       "inputs": ["material_manifest", "material_extracts"]
     },
     "repository_fingerprints": {
-      "path": "repository/index/source_fingerprints.json",
+      "path": "$REPOSITORY_ROOT/index/source_fingerprints.json",
       "owner": "script_repository_ingest",
       "builder": "scripts/repository_ingest.py",
       "inputs": ["material_manifest", "material_extracts"]

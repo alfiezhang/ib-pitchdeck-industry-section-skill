@@ -48,11 +48,21 @@ def _read_xlsx_text(path: Path) -> str:
                 for row in sheet.findall(".//ns:sheetData/ns:row", ns):
                     values: list[str] = []
                     for cell in row.findall("ns:c", ns):
+                        type_attr = cell.attrib.get("t", "")
+                        if type_attr == "inlineStr":
+                            inline_text = " ".join(
+                                "".join(node.itertext()).strip()
+                                for node in cell.findall(".//ns:is//ns:t", ns)
+                                if "".join(node.itertext()).strip()
+                            )
+                            if inline_text:
+                                values.append(inline_text.strip())
+                            continue
+
                         value_node = cell.find("ns:v", ns)
                         if value_node is None:
                             continue
                         value = value_node.text or ""
-                        type_attr = cell.attrib.get("t", "")
                         if type_attr == "s":
                             try:
                                 index = int(value)

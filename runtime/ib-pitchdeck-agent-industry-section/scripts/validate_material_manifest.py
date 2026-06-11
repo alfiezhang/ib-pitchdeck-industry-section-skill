@@ -53,6 +53,8 @@ def validate_manifest(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
             warnings.append(f"{material_id or idx}: extraction_limitations is required")
         if text(item.get("locator")) and text(item.get("file_path_or_url")) == "inline_user_text":
             warnings.append(f"{material_id or idx}: locator should not replace file_path_or_url for text material")
+        if text(item.get("file_path_or_url")) == "inline_user_text" and normalize_source_type(source_type) != "project_specific_material":
+            errors.append(f"{material_id or idx}: inline_user_text must be project_specific_material, not {source_type}")
         if text(item.get("source_type")) == "user_curated_industry_report" and text(item.get("can_be_used_as_evidence")) == "true":
             warnings.append(f"{material_id or idx}: user_curated_industry_report should remain false until formal review")
     if not materials:
