@@ -2,7 +2,9 @@
 """Validate source review cards for formal research evidence.
 
 `search_log.md` records search execution. `source_reviews.json` records which
-underlying sources were actually reviewed and which EV rows they support.
+underlying sources were actually reviewed and how they may be used. Evidence
+IDs are optional at this stage because EV rows are normally assigned later by
+the research evidence DB builder.
 """
 
 from __future__ import annotations
@@ -177,6 +179,15 @@ def _review_by_evidence(reviews: list[dict[str, Any]]) -> dict[str, list[dict[st
     return by_ev
 
 
+def _review_by_url(reviews: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    by_url: dict[str, list[dict[str, Any]]] = {}
+    for review in reviews:
+        url = _norm_url(_text(review.get("url")))
+        if url:
+            by_url.setdefault(url, []).append(review)
+    return by_url
+
+
 def _review_by_attempt(reviews: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     by_attempt: dict[str, list[dict[str, Any]]] = {}
     for review in reviews:
@@ -289,7 +300,10 @@ def _validate_review_fields(review: dict[str, Any], idx: int, errors: list[str],
         if not EV_RE.fullmatch(ev_id):
             errors.append(f"{prefix}: invalid evidence_id '{ev_id}'")
     if _review_is_usable(review) and not evidence_ids:
-        errors.append(f"{prefix}: usable evidence must list at least one evidence_id")
+        warnings.append(
+            f"{prefix}: usable source has no evidence_ids yet; this is acceptable before Evidence DB promotion, "
+            "but the later Evidence Ledger must cite this source by URL or add EV links."
+        )
     if evidence_ids and not _review_is_usable(review):
         errors.append(
             f"{prefix}: evidence_ids are present but usable_as_evidence is false. "
@@ -360,6 +374,7 @@ def validate(
         )
 
     by_ev = _review_by_evidence(reviews)
+    by_url = _review_by_url(reviews)
     by_attempt = _review_by_attempt(reviews)
     by_source_review_id = _review_by_id(reviews)
     review_urls = {_norm_url(_text(review.get("url"))) for review in reviews if _text(review.get("url"))}
@@ -488,7 +503,9 @@ def validate(
                 errors.append(f"{ev_id}: formal Evidence Ledger cannot cite only a root/domain URL: {source_url}")
             matching = by_ev.get(ev_id, [])
             if not matching:
-                errors.append(f"{ev_id}: no source_reviews entry links this Evidence Ledger row")
+                matching = by_url.get(_norm_url(source_url), [])
+            if not matching:
+                errors.append(f"{ev_id}: no source_reviews entry links this Evidence Ledger row by evidence_id or Source URL")
                 continue
             usable = [review for review in matching if _review_is_usable(review)]
             if not usable:

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Validate material_extracts.json for explicit source-faithful extraction."""
+"""Validate material_extracts.json after LLM material fact extraction.
+
+Raw text capture is only proof that the material can be read. It is not proof
+that the material has been understood or can support evidence. Source-faithful
+facts, metrics, quotes, unknowns, and claim-use limits must be supplied by the
+Material/Knowledge LLM before this validator should pass.
+"""
 
 from __future__ import annotations
 
@@ -36,18 +42,61 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
             errors.append(f"{material_id}: file_path_or_url is required")
         if not text(item.get("source_access")):
             warnings.append(f"{material_id}: source_access is missing")
-        if not text(item.get("extracted_text_path")):
-            warnings.append(f"{material_id}: extracted_text_path is required")
+        if not text(item.get("extracted_text_path")) and not text(item.get("raw_text_path")):
+            warnings.append(f"{material_id}: extracted_text_path/raw_text_path is required for content capture")
         if not text(item.get("extraction_limitations")):
             warnings.append(f"{material_id}: extraction_limitations is empty; use `none` if no limitation")
         status = text(item.get("extraction_status"))
-        if status in {"usable"}:
-            if not as_list(item.get("extracted_facts")) and not as_list(item.get("extracted_metrics")):
-                warnings.append(f"{material_id}: usable extraction should include extracted_facts or extracted_metrics")
-        if not as_list(item.get("quoted_excerpts")):
-            warnings.append(f"{material_id}: quote placeholders are helpful but optional at skeleton stage")
-        if item.get("can_be_used_as_evidence") is True and text(item.get("extraction_status")) != "complete":
-            warnings.append(f"{material_id}: can_be_used_as_evidence=true should align with extraction_status=complete")
+        raw_text_available = bool(item.get("raw_text_available")) or status == "complete"
+        llm_status = text(item.get("llm_extraction_status")) or "pending_llm_extraction"
+        facts = as_list(item.get("extracted_facts"))
+        metrics = as_list(item.get("extracted_metrics"))
+        quotes = as_list(item.get("quoted_excerpts"))
+        completed_no_evidence_statuses = {
+            "project_brief_transcribed_to_input_card",
+            "not_relevant_for_knowledge",
+            "no_extractable_facts",
+            "blocked_no_readable_text",
+        }
+        completed_extraction_statuses = {
+            "industry_facts_extracted",
+            "complete",
+            "reviewed",
+            "llm_extracted",
+        }
+        if raw_text_available and llm_status in {"", "pending", "pending_llm_extraction"}:
+            errors.append(
+                f"{material_id}: raw content is captured but LLM extraction is pending. "
+                "After reading captured content, set llm_extraction_status to "
+                "project_brief_transcribed_to_input_card, industry_facts_extracted, "
+                "not_relevant_for_knowledge, or no_extractable_facts."
+            )
+        if llm_status in completed_extraction_statuses and not facts and not metrics and not as_list(item.get("unknowns_or_conflicts")):
+            errors.append(
+                f"{material_id}: llm_extraction_status={llm_status} requires extracted_facts, "
+                "extracted_metrics, or explicit unknowns_or_conflicts"
+            )
+        if llm_status in completed_no_evidence_statuses and item.get("can_be_used_as_evidence") is True:
+            errors.append(
+                f"{material_id}: llm_extraction_status={llm_status} cannot have can_be_used_as_evidence=true"
+            )
+        if item.get("can_be_used_as_evidence") is True:
+            if llm_status not in completed_extraction_statuses:
+                errors.append(
+                    f"{material_id}: can_be_used_as_evidence=true requires llm_extraction_status=industry_facts_extracted/complete/reviewed/llm_extracted"
+                )
+            if not facts and not metrics:
+                errors.append(
+                    f"{material_id}: can_be_used_as_evidence=true requires extracted_facts or extracted_metrics"
+                )
+            if not quotes:
+                errors.append(
+                    f"{material_id}: can_be_used_as_evidence=true requires quoted_excerpts with locators"
+                )
+            if status != "complete" and not raw_text_available:
+                errors.append(
+                    f"{material_id}: can_be_used_as_evidence=true requires captured raw text"
+                )
         for fact_idx, fact in enumerate(as_list(item.get("extracted_facts")), start=1):
             if not isinstance(fact, dict):
                 errors.append(f"{material_id}.extracted_facts[{fact_idx}] must be an object")
@@ -68,16 +117,25 @@ def main() -> int:
         errors, warnings = validate(payload)
     except Exception as exc:
         errors, warnings = [f"cannot read material extracts: {exc}"], []
+    repair_plan = {}
+    if errors or warnings:
+        repair_plan = {
+            "primary_repair_target": "artifacts/material_extracts.json",
+            "repair_target_role": "material-intake",
+            "repair_action": (
+                "Run this validator only after LLM extraction. The Material/Knowledge LLM must "
+                "read captured content, transcribe project facts into input_card or extract "
+                "industry facts/metrics/quotes for Knowledge, then set llm_extraction_status "
+                "and can_be_used_as_evidence intentionally."
+            ),
+        }
     result = {
         "is_valid": not errors,
         "error_count": len(errors),
         "warning_count": len(warnings),
         "errors": errors,
         "warnings": warnings,
-        "repair_plan": {
-            "primary_repair_target": "artifacts/material_extracts.json",
-            "repair_target_role": "material-intake",
-        } if errors else {},
+        "repair_plan": repair_plan,
     }
     if args.output:
         out = Path(args.output)

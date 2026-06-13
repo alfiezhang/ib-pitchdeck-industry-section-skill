@@ -228,7 +228,7 @@ def test_template_profile_requires_renderer_spec(tmp_path: Path) -> None:
     state = validate_run_state(run_dir)
     # Without renderer_spec, template checks should be skipped
     assert state["current_stage"] != "TEMPLATE_PROFILE_MISSING_OR_FAILED", state
-    assert state["current_stage"] == "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED", state
+    assert state["current_stage"] == "INDUSTRY_SCOPE_PACK_MISSING", state
 
 
 def test_template_profile_defers_to_earlier_gates(tmp_path: Path) -> None:
@@ -256,7 +256,7 @@ def test_template_profile_defers_to_earlier_gates(tmp_path: Path) -> None:
     (run_dir / "renderer_spec.json").write_text("{}", encoding="utf-8")
     state = validate_run_state(run_dir)
     # scope_pack is missing, so it fires before template profile
-    assert state["current_stage"] == "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED", state
+    assert state["current_stage"] == "INDUSTRY_SCOPE_PACK_MISSING", state
 
 
 def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
@@ -270,6 +270,10 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
     (artifacts / "input_card_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "industry_scope_pack.json").write_text("{}", encoding="utf-8")
+    (artifacts / "industry_boundary_qc.json").write_text(
+        '{"schema_version":"industry_boundary_qc_v1","decision":"pass","rationale":"synthetic pass"}',
+        encoding="utf-8",
+    )
     (artifacts / "industry_scope_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "formal_search_plan.json").write_text("{}", encoding="utf-8")
     (artifacts / "formal_search_plan_validation.json").write_text('{"is_valid": true}', encoding="utf-8")

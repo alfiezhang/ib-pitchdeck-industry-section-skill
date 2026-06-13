@@ -57,7 +57,8 @@ At every stage, run:
 Then:
 
 1. Read the returned `current_stage`, `owner_role`, `owner_skill`,
-   `recommended_next_commands`, `repair_targets`, and `forbidden_actions`.
+   `recommended_next_commands`, `current_qc_policy`, `repair_targets`, and
+   `forbidden_actions`.
 2. Load only that `owner_skill`.
 3. Let that role do its specific thinking and artifact work.
 4. Run the recommended validator or pipeline command.
@@ -71,14 +72,53 @@ Then:
    - a warning is safe to proceed past only when the owner role repairs it, or QC
      explicitly accepts it with rationale and downstream-use limits.
 6. When warnings remain after the owner role has reviewed them, run QC routing
-   and require `artifacts/qc_warning_disposition.json` to show one of:
-   `advisory_only`, `repair_before_downstream`, or `qc_accept_with_limits`.
-   Unresolved warnings are not final-delivery permission.
+   or have QC write a clear repair/acceptance decision. If
+   `artifacts/qc_warning_disposition.json` is used, its decision values
+   (`advisory_only`, `repair_before_downstream`, `qc_accept_with_limits`,
+   `unresolved`) are routing signals. Do not create another validator to judge
+   whether QC wrote enough prose. Explicit `unresolved`,
+   `repair_before_downstream`, or `downstream_blocked=true` means the run is not
+   final-delivery ready.
 7. Rerun the same validator after repair or QC acceptance.
 8. Return to `workflow.py next`.
 
 If the state is failed, stale, blocked, or not client-ready, stay at that layer.
 Do not write downstream artifacts or render a PPT to get around the problem.
+
+## Universal QC Protocol
+
+Every quality checkpoint follows the same ownership model:
+
+1. The relevant role writes or repairs the substantive artifact.
+2. QC LLM judges quality when the checkpoint requires judgment, source
+   interpretation, page quality, evidence readiness, warning acceptance, or
+   cross-layer routing.
+3. Python runs deterministic checks only after the relevant LLM judgment has
+   allowed that check: schema, required fields, provenance, stale state,
+   renderability, and final package integrity.
+4. If QC says `pass`, run the Python check named by `workflow.py next`.
+5. If QC says repair or more evidence is needed, do not run downstream Python
+   validators. Route to the named owner role and repair the upstream artifact.
+6. If QC has passed but the Python check fails, treat it as a format/red-line or
+   deterministic consistency problem. The owner role repairs and reruns the same
+   validator. Do not ask QC to re-judge unless the repair changes the underlying
+   scope, evidence, reasoning, page argument, or template fit decision.
+7. QC artifacts are not judged by a second "QC completeness validator". The
+   main agent uses their decision fields for routing and reads their feedback as
+   the repair brief.
+
+Examples:
+
+- Industry boundary: Scoping writes `industry_scope_pack.json`, QC decides
+  `pass | needs_scope_repair | needs_boundary_validation`, then Python checks
+  scope format only after QC pass.
+- Source quality: Research reviews sources, QC adjudicates source-quality
+  warnings when needed, Python checks S/SRC/provenance mechanics.
+- Reasoning readiness: Reasoning decides deliverable depth; QC can confirm or
+  reject it; Python only verifies required fields and final package integrity.
+- Generation quality: Generation writes page arguments/deck blueprint; QC routes
+  thin pages or unsupported claims; Python validates fields, evidence bindings,
+  and template/render constraints.
 
 ## Setup
 
@@ -110,6 +150,11 @@ attempt to escape a failed gate.
 - Source quality, evidence readiness, and headline/chart/body-copy permission
   are role decisions made by Research, Reasoning, and QC. Do not infer them from
   counts, URLs, domains, or placeholder defaults.
+- Material registration and raw content capture are not fact extraction. Do not
+  treat readable text as evidence-ready until the Material/Knowledge role has
+  extracted source-faithful facts, metrics, quotes, unknowns, and use limits.
+  Run material extraction validation only after that role extraction is complete,
+  not immediately after raw content capture.
 - If a script emits `needs_llm_decision`, `LLM_REWRITE_REQUIRED`, or a QC repair
   target, route to the owner role instead of continuing downstream.
 - Warnings are not permission to proceed. They are unresolved workflow signals

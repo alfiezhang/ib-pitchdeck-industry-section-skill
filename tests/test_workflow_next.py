@@ -156,6 +156,21 @@ def _seed_boundary_loop_ready(run_dir: Path) -> None:
             },
         },
     )
+    _write_json(
+        artifacts / "industry_boundary_qc.json",
+        {
+            "schema_version": "industry_boundary_qc_v1",
+            "decision": "pass",
+            "rationale": "synthetic boundary QC pass for workflow fixture",
+            "feedback": [],
+            "boundary_validation_requests": [],
+        },
+    )
+    if (artifacts / "industry_scope_pack_validation.json").exists():
+        _write_json(
+            artifacts / "industry_scope_pack_validation.json",
+            {"is_valid": True, "errors": [], "warnings": []},
+        )
 
 
 def _seed_template_layer_artifacts(run_dir: Path) -> None:

@@ -100,6 +100,8 @@ def selected_issue_analysis_ids(slide: dict[str, Any]) -> list[str]:
 
 def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
     visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    if not visual and isinstance(slide.get("visual_plan"), dict):
+        visual = slide["visual_plan"]
     selected_page_type = str(slide.get("selected_page_type") or "").strip()
     capability = str(visual.get("required_capability") or visual.get("type") or "").strip()
     capability_map = {
@@ -182,8 +184,10 @@ def metric_ids_from_visual(slide: dict[str, Any]) -> list[str]:
             for item in value:
                 scan(item)
 
-    visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
-    scan(visual)
+    visual_design = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    visual_plan = slide.get("visual_plan") if isinstance(slide.get("visual_plan"), dict) else {}
+    scan(visual_design)
+    scan(visual_plan)
     scan(slide.get("chart_data"))
     scan(slide.get("compare_table_data"))
     return unique([item for item in ids if item.startswith("MET-")])
@@ -208,8 +212,10 @@ def evidence_ids_from_visual(slide: dict[str, Any]) -> list[str]:
             for item in value:
                 scan(item)
 
-    visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
-    scan(visual)
+    visual_design = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    visual_plan = slide.get("visual_plan") if isinstance(slide.get("visual_plan"), dict) else {}
+    scan(visual_design)
+    scan(visual_plan)
     scan(slide.get("chart_data"))
     scan(slide.get("compare_table_data"))
     return unique([item for item in ids if item.startswith("EV-")])
@@ -243,6 +249,7 @@ def proof_points_from_blueprint_slide(slide: dict[str, Any]) -> list[dict[str, A
             {
                 "point": str(
                     (slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}).get("purpose")
+                    or (slide.get("visual_plan") if isinstance(slide.get("visual_plan"), dict) else {}).get("purpose")
                     or "Primary visual evidence"
                 ).strip(),
                 "source_analysis_ids": issue_ids,

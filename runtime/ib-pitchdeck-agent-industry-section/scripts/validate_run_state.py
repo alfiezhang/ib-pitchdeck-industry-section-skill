@@ -15,6 +15,7 @@ from gate_names import (
     FILLED_PPT,
     FINAL_DELIVERY,
     BOUNDARY_LOOP,
+    INDUSTRY_BOUNDARY_QC,
     FORMAL_SEARCH_PLAN,
     INDUSTRY_SCOPE_PACK,
     INPUT_CARD,
@@ -59,8 +60,9 @@ DEFAULT_FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
 ROLE_BY_STAGE = {
     "MATERIAL_INTAKE_MISSING_OR_FAILED": "material-intake",
     "INPUT_CARD_MISSING": "material-intake",
-    "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED": "industry-scoping",
-    "BOUNDARY_LOOP_MISSING_OR_FAILED": "industry-scoping",
+    "INDUSTRY_SCOPE_PACK_MISSING": "industry-scoping",
+    "INDUSTRY_BOUNDARY_QC_REQUIRED": "qc",
+    "INDUSTRY_SCOPE_FORMAT_MISSING_OR_FAILED": "industry-scoping",
     "FORMAL_SEARCH_PLAN_MISSING": "research-external-evidence",
     "SOURCE_REVIEWS_MISSING_OR_FAILED": "research-external-evidence",
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": "research-external-evidence",
@@ -334,8 +336,8 @@ def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, 
             issue_payload = {}
         issue_readiness = issue_payload.get("evidence_readiness") if isinstance(issue_payload, dict) else {}
         if isinstance(issue_readiness, dict):
-            decision_status = str(issue_readiness.get("decision_status") or decision_status)
-            decision_owner = str(issue_readiness.get("decision_owner") or decision_owner)
+            decision_status = str(issue_readiness.get("decision_status") or decision_status).strip().lower()
+            decision_owner = str(issue_readiness.get("decision_owner") or decision_owner).strip().lower()
             decision_note = str(issue_readiness.get("decision_note") or decision_note)
             if decision_status in READINESS_DECISION_STATUSES and decision_owner in READINESS_DECISION_OWNERS:
                 enough_for_client_pitch = bool(issue_readiness.get("enough_for_client_pitch", False))
@@ -603,7 +605,7 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
             "artifact": "artifacts/material_manifest.json",
             "validation": "artifacts/material_manifest_validation.json",
             "gate": "material_intake",
-            "allowed": ["run_material_ingest", "rerun_material_intake", "run_material_manifest_validation", "run_material_extracts_validation"],
+            "allowed": ["run_material_ingest", "rerun_material_intake", "run_material_manifest_validation"],
             "forbidden": [
                 "create_material_only_summary",
                 "write_industry_scope_pack",
@@ -612,7 +614,6 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
                 "publish_final",
             ],
             "extra_artifacts": ["artifacts/material_extracts.json", "artifacts/source_classification.json"],
-            "extra_validations": ["artifacts/material_extracts_validation.json"],
         },
         {
             "stage": "INPUT_CARD_MISSING",
@@ -623,19 +624,19 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
             "forbidden": ["write_research_pack", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
         },
         {
-            "stage": "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED",
+            "stage": "INDUSTRY_SCOPE_PACK_MISSING",
             "artifact": "artifacts/industry_scope_pack.json",
-            "validation": "artifacts/industry_scope_pack_validation.json",
+            "validation": "",
             "gate": INDUSTRY_SCOPE_PACK,
-            "allowed": ["create_industry_scope_pack", "rerun_industry_scope_pack_validation"],
+            "allowed": ["create_industry_scope_pack"],
             "forbidden": ["write_research_pack", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
         },
         {
-            "stage": "BOUNDARY_LOOP_MISSING_OR_FAILED",
-            "artifact": "artifacts/boundary_loop_status.json",
-            "validation": "artifacts/boundary_loop_status.json",
-            "gate": BOUNDARY_LOOP,
-            "allowed": ["run_boundary_loop", "rerun_boundary_loop", "update_industry_scope_pack", "rerun_industry_scope_pack_validation"],
+            "stage": "INDUSTRY_BOUNDARY_QC_REQUIRED",
+            "artifact": "artifacts/industry_boundary_qc.json",
+            "validation": "",
+            "gate": INDUSTRY_BOUNDARY_QC,
+            "allowed": ["run_llm_industry_boundary_qc", "repair_industry_scope_pack_from_qc_feedback", "create_boundary_research_requests_from_qc"],
             "forbidden": [
                 "write_formal_search_plan",
                 "run_formal_research",
@@ -643,6 +644,15 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
                 "publish_final",
                 "build_formal_search_plan",
             ],
+        },
+        {
+            "stage": "INDUSTRY_SCOPE_FORMAT_MISSING_OR_FAILED",
+            "artifact": "artifacts/industry_scope_pack_validation.json",
+            "validation": "artifacts/industry_scope_pack_validation.json",
+            "gate": INDUSTRY_SCOPE_PACK,
+            "allowed": ["rerun_industry_scope_pack_validation", "repair_scope_format_from_python_feedback"],
+            "forbidden": ["write_research_pack", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
+            "validation_inputs": ["artifacts/industry_scope_pack.json", "artifacts/industry_boundary_qc.json"],
         },
         {
             "stage": "FORMAL_SEARCH_PLAN_MISSING",
@@ -822,6 +832,25 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
         if missing:
             return {**check, "status": "missing", "missing_artifacts": missing}
 
+        if str(check.get("gate") or "") == INDUSTRY_BOUNDARY_QC:
+            qc_payload = load_json(run_dir / check["artifact"])
+            decision = str(qc_payload.get("decision") or "").strip()
+            if decision != "pass":
+                return {
+                    **check,
+                    "status": "failed",
+                    "failed_validations": [
+                        {
+                            "path": check["artifact"],
+                            "status": f"qc_decision={decision or 'missing'}",
+                            "message": (
+                                "QC did not grant boundary pass. Route feedback to Scoping or run boundary "
+                                "validation searches before formal search planning."
+                            ),
+                        }
+                    ],
+                }
+
         validations = [rel for rel in [check.get("validation", "")] + list(check.get("extra_validations", [])) if rel]
         failed = []
         for rel in validations:
@@ -831,7 +860,11 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
         if failed:
             return {**check, "status": "failed", "failed_validations": failed}
 
-        input_artifacts = [check["artifact"]] + list(check.get("extra_artifacts", []))
+        # `extra_artifacts` are presence requirements for the stage, not
+        # automatically provenance inputs for the primary validation. For
+        # example, material_manifest_validation should not become stale merely
+        # because material_extracts.json was later updated by LLM extraction.
+        input_artifacts = [check["artifact"]] + list(check.get("validation_inputs", []))
         input_artifacts.extend(manifest_gate_inputs(manifest, str(check.get("gate") or "")))
         stale = stale_validation_details(run_dir, validations, input_artifacts)
         if stale:
@@ -909,7 +942,7 @@ def validate_run_state(run_dir: Path) -> dict[str, Any]:
         "mission_state": mission_state,
         "evidence_readiness": evidence_readiness,
         "failure_memory_tail": _read_jsonl_tail(run_dir / DEFAULT_FAILURE_MEMORY),
-        "current_phase": mission_state.get("current_phase", state.get("stage", "")),
+        "current_phase": state.get("stage", ""),
         "current_mission": mission_state.get("current_mission", ""),
         "message": message_for_state(state, debug_only),
     }
@@ -933,11 +966,15 @@ def message_for_state(state: dict[str, Any], debug_only: bool) -> str:
     stage = state.get("stage")
     if stage == "CLIENT_READY":
         return "Run is client-ready. Publish only the PPT referenced by the latest-final pointer."
-    if stage in {"BOUNDARY_LOOP_MISSING_OR_FAILED"}:
-        status = state.get("blocking_gate") or "boundary_loop"
+    if stage in {"INDUSTRY_BOUNDARY_QC_REQUIRED"}:
         return (
-            f"{status} is not ready. Run boundary loop repair for scope confidence and repair "
-            "any scope-definition conflicts before formal search planning."
+            "Industry boundary QC is required. QC LLM must review boundary quality and grant "
+            "decision=pass before formal research planning."
+        )
+    if stage in {"INDUSTRY_SCOPE_FORMAT_MISSING_OR_FAILED"}:
+        return (
+            "Boundary QC passed; run deterministic industry_scope_pack format/red-line validation "
+            "before formal research planning."
         )
     if stage == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
         return (

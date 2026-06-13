@@ -105,7 +105,7 @@ HANDOFF_PACKETS: dict[str, dict[str, Any]] = {
         "title": "Material → Scoping",
         "completed": [
             "material manifest extracted and validated",
-            "material extracts generated with evidence-aware status and can_be_used_as_evidence flags",
+            "material content-capture workspace generated; raw text is not evidence-ready until LLM fact extraction",
         ],
         "available_evidence": [
             "artifacts/material_manifest.json",
@@ -133,18 +133,19 @@ HANDOFF_PACKETS: dict[str, dict[str, Any]] = {
         "to_role": "research-external-evidence",
         "title": "Scoping → Research",
         "completed": [
-            "industry boundary defined and validated",
-            "boundary loop status captured (including missing/insufficient items)",
+            "industry boundary defined",
+            "QC LLM granted boundary pass or wrote boundary validation requests",
             "formal search plan seeded from canonical taxonomy",
         ],
         "available_evidence": [
             "artifacts/industry_scope_pack.json",
-            "artifacts/boundary_loop_status.json",
+            "artifacts/industry_boundary_qc.json",
+            "artifacts/boundary_research_requests.json",
             "artifacts/formal_search_plan.json",
         ],
         "required_for_next": [
             "artifacts/industry_scope_pack.json",
-            "artifacts/boundary_loop_status.json",
+            "artifacts/industry_boundary_qc.json",
             "artifacts/formal_search_plan.json",
         ],
         "downstream_not_allowed": [

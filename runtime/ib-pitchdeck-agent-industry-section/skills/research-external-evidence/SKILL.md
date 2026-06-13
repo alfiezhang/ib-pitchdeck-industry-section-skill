@@ -98,6 +98,8 @@ LLM must not:
 - create fake `S-xxx` IDs;
 - mark opened/reviewed without actual review;
 - attach unexecuted search rows to source reviews;
+- invent or pre-fill `EV-xxx` IDs in `source_reviews.json`; Evidence DB
+  promotion assigns EV IDs after sources have been reviewed;
 - write deck claims or issue conclusions.
 
 ## Good Output Looks Like
@@ -107,6 +109,7 @@ A good Research output has:
 - executable, human-searchable queries;
 - reviewed sources with locators/excerpts;
 - clear source usability and limitations;
+- no forced EV-ID links before Knowledge/Evidence DB promotion;
 - planned-vs-actual accounting;
 - no contamination of evidence with unexecuted coverage rows.
 

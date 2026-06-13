@@ -48,6 +48,13 @@ source, scope, and limitation?**
   - repository facts;
   - model inference;
   - unresolved hypotheses.
+- Treat `material_extracts.json` carefully:
+  - `raw_text_available=true` only means content was captured/readable;
+  - `can_be_used_as_evidence=true` requires LLM-extracted facts/metrics/quotes
+    with locators and use limits;
+  - project-specific facts should feed `input_card.json`;
+  - industry facts from user reports or company materials may enter the
+    evidence DB only after source-faithful extraction.
 - Identify metric comparability problems, such as GMV vs retail sales, platform
   sample vs all-channel market, narrow vs broad category, or 2024 vs MAT data.
 - Keep `coverage_accounting` out of evidence rows. Not-executed or

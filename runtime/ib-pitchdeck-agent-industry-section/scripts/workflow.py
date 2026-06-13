@@ -12,11 +12,150 @@ from validate_run_state import validate_run_state
 
 PYTHON_COMMAND_TEMPLATE = '"$PYTHON_CMD"'
 
+GLOBAL_QC_PROTOCOL: dict[str, Any] = {
+    "principle": "LLM QC judges quality and routes repairs; Python checks deterministic structure, provenance, stale state, and renderability.",
+    "no_qc_validator_loop": True,
+    "main_agent_receives_script_output_first": True,
+    "default_rules": [
+        "If an LLM QC decision is not pass, do not run the downstream Python format validator; follow the QC route first.",
+        "If an LLM QC decision is pass but the Python validator fails, route to the owner role to repair format/red-line issues and rerun the same validator.",
+        "Do not re-run LLM QC after pure format repair unless the repair changes substantive judgment, scope, source use, evidence status, or page argument.",
+        "Warnings require owner repair or QC disposition; they are not silent permission to proceed.",
+        "QC artifacts are authored by the QC role. Do not add separate validators whose only job is to judge whether QC wrote enough prose.",
+    ],
+}
+
+
+QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
+    "INPUT_CARD_MISSING": {
+        "checkpoint": "Material/Input transcription",
+        "qc_mode": "No LLM QC required unless material meaning is ambiguous; Python validates transcription and required fields.",
+        "if_not_ok": "Material role repairs material capture/input_card, then reruns material/input-card validators.",
+    },
+    "INDUSTRY_SCOPE_PACK_MISSING": {
+        "checkpoint": "Scoping authoring",
+        "qc_mode": "Scoping writes scope pack first; do not run format validation until boundary QC has reviewed the substantive boundary.",
+        "if_not_ok": "Scoping rewrites industry_scope_pack before QC or Research proceeds.",
+    },
+    "INDUSTRY_BOUNDARY_QC_REQUIRED": {
+        "checkpoint": "Industry Boundary QC",
+        "qc_mode": "QC LLM decides pass / needs_scope_repair / needs_boundary_validation using boundary-validation search when needed.",
+        "if_pass": "Run validate_industry_scope_pack.py.",
+        "if_needs_scope_repair": "Scoping repairs industry_scope_pack from QC feedback, then QC reviews again.",
+        "if_needs_boundary_validation": "Research executes the requested boundary checks; Knowledge records sources; QC reviews again.",
+    },
+    "INDUSTRY_SCOPE_FORMAT_MISSING_OR_FAILED": {
+        "checkpoint": "Scope format/red-line check",
+        "qc_mode": "Boundary QC already passed; Python now checks deterministic scope schema and prohibited confirmed claims.",
+        "if_not_ok": "Scoping repairs format/red-line issues and reruns validate_industry_scope_pack.py; re-QC only if the boundary changed.",
+    },
+    "FORMAL_SEARCH_PLAN_MISSING": {
+        "checkpoint": "Research planning quality",
+        "qc_mode": "Research owns executable query quality; Python validates taxonomy coverage and non-empty executable searches.",
+        "if_not_ok": "Research rewrites coverage/search batch. QC may route poor query quality but should not accept generic unusable queries.",
+    },
+    "SOURCE_REVIEWS_MISSING_OR_FAILED": {
+        "checkpoint": "Source review quality",
+        "qc_mode": "Research judges source usability; QC adjudicates source-quality warnings. Python checks actual S/SRC linkage, locators, and required fields.",
+        "if_not_ok": "Research repairs source_reviews or runs better searches. QC decides downgrade/reject/limited-use when quality is debatable.",
+    },
+    "SOURCE_ARCHIVE_MISSING_OR_FAILED": {
+        "checkpoint": "Source archive integrity",
+        "qc_mode": "Python archives reviewed sources. QC only routes archive failures; it does not create source evidence.",
+        "if_not_ok": "Research/Output repairs archive inputs or source review links and reruns archive validation.",
+    },
+    "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": {
+        "checkpoint": "Planned-vs-actual research accounting",
+        "qc_mode": "Python checks accounting consistency; Research owns truthful execution status. QC routes any attempt to fake S-xxx or promote planned-only evidence.",
+        "if_not_ok": "Research reconciles every FS row against real S rows, marks gaps explicitly, and reruns validation.",
+    },
+    "PRE_RESEARCH_PACK_GATE_FAILED": {
+        "checkpoint": "Pre evidence-pack gate",
+        "qc_mode": "QC groups upstream research/source/archive failures and routes to the smallest owner repair.",
+        "if_not_ok": "Repair the upstream research artifact; do not build evidence DB or issue analysis.",
+    },
+    "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": {
+        "checkpoint": "Knowledge/evidence extraction",
+        "qc_mode": "Knowledge extracts facts/metrics/limits; QC reviews evidence quality/use limits. Python checks schema, IDs, and provenance.",
+        "if_not_ok": "Knowledge repairs extraction. QC routes thin/unsupported evidence to Research or Reasoning, not downstream deck generation.",
+    },
+    "RESEARCH_PACK_MISSING_OR_FAILED": {
+        "checkpoint": "Evidence-pack export",
+        "qc_mode": "Research pack is derived from evidence DB; Python validates the export. QC routes content weaknesses back to Knowledge/Research, not the Markdown export.",
+        "if_not_ok": "Fix research_evidence_db or upstream source reviews, re-export, rerun validation.",
+    },
+    "ISSUE_ANALYSIS_MISSING_OR_FAILED": {
+        "checkpoint": "Reasoning/readiness judgment",
+        "qc_mode": "Reasoning decides supported judgments, hypotheses, and evidence_readiness; QC may confirm or reject readiness. Python checks required reasoning fields.",
+        "if_not_ok": "Reasoning repairs issue_analysis/evidence_readiness. If evidence is too thin, route to Research Request Queue instead of forcing an 8-page deck.",
+    },
+    "TEMPLATE_REGISTRY_MISSING_OR_FAILED": {
+        "checkpoint": "Template registry extraction",
+        "qc_mode": "Python extracts template registry; Generation uses it. QC routes extraction failures, not style judgment.",
+        "if_not_ok": "Generation/Template repairs template extraction inputs and reruns validation.",
+    },
+    "DECK_BLUEPRINT_MISSING_OR_FAILED": {
+        "checkpoint": "Generation/page argument quality",
+        "qc_mode": "Generation writes page arguments and slide drafts; QC reviews whether pages are thin, unsupported, or off-mission. Python validates fields and template compatibility.",
+        "if_not_ok": "Generation repairs deck_blueprint; Reasoning/Research repair only if the root cause is unsupported judgment or missing evidence.",
+    },
+    "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": {
+        "checkpoint": "Compiled evidence contract",
+        "qc_mode": "Python compiles and validates evidence bindings. QC routes unsupported claim issues back to Generation/Reasoning.",
+        "if_not_ok": "Repair deck_blueprint or issue_analysis, then recompile.",
+    },
+    "RENDERER_SPEC_MISSING_OR_FAILED": {
+        "checkpoint": "Renderer spec determinism",
+        "qc_mode": "Python checks renderer data; QC routes content/evidence problems upstream when renderer errors reveal them.",
+        "if_not_ok": "Repair deck_blueprint/template inputs and recompile.",
+    },
+    "TEMPLATE_PROFILE_MISSING_OR_FAILED": {
+        "checkpoint": "Template analysis",
+        "qc_mode": "Template role owns style/profile; Python analyzes deterministic template properties. QC routes missing profile or manual patch attempts.",
+        "if_not_ok": "Template role reruns analyzer or fixes template input; do not hand-patch derived template_profile.",
+    },
+    "TEMPLATE_FIT_FAILED": {
+        "checkpoint": "Template fit QC",
+        "qc_mode": "Template role decides fit repairs without changing core judgment; QC routes whether the fix belongs to Template or Generation.",
+        "if_not_ok": "Template adjusts fit/profile; Generation compresses/restructures only when content exceeds capacity.",
+    },
+    "CHART_METRIC_BINDING_FAILED": {
+        "checkpoint": "Chart/evidence binding",
+        "qc_mode": "Python checks MET bindings. QC routes missing/weak metrics to Knowledge/Reasoning/Generation.",
+        "if_not_ok": "Fix metric reconciliation or chart intent upstream; do not fabricate chart-ready metrics.",
+    },
+    "CONTENT_QUALITY_FAILED": {
+        "checkpoint": "Generation/content QC",
+        "qc_mode": "QC interprets content-quality findings and assigns repair owner. Python reports density/source/evidence/text issues but does not decide pitch quality alone.",
+        "if_not_ok": "Generation repairs page copy/layout; Reasoning repairs unsupported claims; Knowledge/Research repairs evidence gaps.",
+    },
+    "PRE_PPT_GATE_FAILED": {
+        "checkpoint": "Pre-PPT aggregate QC",
+        "qc_mode": "QC groups chart/content/template/source blockers before render.",
+        "if_not_ok": "Repair upstream artifacts; do not render PPT to bypass the gate.",
+    },
+    "REPLACEMENT_DICT_MISSING_OR_FAILED": {
+        "checkpoint": "Output token mapping",
+        "qc_mode": "Output/Python owns deterministic token mapping. QC routes if mapping failure exposes upstream renderer/template issues.",
+        "if_not_ok": "Rerun pipeline after upstream fix; do not hand-write replacement_dict.",
+    },
+    "FILLED_PPT_VALIDATION_FAILED": {
+        "checkpoint": "Filled PPT validation",
+        "qc_mode": "Output owns render defects. QC routes if the defect is actually template fit or renderer input.",
+        "if_not_ok": "Repair renderer/template/output inputs and rerun pipeline.",
+    },
+    "FINAL_DELIVERY_NOT_READY": {
+        "checkpoint": "Final QC",
+        "qc_mode": "QC decides whether final blockers are content readiness, evidence limits, template defects, or output mechanics. Python checks package integrity/client_ready flags.",
+        "if_not_ok": "Route to the smallest upstream owner; do not report a PPT as complete.",
+    },
+}
+
 
 COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "INPUT_CARD_MISSING": [
         {
-            "purpose": "required: ingest user brief/files/URLs into validated material artifacts before input card",
+            "purpose": "required: register materials and capture readable content before input-card transcription; captured text is not evidence-ready until LLM fact extraction",
             "command": (
                 f"{PYTHON_COMMAND_TEMPLATE} scripts/ingest_materials.py "
                 "--brief-text '<paste exact user brief or omit if using files/URLs>' "
@@ -32,36 +171,34 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_material_manifest.py --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_manifest_validation.json",
         },
         {
-            "purpose": "validate extracted materials and evidence snapshot coverage",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_material_extracts.py --material-extracts {{run_dir}}/artifacts/material_extracts.json --output {{run_dir}}/artifacts/material_extracts_validation.json",
-        },
-        {
             "purpose": "validate input card after transcription-only creation",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_input_card.py --input-card {{run_dir}}/input_card.json --output {{run_dir}}/artifacts/input_card_validation.json",
         },
     ],
-    "INDUSTRY_SCOPE_PACK_MISSING_OR_FAILED": [
+    "INDUSTRY_SCOPE_PACK_MISSING": [
         {
-            "purpose": "validate scope pack after definition/scoping repair; boundary validation is scoping-only and uses broad_discovery, not formal research conclusions",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_industry_scope_pack.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/industry_scope_pack_validation.json",
-        },
-        {
-            "purpose": "run boundary loop controller after scope-pack validation",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/boundary_loop.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --boundary-search-results {{run_dir}}/artifacts/search_log.md --output {{run_dir}}/artifacts/boundary_loop_status.json",
+            "purpose": "create industry_scope_pack.json as a scoping artifact only; do not run Python format validation until QC LLM has reviewed boundary quality",
+            "command": "LLM task: industry-scoping writes {run_dir}/artifacts/industry_scope_pack.json from input_card and captured materials; no market-size/growth/share/valuation/page claims.",
         },
     ],
-    "BOUNDARY_LOOP_MISSING_OR_FAILED": [
+    "INDUSTRY_BOUNDARY_QC_REQUIRED": [
         {
-            "purpose": "rerun boundary loop when scope needs boundary repair or conflict resolution before formal planning",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/boundary_loop.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --boundary-search-results {{run_dir}}/artifacts/search_log.md --output {{run_dir}}/artifacts/boundary_loop_status.json",
+            "purpose": "required: QC LLM reviews industry boundary quality and uses boundary-validation search/sources as needed; write pass/needs_boundary_validation/needs_scope_repair into industry_boundary_qc.json",
+            "command": (
+                "LLM task: QC reads {run_dir}/input_card.json, {run_dir}/artifacts/material_extracts.json, "
+                "{run_dir}/artifacts/industry_scope_pack.json; performs boundary validation search when needed; "
+                "writes {run_dir}/artifacts/industry_boundary_qc.json with decision, rationale, feedback, and any boundary_validation_requests."
+            ),
         },
         {
-            "purpose": "optional: capture explicit boundary checks from scope when conflict/ambiguity remains",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_industry_boundary_qc.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/industry_boundary_qc.json",
-        },
-        {
-            "purpose": "optional: build boundary repair requests to support boundary search loops",
+            "purpose": "if QC decision is needs_boundary_validation, convert QC requests into boundary research request artifact",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/build_boundary_research_requests.py --boundary-qc {{run_dir}}/artifacts/industry_boundary_qc.json --output {{run_dir}}/artifacts/boundary_research_requests.json",
+        },
+    ],
+    "INDUSTRY_SCOPE_FORMAT_MISSING_OR_FAILED": [
+        {
+            "purpose": "QC has passed boundary quality; now run deterministic format/red-line validation on scope pack",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/validate_industry_scope_pack.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/industry_scope_pack_validation.json",
         },
     ],
     "FORMAL_SEARCH_PLAN_MISSING": [
@@ -296,11 +433,22 @@ def status_payload(run_dir: Path) -> dict[str, Any]:
 def next_payload(run_dir: Path) -> dict[str, Any]:
     state = validate_run_state(run_dir)
     next_commands = dedupe_commands(recommended_commands(state))
+    mission_state = dict(state.get("mission_state") or {}) if isinstance(state.get("mission_state"), dict) else {}
+    mission_state.update(
+        {
+            "current_stage": state["current_stage"],
+            "current_phase": state["current_stage"],
+            "current_evidence_stage": state["current_stage"],
+            "status": state["status"],
+            "blocking_gate": state["blocking_gate"],
+            "owner_role": state.get("owner_role", "orchestrator"),
+        }
+    )
     payload = {
         "schema_version": "workflow_next_v1",
         "run_dir": state["run_dir"],
-        "current_mission": state.get("mission_state", {}).get("current_mission") if isinstance(state.get("mission_state"), dict) else "",
-        "current_phase": state.get("mission_state", {}).get("current_phase") if isinstance(state.get("mission_state"), dict) else "",
+        "current_mission": state.get("current_mission") or mission_state.get("current_mission", ""),
+        "current_phase": state.get("current_stage", ""),
         "source_run_dir": state.get("source_run_dir", ""),
         "output_run_dir": state.get("output_run_dir", state["run_dir"]),
         "package_of_record": state.get("package_of_record", state["run_dir"]),
@@ -322,7 +470,7 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "forbidden_actions": state["forbidden_actions"],
         "debug_only": state["debug_only"],
         "final_delivery_valid": state["final_delivery_valid"],
-        "mission_state": state.get("mission_state", {}),
+        "mission_state": mission_state,
         "evidence_readiness": state.get("evidence_readiness", {}),
         "handoff_packet_targets": [
             "artifacts/handoff_material_to_scoping.json",
@@ -335,6 +483,15 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "failure_memory_tail": state.get("failure_memory_tail", []),
         "message": state["message"],
     }
+    payload["qc_protocol"] = GLOBAL_QC_PROTOCOL
+    payload["current_qc_policy"] = QC_POLICY_BY_STAGE.get(
+        state["current_stage"],
+        {
+            "checkpoint": state["current_stage"],
+            "qc_mode": "Use workflow state and QC role to route warnings/failures; Python validators do not replace LLM quality judgment.",
+            "if_not_ok": "Repair the current owner artifact, rerun the same check, then return to workflow.py next.",
+        },
+    )
     if state.get("owner_skill"):
         payload["role_routing"] = {
             "read_this_role_skill_before_repairing": state["owner_skill"],

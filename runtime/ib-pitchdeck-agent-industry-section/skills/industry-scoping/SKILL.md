@@ -53,8 +53,9 @@ that later research must follow.
 
 ## What Scripts Handle
 
-Python validates structure and flags prohibited claims. It can build boundary
-QC and research-request artifacts, but it cannot decide the industry boundary.
+Python validates structure, flags prohibited claims, and converts QC's boundary
+validation requests into a research-request artifact. It cannot decide the
+industry boundary and it does not judge whether QC's reasoning is "complete".
 
 ## What You May Edit
 
@@ -90,21 +91,28 @@ A good scope pack makes it obvious:
 
 ## Hand Off
 
-Hand off a boundary map and validation needs to Research. Do not hand off market
-conclusions.
+Hand off `industry_scope_pack.json` to QC first, not directly to Research. QC
+reviews boundary quality and may use boundary-validation search/sources. If QC
+returns `needs_scope_repair`, repair the scope pack. If QC returns
+`needs_boundary_validation`, let Research handle the requested public evidence
+checks. If QC returns `pass`, run the deterministic format/red-line validator
+and then hand off to Research. Do not hand off market conclusions.
 
 ## Useful Commands
 
 ```bash
-"$PYTHON_CMD" scripts/validate_industry_scope_pack.py \
-  --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
-  --output "$RUN_DIR/artifacts/industry_scope_pack_validation.json"
-
-"$PYTHON_CMD" scripts/build_industry_boundary_qc.py \
-  --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
-  --output "$RUN_DIR/artifacts/industry_boundary_qc.json"
+# First write artifacts/industry_scope_pack.json. Then QC LLM reviews boundary
+# quality and writes artifacts/industry_boundary_qc.json with:
+# decision: pass | needs_boundary_validation | needs_scope_repair
+# decision_rationale
+# quality feedback
+# boundary_validation_requests when needed
 
 "$PYTHON_CMD" scripts/build_boundary_research_requests.py \
   --boundary-qc "$RUN_DIR/artifacts/industry_boundary_qc.json" \
   --output "$RUN_DIR/artifacts/boundary_research_requests.json"
+
+"$PYTHON_CMD" scripts/validate_industry_scope_pack.py \
+  --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
+  --output "$RUN_DIR/artifacts/industry_scope_pack_validation.json"
 ```

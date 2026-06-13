@@ -14,6 +14,37 @@ or artifact should be handled next.
 The core question is: **what is the smallest correct upstream repair, and who
 owns it?**
 
+## Universal QC Protocol
+
+Use the same pattern at every checkpoint:
+
+1. The owner role writes the substantive artifact.
+2. QC judges quality only where judgment is required:
+   - boundary relevance;
+   - source quality and use limits;
+   - evidence readiness;
+   - unsupported or over-extended claims;
+   - page thinness;
+   - template fit tradeoffs;
+   - final client-readiness.
+3. Python checks deterministic facts only:
+   - schema and required fields;
+   - IDs and references;
+   - provenance and stale artifacts;
+   - token/render/template mechanics;
+   - final package integrity.
+4. If QC says `pass`, the next role may run the deterministic Python check.
+5. If QC says repair, validation search, evidence refresh, or downstream limits
+   are needed, route to the owner role first. Do not proceed to downstream
+   validators.
+6. If QC has passed but the Python check fails, route to the owner role for
+   format/red-line repair and rerun the same Python check. Re-run QC only if the
+   repair changes the underlying judgment, evidence status, page argument,
+   boundary, or template fit decision.
+7. Do not create a second validator whose purpose is merely to judge whether QC
+   wrote enough prose. QC output is a judgment artifact; the workflow only reads
+   its decision fields for routing.
+
 ## Inputs
 
 - validation artifacts under `artifacts/`
@@ -42,20 +73,32 @@ owns it?**
   - stale validation;
   - output/render failure.
 - Group many errors into a small number of repair targets.
+- Start from `qc_repair_brief.json.root_cause_groups` / the Root Cause Groups
+  section in `qc_repair_brief.md`; only drill into individual issues after the
+  owner and root cause are clear.
 - Treat warnings as workflow signals, not decoration. Classify each warning as:
   - `advisory_only`: may proceed, but record why it is harmless;
   - `repair_before_downstream`: owner role must repair before the next layer;
   - `qc_accept_with_limits`: may proceed only with explicit rationale and
     downstream-use limits.
-- Any warning without a disposition remains unresolved. If unresolved warnings
-  are present, route to the owner role or write the QC acceptance limits before
-  final delivery.
+- A warning without an owner/QC decision is not silently accepted. The main
+  agent should ask the relevant owner or QC to decide whether it is advisory,
+  repair-required, or accepted with limits. This is a routing problem, not a
+  reason to invent a second validator that grades QC prose completeness.
 - When scripts report source-quality warnings, decide whether the source can be
   used, downgraded, or rejected based on locator, methodology access, source
   authority, recency, and claim scope. Do not treat marker matching as the
   decision.
 - Confirm or reject Reasoning's `evidence_readiness` decision before final
   delivery when evidence depth is close or warnings are material.
+- Review industry boundary quality immediately after Scoping writes
+  `industry_scope_pack.json`:
+  - decide whether the boundary is too broad, too narrow, or transaction-irrelevant;
+  - check that channels, parent markets, suppliers, and adjacent themes are not
+    mistaken for the core industry;
+  - use boundary-validation search/sources when needed;
+  - write `artifacts/industry_boundary_qc.json` with `decision` equal to
+    `pass`, `needs_boundary_validation`, or `needs_scope_repair`.
 - Route each target to the correct role:
   - Material;
   - Knowledge;
@@ -68,9 +111,26 @@ owns it?**
 - State forbidden shortcuts for the current failure.
 - If accepting a warning, state what the downstream may and may not do with it
   (for example: context-only, body-only, caveat-only, not headline support).
-- `qc_warning_disposition.json` is the machine-readable record of that decision.
-  Do not let the main agent infer warning acceptance from a passing validator.
+- `qc_warning_disposition.json`, when used, is a machine-readable routing record
+  of the QC decision. Machines may read explicit decision fields such as
+  `repair_before_downstream`, `unresolved`, or `downstream_blocked`; machines
+  should not judge whether QC wrote enough explanatory prose.
 - Preserve common failure memory when a pattern should be avoided next time.
+
+## Checkpoint Routing
+
+Use this routing model unless `workflow.py next` gives a more specific policy:
+
+| Checkpoint | QC decides | Python checks | If not OK |
+|---|---|---|---|
+| Material / input | Whether ambiguity needs Material/Knowledge review | manifest/input-card structure | Material repairs capture/transcription |
+| Industry boundary | `pass`, `needs_scope_repair`, or `needs_boundary_validation` | scope schema and prohibited claims after QC pass | Scoping repairs or Research validates boundary, then QC reviews again |
+| Source reviews | source usability, downgrade/reject/use limits | actual S/SRC links, locator/excerpt fields | Research repairs searches/reviews; QC records limits |
+| Evidence DB | whether facts/metrics are usable, limited, conflicting, or thin | IDs, provenance, metric fields | Knowledge repairs extraction or Research adds evidence |
+| Reasoning | evidence readiness, hypothesis treatment, allowed deck usage | required issue-analysis fields | Reasoning repairs or sends requests to Research |
+| Generation | whether pages are substantive, supported, and pitch-relevant | deck fields, evidence contract, renderer spec | Generation repairs; Reasoning/Research repair if evidence is root cause |
+| Template | whether content should be compressed, split, or re-fit without changing judgment | profile/fit/render mechanics | Template or Generation repairs |
+| Final delivery | whether remaining issues block client-ready delivery | package integrity, debug flags, final validation | route to smallest upstream owner; do not call PPT complete |
 
 ## What Scripts Handle
 
@@ -148,6 +208,12 @@ A good QC output tells the next agent:
 
 Handoff is a repair brief, not content. The next role should receive the layer,
 artifact, field path, repair action, and rerun command.
+
+For industry boundary QC, your handoff is `artifacts/industry_boundary_qc.json`.
+If `decision=pass`, Scoping can run the Python format/red-line check. If
+`decision=needs_scope_repair`, Scoping must revise the scope pack. If
+`decision=needs_boundary_validation`, Research must satisfy the boundary
+validation requests before formal research planning.
 
 ## Useful Commands
 

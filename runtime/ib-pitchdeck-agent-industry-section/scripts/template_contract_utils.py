@@ -58,9 +58,11 @@ def active_body_fields(required_fields: list[str], page_type: str, slide_data: d
     """
     fields = list(required_fields)
     visual_design = slide_data.get("visual_design") if isinstance(slide_data.get("visual_design"), dict) else {}
+    visual_plan = slide_data.get("visual_plan") if isinstance(slide_data.get("visual_plan"), dict) else {}
     if page_type == "compare_table_page" and (
         isinstance(slide_data.get("compare_table_data"), dict)
         or isinstance(visual_design.get("compare_table_data"), dict)
+        or isinstance(visual_plan.get("compare_table_data"), dict)
     ):
         fields = [
             field

@@ -247,7 +247,12 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
         errors.append("research_backlog must be an array")
         backlog = []
     evidence_readiness = pool.get("evidence_readiness")
-    if evidence_readiness is not None and not isinstance(evidence_readiness, dict):
+    if evidence_readiness is None:
+        errors.append(
+            "evidence_readiness is required. Reasoning must record deliverable depth before deck generation: "
+            "enough_for_client_pitch, evidence_limited_pitch_outline, and research_first_required."
+        )
+    elif not isinstance(evidence_readiness, dict):
         errors.append("evidence_readiness must be an object")
     elif isinstance(evidence_readiness, dict):
         decision_status = str(evidence_readiness.get("decision_status") or "").strip()
@@ -524,6 +529,8 @@ def validate(pool: dict[str, Any], memo_path: Path | None = None) -> tuple[list[
 
 
 def _repair_class(error: str) -> str:
+    if "evidence_readiness is required" in error or "evidence_readiness still needs LLM decision" in error:
+        return "missing_evidence_readiness"
     if "issue_analyses must be a non-empty array" in error:
         return "missing_issue_analysis"
     if "status must be one of" in error or "analysis_type must be one of" in error or "evidence_sufficiency must be one of" in error:
@@ -548,6 +555,11 @@ def _repair_class(error: str) -> str:
 
 
 REPAIR_PROFILES: dict[str, dict[str, Any]] = {
+    "missing_evidence_readiness": {
+        "repair_target": "industry_issue_analysis.json",
+        "repair_hint": "Reasoning must make the deliverable-depth decision before Generation: set evidence_readiness.decision_status to llm_decided or qc_confirmed, set decision_owner, enough_for_client_pitch, evidence_limited_pitch_outline, research_first_required, and add a decision_note explaining the evidence basis.",
+        "repair_fields": ["evidence_readiness"],
+    },
     "missing_issue_analysis": {
         "repair_target": "industry_issue_analysis.json",
         "repair_hint": "Rebuild issue_analyses from the research pack IB Issue Fact Inventory and formal_research_execution_report. Do not proceed to deck_blueprint with an empty analysis array.",
@@ -619,6 +631,7 @@ def build_repair_plan(errors: list[str]) -> dict[str, Any]:
     for error in errors:
         grouped.setdefault(_repair_class(str(error)), []).append(str(error))
     ordered_keys = [
+        "missing_evidence_readiness",
         "missing_issue_analysis",
         "mechanical_alias_or_enum",
         "thin_analysis_text",

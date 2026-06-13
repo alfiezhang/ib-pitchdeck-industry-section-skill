@@ -22,6 +22,27 @@ def main() -> int:
     args = parser.parse_args()
     qc = load_json_file(Path(args.boundary_qc))
     requests: list[dict[str, Any]] = []
+    for request in qc.get("boundary_validation_requests") or []:
+        if not isinstance(request, dict):
+            continue
+        question = text(request.get("research_question") or request.get("question") or request.get("request"))
+        if not question:
+            continue
+        requests.append(
+            {
+                "boundary_request_id": text(request.get("boundary_request_id")) or f"BRQ-{len(requests) + 1:03d}",
+                "source_check_id": text(request.get("source_check_id") or request.get("issue_id")),
+                "research_question": question,
+                "search_intent": "boundary_validation_only",
+                "allowed_sources": request.get("allowed_sources")
+                if isinstance(request.get("allowed_sources"), list)
+                else ["industry taxonomy", "industry report methodology", "association/regulator definition", "company comparable descriptions"],
+                "forbidden": request.get("forbidden")
+                if isinstance(request.get("forbidden"), list)
+                else ["market_size_claim", "growth_claim", "valuation_claim", "page_thesis"],
+                "status": text(request.get("status")) or "pending_boundary_validation",
+            }
+        )
     for check in qc.get("checks") or []:
         if not isinstance(check, dict) or check.get("status") not in {"fail", "warning"}:
             continue

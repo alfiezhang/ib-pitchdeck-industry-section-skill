@@ -4,7 +4,8 @@
 The generated file is a review workspace, not a source-quality judgment. It
 mechanically maps real S-xxx search attempts and selected URLs into SRC-xxx
 review cards so the LLM can focus on source assessment, locator/excerpt quality,
-and evidence promotion decisions.
+and claim-use limits. EV IDs are assigned later by the research evidence DB
+layer; do not invent them in source_reviews.json.
 """
 
 from __future__ import annotations
@@ -246,7 +247,8 @@ def build_source_reviews(
                     "review_status": _review_status(attempt),
                     "review_instruction": (
                         "Assess whether this is core_evidence, contextual_evidence, directional_only, lead_only, or rejected. "
-                        "Only set usable_as_evidence=true after adding a specific locator/excerpt and linking promoted EV IDs."
+                        "Only set usable_as_evidence=true after adding a specific locator/excerpt and reviewed claim_use_scope. "
+                        "Do not invent EV IDs here; Evidence DB promotion assigns EV IDs later."
                     ),
                 }
             )

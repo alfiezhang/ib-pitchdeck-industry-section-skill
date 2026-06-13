@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Build material_extracts.json skeleton from a material manifest."""
+"""Build material_extracts.json skeleton from a material manifest.
+
+This artifact is a content-capture and LLM-extraction workspace. It is not a
+claim that the material is evidence-ready.
+"""
 
 from __future__ import annotations
 
@@ -35,11 +39,19 @@ def main() -> int:
                 "material_kind": text(item.get("material_kind") or ("url" if text(item.get("file_path_or_url") or item.get("locator")).startswith(("http://", "https://")) else "file")),
                 "locator": text(item.get("locator") or item.get("file_path_or_url")),
                 "extraction_status": "pending_llm_extraction",
+                "raw_text_available": False,
+                "raw_text_path": "",
+                "raw_text_extraction_status": "not_processed",
+                "content_capture_status": "not_processed",
+                "llm_extraction_status": "pending_llm_extraction",
                 "extracted_facts": [],
                 "extracted_metrics": [],
                 "quoted_excerpts": [],
                 "unknowns_or_conflicts": [],
-                "claim_use_limitations": "Do not use until facts/metrics are extracted with locator and source type.",
+                "claim_use_limitations": (
+                    "Do not use until content is captured and a role LLM extracts facts/metrics/"
+                    "quoted excerpts with locators and source type."
+                ),
                 "extraction_limitations": "not_processed",
                 "can_be_used_as_evidence": False,
                 "extracted_text_path": "",
@@ -48,6 +60,9 @@ def main() -> int:
         )
     payload = {
         "schema_version": "material_extracts_v1",
+        "artifact_semantics": (
+            "Content capture plus LLM extraction workspace. Raw text availability does not mean evidence usability."
+        ),
         "materials_source": str(args.material_manifest),
         "extracts": extracts,
     }

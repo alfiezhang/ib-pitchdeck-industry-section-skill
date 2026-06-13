@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from json_utils import load_json_file
+from template_contract_utils import active_body_fields
 from validation_common import display_units, estimate_lines, layout_rules_for
 
 
@@ -221,6 +222,7 @@ def _check_payload_support(
         _append(warnings, f"slide {slide_no}: matrix payload exists for '{page_type}' but matrix support flag is false")
 
     required_fields = variant.get("required_body_fields") if isinstance(variant.get("required_body_fields"), list) else []
+    required_fields = active_body_fields(required_fields, page_type, slide)
     body_copy = slide.get("body_copy") or {}
     if isinstance(body_copy, dict):
         missing = [name for name in required_fields if _is_blank(body_copy.get(name))]
@@ -237,10 +239,16 @@ def _check_render_layout_presence(
 ) -> None:
     slide_no = int(slide.get("slide_no") or 0)
     page_type = str(slide.get("selected_page_type") or "")
-    variant_layout = str(variant.get("render_layout") or "")
     variant_missing = page_type not in layout_slides.get(str(slide_no), {})
-    if variant_missing:
+    needs_render_layout = (
+        _has_payload(slide.get("chart_data"))
+        or _has_payload(slide.get("compare_table_data"))
+        or _has_payload(slide.get("matrix_data"))
+    )
+    if variant_missing and needs_render_layout:
         _append(blocking, f"slide {slide_no}: render layout for '{page_type}' not found in template profile; PPT rendering will produce broken output")
+    elif variant_missing:
+        _append(warnings, f"slide {slide_no}: render layout for '{page_type}' not found in template profile; token-only/text rendering will be used")
 
 
 def _check_visual_style(

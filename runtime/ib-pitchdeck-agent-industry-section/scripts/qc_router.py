@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -156,21 +157,119 @@ def payload_for_run(run_dir: Path) -> dict[str, Any]:
 
 def _issue_affected_slides(field_path: str, message: str) -> list[str]:
     text = " ".join([field_path or "", message or ""]).lower()
-    out: list[str] = []
-    # Lightweight extraction that works for legacy issue fields like slide[3], slide_no=2, etc.
-    if "slide" in text:
-        marker_tokens = ("slide[", "slide_no", "slide_no=", "page", "slide ")
-        for token in marker_tokens:
-            idx = text.find(token)
-            if idx >= 0:
-                break
-    parts = []
-    for token in (text or "").replace("=", " ").split():
-        if token.isdigit():
-            parts.append(token)
-    if parts:
-        out = [f"slide:{value}" for value in parts[:3]]
-    return out
+    values: list[str] = []
+    patterns = (
+        r"slide\[(\d+)\]",
+        r"slide_no\s*[=:]\s*(\d+)",
+        r"\bslide\s+(\d+)\b",
+        r"\bslide_(\d+)\b",
+    )
+    for pattern in patterns:
+        for match in re.findall(pattern, text):
+            label = f"slide:{match}"
+            if label not in values:
+                values.append(label)
+    return values[:3]
+
+
+def _root_cause_key(issue: dict[str, Any]) -> tuple[str, str, str]:
+    message = str(issue.get("message") or "").lower()
+    owner = str(issue.get("repair_owner") or issue.get("layer") or "orchestrator")
+    if "render layout" in message or "template profile has no variant" in message:
+        return (
+            "template_layout_contract",
+            "Template profile / registry layout contract mismatch",
+            "Template must regenerate or repair layout contracts; do not patch derived profile by hand.",
+        )
+    if "table_header" in message or "table_row" in message or "compare_table_data" in message:
+        return (
+            "table_payload_mapping",
+            "Structured table payload not mapped into template/table fields",
+            "Compiler/Template should map compare_table_data to table fields or return to Generation for a supported table page.",
+        )
+    if "min recommended" in message or "too short" in message or "only " in message and "body_copy" in message:
+        return (
+            "page_density",
+            "Page copy density is below pitchbook standard",
+            "Generation should enrich or restructure affected slides; QC may accept only with explicit client-readiness limits.",
+        )
+    if "label rather than a conclusion" in message:
+        return (
+            "conclusion_led_title",
+            "Slide title reads like a label instead of a conclusion",
+            "Generation should rewrite headlines as banker judgments supported by evidence.",
+        )
+    if "all non-user source_reviews" in message or "weak-source" in message or "repost" in message:
+        return (
+            "source_quality_disposition",
+            "Source quality needs LLM/QC disposition",
+            "Research/QC should classify source quality and set claim-use limits before evidence promotion or headline use.",
+        )
+    if "locator should not replace" in message or "material" in message and "locator" in message:
+        return (
+            "material_locator_hygiene",
+            "Material locator/source fields are not clean",
+            "Material Intake should repair source registration so later provenance remains clear.",
+        )
+    if "evidence-backed" in message or "one ev-id" in message or "supported_inference" in message:
+        return (
+            "evidence_support_depth",
+            "Evidence support is too thin or not clearly bound to the claim",
+            "Reasoning/QC should decide whether to triangulate, caveat, downgrade, or request more research.",
+        )
+    if "drilldown_role" in message or "drill_down_from_slide" in message or "new_information_added" in message:
+        return (
+            "page_role_contract",
+            "Page role / drilldown contract is incomplete",
+            "Generation should repair page role metadata and ensure the page adds distinct insight.",
+        )
+    if "visible numeric context" in message:
+        return (
+            "metric_binding",
+            "Visible metric is not bound to a material claim location",
+            "Generation/Research should bind the metric to a claim or remove it from client-facing copy.",
+        )
+    return (
+        f"{owner}_repair",
+        f"{owner} repair required",
+        str(issue.get("repair_action") or "Repair the affected artifact and rerun QC."),
+    )
+
+
+def _root_cause_groups(summary_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for row in summary_rows:
+        key, title, action = _root_cause_key(
+            {
+                "message": row.get("root_cause"),
+                "repair_owner": row.get("repair_owner"),
+                "layer": row.get("affected_layer"),
+                "repair_action": row.get("exact_next_action"),
+            }
+        )
+        group = groups.setdefault(
+            key,
+            {
+                "root_cause_id": key,
+                "title": title,
+                "repair_owner": row.get("repair_owner") or row.get("affected_layer") or "orchestrator",
+                "issue_count": 0,
+                "affected_artifacts": [],
+                "affected_slides": [],
+                "representative_issues": [],
+                "recommended_next_action": action,
+            },
+        )
+        group["issue_count"] += 1
+        artifact = str(row.get("affected_artifact") or "")
+        if artifact and artifact not in group["affected_artifacts"]:
+            group["affected_artifacts"].append(artifact)
+        for slide in row.get("affected_slides") or []:
+            if slide and slide not in group["affected_slides"]:
+                group["affected_slides"].append(slide)
+        if len(group["representative_issues"]) < 3:
+            group["representative_issues"].append(row.get("issue_id"))
+    return sorted(groups.values(), key=lambda item: (-int(item.get("issue_count") or 0), str(item.get("root_cause_id") or "")))
 
 
 def _build_qc_repair_brief(qc_payload: dict[str, Any]) -> dict[str, Any]:
@@ -215,6 +314,7 @@ def _build_qc_repair_brief(qc_payload: dict[str, Any]) -> dict[str, Any]:
             }
         ]
 
+    groups = _root_cause_groups(summary_rows)
     blocked = [item for item in summary_rows if str(item.get("repair_owner") or "")]
     owner_groups: dict[str, int] = {}
     for row in summary_rows:
@@ -230,9 +330,11 @@ def _build_qc_repair_brief(qc_payload: dict[str, Any]) -> dict[str, Any]:
             "warning_issue_count": int(qc_payload.get("warning_issue_count") or 0),
             "requires_qc_disposition_count": int(qc_payload.get("requires_qc_disposition_count") or 0),
             "status": "repair_required" if qc_payload.get("is_valid") is False else "pass_through",
-            "next_focus": blocked[0].get("repair_owner") if blocked else "orchestrator",
+            "next_focus": groups[0].get("repair_owner") if groups else (blocked[0].get("repair_owner") if blocked else "orchestrator"),
+            "next_root_cause": groups[0].get("root_cause_id") if groups else "",
             "owner_groups": owner_groups,
         },
+        "root_cause_groups": groups,
         "issues": summary_rows,
     }
 
@@ -274,32 +376,51 @@ def _build_qc_warning_disposition(qc_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _brief_markdown(qc_payload: dict[str, Any]) -> str:
+    brief = _build_qc_repair_brief(qc_payload)
+    summary = brief.get("summary") if isinstance(brief.get("summary"), dict) else {}
+    groups = brief.get("root_cause_groups") if isinstance(brief.get("root_cause_groups"), list) else []
     lines = [
         "# QC Repair Brief",
         f"Run Dir: `{qc_payload.get('run_dir')}`",
         f"Status: {'BLOCKED' if qc_payload.get('is_valid') is False else 'PASS'}",
         f"Blocking issues: {qc_payload.get('blocking_issue_count', 0)}",
+        f"Next focus: {summary.get('next_focus', 'orchestrator')}",
+        f"Next root cause: {summary.get('next_root_cause', '') or 'n/a'}",
         "",
+        "## Root Cause Groups",
     ]
-    for issue in qc_payload.get("issues", []):
-        if not isinstance(issue, dict):
+    for group in groups:
+        if not isinstance(group, dict):
             continue
         lines.extend(
             [
-                f"## {issue.get('issue_id', 'QC-000')}: {issue.get('repair_owner', 'orchestrator')}",
-                f"- root cause: {issue.get('message') or issue.get('repair_action') or ''}",
-                f"- affected layer: {issue.get('layer', '-')}",
-                f"- affected artifact: {issue.get('artifact', '-')}",
-                f"- affected slides: {', '.join(_issue_affected_slides(str(issue.get('field_path') or ''), str(issue.get('message') or '')) ) or 'n/a'}",
-                f"- repair owner: {issue.get('repair_owner', '')}",
-                f"- exact next action: {issue.get('repair_action', '')}",
-                f"- warning disposition: {issue.get('warning_disposition') or 'n/a'}",
-                f"- downstream limit: {issue.get('downstream_limit') or 'n/a'}",
-                f"- forbidden action: {issue.get('forbidden_action') or 'Not specified'}",
+                f"### {group.get('root_cause_id', 'root_cause')}: {group.get('title', '')}",
+                f"- issue count: {group.get('issue_count', 0)}",
+                f"- repair owner: {group.get('repair_owner', '')}",
+                f"- affected artifacts: {', '.join(group.get('affected_artifacts') or []) or 'n/a'}",
+                f"- affected slides: {', '.join(group.get('affected_slides') or []) or 'n/a'}",
+                f"- recommended next action: {group.get('recommended_next_action', '')}",
+                f"- representative issues: {', '.join(str(item) for item in (group.get('representative_issues') or [])) or 'n/a'}",
                 "",
             ]
         )
-    if not qc_payload.get("issues"):
+    issues = [item for item in qc_payload.get("issues", []) if isinstance(item, dict)]
+    if issues:
+        lines.extend(["## Issue Detail Sample"])
+        for issue in issues[:12]:
+            lines.extend(
+                [
+                    f"### {issue.get('issue_id', 'QC-000')}: {issue.get('repair_owner', 'orchestrator')}",
+                    f"- message: {issue.get('message') or issue.get('repair_action') or ''}",
+                    f"- affected artifact: {issue.get('artifact', '-')}",
+                    f"- exact next action: {issue.get('repair_action', '')}",
+                    f"- downstream limit: {issue.get('downstream_limit') or 'n/a'}",
+                    "",
+                ]
+            )
+        if len(issues) > 12:
+            lines.append(f"... {len(issues) - 12} additional issue(s) omitted from Markdown sample; see qc_repair_brief.json for full detail.")
+    else:
         lines.append("- No blocking action required.")
     return "\n".join(lines)
 

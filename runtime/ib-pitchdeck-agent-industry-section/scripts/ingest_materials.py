@@ -156,8 +156,12 @@ def _extract_one(material: dict[str, Any], material_texts_dir: Path) -> dict[str
         text_path.write_text(extracted_text, encoding="utf-8")
     material["extracted_text_path"] = str(text_path)
     material["extraction_status"] = extraction_status if code == 0 else "failed"
+    material["raw_text_available"] = bool(can_use) and material["extraction_status"] == "complete"
+    material["raw_text_extraction_status"] = material["extraction_status"]
     material["extraction_limitations"] = "; ".join(limitations) if limitations else "none"
-    material["can_be_used_as_evidence"] = bool(can_use) and material["extraction_status"] == "complete"
+    # Raw text capture is not evidence review. A role LLM must extract facts,
+    # metrics, quotes, unknowns, and use limits before downstream evidence use.
+    material["can_be_used_as_evidence"] = False
     material["extracted_text_preview"] = clean_text_block(extracted_text)[:320]
     return material
 
@@ -234,14 +238,28 @@ def ingest_materials(
                 "source_access": material["source_access"],
                 "file_path_or_url": material["file_path_or_url"],
                 "extracted_text_path": extracted["extracted_text_path"],
+                "raw_text_path": extracted["extracted_text_path"],
+                "raw_text_available": extracted["raw_text_available"],
+                "raw_text_extraction_status": extracted["raw_text_extraction_status"],
+                "content_capture_status": "captured" if extracted["raw_text_available"] else "capture_failed",
                 "extraction_status": extracted["extraction_status"],
                 "extraction_limitations": extracted["extraction_limitations"],
-                "can_be_used_as_evidence": extracted["can_be_used_as_evidence"],
+                "llm_extraction_status": (
+                    "pending_llm_extraction"
+                    if extracted["raw_text_available"]
+                    else "blocked_no_readable_text"
+                ),
+                "can_be_used_as_evidence": False,
                 "extracted_facts": [],
                 "extracted_metrics": [],
                 "quoted_excerpts": [],
                 "unknowns_or_conflicts": [],
-                "claim_use_limitations": extracted["extraction_limitations"],
+                "claim_use_limitations": (
+                    "Raw content captured only; do not use as evidence until a role LLM extracts "
+                    "source-faithful facts, metrics, quoted excerpts, unknowns/conflicts, and use limits."
+                    if extracted["raw_text_available"]
+                    else extracted["extraction_limitations"]
+                ),
                 "evidence_snapshot": extracted["extracted_text_preview"],
             }
         )
@@ -261,6 +279,11 @@ def ingest_materials(
 
     extracts = {
         "schema_version": "material_extracts_v1",
+        "artifact_semantics": (
+            "Content capture plus LLM extraction workspace. Raw text availability does not mean "
+            "evidence usability. Project facts should be transcribed into input_card.json; "
+            "industry facts from provided reports should be extracted by a role LLM before entering Knowledge."
+        ),
         "materials_source": str(output_material_manifest),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "extracts": extract_entries,

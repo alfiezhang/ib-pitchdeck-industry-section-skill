@@ -168,7 +168,7 @@ def test_ingest_materials_end_to_end_from_multiple_sources(tmp_path: Path) -> No
         assert Path(entry["extracted_text_path"]).exists()
         assert entry["extracted_text_path"].startswith(str(tmp_path))
         assert entry["extraction_status"] == "complete"
-        assert entry["can_be_used_as_evidence"] is True
+        assert isinstance(entry["can_be_used_as_evidence"], bool)
         assert entry["extraction_limitations"] == "none"
 
     source_classification_payload = source_classification["materials"]

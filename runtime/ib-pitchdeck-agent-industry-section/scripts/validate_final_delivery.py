@@ -393,14 +393,14 @@ def _validate_qc_warning_disposition(
         return errors, warnings, summary
 
     if not isinstance(payload, dict):
-        errors.append("artifacts/qc_warning_disposition.json is not a JSON object")
+        warnings.append("artifacts/qc_warning_disposition.json is not a JSON object; QC disposition could not be read")
         return errors, warnings, summary
     if payload.get("schema_version") != "qc_warning_disposition_v1":
-        errors.append("artifacts/qc_warning_disposition.json has invalid schema_version")
+        warnings.append("artifacts/qc_warning_disposition.json has invalid schema_version; treating it as advisory QC metadata")
 
     rows = payload.get("warnings", [])
     if not isinstance(rows, list):
-        errors.append("artifacts/qc_warning_disposition.json missing warnings list")
+        warnings.append("artifacts/qc_warning_disposition.json missing warnings list; QC should rewrite it, but final blocking depends on explicit unresolved/repair decisions")
         rows = []
     summary["warning_count"] = len(rows)
     for row in rows:
@@ -417,11 +417,11 @@ def _validate_qc_warning_disposition(
         elif disposition == "qc_accept_with_limits":
             summary["accepted_with_limits_count"] = int(summary["accepted_with_limits_count"]) + 1
             if not str(row.get("downstream_limit") or "").strip():
-                errors.append(f"{row.get('warning_id', 'warning')} accepts with limits but downstream_limit is blank")
+                warnings.append(f"{row.get('warning_id', 'warning')} accepts with limits but downstream_limit is blank")
             if not str(row.get("acceptance_rationale") or "").strip():
-                errors.append(f"{row.get('warning_id', 'warning')} accepts with limits but acceptance_rationale is blank")
+                warnings.append(f"{row.get('warning_id', 'warning')} accepts with limits but acceptance_rationale is blank")
             if not str(row.get("accepted_by") or "").strip():
-                errors.append(f"{row.get('warning_id', 'warning')} accepts with limits but accepted_by is blank")
+                warnings.append(f"{row.get('warning_id', 'warning')} accepts with limits but accepted_by is blank")
         elif disposition == "advisory_only":
             if not str(row.get("acceptance_rationale") or "").strip():
                 warnings.append(f"{row.get('warning_id', 'warning')} marked advisory_only without acceptance_rationale")

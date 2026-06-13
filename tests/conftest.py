@@ -449,6 +449,22 @@ def _seed_boundary_loop_status(
         boundary_search_results=search_log_path,
     )
     _write_json(artifacts / "boundary_loop_status.json", status)
+    if status.get("boundary_loop_status") == "boundary_ready":
+        _write_json(
+            artifacts / "industry_boundary_qc.json",
+            {
+                "schema_version": "industry_boundary_qc_v1",
+                "decision": "pass",
+                "rationale": "synthetic boundary QC pass for fixture after boundary loop readiness",
+                "feedback": [],
+                "boundary_validation_requests": [],
+            },
+        )
+        if (artifacts / "industry_scope_pack_validation.json").exists():
+            _write_json(
+                artifacts / "industry_scope_pack_validation.json",
+                {"is_valid": True, "errors": [], "warnings": []},
+            )
     return status
 
 

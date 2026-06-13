@@ -250,6 +250,9 @@ def _visual_payload(slide: dict[str, Any], key: str) -> dict[str, Any]:
     visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
     if isinstance(visual.get(key), dict):
         return visual[key]
+    visual_plan = slide.get("visual_plan") if isinstance(slide.get("visual_plan"), dict) else {}
+    if isinstance(visual_plan.get(key), dict):
+        return visual_plan[key]
     return {}
 
 

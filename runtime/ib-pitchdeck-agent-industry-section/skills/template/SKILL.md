@@ -83,6 +83,11 @@ If `template_profile.json` is missing required fields such as `render_layouts`,
 `page_type_capability`, `source_area`, or `density_budget`, rerun or repair the
 analyzer code outside the client run. Do not patch the run artifact.
 
+Missing render-layout coordinates are blocking only when the slide needs a
+post-processed object such as a chart, compare table, or matrix. Token-only
+text/card pages may proceed with a warning and QC disposition; do not hand-patch
+`template_profile.json` just to silence a token-only layout warning.
+
 ## Good Output Looks Like
 
 A good Template output:

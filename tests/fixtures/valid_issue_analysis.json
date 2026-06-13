@@ -5,6 +5,19 @@
     "geography": "Example geography",
     "research_as_of_date": "2026-06-03"
   },
+  "evidence_readiness": {
+    "schema_version": "evidence_readiness_v1",
+    "decision_status": "llm_decided",
+    "decision_owner": "reasoning",
+    "decision_note": "Fixture evidence is sufficient for a client-pitch industry section with normal caveats.",
+    "enough_for_client_pitch": true,
+    "evidence_limited_pitch_outline": false,
+    "research_first_required": false,
+    "evidence_row_count": 3,
+    "metric_row_count": 3,
+    "critical_gap_count": 0,
+    "research_pack_exists": true
+  },
   "issue_analyses": [
     {
       "analysis_id": "IA-001",
