@@ -25,6 +25,8 @@ The client has not necessarily mandated the bank. Available materials may be onl
 6. Use LLM judgment for source quality, evidence sufficiency, industry boundary, banker reasoning, page quality, and pitch relevance.
 7. Treat `state_report.py next` and `gate_report.py` as dashboards. They advise; they do not replace your engagement judgment.
 8. When a warning or failure appears, route it to QC for repair ownership instead of patching downstream artifacts.
+9. If the user supplied a PPT/POTX template, use it. If not, use the bundled template.
+10. Distinguish formal delivery from evidence-limited draft output. Draft PPTs are never client-ready.
 
 ## Role Sequence
 
@@ -77,6 +79,22 @@ If multiple failures or stale artifacts appear, run the dashboard and route thro
 
 `gate_report.py` is a triage dashboard, not a new gate. QC interprets it and sends the smallest correct repair to the owning role.
 
+For a short brief, use the official intake entrypoint instead of hand-building material artifacts:
+
+```bash
+"$PYTHON_CMD" scripts/start_case_from_brief.py --case-name "<case>" --run-dir "$RUN_DIR" --brief-text "<exact user brief>"
+```
+
+Add `--template-file "<path/to/template.pptx>"` when the user provides a template.
+
+If evidence is limited but the team needs a visible internal draft, use the official draft path and label it correctly:
+
+```bash
+"$PYTHON_CMD" skills/output/scripts/quick_render_from_page_arguments.py --run-dir "$RUN_DIR"
+```
+
+This writes `DRAFT_NOT_CLIENT_READY`. Do not create ad-hoc `render_deck.py` files in the run directory.
+
 ## What Good Output Looks Like
 
 The final industry section should read like a banker-edited pitchbook section:
@@ -96,3 +114,5 @@ The final industry section should read like a banker-edited pitchbook section:
 - Do not use template capacity as a reason to thin the story.
 - Do not hand-edit derived render artifacts to hide upstream weakness.
 - Do not claim client-ready delivery when QC or final delivery says otherwise.
+- Do not treat WebSearch snippets as evidence. They are leads until opened, archived, extracted, and reviewed.
+- Do not ignore a user-provided PPT template; register/select it through the Template role.

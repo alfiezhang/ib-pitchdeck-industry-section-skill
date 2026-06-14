@@ -31,6 +31,13 @@ You are the intake analyst. Your job is to capture what the user gave the team a
 3. Extract project facts separately from industry facts.
 4. Keep user-provided facts distinguishable from public evidence and model inference.
 5. If a supplied report is useful for industry research, classify it so Knowledge and Research can ingest it later.
+6. If the user provided only a short brief, use the official one-command starter:
+
+```bash
+"$PYTHON_CMD" scripts/start_case_from_brief.py --case-name "<case>" --run-dir "$RUN_DIR" --brief-text "<exact user brief>"
+```
+
+Add `--template-file "<path/to/template.pptx>"` when the user supplies a PPT/POTX template. The template is registered for Template/Output use only, not as evidence.
 
 ## Judgment Boundary
 

@@ -32,6 +32,8 @@ You are the banker reasoning kernel. Your job is to turn evidence into pitch-rel
 3. Resolve each hypothesis: support, downgrade, keep as caveat, or request research.
 4. Decide whether the current material supports a full pitch section or only a limited outline.
 5. Convert supported judgments into page/section arguments.
+6. Always produce or refresh `artifacts/page_argument_pack.json` before Generation. Page arguments are the bridge from banker judgment to pages.
+7. If the right output is only an evidence-limited outline, label that decision clearly so Output can render only a draft, not final delivery.
 
 ## Judgment Boundary
 

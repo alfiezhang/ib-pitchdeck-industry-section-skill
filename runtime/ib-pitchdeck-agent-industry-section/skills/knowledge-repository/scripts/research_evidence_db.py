@@ -568,6 +568,7 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             errors.append(f"meta.{field} is required")
 
     source_ids = set()
+    source_by_id: dict[str, dict[str, Any]] = {}
     for idx, source in enumerate(as_list(db.get("source_materials")), start=1):
         if not isinstance(source, dict):
             errors.append(f"source_materials[{idx}] must be an object")
@@ -579,6 +580,7 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         if src_id in source_ids:
             errors.append(f"source_materials[{idx}]: duplicate source_review_id {src_id}")
         source_ids.add(src_id)
+        source_by_id[src_id] = source
         source_type = text(source.get("source_type"))
         normalized_source_type = normalize_source_type(source_type)
         if not source_type:
@@ -688,11 +690,31 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             errors.append(f"{ev_id}: claim_scope must be industry-level, target-level, or transaction-inference")
         if text(row.get("evidence_status")) not in {"primary-reviewed", "secondary-reviewed", "lead-only"}:
             errors.append(f"{ev_id}: evidence_status must be primary-reviewed, secondary-reviewed, or lead-only")
+        if text(row.get("evidence_status")) == "lead-only":
+            errors.append(
+                f"{ev_id}: lead-only search results cannot be promoted into evidence_ledger; "
+                "open/archive/extract the source first or keep it in research_gap_audit/source leads"
+            )
         src_id = text(row.get("source_review_id"))
         if not src_id:
             errors.append(f"{ev_id}: source_review_id is required")
         elif src_id not in source_ids:
             errors.append(f"{ev_id}: source_review_id {src_id} not found in source_materials")
+        else:
+            source = source_by_id.get(src_id, {})
+            source_access = text(source.get("source_access"))
+            source_type = normalize_source_type(source.get("source_type"))
+            if source_type in {"web_search_result", "manual_url_ingestion"}:
+                if not text(source.get("archive_path")):
+                    errors.append(
+                        f"{ev_id}: public/search source {src_id} must have archive_path before it can support evidence; "
+                        "search snippets and result pages are leads only"
+                    )
+                if "snippet" in text(row.get("raw_excerpt")).lower() or "search result" in text(row.get("raw_excerpt")).lower():
+                    errors.append(
+                        f"{ev_id}: raw_excerpt looks like a search snippet/result description; "
+                        "use an opened/archived source excerpt instead"
+                    )
         source_result = ev_to_result.get(ev_id)
         if source_result and text(source_result.get("terminal_status")) != EVIDENCE_TERMINAL_STATUS:
             errors.append(

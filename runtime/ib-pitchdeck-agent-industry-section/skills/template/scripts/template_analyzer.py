@@ -84,6 +84,15 @@ def _load_json(path: Path | str) -> dict[str, Any]:
     return data
 
 
+def _template_from_selection(path: Path | str) -> Path | None:
+    selection_path = Path(path)
+    if not selection_path.exists():
+        return None
+    data = _load_json(selection_path)
+    selected = str(data.get("selected_template_path") or "").strip()
+    return Path(selected) if selected else None
+
+
 def _as_str(value: Any) -> str:
     text = str(value or "").strip()
     return text
@@ -677,7 +686,8 @@ def _validate_profile(profile: dict[str, Any]) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--template", default=str(ROOT / "assets" / "industry_section_template_master.pptx"))
+    parser.add_argument("--template", default="")
+    parser.add_argument("--template-selection", default="", help="Path to artifacts/template_selection.json. Used when --template is omitted.")
     parser.add_argument("--layout-config", default=str(ROOT / "templates" / "layout_config.json"))
     parser.add_argument("--slide-registry", default=None)
     parser.add_argument("--page-type-rules", default=None)
@@ -688,6 +698,13 @@ def main() -> int:
     parser.add_argument("--output", default=str(ROOT / "templates" / "template_profile.json"))
     parser.add_argument("--skip-pptextract", action="store_true", help="Skip template parsing and rely on fallback values.")
     args = parser.parse_args()
+
+    if not args.template and args.template_selection:
+        selected_template = _template_from_selection(args.template_selection)
+        if selected_template is not None:
+            args.template = str(selected_template)
+    if not args.template:
+        args.template = str(ROOT / "assets" / "industry_section_template_master.pptx")
 
     layout_paths, template_path = _load_paths(args)
     output = Path(args.output)

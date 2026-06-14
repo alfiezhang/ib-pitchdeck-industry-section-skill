@@ -81,6 +81,28 @@ assets/        PowerPoint master template and plugin assets
 Host agents should enter through `agents/ib-pitchdeck-agent-industry-section.md`; folders under `skills/` are role modules orchestrated by the main agent.
 `scripts/state_report.py` and `scripts/gate_report.py` report state and issues only; they are not workflow controllers.
 
+Common commands:
+
+```bash
+# Start a case from a short brief without hand-building intake artifacts.
+"$PYTHON_CMD" scripts/start_case_from_brief.py \
+  --case-name "<case>" \
+  --run-dir "$RUN_DIR" \
+  --brief-text "<exact user brief>"
+
+# Register a user-provided template at intake time.
+"$PYTHON_CMD" scripts/start_case_from_brief.py \
+  --case-name "<case>" \
+  --run-dir "$RUN_DIR" \
+  --brief-text "<exact user brief>" \
+  --template-file "<path/to/user_template.pptx>"
+
+# Render an internal draft from page arguments only. This is not client-ready.
+"$PYTHON_CMD" skills/output/scripts/quick_render_from_page_arguments.py --run-dir "$RUN_DIR"
+```
+
+Template policy: explicit user template first, registered user template second, bundled template last.
+
 For developer diagnostics:
 
 ```bash

@@ -234,6 +234,45 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool 
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _select_template_for_run(run_dir: Path, python_cmd: str, explicit_template: Path | None = None) -> Path:
+    """Resolve the effective PPT template for this run.
+
+    User-provided templates are selected through artifacts/template_selection.json.
+    If no user template was registered, the bundled template is selected. This
+    keeps Template and Output aligned and prevents agents from silently ignoring
+    a user-supplied template.
+    """
+
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    selection_path = artifacts / "template_selection.json"
+    cmd = [
+        python_cmd,
+        ROLE_SCRIPT_DIRS["select_template.py"],
+        "--run-dir",
+        run_dir,
+        "--output",
+        selection_path,
+        "--bundled-template",
+        TEMPLATE,
+        "--ppt-mapping",
+        PPT_MAPPING,
+    ]
+    if explicit_template is not None:
+        cmd.extend(["--template", explicit_template])
+    elif selection_path.exists():
+        payload = _json(selection_path)
+        selected = payload.get("selected_template_path")
+        if selected:
+            return Path(selected)
+    _run(cmd)
+    payload = _json(selection_path)
+    selected = payload.get("selected_template_path")
+    if not selected:
+        raise PipelineError("template selection did not produce selected_template_path")
+    return Path(selected)
+
+
 def _write_draft_flags(run_dir: Path, *, entrypoint: str) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -277,9 +316,10 @@ def _write_draft_manifest(run_dir: Path, validation_path: Path) -> None:
     )
 
 
-def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> None:
+def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
+    template_path = _select_template_for_run(run_dir, python_cmd, template_path)
     template_profile_path = artifacts / "template_profile.json"
     _run(
         [
@@ -355,7 +395,8 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TE
     )
 
 
-def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, template_path: Path = TEMPLATE) -> None:
+def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, template_path: Path | None = None) -> None:
+    template_path = _select_template_for_run(run_dir, python_cmd, template_path)
     _append_failure_memory(
         run_dir,
         "pipeline_render",
@@ -499,7 +540,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         )
 
 
-def draft(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> None:
+def draft(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) -> None:
     """Render an explicit internal draft without claiming client readiness.
 
     Draft mode exists for pre-mandate iteration when the evidence chain is not
@@ -509,6 +550,7 @@ def draft(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> 
     """
 
     run_dir = _ensure_run_dir(run_dir)
+    template_path = _select_template_for_run(run_dir, python_cmd, template_path)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
     required = [run_dir / "renderer_spec.json", run_dir / "page_evidence_contract.json"]
@@ -882,10 +924,11 @@ def _rebuild_compiled_deck(run_dir: Path, python_cmd: str) -> None:
     )
 
 
-def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> None:
+def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) -> None:
     """Rebuild the shortest deterministic stale chain without authoring content."""
 
     run_dir = _ensure_run_dir(run_dir)
+    template_path = _select_template_for_run(run_dir, python_cmd, template_path)
     state = validate_run_state(run_dir)
     stage = str(state.get("current_stage") or "")
     status_value = str(state.get("status") or "")
@@ -1073,8 +1116,8 @@ def main() -> int:
     for template_parser in (validate_pre_ppt_parser, rebuild_stale_parser, draft_parser, render_parser):
         template_parser.add_argument(
             "--template",
-            default=str(TEMPLATE),
-            help="PPTX template to analyze and fill. Defaults to the bundled industry section template.",
+            default="",
+            help="Optional explicit user PPTX/POTX template. If omitted, artifacts/template_selection.json or bundled template is used.",
         )
     render_parser.add_argument(
         "--skip-preflight",
@@ -1092,17 +1135,17 @@ def main() -> int:
         elif args.command == "next":
             next_action(run_dir)
         elif args.command == "validate-pre-ppt":
-            validate_pre_ppt(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template))
+            validate_pre_ppt(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template) if args.template else None)
         elif args.command == "rebuild-stale":
-            rebuild_stale(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template))
+            rebuild_stale(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template) if args.template else None)
         elif args.command == "draft":
-            draft(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template))
+            draft(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template) if args.template else None)
         elif args.command == "render":
             render(
                 _ensure_run_dir(run_dir),
                 args.python,
                 skip_preflight=args.skip_preflight,
-                template_path=Path(args.template),
+                template_path=Path(args.template) if args.template else None,
             )
         elif args.command == "finalize":
             finalize(_ensure_run_dir(run_dir), args.python, require_client_ready=args.require_client_ready)

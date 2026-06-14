@@ -1817,6 +1817,11 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None, python_cmd: 
             "run is marked DEBUG_OUTPUT_ONLY; debug/ungated PPTs must not be validated or delivered as final"
         )
         technical_delivery_valid = False
+    if (run_dir / "DRAFT_NOT_CLIENT_READY.txt").exists():
+        errors.append(
+            "run is marked DRAFT_NOT_CLIENT_READY; evidence-limited draft PPTs must not be delivered as final"
+        )
+        technical_delivery_valid = False
 
     run_flags_path = run_dir / "artifacts/run_flags.json"
     if not run_flags_path.exists():
@@ -1834,6 +1839,8 @@ def validate(run_dir: Path, source_registry: Optional[Path] = None, python_cmd: 
                 errors.append("run_flags.json indicates issue_analysis_layer was disabled; non-issue-analysis runs cannot be final")
             if run_flags.get("debug_output_only") is True:
                 errors.append("run_flags.json marks this as debug_output_only; debug runs cannot be final")
+            if run_flags.get("draft_output_only") is True:
+                errors.append("run_flags.json marks this as draft_output_only; draft runs cannot be final")
             if run_flags.get("preflight_skipped") is True:
                 errors.append("run_flags.json indicates --skip-preflight was used; degraded pipeline runs cannot be client-ready")
 

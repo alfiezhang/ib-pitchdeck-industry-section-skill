@@ -134,6 +134,7 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--material-extracts", required=True)
+    parser.add_argument("--material-manifest", help="Optional context path accepted for stable dashboard commands")
     parser.add_argument("--output")
     args = parser.parse_args()
     try:

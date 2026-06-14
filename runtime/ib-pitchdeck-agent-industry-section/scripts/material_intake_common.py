@@ -34,6 +34,8 @@ def infer_material_kind(source_path: str, source_type: str) -> str:
     """
 
     source_path = text(source_path)
+    if normalize_source_type(source_type) == "ppt_template":
+        return "ppt_template"
     if source_path == "inline_user_text":
         return "text"
     if is_url(source_path):

@@ -84,7 +84,7 @@ def _build_material_entry(
         "source_type": normalize_source_type(source_type),
         "source_access": source_access,
         "file_path_or_url": source,
-        "locator": source,
+        "locator": "" if source == "inline_user_text" else source,
         "material_title": text(title),
         "material_kind": infer_material_kind(source, source_type),
         "extraction_status": "pending",
@@ -145,6 +145,19 @@ def _extract_one(material: dict[str, Any], material_texts_dir: Path) -> dict[str
     extracted_text = ""
     code = 1
 
+    if source_type == "ppt_template":
+        material["extracted_text_path"] = ""
+        material["extraction_status"] = "template_registered"
+        material["raw_text_available"] = False
+        material["raw_text_extraction_status"] = "template_registered"
+        material["extraction_limitations"] = (
+            "PPT template registered for Template Layer analysis/rendering; "
+            "not treated as project or industry evidence."
+        )
+        material["can_be_used_as_evidence"] = False
+        material["extracted_text_preview"] = ""
+        return material
+
     if source_type == "manual_url_ingestion":
         extracted_text, extract_limitations, code = extract_web_url(source, str(text_path), material_id=material_id)
         limitations.extend(extract_limitations)
@@ -194,6 +207,7 @@ def ingest_materials(
     *,
     brief_text: str | None,
     files: list[str],
+    template_files: list[str] | None = None,
     urls: list[str],
     default_file_source_type: str,
     default_url_source_type: str,
@@ -237,6 +251,24 @@ def ingest_materials(
         source_classification.append(classification_entry)
         idx += 1
 
+    template_files = template_files or []
+
+    for path in template_files:
+        material, classification_entry = _emit_entry(
+            material_id=_new_material_id(idx),
+            source=path,
+            source_type="ppt_template",
+            source_access="user_provided",
+            title=Path(path).name,
+            source_hash=_source_hash(path),
+        )
+        material["material_kind"] = "ppt_template"
+        material["extraction_status"] = "template_registered"
+        material["extraction_limitations"] = "registered for template selection; not evidence"
+        materials.append(material)
+        source_classification.append(classification_entry)
+        idx += 1
+
     for url in urls:
         source_type = normalize_source_type_hint(url, default_url_source_type)
         source_access = _material_access({"source_type": source_type}, url)
@@ -269,6 +301,9 @@ def ingest_materials(
                 "extraction_status": extracted["extraction_status"],
                 "extraction_limitations": extracted["extraction_limitations"],
                 "llm_extraction_status": (
+                    "not_relevant_for_knowledge"
+                    if extracted["source_type"] == "ppt_template"
+                    else
                     "pending_llm_extraction"
                     if extracted["raw_text_available"]
                     else "blocked_no_readable_text"
@@ -282,7 +317,11 @@ def ingest_materials(
                     "Raw content captured only; do not use as evidence until a role LLM extracts "
                     "source-faithful facts, metrics, quoted excerpts, unknowns/conflicts, and use limits."
                     if extracted["raw_text_available"]
-                    else extracted["extraction_limitations"]
+                    else (
+                        "Template material; use only in Template Layer for style/layout/rendering."
+                        if extracted["source_type"] == "ppt_template"
+                        else extracted["extraction_limitations"]
+                    )
                 ),
                 "evidence_snapshot": extracted["extracted_text_preview"],
             }
@@ -298,6 +337,7 @@ def ingest_materials(
             "user_curated_industry_report": "curated report candidate; subject to formal evidence extraction/review",
             "manual_url_ingestion": "public source candidate; requires source locator and archive for formal evidence",
             "repository_retrieval": "retrieved source candidate from shared repository",
+            "ppt_template": "user-provided presentation template; use for Template Layer selection/analysis, not evidence",
         },
     }
 
@@ -331,6 +371,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--brief-text", help="User brief text")
     parser.add_argument("--file", action="append", default=[], help="Upload file path")
+    parser.add_argument("--template-file", action="append", default=[], help="User-provided PPT/POTX template path. Preferred over bundled template for Template/Output.")
     parser.add_argument("--url", action="append", default=[], help="Source URL")
     parser.add_argument("--default-file-source-type", default="project_specific_material")
     parser.add_argument("--default-url-source-type", default="manual_url_ingestion")
@@ -350,6 +391,7 @@ def main() -> int:
     manifest, extracts, source_classification = ingest_materials(
         brief_text=args.brief_text,
         files=args.file,
+        template_files=args.template_file,
         urls=args.url,
         default_file_source_type=args.default_file_source_type,
         default_url_source_type=args.default_url_source_type,

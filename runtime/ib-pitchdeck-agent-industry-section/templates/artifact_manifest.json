@@ -45,6 +45,7 @@
       "description": "Deterministic artifacts generated from authoring artifacts. Do not hand-author these for formal delivery.",
       "artifacts": [
         "source_archive",
+        "template_selection",
         "template_profile",
         "template_fit_validation",
         "template_fit_plan",
@@ -169,6 +170,7 @@
       "description": "Template style/profile analysis and content-to-template capacity fit.",
       "artifacts": [
         "template_profile",
+        "template_selection",
         "template_fit_validation",
         "template_fit_plan"
       ]
@@ -402,7 +404,18 @@
       "path": "artifacts/template_profile.json",
       "owner": "script",
       "builder": "skills/template/scripts/template_analyzer.py",
-      "inputs": []
+      "inputs": [
+        "template_selection"
+      ]
+    },
+    "template_selection": {
+      "path": "artifacts/template_selection.json",
+      "owner": "script",
+      "builder": "skills/template/scripts/select_template.py",
+      "inputs": [
+        "material_manifest",
+        "source_classification"
+      ]
     },
     "template_fit_validation": {
       "path": "artifacts/template_fit_validation.json",
@@ -805,6 +818,7 @@
         "deck_blueprint",
         "page_evidence_contract",
         "renderer_spec",
+        "template_selection",
         "template_profile",
         "template_fit_validation",
         "template_fit_plan",

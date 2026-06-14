@@ -878,11 +878,14 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
     }
 
 
-def validate_run_state(run_dir: Path) -> dict[str, Any]:
+def validate_run_state(run_dir: Path, *, write_mission_state: bool = False) -> dict[str, Any]:
     debug_only = (run_dir / "DEBUG_OUTPUT_ONLY.txt").exists()
+    draft_only = (run_dir / "DRAFT_NOT_CLIENT_READY.txt").exists()
     run_flags = load_json(run_dir / "artifacts" / "run_flags.json")
     if run_flags.get("debug_output_only") is True:
         debug_only = True
+    if run_flags.get("draft_output_only") is True:
+        draft_only = True
 
     state = blocked_retry_gate(run_dir) or first_failed_gate(run_dir)
     manifest = load_artifact_manifest()
@@ -891,21 +894,29 @@ def validate_run_state(run_dir: Path) -> dict[str, Any]:
     evidence_readiness = _evidence_readiness_metrics(run_dir, state.get("stage", ""))
     _merge_evidence_readiness(mission_state, evidence_readiness)
     mission_state_path = run_dir / DEFAULT_MISSION_STATE
-    mission_state_path.parent.mkdir(parents=True, exist_ok=True)
-    mission_state_path.write_text(
-        json.dumps(mission_state, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    if write_mission_state:
+        mission_state_path.parent.mkdir(parents=True, exist_ok=True)
+        mission_state_path.write_text(
+            json.dumps(mission_state, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     owner_role = ROLE_BY_STAGE.get(str(state.get("stage") or ""), "orchestrator")
     final_gate = load_json(run_dir / "artifacts" / "final_delivery_validation.json")
-    final_delivery_valid = final_gate.get("is_valid") is True and final_gate.get("client_ready") is True and not debug_only
+    final_delivery_valid = (
+        final_gate.get("is_valid") is True
+        and final_gate.get("client_ready") is True
+        and not debug_only
+        and not draft_only
+    )
 
     forbidden = list(state.get("forbidden", []))
-    if debug_only:
+    if debug_only or draft_only:
         if "publish_final" not in forbidden:
             forbidden.append("publish_final")
         if "copy_debug_ppt_to_final_name" not in forbidden:
             forbidden.append("copy_debug_ppt_to_final_name")
+        if draft_only and "call_draft_client_ready" not in forbidden:
+            forbidden.append("call_draft_client_ready")
 
     return {
         "schema_version": "run_state_v1",
@@ -925,6 +936,7 @@ def validate_run_state(run_dir: Path) -> dict[str, Any]:
         "allowed_next_actions": state.get("allowed", []),
         "forbidden_actions": forbidden,
         "debug_only": debug_only,
+        "draft_only": draft_only,
         "final_delivery_valid": final_delivery_valid,
         "source_run_dir": run_flags.get("source_run_dir") or "",
         "output_run_dir": run_flags.get("output_run_dir") or str(run_dir),
@@ -984,9 +996,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect a run directory and report allowed/forbidden next actions.")
     parser.add_argument("--run-dir", required=True)
     parser.add_argument("--output", help="Optional JSON output path")
+    parser.add_argument(
+        "--write-state",
+        action="store_true",
+        help="Explicitly write artifacts/mission_state.json. Default is read-only dashboard behavior.",
+    )
     args = parser.parse_args()
 
-    result = validate_run_state(Path(args.run_dir))
+    result = validate_run_state(Path(args.run_dir), write_mission_state=args.write_state)
     if args.output:
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)

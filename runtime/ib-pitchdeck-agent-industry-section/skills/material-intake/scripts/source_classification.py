@@ -38,6 +38,7 @@ CANONICAL_SOURCE_TYPES = (
     "market_data_source",
     "repository_retrieval",
     "manual_url_ingestion",
+    "ppt_template",
     # Legacy + compatibility values used in existing artifacts
     "official_filing",
     "company_disclosure",
@@ -69,6 +70,15 @@ SOURCE_TYPE_ALIASES = {
     "market_data": "market_data_source",
     "market data": "market_data_source",
     "financial_data": "market_data_source",
+    "ppt_template": "ppt_template",
+    "ppt template": "ppt_template",
+    "powerpoint_template": "ppt_template",
+    "powerpoint template": "ppt_template",
+    "template_ppt": "ppt_template",
+    "template ppt": "ppt_template",
+    "presentation_template": "ppt_template",
+    "presentation template": "ppt_template",
+    "模板": "ppt_template",
 }
 
 
@@ -78,6 +88,7 @@ USER_MATERIAL_SOURCE_TYPES = {
     "company_material",
     "repository_retrieval",
     "manual_url_ingestion",
+    "ppt_template",
 }
 
 

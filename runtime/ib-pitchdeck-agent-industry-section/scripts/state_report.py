@@ -22,7 +22,19 @@ if str(QC_SYSTEM_VALIDATORS) not in sys.path:
 
 from validate_run_state import validate_run_state
 
-PYTHON_COMMAND_TEMPLATE = '"$PYTHON_CMD"'
+PYTHON_COMMAND_TEMPLATE = sys.executable
+
+
+def _validate_state(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
+    try:
+        return validate_run_state(run_dir, write_mission_state=write_state)
+    except TypeError as exc:
+        # Contract tests and older host integrations may monkeypatch
+        # validate_run_state(run_dir). Preserve compatibility while production
+        # calls remain explicit about state writes.
+        if "write_mission_state" not in str(exc):
+            raise
+        return validate_run_state(run_dir)
 
 
 def _load_script_entrypoint_map() -> dict[str, str]:
@@ -72,20 +84,45 @@ def _prefer_role_local_entrypoints(command: str) -> str:
                 f"skills/{role_dir}/scripts/{script_name}",
                 entrypoint,
             )
-    return rewritten
+    return _make_runtime_paths_absolute(rewritten)
+
+
+def _make_runtime_paths_absolute(command: str) -> str:
+    """Return commands that work outside the plugin runtime cwd."""
+    preserved_source_registry = "__IB_SOURCE_REGISTRY_RELATIVE__"
+    command = command.replace(" templates/source_registry.json", f" {preserved_source_registry}")
+    replacements = {
+        " scripts/": f" {ROOT_DIR}/scripts/",
+        " skills/": f" {ROOT_DIR}/skills/",
+        " templates/": f" {ROOT_DIR}/templates/",
+        " assets/": f" {ROOT_DIR}/assets/",
+    }
+    rewritten = command
+    for needle, replacement in replacements.items():
+        rewritten = rewritten.replace(needle, replacement)
+    return rewritten.replace(preserved_source_registry, "templates/source_registry.json")
 
 
 def _pipeline_rebuild_command(run_dir: str) -> dict[str, str]:
     return {
         "purpose": "shortest deterministic repair: rebuild current stale derived artifacts without hand-editing downstream files",
-        "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py rebuild-stale --run-dir {run_dir}",
+        "command": _make_runtime_paths_absolute(f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py rebuild-stale --run-dir {run_dir}"),
     }
 
 
 def _draft_command(run_dir: str) -> dict[str, str]:
     return {
         "purpose": "optional internal review only: render an explicitly labelled evidence-limited draft; never use as client-ready delivery",
-        "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py draft --run-dir {run_dir}",
+        "command": _make_runtime_paths_absolute(f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py draft --run-dir {run_dir}"),
+    }
+
+
+def _quick_draft_command(run_dir: str) -> dict[str, str]:
+    return {
+        "purpose": "official quick draft from page_argument_pack.json when formal renderer artifacts are not ready; writes DRAFT_NOT_CLIENT_READY",
+        "command": _make_runtime_paths_absolute(
+            f"{PYTHON_COMMAND_TEMPLATE} skills/output/scripts/quick_render_from_page_arguments.py --run-dir {run_dir}"
+        ),
     }
 
 GLOBAL_QC_PROTOCOL: dict[str, Any] = {
@@ -226,11 +263,21 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
 COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "MATERIAL_INTAKE_MISSING_OR_FAILED": [
         {
-            "purpose": "required: register materials and capture readable content before input-card transcription; captured text is not evidence-ready until LLM fact extraction",
+            "purpose": "lowest-friction start for a plain brief: register materials, save exact brief text, create input_card.json, and mark the brief as transcribed-not-evidence",
+            "command": (
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/start_case_from_brief.py "
+                "--case-name '<case_name>' --run-dir {{run_dir}} "
+                "--brief-text '<paste exact user brief>' "
+                "--template-file '<optional user PPT/POTX template path>'"
+            ),
+        },
+        {
+            "purpose": "advanced intake: register multiple files/URLs/templates and capture readable content before input-card transcription",
             "command": (
                 f"{PYTHON_COMMAND_TEMPLATE} skills/material-intake/scripts/ingest_materials.py "
                 "--brief-text '<paste exact user brief or omit if using files/URLs>' "
                 "--file '<path/to/file1>' --file '<path/to/file2>' "
+                "--template-file '<optional user PPT/POTX template path>' "
                 "--url '<https://source1>' --url '<https://source2>' "
                 f"--output-manifest {{run_dir}}/artifacts/material_manifest.json "
                 f"--output-extracts {{run_dir}}/artifacts/material_extracts.json "
@@ -248,11 +295,21 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "INPUT_CARD_MISSING": [
         {
-            "purpose": "required: register materials and capture readable content before input-card transcription; captured text is not evidence-ready until LLM fact extraction",
+            "purpose": "lowest-friction start for a plain brief: register materials, save exact brief text, create input_card.json, and mark the brief as transcribed-not-evidence",
+            "command": (
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/start_case_from_brief.py "
+                "--case-name '<case_name>' --run-dir {{run_dir}} "
+                "--brief-text '<paste exact user brief>' "
+                "--template-file '<optional user PPT/POTX template path>'"
+            ),
+        },
+        {
+            "purpose": "advanced intake: register multiple files/URLs/templates and capture readable content before input-card transcription",
             "command": (
                 f"{PYTHON_COMMAND_TEMPLATE} skills/material-intake/scripts/ingest_materials.py "
                 "--brief-text '<paste exact user brief or omit if using files/URLs>' "
                 "--file '<path/to/file1>' --file '<path/to/file2>' "
+                "--template-file '<optional user PPT/POTX template path>' "
                 "--url '<https://source1>' --url '<https://source2>' "
                 f"--output-manifest {{run_dir}}/artifacts/material_manifest.json "
                 f"--output-extracts {{run_dir}}/artifacts/material_extracts.json "
@@ -366,7 +423,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         },
         {
             "purpose": "validate generated research evidence pack",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/knowledge/validate_research_pack.py --research-pack {{run_dir}}/industry_research_pack.md --run-dir {{run_dir}} --source-registry templates/source_registry.json --output {{run_dir}}/artifacts/research_pack_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/knowledge/validate_research_pack.py --research-pack {{run_dir}}/industry_research_pack.md --run-dir {{run_dir}} --source-registry templates/source_registry.json --source-registry {ROOT_DIR}/templates/source_registry.json --output {{run_dir}}/artifacts/research_pack_validation.json",
         },
     ],
     "ISSUE_ANALYSIS_MISSING_OR_FAILED": [
@@ -413,6 +470,10 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "TEMPLATE_REGISTRY_MISSING_OR_FAILED": [
         {
+            "purpose": "select the effective template before registry/template work",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/select_template.py --run-dir {{run_dir}} --output {{run_dir}}/artifacts/template_selection.json",
+        },
+        {
             "purpose": "extract template registry",
             "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/extract_template_registry.py --output {{run_dir}}/template_registry.json",
         },
@@ -441,8 +502,12 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "TEMPLATE_PROFILE_MISSING_OR_FAILED": [
         {
+            "purpose": "select user-provided template if registered; otherwise record bundled default",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/select_template.py --run-dir {{run_dir}} --output {{run_dir}}/artifacts/template_selection.json",
+        },
+        {
             "purpose": "analyze template and generate run-level template profile",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/template_analyzer.py --template assets/industry_section_template_master.pptx --layout-config templates/layout_config.json --output {{run_dir}}/artifacts/template_profile.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/template_analyzer.py --template-selection {{run_dir}}/artifacts/template_selection.json --layout-config templates/layout_config.json --output {{run_dir}}/artifacts/template_profile.json",
         },
         {
             "purpose": "rerun pre-PPT validation after template profile is generated",
@@ -536,12 +601,15 @@ def _public_state_payload(state: dict[str, Any], *, schema_version: str) -> dict
     return payload
 
 
-def status_payload(run_dir: Path) -> dict[str, Any]:
-    return _public_state_payload(validate_run_state(run_dir), schema_version="state_status_v1")
+def status_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
+    return _public_state_payload(
+        _validate_state(run_dir, write_state=write_state),
+        schema_version="state_status_v1",
+    )
 
 
-def next_payload(run_dir: Path) -> dict[str, Any]:
-    state = validate_run_state(run_dir)
+def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
+    state = _validate_state(run_dir, write_state=write_state)
     next_commands = dedupe_commands(recommended_commands(state))
     run_dir_str = str(state["run_dir"])
     deterministic_rebuild_available = (
@@ -558,6 +626,12 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         and not state.get("debug_only")
     )
     internal_draft_command = _draft_command(run_dir_str)
+    quick_draft_available = (
+        Path(run_dir_str, "artifacts", "page_argument_pack.json").exists()
+        and state.get("final_delivery_valid") is not True
+        and not state.get("debug_only")
+    )
+    quick_draft_command = _quick_draft_command(run_dir_str)
     blocking_risks: list[str] = []
     if state.get("missing_artifacts"):
         blocking_risks.append("missing_artifacts")
@@ -567,6 +641,8 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         blocking_risks.append("stale_validations")
     if state.get("debug_only"):
         blocking_risks.append("debug_output_only")
+    if state.get("draft_only"):
+        blocking_risks.append("draft_not_client_ready")
     if state.get("final_delivery_valid") is False and state.get("current_stage") in {
         "FINAL_DELIVERY_NOT_READY",
         "STOP_AND_REPORT",
@@ -609,6 +685,7 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
             "failed_validations": state.get("failed_validations", []),
             "stale_validations": state.get("stale_validations", []),
             "debug_only": state.get("debug_only", False),
+            "draft_only": state.get("draft_only", False),
             "final_delivery_valid": state.get("final_delivery_valid", False),
         },
         "owner_role": state.get("owner_role", "orchestrator"),
@@ -651,6 +728,14 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
             "not_allowed_for": "client-ready delivery, final status, or claiming the engagement output is complete",
             "expected_output_marker": "DRAFT_NOT_CLIENT_READY",
         },
+        "quick_draft_option": {
+            "available": bool(quick_draft_available),
+            "command": quick_draft_command["command"] if quick_draft_available else "",
+            "use_only_for": "early internal page-shape review from page_argument_pack.json when deck_blueprint/renderer_spec are not ready",
+            "not_allowed_for": "client-ready delivery, final status, or claiming the engagement output is complete",
+            "expected_output_marker": "DRAFT_NOT_CLIENT_READY",
+            "do_not": "Do not create ad-hoc render_deck.py files in the run directory.",
+        },
         "orchestrator_decision_required": {
             "required": True,
             "decision_prompt": (
@@ -663,6 +748,7 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "downstream_risk_actions": state["forbidden_actions"],
         "downstream_risks": state["forbidden_actions"],
         "debug_only": state["debug_only"],
+        "draft_only": state.get("draft_only", False),
         "final_delivery_valid": state["final_delivery_valid"],
         "mission_state": mission_state,
         "evidence_readiness": state.get("evidence_readiness", {}),
@@ -678,9 +764,11 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
         "message": state["message"],
     }
     payload["gate_report_command"] = (
-        f"{PYTHON_COMMAND_TEMPLATE} scripts/gate_report.py --run-dir {run_dir} "
-        f"--output {run_dir}/artifacts/gate_report.json "
-        f"--markdown-output {run_dir}/artifacts/gate_report.md"
+        _make_runtime_paths_absolute(
+            f"{PYTHON_COMMAND_TEMPLATE} scripts/gate_report.py --run-dir {run_dir} "
+            f"--output {run_dir}/artifacts/gate_report.json "
+            f"--markdown-output {run_dir}/artifacts/gate_report.md"
+        )
     )
     payload["qc_protocol"] = GLOBAL_QC_PROTOCOL
     payload["current_qc_policy"] = QC_POLICY_BY_STAGE.get(
@@ -696,7 +784,9 @@ def next_payload(run_dir: Path) -> dict[str, Any]:
             "read_this_role_skill_before_repairing": state["owner_skill"],
             "do_not_bulk_read_unrelated_role_skills": True,
         }
-    payload["qc_router_command"] = f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/qc_router.py --run-dir {run_dir} --output {run_dir}/artifacts/qc_router_report.json"
+    payload["qc_router_command"] = _make_runtime_paths_absolute(
+        f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/qc_router.py --run-dir {run_dir} --output {run_dir}/artifacts/qc_router_report.json"
+    )
     if state["status"] in {"missing", "failed", "stale"}:
         payload["gate_policy"] = {
             "route_repair_before_downstream_delivery": True,
@@ -768,13 +858,18 @@ def main() -> None:
         sub = subparsers.add_parser(name)
         sub.add_argument("--run-dir", required=True)
         sub.add_argument("--output")
+        sub.add_argument(
+            "--write-state",
+            action="store_true",
+            help="Explicitly write artifacts/mission_state.json. Default dashboard behavior is read-only.",
+        )
 
     args = parser.parse_args()
     run_dir = Path(args.run_dir)
     if args.command == "status":
-        payload = status_payload(run_dir)
+        payload = status_payload(run_dir, write_state=args.write_state)
     else:
-        payload = next_payload(run_dir)
+        payload = next_payload(run_dir, write_state=args.write_state)
     write_or_print(payload, args.output)
 
 
