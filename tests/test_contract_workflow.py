@@ -86,7 +86,7 @@ class TestWorkflowNextCommands:
         from workflow import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED"})
-        archive_cmds = [c["command"] for c in commands if "skills/research-external-evidence/scripts/build_source_archive.py" in c["command"]]
+        archive_cmds = [c["command"] for c in commands if "scripts/research-external-evidence/build_source_archive.py" in c["command"]]
         assert archive_cmds, commands
         assert "--search-log" in archive_cmds[0], archive_cmds
         assert "--source-reviews" not in archive_cmds[0], archive_cmds
@@ -104,15 +104,15 @@ class TestWorkflowNextCommands:
         from workflow import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
-        assert commands and "skills/knowledge-repository/scripts/build_research_evidence_db.py" in commands[0]["command"], commands
+        assert commands and "scripts/knowledge-repository/build_research_evidence_db.py" in commands[0]["command"], commands
 
     def test_research_pack_commands(self, _pipeline_run_dir):
         from workflow import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
-        assert commands and "skills/knowledge-repository/scripts/export_research_pack_from_db.py" in commands[0]["command"], commands
+        assert commands and "scripts/knowledge-repository/export_research_pack_from_db.py" in commands[0]["command"], commands
         validation_cmds = [c["command"] for c in commands if "validate_research_pack.py" in c["command"]]
-        assert validation_cmds and "--source-registry templates/source_registry.json" in validation_cmds[0], validation_cmds
+        assert validation_cmds and "--source-registry configs/source_registry.json" in validation_cmds[0], validation_cmds
 
     def test_replacement_dict_commands(self, _pipeline_run_dir):
         from workflow import recommended_commands
@@ -154,7 +154,7 @@ class TestWorkflowNextCommands:
                 "status": "stale",
                 "blocking_gate": "artifacts/content_quality_validation.json",
                 "owner_role": "generation",
-                "owner_skill": "skills/generation/SKILL.md",
+                "owner_skill": "references/generation.md",
                 "allowed_next_actions": ["rerun_content_quality"],
                 "forbidden_actions": ["render_ppt"],
                 "debug_only": False,
@@ -181,7 +181,7 @@ class TestWorkflowNextCommands:
                 "status": "failed",
                 "blocking_gate": "artifacts/content_quality_validation.json",
                 "owner_role": "generation",
-                "owner_skill": "skills/generation/SKILL.md",
+                "owner_skill": "references/generation.md",
                 "allowed_next_actions": ["repair_generation"],
                 "forbidden_actions": ["client_delivery"],
                 "debug_only": False,

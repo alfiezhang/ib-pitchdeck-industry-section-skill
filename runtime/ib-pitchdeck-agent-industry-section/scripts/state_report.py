@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-QC_SYSTEM_VALIDATORS = ROOT_DIR / "skills" / "qc" / "scripts" / "validators" / "system"
+QC_SYSTEM_VALIDATORS = ROOT_DIR / "scripts" / "qc" / "validators" / "system"
 if str(QC_SYSTEM_VALIDATORS) not in sys.path:
     sys.path.insert(0, str(QC_SYSTEM_VALIDATORS))
 
@@ -38,7 +38,7 @@ def _validate_state(run_dir: Path, *, write_state: bool = False) -> dict[str, An
 
 
 def _load_script_entrypoint_map() -> dict[str, str]:
-    path = ROOT_DIR / "templates" / "script_role_map.json"
+    path = ROOT_DIR / "configs" / "script_role_map.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
@@ -79,28 +79,22 @@ def _prefer_role_local_entrypoints(command: str) -> str:
             f"scripts/{script_name}",
             entrypoint,
         )
-        for role_dir in ("material-intake", "industry-scoping", "research-external-evidence", "knowledge-repository", "reasoning", "generation", "template", "output", "qc"):
-            rewritten = rewritten.replace(
-                f"skills/{role_dir}/scripts/{script_name}",
-                entrypoint,
-            )
     return _make_runtime_paths_absolute(rewritten)
 
 
 def _make_runtime_paths_absolute(command: str) -> str:
-    """Return commands that work outside the plugin runtime cwd."""
+    """Return commands that work outside the skill runtime cwd."""
     preserved_source_registry = "__IB_SOURCE_REGISTRY_RELATIVE__"
-    command = command.replace(" templates/source_registry.json", f" {preserved_source_registry}")
+    command = command.replace(" configs/source_registry.json", f" {preserved_source_registry}")
     replacements = {
         " scripts/": f" {ROOT_DIR}/scripts/",
-        " skills/": f" {ROOT_DIR}/skills/",
-        " templates/": f" {ROOT_DIR}/templates/",
+        " configs/": f" {ROOT_DIR}/configs/",
         " assets/": f" {ROOT_DIR}/assets/",
     }
     rewritten = command
     for needle, replacement in replacements.items():
         rewritten = rewritten.replace(needle, replacement)
-    return rewritten.replace(preserved_source_registry, "templates/source_registry.json")
+    return rewritten.replace(preserved_source_registry, "configs/source_registry.json")
 
 
 def _pipeline_rebuild_command(run_dir: str) -> dict[str, str]:
@@ -121,7 +115,7 @@ def _quick_draft_command(run_dir: str) -> dict[str, str]:
     return {
         "purpose": "official quick draft from page_argument_pack.json when formal renderer artifacts are not ready; writes DRAFT_NOT_CLIENT_READY",
         "command": _make_runtime_paths_absolute(
-            f"{PYTHON_COMMAND_TEMPLATE} skills/output/scripts/quick_render_from_page_arguments.py --run-dir {run_dir}"
+            f"{PYTHON_COMMAND_TEMPLATE} scripts/output/quick_render_from_page_arguments.py --run-dir {run_dir}"
         ),
     }
 
@@ -274,7 +268,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         {
             "purpose": "advanced intake: register multiple files/URLs/templates and capture readable content before input-card transcription",
             "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} skills/material-intake/scripts/ingest_materials.py "
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/material-intake/ingest_materials.py "
                 "--brief-text '<paste exact user brief or omit if using files/URLs>' "
                 "--file '<path/to/file1>' --file '<path/to/file2>' "
                 "--template-file '<optional user PPT/POTX template path>' "
@@ -286,11 +280,11 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         },
         {
             "purpose": "validate material manifest after registration",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/material/validate_material_manifest.py --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_manifest_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/material/validate_material_manifest.py --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_manifest_validation.json",
         },
         {
             "purpose": "validate material extracts after Material/Knowledge has completed fact/metric extraction, not immediately after raw text capture",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/material/validate_material_extracts.py --material-extracts {{run_dir}}/artifacts/material_extracts.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_extracts_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/material/validate_material_extracts.py --material-extracts {{run_dir}}/artifacts/material_extracts.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_extracts_validation.json",
         },
     ],
     "INPUT_CARD_MISSING": [
@@ -306,7 +300,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         {
             "purpose": "advanced intake: register multiple files/URLs/templates and capture readable content before input-card transcription",
             "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} skills/material-intake/scripts/ingest_materials.py "
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/material-intake/ingest_materials.py "
                 "--brief-text '<paste exact user brief or omit if using files/URLs>' "
                 "--file '<path/to/file1>' --file '<path/to/file2>' "
                 "--template-file '<optional user PPT/POTX template path>' "
@@ -318,11 +312,11 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         },
         {
             "purpose": "validate intake artifacts before transcribing input card",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/material/validate_material_manifest.py --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_manifest_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/material/validate_material_manifest.py --material-manifest {{run_dir}}/artifacts/material_manifest.json --output {{run_dir}}/artifacts/material_manifest_validation.json",
         },
         {
             "purpose": "validate input card after transcription-only creation",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/material/validate_input_card.py --input-card {{run_dir}}/input_card.json --output {{run_dir}}/artifacts/input_card_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/material/validate_input_card.py --input-card {{run_dir}}/input_card.json --output {{run_dir}}/artifacts/input_card_validation.json",
         },
     ],
     "INDUSTRY_SCOPE_PACK_MISSING": [
@@ -342,59 +336,59 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         },
         {
             "purpose": "if QC decision is needs_boundary_validation, convert QC requests into boundary research request artifact",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/industry-scoping/scripts/build_boundary_research_requests.py --boundary-qc {{run_dir}}/artifacts/industry_boundary_qc.json --output {{run_dir}}/artifacts/boundary_research_requests.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/industry-scoping/build_boundary_research_requests.py --boundary-qc {{run_dir}}/artifacts/industry_boundary_qc.json --output {{run_dir}}/artifacts/boundary_research_requests.json",
         },
     ],
     "INDUSTRY_SCOPE_FORMAT_MISSING_OR_FAILED": [
         {
             "purpose": "QC has passed boundary quality; now run deterministic format/red-line validation on scope pack",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/scoping/validate_industry_scope_pack.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/industry_scope_pack_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/scoping/validate_industry_scope_pack.py --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/industry_scope_pack_validation.json",
         },
     ],
     "FORMAL_SEARCH_PLAN_MISSING": [
         {
             "purpose": "export searchable coverage map and executable search batch for downstream planning and repair traceability",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/research-external-evidence/scripts/build_formal_search_plan_skeleton.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/formal_search_plan.json --coverage-map {{run_dir}}/artifacts/coverage_map.json --search-batch {{run_dir}}/artifacts/search_batch.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_formal_search_plan_skeleton.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/formal_search_plan.json --coverage-map {{run_dir}}/artifacts/coverage_map.json --search-batch {{run_dir}}/artifacts/search_batch.json",
         },
         {
             "purpose": "validate formal search plan after editing executable queries",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/research/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
         },
     ],
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
         {
             "purpose": "rebuild planned-vs-actual execution accounting from plan/log/archive; include unexecuted FS rows explicitly",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/research-external-evidence/scripts/build_formal_research_execution_report_skeleton.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --search-log {{run_dir}}/artifacts/search_log.md --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --include-unexecuted --output {{run_dir}}/artifacts/formal_research_execution_report.json --coverage-accounting {{run_dir}}/artifacts/coverage_accounting.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --search-log {{run_dir}}/artifacts/search_log.md --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --include-unexecuted --output {{run_dir}}/artifacts/formal_research_execution_report.json --coverage-accounting {{run_dir}}/artifacts/coverage_accounting.json",
         },
         {
             "purpose": "validate formal research execution accounting; planned FS rows without actual S-xxx attempts must be marked not_executed/not_material/accounting_only, not faked",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/research/validate_formal_research_execution.py --report {{run_dir}}/artifacts/formal_research_execution_report.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --search-log {{run_dir}}/artifacts/search_log.md --output {{run_dir}}/artifacts/formal_research_execution_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_formal_research_execution.py --report {{run_dir}}/artifacts/formal_research_execution_report.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --search-log {{run_dir}}/artifacts/search_log.md --output {{run_dir}}/artifacts/formal_research_execution_validation.json",
         },
     ],
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
         {
             "purpose": "build source archive directly from actual search log selected/opened sources; source_reviews.json is no longer required on the main path",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/research-external-evidence/scripts/build_source_archive.py --search-log {{run_dir}}/artifacts/search_log.md --run-dir {{run_dir}} --overwrite",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_source_archive.py --search-log {{run_dir}}/artifacts/search_log.md --run-dir {{run_dir}} --overwrite",
         },
         {
             "purpose": "validate source archive integrity",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/research/validate_source_archive.py --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --run-dir {{run_dir}} --output {{run_dir}}/artifacts/source_archive_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_source_archive.py --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --run-dir {{run_dir}} --output {{run_dir}}/artifacts/source_archive_validation.json",
         },
         {
             "purpose": "append each real formal search attempt before archive; S-xxx IDs are only for actual searches, never for unexecuted FS rows",
             "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} skills/research-external-evidence/scripts/append_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md "
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/append_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md "
                 "--query '<exact query searched>' --stage formal_research_execution --fs-id FS-001 --selected-source '<exact reviewed URL>' "
                 "--opened-reviewed yes --locator-excerpt '<page/section/table and short excerpt or limitation>'"
             ),
         },
         {
             "purpose": "if an accidental S-xxx row was appended, delete it mechanically instead of hand-editing markdown",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/research-external-evidence/scripts/edit_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-023 --delete",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/edit_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-023 --delete",
         },
         {
             "purpose": "if a known search-log field is wrong or blank, update only that field mechanically",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/research-external-evidence/scripts/edit_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-001 --set-field 'Result Count=5'",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/edit_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-001 --set-field 'Result Count=5'",
         },
     ],
     "PRE_RESEARCH_PACK_GATE_FAILED": [
@@ -407,107 +401,107 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         {
             "purpose": "build research evidence database skeleton from archived formal sources; source reviews are embedded in the DB for LLM/QC judgment",
             "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} skills/knowledge-repository/scripts/repository_retrieve.py --max-results 200 --output {{run_dir}}/artifacts/repository_retrieval.json "
-                f"&& {PYTHON_COMMAND_TEMPLATE} skills/knowledge-repository/scripts/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --repository-sources {{run_dir}}/artifacts/repository_retrieval.json --output {{run_dir}}/artifacts/research_evidence_db.json"
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/repository_retrieve.py --max-results 200 --output {{run_dir}}/artifacts/repository_retrieval.json "
+                f"&& {PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --repository-sources {{run_dir}}/artifacts/repository_retrieval.json --output {{run_dir}}/artifacts/research_evidence_db.json"
             ),
         },
         {
             "purpose": "validate research evidence database after LLM fills extracts/EV/MET/inventory fields",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/knowledge/validate_research_evidence_db.py --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --output {{run_dir}}/artifacts/research_evidence_db_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/knowledge/validate_research_evidence_db.py --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --output {{run_dir}}/artifacts/research_evidence_db_validation.json",
         },
     ],
     "RESEARCH_PACK_MISSING_OR_FAILED": [
         {
             "purpose": "export readable research pack from research evidence database",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/knowledge-repository/scripts/export_research_pack_from_db.py --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --output {{run_dir}}/industry_research_pack.md",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/export_research_pack_from_db.py --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --output {{run_dir}}/industry_research_pack.md",
         },
         {
             "purpose": "validate generated research evidence pack",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/knowledge/validate_research_pack.py --research-pack {{run_dir}}/industry_research_pack.md --run-dir {{run_dir}} --source-registry templates/source_registry.json --source-registry {ROOT_DIR}/templates/source_registry.json --output {{run_dir}}/artifacts/research_pack_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/knowledge/validate_research_pack.py --research-pack {{run_dir}}/industry_research_pack.md --run-dir {{run_dir}} --source-registry configs/source_registry.json --source-registry {ROOT_DIR}/configs/source_registry.json --output {{run_dir}}/artifacts/research_pack_validation.json",
         },
     ],
     "ISSUE_ANALYSIS_MISSING_OR_FAILED": [
         {
             "purpose": "build issue analysis skeleton from research-pack inventory",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/reasoning/scripts/build_issue_analysis_skeleton.py --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --output {{run_dir}}/industry_issue_analysis.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_issue_analysis_skeleton.py --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --output {{run_dir}}/industry_issue_analysis.json",
         },
         {
             "purpose": "normalize common LLM-shaped issue analysis aliases",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/reasoning/scripts/normalize_issue_analysis.py --input {{run_dir}}/industry_issue_analysis.json --output {{run_dir}}/industry_issue_analysis.json --report {{run_dir}}/artifacts/issue_analysis_normalization.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/normalize_issue_analysis.py --input {{run_dir}}/industry_issue_analysis.json --output {{run_dir}}/industry_issue_analysis.json --report {{run_dir}}/artifacts/issue_analysis_normalization.json",
         },
         {
             "purpose": "validate issue analysis after replacing skeleton placeholders with substantive analysis",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/reasoning/validate_issue_analysis.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --research-pack {{run_dir}}/industry_research_pack.md --output {{run_dir}}/artifacts/issue_analysis_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_issue_analysis.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --research-pack {{run_dir}}/industry_research_pack.md --output {{run_dir}}/artifacts/issue_analysis_validation.json",
         },
         {
             "purpose": "optional: build hypothesis store for unresolved/directional reasoning",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/reasoning/scripts/build_hypothesis_store_skeleton.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --output {{run_dir}}/artifacts/hypothesis_store.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_hypothesis_store_skeleton.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --output {{run_dir}}/artifacts/hypothesis_store.json",
         },
         {
             "purpose": "optional: build public research request queue from unresolved hypotheses",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/reasoning/scripts/build_research_request_queue.py --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/research_request_queue.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_research_request_queue.py --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/research_request_queue.json",
         },
         {
             "purpose": "optional: validate research request queue before promotion",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/reasoning/validate_research_request_queue.py --research-request-queue {{run_dir}}/artifacts/research_request_queue.json --output {{run_dir}}/artifacts/research_request_queue_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_research_request_queue.py --research-request-queue {{run_dir}}/artifacts/research_request_queue.json --output {{run_dir}}/artifacts/research_request_queue_validation.json",
         },
         {
             "purpose": "optional: promote unresolved research requests into formal search plan rows before downstream planning",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/reasoning/scripts/promote_research_requests.py --research-request-queue {{run_dir}}/artifacts/research_request_queue.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan.json --incremental-search-plan {{run_dir}}/artifacts/incremental_search_plan.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/promote_research_requests.py --research-request-queue {{run_dir}}/artifacts/research_request_queue.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan.json --incremental-search-plan {{run_dir}}/artifacts/incremental_search_plan.json",
         },
         {
             "purpose": "optional: re-validate formal search plan after promotion rows are appended",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/research/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
         },
         {
             "purpose": "optional: build page argument pack from issue analysis and resolved hypotheses",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/reasoning/scripts/build_page_argument_pack.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/page_argument_pack.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_page_argument_pack.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/page_argument_pack.json",
         },
         {
             "purpose": "optional: validate page argument pack before deck blueprint writing",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/reasoning/validate_page_argument_pack.py --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --output {{run_dir}}/artifacts/page_argument_pack_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_page_argument_pack.py --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --output {{run_dir}}/artifacts/page_argument_pack_validation.json",
         },
     ],
     "TEMPLATE_REGISTRY_MISSING_OR_FAILED": [
         {
             "purpose": "select the effective template before registry/template work",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/select_template.py --run-dir {{run_dir}} --output {{run_dir}}/artifacts/template_selection.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template/select_template.py --run-dir {{run_dir}} --output {{run_dir}}/artifacts/template_selection.json",
         },
         {
             "purpose": "extract template registry",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/extract_template_registry.py --output {{run_dir}}/template_registry.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template/extract_template_registry.py --output {{run_dir}}/template_registry.json",
         },
         {
             "purpose": "validate template registry",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/template/validate_template_registry.py --template-registry {{run_dir}}/template_registry.json --slide-registry templates/slide_registry.json --output {{run_dir}}/artifacts/template_registry_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/template/validate_template_registry.py --template-registry {{run_dir}}/template_registry.json --slide-registry configs/slide_registry.json --output {{run_dir}}/artifacts/template_registry_validation.json",
         },
     ],
     "DECK_BLUEPRINT_MISSING_OR_FAILED": [
         {
             "purpose": "validate deck blueprint after page-editor repair",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/validators/generation/validate_deck_blueprint.py --deck-blueprint {{run_dir}}/deck_blueprint.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --template-registry {{run_dir}}/template_registry.json --layout-budget templates/layout_budget.json --output {{run_dir}}/artifacts/deck_blueprint_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/generation/validate_deck_blueprint.py --deck-blueprint {{run_dir}}/deck_blueprint.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --template-registry {{run_dir}}/template_registry.json --layout-budget configs/layout_budget.json --output {{run_dir}}/artifacts/deck_blueprint_validation.json",
         },
     ],
     "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": [
         {
             "purpose": "compile blueprint into deterministic downstream artifacts",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/generation/scripts/compile_deck_blueprint.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/generation/compile_deck_blueprint.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
         },
     ],
     "RENDERER_SPEC_MISSING_OR_FAILED": [
         {
             "purpose": "recompile renderer spec from repaired deck blueprint",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/generation/scripts/compile_deck_blueprint.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/generation/compile_deck_blueprint.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
         },
     ],
     "TEMPLATE_PROFILE_MISSING_OR_FAILED": [
         {
             "purpose": "select user-provided template if registered; otherwise record bundled default",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/select_template.py --run-dir {{run_dir}} --output {{run_dir}}/artifacts/template_selection.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template/select_template.py --run-dir {{run_dir}} --output {{run_dir}}/artifacts/template_selection.json",
         },
         {
             "purpose": "analyze template and generate run-level template profile",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/template_analyzer.py --template-selection {{run_dir}}/artifacts/template_selection.json --layout-config templates/layout_config.json --output {{run_dir}}/artifacts/template_profile.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template/template_analyzer.py --template-selection {{run_dir}}/artifacts/template_selection.json --layout-config configs/layout_config.json --output {{run_dir}}/artifacts/template_profile.json",
         },
         {
             "purpose": "rerun pre-PPT validation after template profile is generated",
@@ -521,7 +515,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "TEMPLATE_FIT_FAILED": [
         {
             "purpose": "run template fit checks against latest renderer spec and template profile",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} skills/template/scripts/template_fit.py --renderer-spec {{run_dir}}/renderer_spec.json --template-profile {{run_dir}}/artifacts/template_profile.json --output {{run_dir}}/artifacts/template_fit_validation.json --fit-plan-output {{run_dir}}/artifacts/template_fit_plan.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/template/template_fit.py --renderer-spec {{run_dir}}/renderer_spec.json --template-profile {{run_dir}}/artifacts/template_profile.json --output {{run_dir}}/artifacts/template_fit_validation.json --fit-plan-output {{run_dir}}/artifacts/template_fit_plan.json",
         },
         {
             "purpose": "rerun pre-PPT stage gate after template fit refresh",
@@ -785,7 +779,7 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
             "do_not_bulk_read_unrelated_role_skills": True,
         }
     payload["qc_router_command"] = _make_runtime_paths_absolute(
-        f"{PYTHON_COMMAND_TEMPLATE} skills/qc/scripts/qc_router.py --run-dir {run_dir} --output {run_dir}/artifacts/qc_router_report.json"
+        f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/qc_router.py --run-dir {run_dir} --output {run_dir}/artifacts/qc_router_report.json"
     )
     if state["status"] in {"missing", "failed", "stale"}:
         payload["gate_policy"] = {

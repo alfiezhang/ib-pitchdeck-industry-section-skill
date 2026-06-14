@@ -214,7 +214,7 @@ def test_workflow_next_keeps_research_pack_derived() -> None:
     command_text = "\n".join(item["command"] for item in commands)
     assert "export_research_pack_from_db.py" in command_text
     assert "validate_research_pack.py" in command_text
-    assert "--source-registry templates/source_registry.json" in command_text
+    assert "--source-registry configs/source_registry.json" in command_text
     assert "build_research_evidence_pack_skeleton.py" not in command_text
 
 

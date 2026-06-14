@@ -144,7 +144,7 @@ class TestUpstreamFailurePropagation:
 
     def test_issue_analysis_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
-            sys.executable, "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
+            sys.executable, "scripts/qc/validators/reasoning/validate_issue_analysis.py",
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--research-pack", str(bad_upstream_run / "industry_research_pack.md"),
         ])
@@ -153,7 +153,7 @@ class TestUpstreamFailurePropagation:
 
     def test_deck_blueprint_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
-            sys.executable, "skills/qc/scripts/validators/generation/validate_deck_blueprint.py",
+            sys.executable, "scripts/qc/validators/generation/validate_deck_blueprint.py",
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--deck-blueprint", str(bad_upstream_run / "deck_blueprint.json"),
             "--template-registry", str(bad_upstream_run / "template_registry.json"),
@@ -163,7 +163,7 @@ class TestUpstreamFailurePropagation:
 
     def test_compile_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
-            sys.executable, "skills/generation/scripts/compile_deck_blueprint.py",
+            sys.executable, "scripts/generation/compile_deck_blueprint.py",
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--deck-blueprint", str(bad_upstream_run / "deck_blueprint.json"),
             "--template-registry", str(bad_upstream_run / "template_registry.json"),

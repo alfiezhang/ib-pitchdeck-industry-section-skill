@@ -84,7 +84,7 @@ class TestSearchLogAndAttempts:
         from validate_formal_research_execution import parse_search_attempts
         search_log = tmp_path / "search_log_auto.md"
         _run([
-            sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
             "--search-log", str(search_log),
             "--query", "example industry formal source",
             "--stage", "formal_research_execution",
@@ -104,7 +104,7 @@ class TestSearchLogAndAttempts:
         template = SKILL_DIR / "references" / "search_log_template.md"
         search_log.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
         _run([
-            sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
             "--search-log", str(search_log),
             "--query", "example broad definition source",
             "--stage", "broad_discovery",
@@ -120,7 +120,7 @@ class TestSearchLogAndAttempts:
         from validate_formal_research_execution import parse_search_attempts
         search_log = tmp_path / "search_log_edit.md"
         _run([
-            sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
             "--search-log", str(search_log),
             "--query", "example industry formal source",
             "--stage", "formal_research_execution",
@@ -131,7 +131,7 @@ class TestSearchLogAndAttempts:
             "--locator-excerpt", "section 1 contains reviewed source context.",
         ])
         result = _run([
-            sys.executable, "skills/research-external-evidence/scripts/edit_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/edit_search_attempt.py",
             "--search-log", str(search_log),
             "--attempt-id", "S-001",
             "--set-field", "Result Count=5",
@@ -145,7 +145,7 @@ class TestSearchLogAndAttempts:
         search_log = tmp_path / "search_log_delete.md"
         for query in ("first query", "accidental query"):
             _run([
-                sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
+                sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
                 "--search-log", str(search_log),
                 "--query", query,
                 "--stage", "formal_research_execution",
@@ -156,7 +156,7 @@ class TestSearchLogAndAttempts:
                 "--locator-excerpt", "section 1 contains reviewed source context.",
             ])
         result = _run([
-            sys.executable, "skills/research-external-evidence/scripts/edit_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/edit_search_attempt.py",
             "--search-log", str(search_log),
             "--attempt-id", "S-002",
             "--delete",

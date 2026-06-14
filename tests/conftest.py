@@ -12,8 +12,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
 SCRIPT_DIR = SKILL_DIR / "scripts"
-ROLE_SCRIPT_PATHS = sorted((SKILL_DIR / "skills").glob("*/scripts"))
-QC_VALIDATOR_PATHS = sorted((SKILL_DIR / "skills" / "qc" / "scripts" / "validators").glob("*"))
+ROLE_SCRIPT_PATHS = sorted(path for path in SCRIPT_DIR.iterdir() if path.is_dir())
+QC_VALIDATOR_PATHS = sorted((SCRIPT_DIR / "qc" / "validators").glob("*"))
 SCRIPT_IMPORT_PATHS = [SCRIPT_DIR, *ROLE_SCRIPT_PATHS, *QC_VALIDATOR_PATHS]
 ROLE_SCRIPT_DIRS = {
     script.name: script
@@ -117,11 +117,11 @@ def _build_template_registry(tmp_path: Path) -> Path:
 
     registry = build_registry(
         template=SKILL_DIR / "assets" / "industry_section_template_master.pptx",
-        slide_registry_path=SKILL_DIR / "templates" / "slide_registry.json",
-        page_type_rules_path=SKILL_DIR / "templates" / "page_type_rules.json",
-        ppt_mapping_path=SKILL_DIR / "templates" / "ppt_mapping.json",
-        layout_budget_path=SKILL_DIR / "templates" / "layout_budget.json",
-        text_fit_rules_path=SKILL_DIR / "templates" / "text_fit_rules.json",
+        slide_registry_path=SKILL_DIR / "configs" / "slide_registry.json",
+        page_type_rules_path=SKILL_DIR / "configs" / "page_type_rules.json",
+        ppt_mapping_path=SKILL_DIR / "configs" / "ppt_mapping.json",
+        layout_budget_path=SKILL_DIR / "configs" / "layout_budget.json",
+        text_fit_rules_path=SKILL_DIR / "configs" / "text_fit_rules.json",
     )
     out = tmp_path / "template_registry.json"
     _write_json(out, registry)
@@ -858,11 +858,11 @@ def _pipeline_run_dir(tmp_path_factory):
     from extract_template_registry import build_registry
     registry = build_registry(
         template=SKILL_DIR / "assets" / "industry_section_template_master.pptx",
-        slide_registry_path=SKILL_DIR / "templates" / "slide_registry.json",
-        page_type_rules_path=SKILL_DIR / "templates" / "page_type_rules.json",
-        ppt_mapping_path=SKILL_DIR / "templates" / "ppt_mapping.json",
-        layout_budget_path=SKILL_DIR / "templates" / "layout_budget.json",
-        text_fit_rules_path=SKILL_DIR / "templates" / "text_fit_rules.json",
+        slide_registry_path=SKILL_DIR / "configs" / "slide_registry.json",
+        page_type_rules_path=SKILL_DIR / "configs" / "page_type_rules.json",
+        ppt_mapping_path=SKILL_DIR / "configs" / "ppt_mapping.json",
+        layout_budget_path=SKILL_DIR / "configs" / "layout_budget.json",
+        text_fit_rules_path=SKILL_DIR / "configs" / "text_fit_rules.json",
     )
     _write_json(run_dir / "template_registry.json", registry)
     _write_json(artifacts / "template_registry_validation.json", {"is_valid": True, "errors": [], "warnings": []})

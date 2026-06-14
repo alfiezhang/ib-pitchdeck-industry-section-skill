@@ -12,34 +12,41 @@ export TMP_DIR FIXTURES_DIR
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 cd "$SKILL_DIR"
-export PYTHONPATH="$SKILL_DIR/scripts${PYTHONPATH:+:$PYTHONPATH}"
+IMPORT_PATHS="$SKILL_DIR/scripts"
+while IFS= read -r dir; do
+  IMPORT_PATHS="$IMPORT_PATHS:$dir"
+done < <(find "$SKILL_DIR/scripts" -mindepth 1 -maxdepth 1 -type d | sort)
+while IFS= read -r dir; do
+  IMPORT_PATHS="$IMPORT_PATHS:$dir"
+done < <(find "$SKILL_DIR/scripts/qc/validators" -mindepth 1 -maxdepth 1 -type d | sort)
+export PYTHONPATH="$IMPORT_PATHS${PYTHONPATH:+:$PYTHONPATH}"
 
 "$PYTHON_CMD" -m compileall -q scripts
-"$PYTHON_CMD" skills/qc/scripts/check_json_files.py --root . >/dev/null
-"$PYTHON_CMD" skills/qc/scripts/check_artifact_manifest.py >/dev/null
-"$PYTHON_CMD" skills/template/scripts/check_slide_registry.py >/dev/null
-"$PYTHON_CMD" skills/template/scripts/check_registry_coverage.py >/dev/null
-"$PYTHON_CMD" skills/template/scripts/check_template_tokens.py \
+"$PYTHON_CMD" scripts/qc/check_json_files.py --root . >/dev/null
+"$PYTHON_CMD" scripts/qc/check_artifact_manifest.py >/dev/null
+"$PYTHON_CMD" scripts/template/check_slide_registry.py >/dev/null
+"$PYTHON_CMD" scripts/template/check_registry_coverage.py >/dev/null
+"$PYTHON_CMD" scripts/template/check_template_tokens.py \
   --template assets/industry_section_template_master.pptx \
-  --ppt-mapping templates/ppt_mapping.json \
+  --ppt-mapping configs/ppt_mapping.json \
   --fail-on-diff \
   --output "$TMP_DIR/template_token_check.json" >/dev/null
 
-"$PYTHON_CMD" skills/qc/scripts/validators/reasoning/validate_issue_analysis.py \
+"$PYTHON_CMD" scripts/qc/validators/reasoning/validate_issue_analysis.py \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" >/dev/null
-if "$PYTHON_CMD" skills/qc/scripts/validators/reasoning/validate_issue_analysis.py \
+if "$PYTHON_CMD" scripts/qc/validators/reasoning/validate_issue_analysis.py \
   --issue-analysis "$FIXTURES_DIR/invalid_issue_analysis.json" >/dev/null 2>&1; then
   echo "invalid_issue_analysis.json should fail validation" >&2
   exit 1
 fi
 
-"$PYTHON_CMD" skills/template/scripts/extract_template_registry.py \
+"$PYTHON_CMD" scripts/template/extract_template_registry.py \
   --template assets/industry_section_template_master.pptx \
-  --slide-registry templates/slide_registry.json \
-  --page-type-rules templates/page_type_rules.json \
-  --ppt-mapping templates/ppt_mapping.json \
-  --layout-budget templates/layout_budget.json \
-  --text-fit-rules templates/text_fit_rules.json \
+  --slide-registry configs/slide_registry.json \
+  --page-type-rules configs/page_type_rules.json \
+  --ppt-mapping configs/ppt_mapping.json \
+  --layout-budget configs/layout_budget.json \
+  --text-fit-rules configs/text_fit_rules.json \
   --output "$TMP_DIR/template_registry.json" >/dev/null
 
 "$PYTHON_CMD" - <<'PY'
@@ -294,7 +301,7 @@ blueprint = {
 (tmp / "deck_blueprint.json").write_text(json.dumps(blueprint, ensure_ascii=False, indent=2), encoding="utf-8")
 PY
 
-"$PYTHON_CMD" skills/qc/scripts/validators/generation/validate_deck_blueprint.py \
+"$PYTHON_CMD" scripts/qc/validators/generation/validate_deck_blueprint.py \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" \
   --template-registry "$TMP_DIR/template_registry.json" \
@@ -363,7 +370,7 @@ else:
     raise SystemExit("invalid target_field should fail compiler")
 PY
 
-"$PYTHON_CMD" skills/generation/scripts/compile_deck_blueprint.py \
+"$PYTHON_CMD" scripts/generation/compile_deck_blueprint.py \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --template-registry "$TMP_DIR/template_registry.json" \
@@ -434,7 +441,7 @@ renderer_path = tmp / "renderer_spec_natural_visuals.json"
 subprocess.run(
     [
         sys.executable,
-        "skills/generation/scripts/compile_deck_blueprint.py",
+        "scripts/generation/compile_deck_blueprint.py",
         "--issue-analysis",
         str(Path(os.environ["FIXTURES_DIR"]) / "valid_issue_analysis.json"),
         "--deck-blueprint",
@@ -508,7 +515,7 @@ assert by_code["VISIBLE_CLAIM_BINDING"]["category"] == "metric_claims", by_code
 assert by_code["VISIBLE_CLAIM_BINDING"]["repair_target"] == "deck_blueprint.json", by_code
 assert "slides[].visible_metric_claims" in by_code["VISIBLE_CLAIM_BINDING"]["repair_fields"], by_code
 assert by_code["CHART_METRIC_BINDING"]["repair_target"] == "deck_blueprint.json", by_code
-assert "skills/qc/scripts/validators/final/validate_chart_metric_binding.py" in by_code["CHART_METRIC_BINDING"]["rerun_steps"], by_code
+assert "scripts/qc/validators/final/validate_chart_metric_binding.py" in by_code["CHART_METRIC_BINDING"]["rerun_steps"], by_code
 assert by_code["LAYOUT_FIT_RISK"]["category"] == "layout_density", by_code
 assert by_code["WEAK_OR_GENERIC_SOURCE"]["fallback_repair_targets"], by_code
 assert "*.pptx" in by_code["TARGET_ADVOCACY_OR_OVERCLAIM"]["do_not_edit"], by_code
@@ -564,20 +571,20 @@ check_text_fit(
 assert fit_blocking, fit_warnings
 PY
 
-"$PYTHON_CMD" skills/qc/scripts/validators/generation/validate_page_evidence_contract.py \
+"$PYTHON_CMD" scripts/qc/validators/generation/validate_page_evidence_contract.py \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --page-contract "$TMP_DIR/page_evidence_contract.json" \
   --output "$TMP_DIR/page_evidence_contract_validation.json" >/dev/null
 
-"$PYTHON_CMD" skills/qc/scripts/validators/generation/validate_renderer_spec.py \
+"$PYTHON_CMD" scripts/qc/validators/generation/validate_renderer_spec.py \
   --renderer-spec "$TMP_DIR/renderer_spec.json" \
   --template-registry "$TMP_DIR/template_registry.json" \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --page-contract "$TMP_DIR/page_evidence_contract.json" \
   --output "$TMP_DIR/renderer_spec_validation.json" >/dev/null
 
-"$PYTHON_CMD" skills/generation/scripts/build_banker_review_report_skeleton.py \
+"$PYTHON_CMD" scripts/generation/build_banker_review_report_skeleton.py \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --page-contract "$TMP_DIR/page_evidence_contract.json" \
   --renderer-spec "$TMP_DIR/renderer_spec.json" \
@@ -638,7 +645,9 @@ for source, name in (
 (bad_run / "industry_research_pack.md").write_text("# Too Short\n", encoding="utf-8")
 for name in (
     "industry_scope_pack_validation.json",
+    "formal_search_plan_validation.json",
     "formal_research_execution_validation.json",
+    "source_archive_validation.json",
     "stage_gate_pre_research_pack_validation.json",
     "research_evidence_db_validation.json",
     "research_pack_validation.json",
@@ -656,7 +665,7 @@ if not any("source_reviews_validation.json is_valid=false" in item for item in r
 issue_result = subprocess.run(
     [
         sys.executable,
-        "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
+        "scripts/qc/validators/reasoning/validate_issue_analysis.py",
         "--issue-analysis",
         str(bad_run / "industry_issue_analysis.json"),
         "--research-pack",
@@ -672,7 +681,7 @@ if "source_reviews_validation.json is_valid=false" not in (issue_result.stdout +
 deck_result = subprocess.run(
     [
         sys.executable,
-        "skills/qc/scripts/validators/generation/validate_deck_blueprint.py",
+        "scripts/qc/validators/generation/validate_deck_blueprint.py",
         "--issue-analysis",
         str(bad_run / "industry_issue_analysis.json"),
         "--deck-blueprint",
@@ -690,7 +699,7 @@ if "source_reviews_validation.json is_valid=false" not in (deck_result.stdout + 
 compile_result = subprocess.run(
     [
         sys.executable,
-        "skills/generation/scripts/compile_deck_blueprint.py",
+        "scripts/generation/compile_deck_blueprint.py",
         "--issue-analysis",
         str(bad_run / "industry_issue_analysis.json"),
         "--deck-blueprint",
@@ -723,26 +732,26 @@ from renderer_token_source import build_token_source
 
 tmp = Path(os.environ["TMP_DIR"])
 renderer = json.loads((tmp / "renderer_spec.json").read_text(encoding="utf-8"))
-ppt_mapping = json.loads(Path("templates/ppt_mapping.json").read_text(encoding="utf-8"))
+ppt_mapping = json.loads(Path("configs/ppt_mapping.json").read_text(encoding="utf-8"))
 replacements = build_replacement_dict(
     build_token_source(renderer)["token_source"],
     ppt_mapping,
     keep_unmapped_empty=False,
     renderer_spec_path=tmp / "renderer_spec.json",
-    ppt_mapping_path=Path("templates/ppt_mapping.json"),
+    ppt_mapping_path=Path("configs/ppt_mapping.json"),
 )
 replacement_path = tmp / "replacement_dict.json"
 replacement_path.write_text(json.dumps(replacements, ensure_ascii=False, indent=2), encoding="utf-8")
 result = subprocess.run(
     [
         sys.executable,
-        "skills/qc/scripts/validators/output/validate_replacement_dict.py",
+        "scripts/qc/validators/output/validate_replacement_dict.py",
         "--replacement-dict",
         str(replacement_path),
         "--renderer-spec",
         str(tmp / "renderer_spec.json"),
         "--ppt-mapping",
-        "templates/ppt_mapping.json",
+        "configs/ppt_mapping.json",
     ],
     text=True,
     capture_output=True,
@@ -760,7 +769,7 @@ bad_contract = tmp / "page_evidence_contract_chart_forbidden.json"
 subprocess.run(
     [
         sys.executable,
-        "skills/generation/scripts/compile_deck_blueprint.py",
+        "scripts/generation/compile_deck_blueprint.py",
         "--issue-analysis",
         str(bad_issue),
         "--deck-blueprint",
@@ -778,7 +787,7 @@ subprocess.run(
 result = subprocess.run(
     [
         sys.executable,
-        "skills/qc/scripts/validators/generation/validate_page_evidence_contract.py",
+        "scripts/qc/validators/generation/validate_page_evidence_contract.py",
         "--issue-analysis",
         str(bad_issue),
         "--deck-blueprint",
@@ -841,7 +850,7 @@ with tempfile.TemporaryDirectory() as tmp:
     subprocess.run(
         [
             sys.executable,
-            "skills/research-external-evidence/scripts/append_search_attempt.py",
+            "scripts/research-external-evidence/append_search_attempt.py",
             "--search-log",
             str(auto_search_log),
             "--query",
@@ -870,7 +879,7 @@ with tempfile.TemporaryDirectory() as tmp:
     subprocess.run(
         [
             sys.executable,
-            "skills/research-external-evidence/scripts/append_search_attempt.py",
+            "scripts/research-external-evidence/append_search_attempt.py",
             "--search-log",
             str(templated_search_log),
             "--query",
@@ -1088,6 +1097,18 @@ with tempfile.TemporaryDirectory() as tmp:
         {"industry": "sample sector", "geography": "Samplestan"},
         {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
     )
+    for row in plan["issue_search_plan"]:
+        issue_area = row["issue_area"].replace("_", " ")
+        subissue = row["subissue"].replace("_", " ")
+        for idx, instruction in enumerate(row.get("search_instructions", []), start=1):
+            variants = [
+                f"sample sector {issue_area} {subissue} Samplestan industry report source {idx}",
+                f"sample sector {issue_area} {subissue} association data methodology source {idx}",
+                f"sample sector {issue_area} {subissue} company filings peer evidence source {idx}",
+            ]
+            instruction["query"] = variants[0]
+            instruction["query_variants"] = variants
+            instruction["source_hint"] = f"contract fixture source target for {issue_area} / {subissue}"
     def fs_for(area, subissue):
         for row in plan["issue_search_plan"]:
             if row["issue_area"] == area and row["subissue"] == subissue:
@@ -1123,6 +1144,23 @@ with tempfile.TemporaryDirectory() as tmp:
         + "\n",
         encoding="utf-8",
     )
+    (artifacts / "industry_boundary_qc.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "industry_boundary_qc_v1",
+                "decision": "pass",
+                "rationale": "Contract fixture treats the synthetic boundary as reviewed.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (artifacts / "industry_scope_pack_validation.json").write_text(
+        json.dumps({"is_valid": True, "errors": [], "warnings": scope_warnings}, ensure_ascii=False),
+        encoding="utf-8",
+    )
     early_state = validate_run_state(run_dir)
     if early_state["current_stage"] == "TEMPLATE_PROFILE_MISSING_OR_FAILED":
         (artifacts / "template_profile.json").write_text(
@@ -1140,18 +1178,9 @@ with tempfile.TemporaryDirectory() as tmp:
             encoding="utf-8",
         )
         early_state = validate_run_state(run_dir)
-    assert early_state["current_stage"] == "SOURCE_REVIEWS_MISSING_OR_FAILED", early_state
-    source_review_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "SOURCE_REVIEWS_MISSING_OR_FAILED"})
-    source_review_validation_cmds = [
-        item["command"]
-        for item in source_review_commands
-        if "validate_source_reviews.py" in item["command"]
-    ]
-    assert source_review_validation_cmds, source_review_commands
-    assert "--formal-research-execution-report" not in source_review_validation_cmds[0], source_review_validation_cmds
-    assert "--source-archive-index" not in source_review_validation_cmds[0], source_review_validation_cmds
+    assert early_state["current_stage"] == "SOURCE_ARCHIVE_MISSING_OR_FAILED", early_state
     archive_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED"})
-    assert archive_commands and "skills/research-external-evidence/scripts/build_source_archive.py" in archive_commands[0]["command"], archive_commands
+    assert archive_commands and "scripts/research-external-evidence/build_source_archive.py" in archive_commands[0]["command"], archive_commands
     assert "--run-dir" in archive_commands[0]["command"], archive_commands
     assert "--output-dir" not in archive_commands[0]["command"], archive_commands
     execution_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED"})
@@ -1164,11 +1193,11 @@ with tempfile.TemporaryDirectory() as tmp:
     assert "--report" in execution_validation_cmds[0], execution_validation_cmds
     assert "--formal-research-execution-report" not in execution_validation_cmds[0], execution_validation_cmds
     db_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
-    assert db_commands and "skills/knowledge-repository/scripts/build_research_evidence_db.py" in db_commands[0]["command"], db_commands
+    assert db_commands and "scripts/knowledge-repository/build_research_evidence_db.py" in db_commands[0]["command"], db_commands
     pack_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
-    assert pack_commands and "skills/knowledge-repository/scripts/export_research_pack_from_db.py" in pack_commands[0]["command"], pack_commands
+    assert pack_commands and "scripts/knowledge-repository/export_research_pack_from_db.py" in pack_commands[0]["command"], pack_commands
     pack_validation_cmds = [item["command"] for item in pack_commands if "validate_research_pack.py" in item["command"]]
-    assert pack_validation_cmds and "--source-registry templates/source_registry.json" in pack_validation_cmds[0], pack_validation_cmds
+    assert pack_validation_cmds and "--source-registry configs/source_registry.json" in pack_validation_cmds[0], pack_validation_cmds
     invalid_plan = json.loads(json.dumps(plan))
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["instruction_id"] = "FS-001"
     invalid_plan["issue_search_plan"][1]["search_instructions"][0]["query"] = "<industry> placeholder"
@@ -1364,8 +1393,8 @@ with tempfile.TemporaryDirectory() as tmp:
     weak_reviews["reviews"][0]["limitations"] = ["This page is a repost without methodology and should remain lead-only."]
     (artifacts / "source_reviews_weak.json").write_text(json.dumps(weak_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
     weak_result = validate_source_reviews(artifacts / "source_reviews_weak.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
-    assert not weak_result["is_valid"], weak_result
-    assert any("weak-source marker" in item for item in weak_result["errors"]), weak_result
+    assert weak_result["is_valid"], weak_result
+    assert any("weak-source marker" in item for item in weak_result["warnings"]), weak_result
     weak_reviews["reviews"][0]["methodology_locator"] = "Original report methodology and table 2 were reviewed directly."
     (artifacts / "source_reviews_weak_with_original.json").write_text(json.dumps(weak_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
     recovered_result = validate_source_reviews(artifacts / "source_reviews_weak_with_original.json", search_log_path=artifacts / "search_log.md", formal_research_execution_report_path=artifacts / "formal_research_execution_report.json", source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir)
@@ -1497,7 +1526,7 @@ with tempfile.TemporaryDirectory() as tmp:
     issue_skeleton_result = subprocess.run(
         [
             sys.executable,
-            "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
+            "scripts/qc/validators/reasoning/validate_issue_analysis.py",
             "--issue-analysis",
             str(issue_skeleton_path),
             "--research-pack",
@@ -1530,6 +1559,10 @@ with tempfile.TemporaryDirectory() as tmp:
         ),
         encoding="utf-8",
     )
+    state = validate_run_state(run_dir)
+    assert state["current_stage"] == "STOP_AND_REPORT", state
+    assert state["blocking_gate"] == "issue_analysis", state
+    (artifacts / "gate_retry_state.json").unlink()
     state = validate_run_state(run_dir)
     assert state["current_stage"] == "TEMPLATE_REGISTRY_MISSING_OR_FAILED", state
     handoff = build_handoff(run_dir, artifacts / "agent_handoff")

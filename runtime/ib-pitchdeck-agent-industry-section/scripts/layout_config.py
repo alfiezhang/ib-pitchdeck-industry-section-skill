@@ -9,13 +9,14 @@ from json_utils import load_json_file
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_LAYOUT_CONFIG = ROOT_DIR / "templates" / "layout_config.json"
+DEFAULT_LAYOUT_CONFIG = ROOT_DIR / "configs" / "layout_config.json"
 
 
 def load_layout_config(path: Path | str = DEFAULT_LAYOUT_CONFIG) -> dict[str, Any]:
     config_path = Path(path)
     if not config_path.is_absolute():
-        config_path = ROOT_DIR / config_path
+        cwd_candidate = Path.cwd() / config_path
+        config_path = cwd_candidate if cwd_candidate.exists() else ROOT_DIR / config_path
     config = load_json_file(config_path)
     if config.get("schema_version") != "layout_config_v1":
         raise ValueError(f"{config_path} must use schema_version layout_config_v1")

@@ -30,28 +30,28 @@ class TestCompileAll:
 
 class TestJsonLint:
     def test_check_json_files(self):
-        result = _run([sys.executable, "skills/qc/scripts/check_json_files.py", "--root", "."])
+        result = _run([sys.executable, "scripts/qc/check_json_files.py", "--root", "."])
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_check_artifact_manifest(self):
-        result = _run([sys.executable, "skills/qc/scripts/check_artifact_manifest.py"])
+        result = _run([sys.executable, "scripts/qc/check_artifact_manifest.py"])
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_check_slide_registry(self):
-        result = _run([sys.executable, "skills/template/scripts/check_slide_registry.py"])
+        result = _run([sys.executable, "scripts/template/check_slide_registry.py"])
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_check_registry_coverage(self):
-        result = _run([sys.executable, "skills/template/scripts/check_registry_coverage.py"])
+        result = _run([sys.executable, "scripts/template/check_registry_coverage.py"])
         assert result.returncode == 0, result.stdout + result.stderr
 
 
 class TestTemplateTokenCheck:
     def test_template_tokens_match_ppt_mapping(self, tmp_path):
         result = _run([
-            sys.executable, "skills/template/scripts/check_template_tokens.py",
+            sys.executable, "scripts/template/check_template_tokens.py",
             "--template", "assets/industry_section_template_master.pptx",
-            "--ppt-mapping", "templates/ppt_mapping.json",
+            "--ppt-mapping", "configs/ppt_mapping.json",
             "--fail-on-diff",
             "--output", str(tmp_path / "template_token_check.json"),
         ])

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit local legacy standalone skill installs for this plugin family."""
+"""Audit old installs that can conflict with the current skill package."""
 
 from __future__ import annotations
 
@@ -26,6 +26,16 @@ DEFAULT_SKILL_ROOTS = [
     "~/.workbuddy/skills",
 ]
 
+LEGACY_PLUGIN_NAMES = [
+    "ib-pitchdeck-agent-industry-section",
+]
+
+DEFAULT_PLUGIN_ROOTS = [
+    "~/.codex/plugins",
+    "~/.claude/plugins",
+    "~/.workbuddy/plugins",
+]
+
 
 def _path_summary(path: Path) -> dict[str, Any]:
     exists = path.exists()
@@ -50,7 +60,7 @@ def _path_summary(path: Path) -> dict[str, Any]:
     }
 
 
-def audit_legacy_installs(skill_roots: list[Path] | None = None) -> dict[str, Any]:
+def audit_legacy_installs(skill_roots: list[Path] | None = None, plugin_roots: list[Path] | None = None) -> dict[str, Any]:
     roots = skill_roots or [Path(item).expanduser() for item in DEFAULT_SKILL_ROOTS]
     entries: list[dict[str, Any]] = []
     for root in roots:
@@ -61,28 +71,41 @@ def audit_legacy_installs(skill_roots: list[Path] | None = None) -> dict[str, An
             item["skill_root"] = str(root)
             entries.append(item)
 
+    plugin_entries: list[dict[str, Any]] = []
+    for root in plugin_roots or [Path(item).expanduser() for item in DEFAULT_PLUGIN_ROOTS]:
+        for plugin_name in LEGACY_PLUGIN_NAMES:
+            path = root / plugin_name
+            item = _path_summary(path)
+            item["plugin_name"] = plugin_name
+            item["plugin_root"] = str(root)
+            plugin_entries.append(item)
+
     found = [item for item in entries if item["legacy_install"]]
+    plugin_found = [item for item in plugin_entries if item["legacy_install"]]
     return {
         "schema_version": "legacy_install_audit_v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_valid": True,
-        "legacy_install_count": len(found),
-        "legacy_installs_found": bool(found),
+        "legacy_install_count": len(found) + len(plugin_found),
+        "legacy_installs_found": bool(found or plugin_found),
         "checked_roots": [str(root) for root in roots],
         "checked_skill_names": LEGACY_SKILL_NAMES,
         "entries": entries,
-        "recommended_action": "Use plugin install path for active runtime. Remove legacy standalone skills only after confirming no host depends on them.",
+        "plugin_entries": plugin_entries,
+        "recommended_action": "Use the current skill install path for active runtime. Remove old plugin or legacy skill installs only after confirming no host depends on them.",
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skill-root", action="append", help="Override skill root; may be repeated")
+    parser.add_argument("--plugin-root", action="append", help="Override legacy plugin root; may be repeated")
     parser.add_argument("--output", default="artifacts/legacy_install_audit.json")
     args = parser.parse_args()
 
     roots = [Path(item).expanduser() for item in args.skill_root] if args.skill_root else None
-    payload = audit_legacy_installs(roots)
+    plugin_roots = [Path(item).expanduser() for item in args.plugin_root] if args.plugin_root else None
+    payload = audit_legacy_installs(roots, plugin_roots)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

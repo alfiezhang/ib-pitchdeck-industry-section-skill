@@ -28,20 +28,20 @@ class TestReplacementDict:
         from renderer_token_source import build_token_source
 
         renderer = json.loads(compiled_artifacts["renderer_spec"].read_text(encoding="utf-8"))
-        ppt_mapping = json.loads((SKILL_DIR / "templates" / "ppt_mapping.json").read_text(encoding="utf-8"))
+        ppt_mapping = json.loads((SKILL_DIR / "configs" / "ppt_mapping.json").read_text(encoding="utf-8"))
         replacements = build_replacement_dict(
             build_token_source(renderer)["token_source"],
             ppt_mapping,
             keep_unmapped_empty=False,
             renderer_spec_path=compiled_artifacts["renderer_spec"],
-            ppt_mapping_path=SKILL_DIR / "templates" / "ppt_mapping.json",
+            ppt_mapping_path=SKILL_DIR / "configs" / "ppt_mapping.json",
         )
         replacement_path = tmp_path / "replacement_dict.json"
         replacement_path.write_text(json.dumps(replacements, ensure_ascii=False, indent=2), encoding="utf-8")
         result = _run([
-            sys.executable, "skills/qc/scripts/validators/output/validate_replacement_dict.py",
+            sys.executable, "scripts/qc/validators/output/validate_replacement_dict.py",
             "--replacement-dict", str(replacement_path),
             "--renderer-spec", str(compiled_artifacts["renderer_spec"]),
-            "--ppt-mapping", "templates/ppt_mapping.json",
+            "--ppt-mapping", "configs/ppt_mapping.json",
         ])
         assert result.returncode == 0, result.stdout + result.stderr

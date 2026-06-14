@@ -81,7 +81,7 @@ class TestDeckBlueprintCompilation:
     def test_compile_produces_valid_output(self, deck_blueprint_path, template_registry_path, tmp_path):
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         result = subprocess.run(
-            [sys.executable, "skills/generation/scripts/compile_deck_blueprint.py",
+            [sys.executable, "scripts/generation/compile_deck_blueprint.py",
              "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
              "--deck-blueprint", str(deck_blueprint_path),
              "--template-registry", str(template_registry_path),
@@ -95,7 +95,7 @@ class TestDeckBlueprintCompilation:
         """Slide 4 (value_chain_page) body_blocks with target_field should map to body_copy."""
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         subprocess.run(
-            [sys.executable, "skills/generation/scripts/compile_deck_blueprint.py",
+            [sys.executable, "scripts/generation/compile_deck_blueprint.py",
              "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
              "--deck-blueprint", str(deck_blueprint_path),
              "--template-registry", str(template_registry_path),
@@ -149,7 +149,7 @@ class TestDeckBlueprintCompilation:
         _write_json(bp_path, blueprint)
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         subprocess.run(
-            [sys.executable, "skills/generation/scripts/compile_deck_blueprint.py",
+            [sys.executable, "scripts/generation/compile_deck_blueprint.py",
              "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
              "--deck-blueprint", str(bp_path),
              "--template-registry", str(template_registry_path),

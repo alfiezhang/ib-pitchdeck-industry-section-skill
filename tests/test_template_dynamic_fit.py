@@ -12,8 +12,8 @@ import pytest
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
 RUNTIME_DIR = SCRIPT_DIR.parent
-ROLE_SCRIPT_DIRS = sorted((RUNTIME_DIR / "skills").glob("*/scripts"))
-QC_VALIDATOR_DIRS = sorted((RUNTIME_DIR / "skills" / "qc" / "scripts" / "validators").glob("*"))
+ROLE_SCRIPT_DIRS = sorted(path for path in SCRIPT_DIR.iterdir() if path.is_dir())
+QC_VALIDATOR_DIRS = sorted((SCRIPT_DIR / "qc" / "validators").glob("*"))
 SCRIPT_IMPORT_DIRS = [SCRIPT_DIR, *ROLE_SCRIPT_DIRS, *QC_VALIDATOR_DIRS]
 
 
@@ -132,7 +132,7 @@ def test_template_analyzer_extracts_inventory_from_arbitrary_pptx(tmp_path: Path
             "--template",
             str(template_path),
             "--layout-config",
-            str(RUNTIME_DIR / "templates" / "layout_config.json"),
+            str(RUNTIME_DIR / "configs" / "layout_config.json"),
             "--output",
             str(output),
         ],

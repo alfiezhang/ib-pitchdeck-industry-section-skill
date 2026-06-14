@@ -47,7 +47,7 @@ Prefer the append helper for new entries so `S-xxx` numbering and field names
 stay parseable:
 
 ```bash
-"$PYTHON_CMD" skills/research-external-evidence/scripts/append_search_attempt.py \
+"$PYTHON_CMD" scripts/research-external-evidence/append_search_attempt.py \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --query "<exact query actually searched>" \
   --stage formal_research_execution \
@@ -77,7 +77,7 @@ Field reference for a helper-generated block:
 - Rejected Sources (with reason)
 - Notes
 
-<!-- Add real Search N blocks with skills/research-external-evidence/scripts/append_search_attempt.py. Do not leave blank Search headings in this file. -->
+<!-- Add real Search N blocks with scripts/research-external-evidence/append_search_attempt.py. Do not leave blank Search headings in this file. -->
 
 ---
 

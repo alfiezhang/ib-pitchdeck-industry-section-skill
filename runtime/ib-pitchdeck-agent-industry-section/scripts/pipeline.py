@@ -23,7 +23,7 @@ from typing import Any
 
 from layout_config import layout_config_paths
 ROOT_DIR = Path(__file__).resolve().parent.parent
-QC_SYSTEM_VALIDATORS = ROOT_DIR / "skills" / "qc" / "scripts" / "validators" / "system"
+QC_SYSTEM_VALIDATORS = ROOT_DIR / "scripts" / "qc" / "validators" / "system"
 if str(QC_SYSTEM_VALIDATORS) not in sys.path:
     sys.path.insert(0, str(QC_SYSTEM_VALIDATORS))
 
@@ -34,7 +34,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def _load_role_script_paths() -> dict[str, Path]:
-    path = ROOT_DIR / "templates" / "script_role_map.json"
+    path = ROOT_DIR / "configs" / "script_role_map.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
@@ -56,8 +56,8 @@ ROLE_SCRIPT_DIRS = _load_role_script_paths()
 _TOOL_SOURCE_REPO = ROOT_DIR.parent.parent  # expected: <repo>/runtime/ib-pitchdeck-agent-industry-section
 _INTEGRITY_SENTINEL = "pipeline.py is a read-only tool file; repair upstream artifacts, not this script."  # noqa: E501
 TEMPLATE = ROOT_DIR / "assets" / "industry_section_template_master.pptx"
-SOURCE_REGISTRY = ROOT_DIR / "templates" / "source_registry.json"
-CONTENT_RULES = ROOT_DIR / "templates" / "content_quality_rules.json"
+SOURCE_REGISTRY = ROOT_DIR / "configs" / "source_registry.json"
+CONTENT_RULES = ROOT_DIR / "configs" / "content_quality_rules.json"
 LAYOUT_PATHS = layout_config_paths()
 PPT_MAPPING = LAYOUT_PATHS["ppt_mapping"]
 RENDER_LAYOUTS = LAYOUT_PATHS["render_layouts"]
@@ -360,7 +360,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
             "--template",
             template_path,
             "--layout-config",
-            ROOT_DIR / "templates" / "layout_config.json",
+            ROOT_DIR / "configs" / "layout_config.json",
             "--output",
             template_profile_path,
         ]
@@ -584,7 +584,7 @@ def draft(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) 
                     "--template",
                     template_path,
                     "--layout-config",
-                    ROOT_DIR / "templates" / "layout_config.json",
+                    ROOT_DIR / "configs" / "layout_config.json",
                     "--output",
                     template_profile_path,
                 ]
@@ -993,7 +993,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
                     "--template",
                     template_path,
                     "--layout-config",
-                    ROOT_DIR / "templates" / "layout_config.json",
+                    ROOT_DIR / "configs" / "layout_config.json",
                     "--output",
                     run_dir / "artifacts/template_profile.json",
                 ]

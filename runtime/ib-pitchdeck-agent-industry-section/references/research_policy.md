@@ -41,8 +41,8 @@ Use source channels in this order:
    opened, logged, reviewed, archived, and caveated.
 2. Agent-native Web Search for LLM-led industry boundary validation and formal
    research.
-3. Script fallback search with `skills/research-external-evidence/scripts/web_search.py --provider auto`. Provider
-   order comes from `templates/source_registry.json` and currently is
+3. Script fallback search with `scripts/research-external-evidence/web_search.py --provider auto`. Provider
+   order comes from `configs/source_registry.json` and currently is
    `SearXNG -> DuckDuckGo -> Tavily`; configure `SEARXNG_BASE_URL` first.
 4. Manual URL ingestion when search is rate-limited but exact source URLs are
    available.
@@ -75,7 +75,7 @@ Create these artifacts before formal research execution:
 
 Recommended sequence:
 
-1. Read `templates/source_registry.json` as a source menu only.
+1. Read `configs/source_registry.json` as a source menu only.
 2. Draft `llm_definition_draft` from the brief and model knowledge only. It is a definition hypothesis, not evidence.
 3. Draft 3-6 broad-discovery searches from `llm_definition_draft.scoping_search_queries`. Query strings should be definition/scope-oriented, not market-answer-oriented.
 4. Create `artifacts/search_log.md` from
@@ -97,25 +97,25 @@ Recommended sequence:
    - required reconciliations and seed questions.
 7. Validate the scope pack:
    ```bash
-   "$PYTHON_CMD" skills/qc/scripts/validators/scoping/validate_industry_scope_pack.py \
+   "$PYTHON_CMD" scripts/qc/validators/scoping/validate_industry_scope_pack.py \
      --scope-pack artifacts/industry_scope_pack.json \
      --output artifacts/industry_scope_pack_validation.json
    ```
 8. Build `artifacts/formal_search_plan.json` from the full-taxonomy skeleton,
    then edit queries using the scope pack:
    ```bash
-   "$PYTHON_CMD" skills/research-external-evidence/scripts/build_formal_search_plan_skeleton.py \
+   "$PYTHON_CMD" scripts/research-external-evidence/build_formal_search_plan_skeleton.py \
      --input-card "$RUN_DIR/input_card.json" \
      --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
      --output "$RUN_DIR/artifacts/formal_search_plan.json"
    ```
-   Use `templates/formal_search_plan.template.json` for field meaning, not as a
+   Use `configs/artifact_templates/formal_search_plan.template.json` for field meaning, not as a
    final copy/paste artifact.
    The skeleton intentionally emits `LLM_REWRITE_REQUIRED` query workspaces.
    Research must replace them with real, executable, source-specific queries
    before validation or search execution.
 9. Validate `artifacts/formal_search_plan.json` with
-   `skills/qc/scripts/validators/research/validate_formal_search_plan.py` before executing formal searches.
+   `scripts/qc/validators/research/validate_formal_search_plan.py` before executing formal searches.
 
 Do not put confirmed market size, growth rate, share, ranking, valuation,
 competitive landscape, or page-ready claims in the scope pack. Any number found
@@ -160,7 +160,7 @@ in the execution report. Do not write the execution report from the plan alone.
 Prefer the append helper instead of hand-editing search numbering:
 
 ```bash
-"$PYTHON_CMD" skills/research-external-evidence/scripts/append_search_attempt.py \
+"$PYTHON_CMD" scripts/research-external-evidence/append_search_attempt.py \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --query "<exact query actually searched>" \
   --stage formal_research_execution \
@@ -177,17 +177,17 @@ runs should place source review status, use tier, limitations, and claim-use
 scope inside `artifacts/research_evidence_db.json`.
 
 ```bash
-"$PYTHON_CMD" skills/research-external-evidence/scripts/build_source_archive.py \
+"$PYTHON_CMD" scripts/research-external-evidence/build_source_archive.py \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --run-dir "$RUN_DIR" \
   --overwrite
 
-"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_source_archive.py \
+"$PYTHON_CMD" scripts/qc/validators/research/validate_source_archive.py \
   --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" skills/research-external-evidence/scripts/build_formal_research_execution_report_skeleton.py \
+"$PYTHON_CMD" scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
@@ -226,7 +226,7 @@ accounted for; do not remove them from the plan to avoid work:
 - `limitations`
 - `research_pack_handling`
 
-Start from `templates/formal_research_execution_report.skeleton.json` only for
+Start from `configs/artifact_templates/formal_research_execution_report.skeleton.json` only for
 the root structure if the helper cannot be used. Do not treat it as a fill-all
 template. If an issue was weak, perform the search and mark it weak; do not
 pretend unsearched issues were researched.
@@ -258,17 +258,17 @@ issue-analysis claims, or deck headlines as evidence.
 Validate formal execution and source archive before writing the research pack:
 
 ```bash
-"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_formal_search_plan.py \
+"$PYTHON_CMD" scripts/qc/validators/research/validate_formal_search_plan.py \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --output "$RUN_DIR/artifacts/formal_search_plan_validation.json"
 
-"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_formal_research_execution.py \
+"$PYTHON_CMD" scripts/qc/validators/research/validate_formal_research_execution.py \
   --report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
 
-"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_source_archive.py \
+"$PYTHON_CMD" scripts/qc/validators/research/validate_source_archive.py \
   --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
@@ -281,7 +281,7 @@ handoff for evidence extraction, build the machine-readable evidence database
 first:
 
 ```bash
-"$PYTHON_CMD" skills/knowledge-repository/scripts/build_research_evidence_db.py \
+"$PYTHON_CMD" scripts/knowledge-repository/build_research_evidence_db.py \
   --input-card "$RUN_DIR/input_card.json" \
   --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
@@ -289,18 +289,18 @@ first:
   --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db.json"
 
-"$PYTHON_CMD" skills/qc/scripts/validators/knowledge/validate_research_evidence_db.py \
+"$PYTHON_CMD" scripts/qc/validators/knowledge/validate_research_evidence_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
 
-"$PYTHON_CMD" skills/knowledge-repository/scripts/export_research_pack_from_db.py \
+"$PYTHON_CMD" scripts/knowledge-repository/export_research_pack_from_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/industry_research_pack.md"
 
-"$PYTHON_CMD" skills/qc/scripts/validators/knowledge/validate_research_pack.py \
+"$PYTHON_CMD" scripts/qc/validators/knowledge/validate_research_pack.py \
   --research-pack "$RUN_DIR/industry_research_pack.md" \
   --run-dir "$RUN_DIR" \
-  --source-registry templates/source_registry.json \
+  --source-registry configs/source_registry.json \
   --output "$RUN_DIR/artifacts/research_pack_validation.json"
 ```
 
@@ -360,7 +360,7 @@ Prefer the archive helper for excerpt snapshots from actual search-log selected
 sources:
 
 ```bash
-"$PYTHON_CMD" skills/research-external-evidence/scripts/build_source_archive.py \
+"$PYTHON_CMD" scripts/research-external-evidence/build_source_archive.py \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --run-dir "$RUN_DIR" \
   --overwrite

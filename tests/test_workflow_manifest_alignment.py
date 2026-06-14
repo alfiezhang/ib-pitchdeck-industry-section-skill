@@ -11,7 +11,7 @@ RUNTIME = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
 
 
 def _manifest() -> dict:
-    return json.loads((RUNTIME / "templates" / "artifact_manifest.json").read_text(encoding="utf-8"))
+    return json.loads((RUNTIME / "configs" / "artifact_manifest.json").read_text(encoding="utf-8"))
 
 
 def test_artifact_manifest_covers_main_mental_path() -> None:
@@ -44,7 +44,7 @@ def test_artifact_manifest_covers_main_mental_path() -> None:
         "replacement_dict",
         "filled_ppt",
         "final_delivery",
-        "plugin_package_validation",
+        "skill_package_validation",
         "legacy_install_audit",
     ]
 
@@ -80,11 +80,11 @@ def test_state_report_commands_generate_incremental_and_template_fit_plan() -> N
 
 def test_runtime_package_scripts_for_packaging_and_legacy_audit_are_registered() -> None:
     manifest = _manifest()
-    package = manifest["artifacts"]["plugin_package_validation"]
+    package = manifest["artifacts"]["skill_package_validation"]
     legacy = manifest["artifacts"]["legacy_install_audit"]
 
-    assert package["builder"] == "skills/qc/scripts/validators/system/validate_plugin_package.py"
+    assert package["builder"] == "scripts/qc/validators/system/validate_skill_package.py"
     assert legacy["builder"] == "scripts/audit_legacy_installs.py"
-    assert (RUNTIME / "scripts" / "package_plugin.py").exists()
-    assert (RUNTIME / "scripts" / "install_plugin_local.py").exists()
+    assert (RUNTIME / "scripts" / "package_skill.py").exists()
+    assert (RUNTIME / "scripts" / "install_skill_local.py").exists()
     assert (RUNTIME / "scripts" / "remove_legacy_installs.py").exists()

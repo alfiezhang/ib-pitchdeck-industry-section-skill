@@ -29,7 +29,11 @@ def test_audit_legacy_installs_reports_found_legacy_skills(tmp_path: Path) -> No
     (legacy / "SKILL.md").write_text("# legacy skill\n", encoding="utf-8")
     output = tmp_path / "legacy_install_audit.json"
 
-    result = _run("audit_legacy_installs.py", ["--skill-root", str(skill_root), "--output", str(output)])
+    empty_plugin_root = tmp_path / "plugins"
+    result = _run(
+        "audit_legacy_installs.py",
+        ["--skill-root", str(skill_root), "--plugin-root", str(empty_plugin_root), "--output", str(output)],
+    )
 
     assert result.returncode == 0
     payload = json.loads(output.read_text(encoding="utf-8"))

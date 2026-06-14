@@ -1,0 +1,157 @@
+---
+name: ib-pitchdeck-agent-industry-section
+description: Build pre-mandate investment banking pitchbook industry sections from target briefs, PDFs, PPTs, Excel files, URLs, user-curated industry reports, public evidence, and optional PPT templates. Use when asked to create or improve an IB industry section, sector pages, or pitchbook PPT for a potential client.
+---
+
+# IB Pitchdeck Industry Section
+
+## Overview
+
+This skill helps create the **industry section of a pre-mandate client pitchbook**. The user may provide only a short target brief, a PDF/PPT, a link, an industry report, or a rough project lead. Your job is to behave like the banker/editor responsible for the section: understand the material, define the right industry boundary, collect public evidence, form defensible page arguments, and produce an editable PPT.
+
+The default engagement setting is **pre-mandate client pitch**. The output should show the potential client that the bank understands the industry, the target's position, the likely buyer lens, and the transaction story. Do not write it like a CIM, diligence report, investor memo, or signed-engagement workplan unless the user explicitly changes the deliverable.
+
+Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and format validation. They do not replace your judgment. Dashboards such as `state_report.py` and `gate_report.py` are instruments, not autopilots.
+
+When a task is narrow enough to delegate or isolate, use a role job packet: the parent agent prepares the packet, the worker handles only that packet, and the parent integrates the result. Do not hand off the whole workflow.
+
+## Default Workflow
+
+1. Establish the engagement context.
+   - Treat the work as a pre-mandate client pitch unless told otherwise.
+   - Use only user materials and public evidence. Do not imply confidential diligence access.
+   - Decide whether the user expects a formal client-ready PPT or an evidence-limited internal draft.
+
+2. Ingest the material.
+   - Preserve the user's brief exactly before summarizing it.
+   - Register user-provided PDFs, PPTs, Excel files, URLs, industry reports, notes, and templates.
+   - Classify each source as project-specific material, user-curated industry report, public web result, company material, market data, or reusable repository material.
+   - For a short text brief, use the bundled intake helper rather than hand-building intake files:
+
+   ```bash
+   python3 scripts/start_case_from_brief.py --case-name "<case>" --run-dir "<run_dir>" --brief-text "<exact user brief>"
+   ```
+
+3. Build the current-project knowledge base.
+   - Extract target facts, transaction context, source provenance, metrics, unknowns, conflicts, and access level.
+   - Keep user-provided claims separate from externally verified evidence.
+   - Do not search from the knowledge layer. New public evidence enters through the research layer, then returns to knowledge.
+
+4. Define the target industry boundary before researching the industry.
+   - Specify broad industry, core target industry, adjacent themes, excluded scope, data hierarchy, and definition rationale.
+   - Use a small boundary-validation search when the category could be too broad, too narrow, or confused with an application, channel, parent market, or adjacent market.
+   - Boundary validation is not full industry research.
+
+5. Collect public evidence.
+   - Use the host's web search, SearXNG/manual URL ingestion, user-provided reports, or repository retrieval as available.
+   - Treat search results as leads. A search snippet is not evidence.
+   - Open/archive/extract a source before using it in the evidence database.
+   - Separate coverage accounting from the evidence binder: unexecuted searches and research gaps belong in coverage/gap audit, not in the usable evidence body.
+
+6. Form banker judgment.
+   - Convert evidence into supported judgments, hypotheses, research requests, buyer concerns, deliverable-depth decisions, and page arguments.
+   - Do not let a hypothesis become a conclusion. Resolve each hypothesis as supported, directional, caveat-only, unresolved, or research-needed.
+   - If evidence is too thin for a client-ready section, say so and choose an evidence-limited draft path instead of pretending the deck is complete.
+
+7. Generate page arguments and slide drafts.
+   - Start from page/section arguments, not from raw research notes.
+   - Each page should have a clear investor/client question, a supported point of view, the evidence it relies on, and any caveat.
+   - Use the template to fit the content, not to weaken the story. If a layout makes the page thin or misleading, revise the page argument or choose a better layout.
+
+8. Use the right template.
+   - If the user provides a PPT/POTX template, use it.
+   - If not, use the bundled template in `assets/`.
+   - Analyze colors, fonts, layouts, source-note zones, chart style, and information density before fitting slides.
+
+9. Review quality before final output.
+   - Use deterministic checks for file presence, JSON validity, IDs, template tokens, stale artifacts, and render mechanics.
+   - Use LLM review for source quality, evidence sufficiency, industry-boundary quality, reasoning strength, page density, pitch relevance, and template fit.
+   - When warnings appear, route the repair to the owner of the problem. Do not patch derived artifacts just to quiet a report.
+
+10. Render and report.
+   - Formal delivery should go through the evidence, reasoning, generation, template, QC, and output path.
+   - For an internal quick draft from page arguments, use the bundled draft renderer:
+
+   ```bash
+   python3 scripts/output/quick_render_from_page_arguments.py --run-dir "<run_dir>"
+   ```
+
+   This path must be labeled `DRAFT_NOT_CLIENT_READY`.
+   - Do not create ad-hoc render scripts in the user's run directory.
+
+## Two Loops To Use
+
+**Industry boundary loop**
+
+```text
+Knowledge -> Industry Scoping -> Boundary Validation Search -> Knowledge -> Updated Scope
+```
+
+Use this when the researched market might be wrong, too broad, too narrow, or mixed with adjacent themes.
+
+**Public evidence loop**
+
+```text
+Reasoning -> Research Request Queue -> Research -> Knowledge -> Reasoning
+```
+
+Use this when a page argument, hypothesis, or buyer concern needs more public evidence before it can be used.
+
+## Practical Dashboard Commands
+
+Run bundled scripts from the skill root, or resolve them relative to this `SKILL.md`.
+
+Use the state dashboard when you need a snapshot of what exists and what looks stale:
+
+```bash
+python3 scripts/state_report.py next --run-dir "<run_dir>"
+```
+
+Use the QC dashboard when multiple issues need triage:
+
+```bash
+python3 scripts/gate_report.py --run-dir "<run_dir>" --output "<run_dir>/artifacts/gate_report.json" --markdown-output "<run_dir>/artifacts/gate_report.md"
+```
+
+These reports should help you decide the next repair. They are not a substitute for banker judgment.
+
+## Reference Map
+
+Read only the reference that matches the current work.
+
+- `references/material-intake.md`: ingest briefs, documents, URLs, reports, and templates.
+- `references/knowledge-repository.md`: maintain facts, metrics, sources, conflicts, unknowns, and evidence DB.
+- `references/industry-scoping.md`: define and validate broad/core/adjacent/excluded industry scope.
+- `references/research-external-evidence.md`: plan searches, archive sources, extract public evidence, and account for coverage.
+- `references/reasoning.md`: form supported judgments, hypotheses, research requests, deliverable depth, and page arguments.
+- `references/generation.md`: turn page arguments into slide drafts, deck blueprint, and chart/table intent.
+- `references/template.md`: analyze and fit PPT templates without changing the page judgment.
+- `references/qc.md`: run deterministic checks, perform LLM quality review, and route repairs.
+- `references/output.md`: create replacement dictionaries, render PPT, postprocess, and finalize.
+- `references/role_job_packets.md`: standard packet/result shape for narrow role work and subagent-style delegation.
+- `references/research_policy.md`: evidence discipline and public research handling.
+- `references/operating_model.md`: full role-based architecture and artifact flow.
+- `references/ppt_visual_qc.md`: visual review expectations for PPT output.
+
+Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` contains script mappings, rules, registries, layout configuration, and artifact templates. `assets/` contains the bundled PPT template and other output resources.
+
+## Acceptance Criteria
+
+- The industry boundary is explicit and not confused with parent markets, channels, applications, or adjacent sectors.
+- User-provided facts, public evidence, assumptions, and hypotheses are clearly separated.
+- Evidence used in page arguments is traceable to archived/opened sources, not search snippets.
+- The deck contains real banker page arguments, not a thin list of caveats.
+- Buyer perspective and transaction relevance are visible where appropriate.
+- A user-provided PPT template is honored; otherwise the bundled template is used.
+- Final output status is honest: client-ready, evidence-limited draft, or blocked.
+
+## Failure Modes To Avoid
+
+- Treating a planned search, query, or search snippet as evidence.
+- Letting the main agent hand-write every artifact instead of using role references and helper scripts.
+- Creating fake S/SRC/EV/MET IDs to satisfy a format check.
+- Moving unexecuted or not-material research coverage into the evidence binder.
+- Turning hypotheses into headlines.
+- Rendering a PPT directly from raw research without page arguments.
+- Hand-editing `template_profile.json`, `renderer_spec.json`, `replacement_dict.json`, or final flags to hide upstream issues.
+- Claiming a formal delivery when the run is only a draft or when QC has identified unresolved client-readiness problems.

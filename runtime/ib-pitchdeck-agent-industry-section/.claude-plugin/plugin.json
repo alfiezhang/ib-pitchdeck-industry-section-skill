@@ -1,8 +1,0 @@
-{
-  "name": "ib-pitchdeck-agent-industry-section",
-  "version": "0.1.0",
-  "description": "Pre-mandate investment banking pitchbook industry-section agent with material intake, industry boundary scoping, public evidence research, banker reasoning, generation, template fit, QC, and deterministic PPT output.",
-  "author": {
-    "name": "Personal"
-  }
-}

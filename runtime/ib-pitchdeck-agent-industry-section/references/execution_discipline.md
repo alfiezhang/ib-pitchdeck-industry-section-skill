@@ -1,6 +1,6 @@
 # Execution Discipline
 
-This reference keeps the plugin aligned with the role-based workflow. It is not a script checklist.
+This reference keeps the skill aligned with the role-based workflow. It is not a script checklist.
 
 ## Core Rule
 
@@ -25,8 +25,8 @@ Work in role handoffs:
 
 At task start, read only:
 
-- the main agent file;
-- the current role `SKILL.md`;
+- the main `SKILL.md`;
+- the current role document under `references/`;
 - `references/operating_model.md` when architecture context is needed;
 - the exact template or schema only when creating or repairing that artifact.
 
@@ -36,7 +36,7 @@ Do not bulk-read every schema, test, or script as a workflow menu.
 
 QC has two tracks:
 
-- Python format QC: deterministic validators under `skills/qc/scripts/validators/<layer>/`.
+- Python format QC: deterministic validators under `scripts/qc/validators/<layer>/`.
 - LLM quality QC: source quality, evidence sufficiency, boundary relevance, reasoning quality, page density, template fit tradeoff, final client-readiness.
 
 A validator failure tells QC where a deterministic red-line exists. QC still decides the repair owner and whether the issue is format-only or substantive.

@@ -22,7 +22,7 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
 class TestPageEvidenceContractValidation:
     def test_valid_contract_passes(self, deck_blueprint_path, template_registry_path, compiled_artifacts):
         result = _run([
-            sys.executable, "skills/qc/scripts/validators/generation/validate_page_evidence_contract.py",
+            sys.executable, "scripts/qc/validators/generation/validate_page_evidence_contract.py",
             "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
             "--deck-blueprint", str(deck_blueprint_path),
             "--page-contract", str(compiled_artifacts["page_evidence_contract"]),
@@ -41,7 +41,7 @@ class TestPageEvidenceContractValidation:
         bad_contract = tmp_path / "page_evidence_contract_chart_forbidden.json"
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         subprocess.run(
-            [sys.executable, "skills/generation/scripts/compile_deck_blueprint.py",
+            [sys.executable, "scripts/generation/compile_deck_blueprint.py",
              "--issue-analysis", str(bad_issue),
              "--deck-blueprint", str(deck_blueprint_path),
              "--template-registry", str(template_registry_path),
@@ -50,7 +50,7 @@ class TestPageEvidenceContractValidation:
             text=True, capture_output=True, cwd=str(SKILL_DIR), env=env, check=True,
         )
         result = _run([
-            sys.executable, "skills/qc/scripts/validators/generation/validate_page_evidence_contract.py",
+            sys.executable, "scripts/qc/validators/generation/validate_page_evidence_contract.py",
             "--issue-analysis", str(bad_issue),
             "--deck-blueprint", str(deck_blueprint_path),
             "--page-contract", str(bad_contract),
@@ -62,7 +62,7 @@ class TestPageEvidenceContractValidation:
 class TestRendererSpecValidation:
     def test_valid_renderer_spec_passes(self, deck_blueprint_path, template_registry_path, compiled_artifacts, tmp_path):
         result = _run([
-            sys.executable, "skills/qc/scripts/validators/generation/validate_renderer_spec.py",
+            sys.executable, "scripts/qc/validators/generation/validate_renderer_spec.py",
             "--renderer-spec", str(compiled_artifacts["renderer_spec"]),
             "--template-registry", str(template_registry_path),
             "--deck-blueprint", str(deck_blueprint_path),

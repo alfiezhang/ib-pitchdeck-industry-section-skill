@@ -33,7 +33,7 @@ class TestContentRootCauses:
         by_code = {item["code"]: item for item in root_causes}
         assert by_code["CHART_METRIC_BINDING"]["repair_target"] == "deck_blueprint.json"
         assert (
-            "skills/qc/scripts/validators/final/validate_chart_metric_binding.py"
+            "scripts/qc/validators/final/validate_chart_metric_binding.py"
             in by_code["CHART_METRIC_BINDING"]["rerun_steps"]
         )
 

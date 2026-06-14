@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_REGISTRY_PATH = ROOT_DIR / "templates" / "slide_registry.json"
+DEFAULT_REGISTRY_PATH = ROOT_DIR / "configs" / "slide_registry.json"
 
 
 def load_slide_registry(path: Optional[Path] = None) -> dict[str, Any]:

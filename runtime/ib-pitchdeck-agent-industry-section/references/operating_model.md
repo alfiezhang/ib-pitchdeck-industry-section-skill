@@ -1,6 +1,6 @@
 # IB Pitchdeck Agent Industry Section Operating Model
 
-This plugin builds the industry section of a **pre-mandate client pitchbook**. It is not a CIM, DD workplan, buyer memo, or generic market report. The output should help a potential client believe that the bank understands the industry, the target's position, the transaction window, and how buyers will evaluate the story.
+This skill builds the industry section of a **pre-mandate client pitchbook**. It is not a CIM, DD workplan, buyer memo, or generic market report. The output should help a potential client believe that the bank understands the industry, the target's position, the transaction window, and how buyers will evaluate the story.
 
 ## Design Principles
 
@@ -51,7 +51,7 @@ User materials / links / instructions
 
 ## Validator Ownership
 
-All `validate_*.py` scripts live under `skills/qc/scripts/validators/<layer>/`.
+All `validate_*.py` scripts live under `scripts/qc/validators/<layer>/`.
 
 - Validators are deterministic checks and format red-lines.
 - QC decides how to interpret validator output.
@@ -69,6 +69,26 @@ Every role handoff should identify:
 - evidence limits and unresolved hypotheses;
 - repair owner if blocked;
 - next role if ready.
+
+## Role Job Packet Contract
+
+Use `references/role_job_packets.md` when a task is narrow enough to delegate or isolate. This is the preferred pattern for focused source extraction, QC review, page drafting, template fit review, or other bounded role work.
+
+The parent agent owns:
+
+- creating a self-contained job packet;
+- giving the worker all task-local context;
+- limiting the worker's write scope;
+- inspecting the returned result;
+- integrating usable output into the canonical artifact.
+
+The worker owns:
+
+- one role task only;
+- returning result, limits, and blocker status;
+- avoiding unrelated global edits.
+
+Job packets are not a second workflow engine. They are a cleaner handoff format for role work.
 
 ## Refactor Execution Plan
 

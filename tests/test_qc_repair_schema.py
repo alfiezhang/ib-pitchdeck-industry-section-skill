@@ -10,8 +10,8 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
 RUNTIME_DIR = SCRIPT_DIR.parent
-ROLE_SCRIPT_DIRS = sorted((RUNTIME_DIR / "skills").glob("*/scripts"))
-QC_VALIDATOR_DIRS = sorted((RUNTIME_DIR / "skills" / "qc" / "scripts" / "validators").glob("*"))
+ROLE_SCRIPT_DIRS = sorted(path for path in SCRIPT_DIR.iterdir() if path.is_dir())
+QC_VALIDATOR_DIRS = sorted((SCRIPT_DIR / "qc" / "validators").glob("*"))
 SCRIPT_IMPORT_DIRS = [SCRIPT_DIR, *ROLE_SCRIPT_DIRS, *QC_VALIDATOR_DIRS]
 
 
@@ -76,7 +76,7 @@ def test_qc_normalize_report_maps_legacy_errors_to_repair_schema(tmp_path: Path)
             "--artifact",
             "renderer_spec.json",
             "--rerun-command",
-            "$PYTHON_CMD skills/qc/scripts/validators/generation/validate_renderer_spec.py ...",
+            "$PYTHON_CMD scripts/qc/validators/generation/validate_renderer_spec.py ...",
             "--output",
             str(output),
         ],
@@ -109,7 +109,7 @@ def test_qc_normalize_report_preserves_repair_targets(tmp_path: Path) -> None:
                     "message": "template_capacity_conflict",
                     "why_it_matters": "Content cannot be rendered without layout overflow.",
                     "repair_action": "Return to Generation and compress copy.",
-                    "rerun_command": "$PYTHON_CMD skills/template/scripts/template_fit.py ...",
+                    "rerun_command": "$PYTHON_CMD scripts/template/template_fit.py ...",
                     "downstream_blocked": True,
                 }
             ],
