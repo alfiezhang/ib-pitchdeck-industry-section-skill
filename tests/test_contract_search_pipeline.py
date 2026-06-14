@@ -84,7 +84,7 @@ class TestSearchLogAndAttempts:
         from validate_formal_research_execution import parse_search_attempts
         search_log = tmp_path / "search_log_auto.md"
         _run([
-            sys.executable, "scripts/append_search_attempt.py",
+            sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
             "--search-log", str(search_log),
             "--query", "example industry formal source",
             "--stage", "formal_research_execution",
@@ -104,7 +104,7 @@ class TestSearchLogAndAttempts:
         template = SKILL_DIR / "references" / "search_log_template.md"
         search_log.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
         _run([
-            sys.executable, "scripts/append_search_attempt.py",
+            sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
             "--search-log", str(search_log),
             "--query", "example broad definition source",
             "--stage", "broad_discovery",
@@ -115,6 +115,56 @@ class TestSearchLogAndAttempts:
         ])
         attempts = parse_search_attempts(search_log)
         assert "S-001" in attempts, attempts
+
+    def test_edit_search_attempt_updates_known_field(self, tmp_path):
+        from validate_formal_research_execution import parse_search_attempts
+        search_log = tmp_path / "search_log_edit.md"
+        _run([
+            sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
+            "--search-log", str(search_log),
+            "--query", "example industry formal source",
+            "--stage", "formal_research_execution",
+            "--fs-id", "FS-001",
+            "--selected-source", "https://example.com/source",
+            "--result-count", "0",
+            "--opened-reviewed", "yes",
+            "--locator-excerpt", "section 1 contains reviewed source context.",
+        ])
+        result = _run([
+            sys.executable, "skills/research-external-evidence/scripts/edit_search_attempt.py",
+            "--search-log", str(search_log),
+            "--attempt-id", "S-001",
+            "--set-field", "Result Count=5",
+        ])
+        assert result.returncode == 0, result.stderr
+        attempts = parse_search_attempts(search_log)
+        assert attempts["S-001"]["result count"] == "5", attempts
+
+    def test_edit_search_attempt_deletes_accidental_row(self, tmp_path):
+        from validate_formal_research_execution import parse_search_attempts
+        search_log = tmp_path / "search_log_delete.md"
+        for query in ("first query", "accidental query"):
+            _run([
+                sys.executable, "skills/research-external-evidence/scripts/append_search_attempt.py",
+                "--search-log", str(search_log),
+                "--query", query,
+                "--stage", "formal_research_execution",
+                "--fs-id", "FS-001",
+                "--selected-source", "https://example.com/source",
+                "--result-count", "1",
+                "--opened-reviewed", "yes",
+                "--locator-excerpt", "section 1 contains reviewed source context.",
+            ])
+        result = _run([
+            sys.executable, "skills/research-external-evidence/scripts/edit_search_attempt.py",
+            "--search-log", str(search_log),
+            "--attempt-id", "S-002",
+            "--delete",
+        ])
+        assert result.returncode == 0, result.stderr
+        attempts = parse_search_attempts(search_log)
+        assert "S-001" in attempts, attempts
+        assert "S-002" not in attempts, attempts
 
 
 # ---------------------------------------------------------------------------

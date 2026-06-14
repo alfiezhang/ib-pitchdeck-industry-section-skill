@@ -41,7 +41,7 @@ Use source channels in this order:
    opened, logged, reviewed, archived, and caveated.
 2. Agent-native Web Search for LLM-led industry boundary validation and formal
    research.
-3. Script fallback search with `scripts/web_search.py --provider auto`. Provider
+3. Script fallback search with `skills/research-external-evidence/scripts/web_search.py --provider auto`. Provider
    order comes from `templates/source_registry.json` and currently is
    `SearXNG -> DuckDuckGo -> Tavily`; configure `SEARXNG_BASE_URL` first.
 4. Manual URL ingestion when search is rate-limited but exact source URLs are
@@ -97,14 +97,14 @@ Recommended sequence:
    - required reconciliations and seed questions.
 7. Validate the scope pack:
    ```bash
-   "$PYTHON_CMD" scripts/validate_industry_scope_pack.py \
+   "$PYTHON_CMD" skills/qc/scripts/validators/scoping/validate_industry_scope_pack.py \
      --scope-pack artifacts/industry_scope_pack.json \
      --output artifacts/industry_scope_pack_validation.json
    ```
 8. Build `artifacts/formal_search_plan.json` from the full-taxonomy skeleton,
    then edit queries using the scope pack:
    ```bash
-   "$PYTHON_CMD" scripts/build_formal_search_plan_skeleton.py \
+   "$PYTHON_CMD" skills/research-external-evidence/scripts/build_formal_search_plan_skeleton.py \
      --input-card "$RUN_DIR/input_card.json" \
      --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
      --output "$RUN_DIR/artifacts/formal_search_plan.json"
@@ -115,7 +115,7 @@ Recommended sequence:
    Research must replace them with real, executable, source-specific queries
    before validation or search execution.
 9. Validate `artifacts/formal_search_plan.json` with
-   `scripts/validate_formal_search_plan.py` before executing formal searches.
+   `skills/qc/scripts/validators/research/validate_formal_search_plan.py` before executing formal searches.
 
 Do not put confirmed market size, growth rate, share, ranking, valuation,
 competitive landscape, or page-ready claims in the scope pack. Any number found
@@ -160,7 +160,7 @@ in the execution report. Do not write the execution report from the plan alone.
 Prefer the append helper instead of hand-editing search numbering:
 
 ```bash
-"$PYTHON_CMD" scripts/append_search_attempt.py \
+"$PYTHON_CMD" skills/research-external-evidence/scripts/append_search_attempt.py \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --query "<exact query actually searched>" \
   --stage formal_research_execution \
@@ -170,26 +170,35 @@ Prefer the append helper instead of hand-editing search numbering:
   --locator-excerpt "<page/section/table plus short excerpt or limitation>"
 ```
 
-First use `scripts/build_formal_research_execution_report_skeleton.py` to create
-an execution-report skeleton from the plan and search log. Then write
-`artifacts/source_reviews.json` for opened/reviewed exact sources. After source
-reviews exist, rerun the skeleton builder with `--source-reviews` so the report
-also carries `SRC-xxx` links. The helper synchronizes `FS-xxx`, `S-xxx`, and
-`SRC-xxx` references; the LLM must still review and edit status, findings,
-limitations, handling, and EV/MET IDs from the actual source support.
+After actual searches are logged, archive opened/reviewed sources before
+Knowledge extraction. `source_archive` is the main Research-to-Knowledge
+handoff. Standalone `source_reviews.json` is compatibility/diagnostic only; new
+runs should place source review status, use tier, limitations, and claim-use
+scope inside `artifacts/research_evidence_db.json`.
 
 ```bash
-"$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+"$PYTHON_CMD" skills/research-external-evidence/scripts/build_source_archive.py \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+  --run-dir "$RUN_DIR" \
+  --overwrite
 
-"$PYTHON_CMD" scripts/build_formal_research_execution_report_skeleton.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_source_archive.py \
+  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+  --run-dir "$RUN_DIR" \
+  --output "$RUN_DIR/artifacts/source_archive_validation.json"
+
+"$PYTHON_CMD" skills/research-external-evidence/scripts/build_formal_research_execution_report_skeleton.py \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
-  --output "$RUN_DIR/artifacts/formal_research_execution_report.json"
+  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+  --include-unexecuted \
+  --output "$RUN_DIR/artifacts/formal_research_execution_report.json" \
+  --coverage-accounting "$RUN_DIR/artifacts/coverage_accounting.json"
 ```
+
+The helper synchronizes `FS-xxx`, real `S-xxx`, and archived `SRC-xxx`
+references. The LLM must still review and edit status, findings, limitations,
+handling, and EV/MET IDs from actual source support.
 
 The generated/edited report should contain one `issue_results[]` entry per
 planned instruction. It is a planned-vs-actual coverage ledger, not a narrative
@@ -222,9 +231,9 @@ the root structure if the helper cannot be used. Do not treat it as a fill-all
 template. If an issue was weak, perform the search and mark it weak; do not
 pretend unsearched issues were researched.
 
-`selected_source_urls` means exact URLs actually opened/reviewed and represented
-in `source_reviews.json`; it is not a list of all search-result URLs. Leave
-unreviewed leads in `search_log.md`.
+`selected_source_urls` means exact URLs actually opened/reviewed and archived in
+`source_archive`; it is not a list of all search-result URLs. Leave unreviewed
+leads in `search_log.md`.
 
 Do not invent or reclassify `issue_area` / `subissue` in the execution report.
 Copy `issue_area`, `subissue`, and `research_question` from the
@@ -243,64 +252,52 @@ rewriting or report reshaping.
 If only 10 actual searches were executed out of 40+ planned `FS-xxx` rows, the
 execution report must say so in `coverage_summary` and `fs_row_execution_status`.
 The unexecuted rows must be marked `not_executed`, `not_material`, or
-`accounting_only`. They cannot enter `source_reviews`, `research_evidence_db`,
-issue-analysis claims, or deck headlines.
+`accounting_only`. They cannot enter `source_archive`, `research_evidence_db`,
+issue-analysis claims, or deck headlines as evidence.
 
-Validate formal execution and source reviews before writing the research pack:
+Validate formal execution and source archive before writing the research pack:
 
 ```bash
-"$PYTHON_CMD" scripts/validate_formal_search_plan.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_formal_search_plan.py \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --output "$RUN_DIR/artifacts/formal_search_plan_validation.json"
 
-"$PYTHON_CMD" scripts/validate_formal_research_execution.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_formal_research_execution.py \
   --report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
 
-"$PYTHON_CMD" scripts/validate_source_reviews.py \
-  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
-  --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
-  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
-  --run-dir "$RUN_DIR" \
-  --output "$RUN_DIR/artifacts/source_reviews_validation.json"
-
-"$PYTHON_CMD" scripts/validate_source_archive.py \
-  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+"$PYTHON_CMD" skills/qc/scripts/validators/research/validate_source_archive.py \
   --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" scripts/validate_stage_gate.py \
-  --stage pre_research_pack \
-  --run-dir "$RUN_DIR" \
-  --source-registry templates/source_registry.json \
-  --output "$RUN_DIR/artifacts/stage_gate_pre_research_pack_validation.json"
+"$PYTHON_CMD" scripts/pipeline.py rebuild-stale --run-dir "$RUN_DIR"
 ```
 
-Do not write `industry_research_pack.md` by hand. After the pre-research-pack
-gate passes, build the machine-readable evidence database first:
+Do not write `industry_research_pack.md` by hand. After QC accepts the research
+handoff for evidence extraction, build the machine-readable evidence database
+first:
 
 ```bash
-"$PYTHON_CMD" scripts/build_research_evidence_db.py \
+"$PYTHON_CMD" skills/knowledge-repository/scripts/build_research_evidence_db.py \
   --input-card "$RUN_DIR/input_card.json" \
   --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
-  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db.json"
 
-"$PYTHON_CMD" scripts/validate_research_evidence_db.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/knowledge/validate_research_evidence_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
 
-"$PYTHON_CMD" scripts/export_research_pack_from_db.py \
+"$PYTHON_CMD" skills/knowledge-repository/scripts/export_research_pack_from_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/industry_research_pack.md"
 
-"$PYTHON_CMD" scripts/validate_research_pack.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/knowledge/validate_research_pack.py \
   --research-pack "$RUN_DIR/industry_research_pack.md" \
   --run-dir "$RUN_DIR" \
   --source-registry templates/source_registry.json \
@@ -323,37 +320,27 @@ metrics:
 - otherwise use a range, caveat, or `conflicting` status;
 - do not promote a conflicting metric into a confident headline/chart.
 
-## Source Reviews
+## Source Archive And Embedded Source Review
 
-`search_log.md` records search execution. `source_reviews.json` records source
-audit cards. Use a root object with `schema_version: source_reviews_v1` and a
-`reviews[]` array. A formal source review should include:
-
-- `source_review_id`;
-- `url`;
-- `title`;
-- `locator` (page/table/section/paragraph);
-- `excerpt`;
-- `search_attempt_ids`;
-- `evidence_ids` when applicable;
-- `evidence_use_tier`;
-- `claim_use_scope`;
-- `usable_as_evidence`.
-
-Start from `templates/source_reviews.template.json`. Validators tolerate common aliases such as `review_id`, `source_url`, and `source_title` to reduce repair loops, but new artifacts should use the canonical field names above.
+`search_log.md` records search execution. `source_archive/` records the opened
+source material that Knowledge can inspect. New runs should not create a
+standalone `source_reviews.json` as a required main-path artifact. Source-review
+decisions live inside `artifacts/research_evidence_db.json` under embedded
+source review/source material fields.
 
 Root domains, search result snippets, or unreviewed pages are not formal
-evidence.
+evidence. Archive only what was actually opened/reviewed, with a URL, title,
+locator, excerpt/paraphrase, search attempt ID, and limitations.
 
-`usable_as_evidence` is a source-quality decision, not a formatting field.
-Set it to true only when the exact page/report/PDF was opened, the locator and
-excerpt support the linked EV row, and the source is acceptable for that claim's
-strength. Set it to false for search snippets, root domains, unavailable
-reports, weak mirrors/reposts without methodology, and pages that only identify
-a lead for later research. Do not batch-convert missing values to true merely to
-pass validation.
+Inside `research_evidence_db.json`, `usable_as_evidence` is a source-quality
+decision, not a formatting field. Set it to true only when the exact
+page/report/PDF was opened, the locator and excerpt support the linked EV row,
+and the source is acceptable for that claim's strength. Set it to false for
+search snippets, root domains, unavailable reports, weak mirrors/reposts without
+methodology, and pages that only identify a lead for later research. Do not
+batch-convert missing values to true merely to pass validation.
 
-Before setting the boolean, assign a source-use tier:
+Before setting the boolean in the evidence DB, assign a source-use tier:
 
 - `core_evidence`: source can support a formal EV/MET row and may feed a chart
   or headline if the linked issue analysis permits it.
@@ -369,18 +356,12 @@ definition only", "online GMV proxy, not all-channel market size", or
 "peer product ranking disclosure only". This prevents a weak but opened source
 from being overused downstream simply because `usable_as_evidence=true`.
 
-For every non-user source with `usable_as_evidence=true`, archive a reviewable
-snapshot under `artifacts/source_archive/` and list it in
-`artifacts/source_archive/source_archive_index.json`. Prefer a saved PDF or
-clean markdown/text file. If the tool cannot save the full page/report, save an
-`excerpt_snapshot` markdown file with URL, title, locator, reviewed excerpt, and
-limitations. Do not invent full source text; archive what was actually reviewed.
-
-Prefer the archive helper for excerpt snapshots:
+Prefer the archive helper for excerpt snapshots from actual search-log selected
+sources:
 
 ```bash
-"$PYTHON_CMD" scripts/build_source_archive.py \
-  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
+"$PYTHON_CMD" skills/research-external-evidence/scripts/build_source_archive.py \
+  --search-log "$RUN_DIR/artifacts/search_log.md" \
   --run-dir "$RUN_DIR" \
   --overwrite
 ```

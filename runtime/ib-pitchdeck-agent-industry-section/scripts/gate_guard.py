@@ -11,6 +11,7 @@ from gate_retry_state import DEFAULT_MAX_REPAIR_CYCLES, check_gate, load_state
 
 
 DEBUG_MARKER = "DEBUG_OUTPUT_ONLY.txt"
+DRAFT_MARKER = "DRAFT_NOT_CLIENT_READY.txt"
 
 
 def mark_ungated_debug_run(run_dir: Path) -> None:
@@ -26,14 +27,28 @@ def mark_ungated_debug_run(run_dir: Path) -> None:
         )
 
 
+def mark_draft_run(run_dir: Path) -> None:
+    """Record that a run produced an evidence-limited draft, not a deliverable."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    marker = run_dir / DRAFT_MARKER
+    if not marker.exists():
+        marker.write_text(
+            "This run produced an evidence-limited draft PPT.\n"
+            "It is not client-ready and must not be described as final delivery.\n"
+            "Use it for internal review or to decide what public evidence to repair next.\n",
+            encoding="utf-8",
+        )
+
+
 def require_debug_output_name(output_path: Path) -> None:
     """Prevent ungated debug PPTs from looking like deliverables."""
     if output_path.suffix.lower() != ".pptx":
         return
-    if "DEBUG_NOT_FOR_DELIVERY" not in output_path.name:
+    if "DEBUG_NOT_FOR_DELIVERY" not in output_path.name and "DRAFT_NOT_CLIENT_READY" not in output_path.name:
         raise RuntimeError(
-            "ungated debug PPT output must include 'DEBUG_NOT_FOR_DELIVERY' in the filename. "
-            "Debug PPTs must not use final-looking names."
+            "ungated PPT output must include 'DEBUG_NOT_FOR_DELIVERY' or "
+            "'DRAFT_NOT_CLIENT_READY' in the filename. Draft/debug PPTs must "
+            "not use final-looking names."
         )
 
 
@@ -64,7 +79,6 @@ def _looks_like_formal_run(run_dir: Path) -> bool:
     )
     evidence_chain = (
         run_dir / "artifacts/formal_search_plan.json",
-        run_dir / "artifacts/source_reviews.json",
         run_dir / "artifacts/source_archive/source_archive_index.json",
         run_dir / "artifacts/formal_research_execution_report.json",
     )
@@ -112,7 +126,7 @@ def _reject_debug_on_formal_run_if_needed(run_dir: Path) -> None:
         raise RuntimeError(
             "ungated debug output is not allowed for this formal run package because "
             f"gate(s) are blocked after repeated failures: {', '.join(blocked)}. "
-            "Run scripts/workflow.py status and report the blocker instead of generating downstream artifacts."
+            "Run scripts/state_report.py status and report the blocker instead of generating downstream artifacts."
         )
     if not _pre_ppt_gate_is_passing(run_dir):
         raise RuntimeError(
@@ -124,6 +138,9 @@ def _reject_debug_on_formal_run_if_needed(run_dir: Path) -> None:
 def require_pre_ppt_gate(run_dir: Path, *, allow_ungated_debug: bool = False) -> None:
     """Block PPT output when the deterministic pre-PPT gate is missing or failing."""
     if allow_ungated_debug:
+        if os.environ.get("IB_SKILL_ALLOW_DRAFT_RENDER") == "1":
+            mark_draft_run(run_dir)
+            return
         if os.environ.get("IB_SKILL_ALLOW_UNGATED_DEBUG") == "1":
             _reject_debug_on_formal_run_if_needed(run_dir)
             mark_ungated_debug_run(run_dir)
@@ -147,7 +164,7 @@ def require_pre_ppt_gate(run_dir: Path, *, allow_ungated_debug: bool = False) ->
     if not gate_path.exists():
         raise RuntimeError(
             f"missing required pre-PPT gate artifact: {gate_path}. "
-            "Run scripts/validate_stage_gate.py --stage pre_ppt first, or use --allow-ungated-debug only for local diagnostics."
+            "Run skills/qc/scripts/validators/final/validate_stage_gate.py --stage pre_ppt first, or use --allow-ungated-debug only for local diagnostics."
         )
 
     try:

@@ -39,7 +39,7 @@ class TestReplacementDict:
         replacement_path = tmp_path / "replacement_dict.json"
         replacement_path.write_text(json.dumps(replacements, ensure_ascii=False, indent=2), encoding="utf-8")
         result = _run([
-            sys.executable, "scripts/validate_replacement_dict.py",
+            sys.executable, "skills/qc/scripts/validators/output/validate_replacement_dict.py",
             "--replacement-dict", str(replacement_path),
             "--renderer-spec", str(compiled_artifacts["renderer_spec"]),
             "--ppt-mapping", "templates/ppt_mapping.json",

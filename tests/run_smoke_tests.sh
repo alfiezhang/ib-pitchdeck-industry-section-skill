@@ -38,7 +38,7 @@ if ! grep -q "research/delivery shortcut" "$TMP_DIR/bad_debug_reason.err"; then
   exit 1
 fi
 
-if IB_SKILL_ALLOW_UNGATED_DEBUG=1 "$PYTHON_CMD" scripts/fill_ppt_tokens.py \
+if IB_SKILL_ALLOW_UNGATED_DEBUG=1 "$PYTHON_CMD" skills/output/scripts/fill_ppt_tokens.py \
   --allow-ungated-debug \
   --template "$TMP_DIR/missing_template.pptx" \
   --replacement-dict "$TMP_DIR/missing_replacement.json" \
@@ -51,11 +51,11 @@ if ! grep -q "DEBUG_NOT_FOR_DELIVERY" "$TMP_DIR/bad_debug_ppt_name.err"; then
   exit 1
 fi
 
-"$PYTHON_CMD" scripts/check_json_files.py --root . >/dev/null
-"$PYTHON_CMD" scripts/check_artifact_manifest.py >/dev/null
-"$PYTHON_CMD" scripts/check_slide_registry.py >/dev/null
-"$PYTHON_CMD" scripts/check_registry_coverage.py >/dev/null
-"$PYTHON_CMD" scripts/check_template_tokens.py \
+"$PYTHON_CMD" skills/qc/scripts/check_json_files.py --root . >/dev/null
+"$PYTHON_CMD" skills/qc/scripts/check_artifact_manifest.py >/dev/null
+"$PYTHON_CMD" skills/template/scripts/check_slide_registry.py >/dev/null
+"$PYTHON_CMD" skills/template/scripts/check_registry_coverage.py >/dev/null
+"$PYTHON_CMD" skills/template/scripts/check_template_tokens.py \
   --template assets/industry_section_template_master.pptx \
   --ppt-mapping templates/ppt_mapping.json \
   --fail-on-diff \

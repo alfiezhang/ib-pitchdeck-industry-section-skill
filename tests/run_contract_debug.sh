@@ -18,25 +18,25 @@ cd "$SKILL_DIR"
 export PYTHONPATH="$SKILL_DIR/scripts${PYTHONPATH:+:$PYTHONPATH}"
 
 "$PYTHON_CMD" -m compileall -q scripts
-"$PYTHON_CMD" scripts/check_json_files.py --root . >/dev/null
-"$PYTHON_CMD" scripts/check_artifact_manifest.py >/dev/null
-"$PYTHON_CMD" scripts/check_slide_registry.py >/dev/null
-"$PYTHON_CMD" scripts/check_registry_coverage.py >/dev/null
-"$PYTHON_CMD" scripts/check_template_tokens.py \
+"$PYTHON_CMD" skills/qc/scripts/check_json_files.py --root . >/dev/null
+"$PYTHON_CMD" skills/qc/scripts/check_artifact_manifest.py >/dev/null
+"$PYTHON_CMD" skills/template/scripts/check_slide_registry.py >/dev/null
+"$PYTHON_CMD" skills/template/scripts/check_registry_coverage.py >/dev/null
+"$PYTHON_CMD" skills/template/scripts/check_template_tokens.py \
   --template assets/industry_section_template_master.pptx \
   --ppt-mapping templates/ppt_mapping.json \
   --fail-on-diff \
   --output "$TMP_DIR/template_token_check.json" >/dev/null
 
-"$PYTHON_CMD" scripts/validate_issue_analysis.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/reasoning/validate_issue_analysis.py \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" >/dev/null
-if "$PYTHON_CMD" scripts/validate_issue_analysis.py \
+if "$PYTHON_CMD" skills/qc/scripts/validators/reasoning/validate_issue_analysis.py \
   --issue-analysis "$FIXTURES_DIR/invalid_issue_analysis.json" >/dev/null 2>&1; then
   echo "invalid_issue_analysis.json should fail validation" >&2
   exit 1
 fi
 
-"$PYTHON_CMD" scripts/extract_template_registry.py \
+"$PYTHON_CMD" skills/template/scripts/extract_template_registry.py \
   --template assets/industry_section_template_master.pptx \
   --slide-registry templates/slide_registry.json \
   --page-type-rules templates/page_type_rules.json \
@@ -297,7 +297,7 @@ blueprint = {
 (tmp / "deck_blueprint.json").write_text(json.dumps(blueprint, ensure_ascii=False, indent=2), encoding="utf-8")
 PY
 
-"$PYTHON_CMD" scripts/validate_deck_blueprint.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/generation/validate_deck_blueprint.py \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" \
   --template-registry "$TMP_DIR/template_registry.json" \
@@ -366,7 +366,7 @@ else:
     raise SystemExit("invalid target_field should fail compiler")
 PY
 
-"$PYTHON_CMD" scripts/compile_deck_blueprint.py \
+"$PYTHON_CMD" skills/generation/scripts/compile_deck_blueprint.py \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --template-registry "$TMP_DIR/template_registry.json" \
@@ -437,7 +437,7 @@ renderer_path = tmp / "renderer_spec_natural_visuals.json"
 subprocess.run(
     [
         sys.executable,
-        "scripts/compile_deck_blueprint.py",
+        "skills/generation/scripts/compile_deck_blueprint.py",
         "--issue-analysis",
         str(Path(os.environ["FIXTURES_DIR"]) / "valid_issue_analysis.json"),
         "--deck-blueprint",
@@ -511,7 +511,7 @@ assert by_code["VISIBLE_CLAIM_BINDING"]["category"] == "metric_claims", by_code
 assert by_code["VISIBLE_CLAIM_BINDING"]["repair_target"] == "deck_blueprint.json", by_code
 assert "slides[].visible_metric_claims" in by_code["VISIBLE_CLAIM_BINDING"]["repair_fields"], by_code
 assert by_code["CHART_METRIC_BINDING"]["repair_target"] == "deck_blueprint.json", by_code
-assert "scripts/validate_chart_metric_binding.py" in by_code["CHART_METRIC_BINDING"]["rerun_steps"], by_code
+assert "skills/qc/scripts/validators/final/validate_chart_metric_binding.py" in by_code["CHART_METRIC_BINDING"]["rerun_steps"], by_code
 assert by_code["LAYOUT_FIT_RISK"]["category"] == "layout_density", by_code
 assert by_code["WEAK_OR_GENERIC_SOURCE"]["fallback_repair_targets"], by_code
 assert "*.pptx" in by_code["TARGET_ADVOCACY_OR_OVERCLAIM"]["do_not_edit"], by_code
@@ -567,20 +567,20 @@ check_text_fit(
 assert fit_blocking, fit_warnings
 PY
 
-"$PYTHON_CMD" scripts/validate_page_evidence_contract.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/generation/validate_page_evidence_contract.py \
   --issue-analysis "$FIXTURES_DIR/valid_issue_analysis.json" \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --page-contract "$TMP_DIR/page_evidence_contract.json" \
   --output "$TMP_DIR/page_evidence_contract_validation.json" >/dev/null
 
-"$PYTHON_CMD" scripts/validate_renderer_spec.py \
+"$PYTHON_CMD" skills/qc/scripts/validators/generation/validate_renderer_spec.py \
   --renderer-spec "$TMP_DIR/renderer_spec.json" \
   --template-registry "$TMP_DIR/template_registry.json" \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --page-contract "$TMP_DIR/page_evidence_contract.json" \
   --output "$TMP_DIR/renderer_spec_validation.json" >/dev/null
 
-"$PYTHON_CMD" scripts/build_banker_review_report_skeleton.py \
+"$PYTHON_CMD" skills/generation/scripts/build_banker_review_report_skeleton.py \
   --deck-blueprint "$TMP_DIR/deck_blueprint.json" \
   --page-contract "$TMP_DIR/page_evidence_contract.json" \
   --renderer-spec "$TMP_DIR/renderer_spec.json" \
@@ -659,7 +659,7 @@ if not any("source_reviews_validation.json is_valid=false" in item for item in r
 issue_result = subprocess.run(
     [
         sys.executable,
-        "scripts/validate_issue_analysis.py",
+        "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
         "--issue-analysis",
         str(bad_run / "industry_issue_analysis.json"),
         "--research-pack",
@@ -675,7 +675,7 @@ if "source_reviews_validation.json is_valid=false" not in (issue_result.stdout +
 deck_result = subprocess.run(
     [
         sys.executable,
-        "scripts/validate_deck_blueprint.py",
+        "skills/qc/scripts/validators/generation/validate_deck_blueprint.py",
         "--issue-analysis",
         str(bad_run / "industry_issue_analysis.json"),
         "--deck-blueprint",
@@ -693,7 +693,7 @@ if "source_reviews_validation.json is_valid=false" not in (deck_result.stdout + 
 compile_result = subprocess.run(
     [
         sys.executable,
-        "scripts/compile_deck_blueprint.py",
+        "skills/generation/scripts/compile_deck_blueprint.py",
         "--issue-analysis",
         str(bad_run / "industry_issue_analysis.json"),
         "--deck-blueprint",
@@ -739,7 +739,7 @@ replacement_path.write_text(json.dumps(replacements, ensure_ascii=False, indent=
 result = subprocess.run(
     [
         sys.executable,
-        "scripts/validate_replacement_dict.py",
+        "skills/qc/scripts/validators/output/validate_replacement_dict.py",
         "--replacement-dict",
         str(replacement_path),
         "--renderer-spec",
@@ -763,7 +763,7 @@ bad_contract = tmp / "page_evidence_contract_chart_forbidden.json"
 subprocess.run(
     [
         sys.executable,
-        "scripts/compile_deck_blueprint.py",
+        "skills/generation/scripts/compile_deck_blueprint.py",
         "--issue-analysis",
         str(bad_issue),
         "--deck-blueprint",
@@ -781,7 +781,7 @@ subprocess.run(
 result = subprocess.run(
     [
         sys.executable,
-        "scripts/validate_page_evidence_contract.py",
+        "skills/qc/scripts/validators/generation/validate_page_evidence_contract.py",
         "--issue-analysis",
         str(bad_issue),
         "--deck-blueprint",
@@ -844,7 +844,7 @@ with tempfile.TemporaryDirectory() as tmp:
     subprocess.run(
         [
             sys.executable,
-            "scripts/append_search_attempt.py",
+            "skills/research-external-evidence/scripts/append_search_attempt.py",
             "--search-log",
             str(auto_search_log),
             "--query",
@@ -873,7 +873,7 @@ with tempfile.TemporaryDirectory() as tmp:
     subprocess.run(
         [
             sys.executable,
-            "scripts/append_search_attempt.py",
+            "skills/research-external-evidence/scripts/append_search_attempt.py",
             "--search-log",
             str(templated_search_log),
             "--query",
@@ -1027,7 +1027,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert "--formal-research-execution-report" not in source_review_validation_cmds[0], source_review_validation_cmds
     assert "--source-archive-index" not in source_review_validation_cmds[0], source_review_validation_cmds
     archive_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED"})
-    assert archive_commands and "scripts/build_source_archive.py" in archive_commands[0]["command"], archive_commands
+    assert archive_commands and "skills/research-external-evidence/scripts/build_source_archive.py" in archive_commands[0]["command"], archive_commands
     assert "--run-dir" in archive_commands[0]["command"], archive_commands
     assert "--output-dir" not in archive_commands[0]["command"], archive_commands
     execution_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED"})
@@ -1040,9 +1040,9 @@ with tempfile.TemporaryDirectory() as tmp:
     assert "--report" in execution_validation_cmds[0], execution_validation_cmds
     assert "--formal-research-execution-report" not in execution_validation_cmds[0], execution_validation_cmds
     db_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
-    assert db_commands and "scripts/build_research_evidence_db.py" in db_commands[0]["command"], db_commands
+    assert db_commands and "skills/knowledge-repository/scripts/build_research_evidence_db.py" in db_commands[0]["command"], db_commands
     pack_commands = recommended_commands({"run_dir": str(run_dir), "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
-    assert pack_commands and "scripts/export_research_pack_from_db.py" in pack_commands[0]["command"], pack_commands
+    assert pack_commands and "skills/knowledge-repository/scripts/export_research_pack_from_db.py" in pack_commands[0]["command"], pack_commands
     pack_validation_cmds = [item["command"] for item in pack_commands if "validate_research_pack.py" in item["command"]]
     assert pack_validation_cmds and "--source-registry templates/source_registry.json" in pack_validation_cmds[0], pack_validation_cmds
     invalid_plan = json.loads(json.dumps(plan))
@@ -1361,7 +1361,7 @@ with tempfile.TemporaryDirectory() as tmp:
     issue_skeleton_result = subprocess.run(
         [
             sys.executable,
-            "scripts/validate_issue_analysis.py",
+            "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
             "--issue-analysis",
             str(issue_skeleton_path),
             "--research-pack",

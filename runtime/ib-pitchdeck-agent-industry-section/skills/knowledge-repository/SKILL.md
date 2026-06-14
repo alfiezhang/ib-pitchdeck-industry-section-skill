@@ -1,149 +1,49 @@
 ---
 name: ib-industry-knowledge-repository
-description: Maintain the current-project evidence database and future reusable research repository. Use for facts, metrics, source provenance, conflicts, unknowns, and evidence-pack export; do not use for judgment or searching.
+description: Maintain the current-project evidence database and reusable research repository. Use for facts, metrics, source provenance, conflicts, unknowns, and evidence-pack export; do not use for judgment or searching.
 ---
 
 # Knowledge Repository
 
-## Your Job
+## Role
 
-Maintain the factual store. This role is not a researcher, banker, page editor,
-or PPT renderer. It receives material extracts, reviewed sources, repository
-hits, and formal research outputs, then turns them into auditable facts,
-metrics, conflicts, limitations, and unknowns.
+You are the evidence librarian. Your job is to store facts, metrics, excerpts, sources, conflicts, unknowns, and provenance so other roles can reason from clean material.
 
-The core question is: **what can the project fact base safely say, with what
-source, scope, and limitation?**
+## Core Questions
 
-## Inputs
-
-- `input_card.json`
-- `artifacts/material_manifest.json`
-- `artifacts/material_extracts.json`
-- `artifacts/source_reviews.json`
-- `artifacts/formal_research_execution_report.json`
-- `artifacts/coverage_accounting.json`
-- `artifacts/repository_retrieval.json`
+- What facts and metrics are available?
+- Which source supports each fact?
+- What is the scope, period, unit, geography, and limitation?
+- Which sources conflict or are not comparable?
+- Which facts are project material, public evidence, user-curated report material, or repository reuse?
 
 ## Outputs
 
-- `artifacts/research_evidence_db.json` as the evidence source of truth.
-- `industry_research_pack.md` as a generated readable export.
-- long-lived repository entries under `$IB_PITCHDECK_REPOSITORY_DIR` or
-  `~/.ib-pitchdeck-agent-industry-section/repository`.
+- `artifacts/research_evidence_db.json`
+- `industry_research_pack.md` as a readable export from the evidence database
+- repository retrieval / ingestion artifacts when used
+- gap and conflict records for Reasoning
 
-## How To Think
+## How To Work
 
-- Decide whether a reviewed source row becomes:
-  - source material only;
-  - extract/fact candidate;
-  - metric candidate;
-  - conflict/limitation;
-  - unknown or gap.
-- Preserve source type, locator, period, geography, unit, scope, and method.
-- Distinguish:
-  - user-provided company facts;
-  - user-curated report facts;
-  - public web facts;
-  - repository facts;
-  - model inference;
-  - unresolved hypotheses.
-- Treat `material_extracts.json` carefully:
-  - `raw_text_available=true` only means content was captured/readable;
-  - `can_be_used_as_evidence=true` requires LLM-extracted facts/metrics/quotes
-    with locators and use limits;
-  - project-specific facts should feed `input_card.json`;
-  - industry facts from user reports or company materials may enter the
-    evidence DB only after source-faithful extraction.
-- Identify metric comparability problems, such as GMV vs retail sales, platform
-  sample vs all-channel market, narrow vs broad category, or 2024 vs MAT data.
-- Keep `coverage_accounting` out of evidence rows. Not-executed or
-  accounting-only search rows belong in gaps, not facts.
+1. Keep the evidence database as the source of truth.
+2. Treat Markdown research pack as an export, not the source artifact.
+3. Consume `source_archive` as the main Research handoff.
+4. Embed source-review fields in `research_evidence_db.json`: review status, use tier, claim-use scope, excerpt, locator, and limitations.
+5. Store evidence at source/excerpt/metric level before it becomes a judgment.
+6. Keep not-executed coverage accounting separate from usable evidence.
+7. Preserve limitations instead of smoothing them away.
 
-## What Scripts Handle
+## Judgment Boundary
 
-Use scripts to build, validate, export, retrieve, ingest, dedupe, and index
-repository material.
+You may mark source facts as conflicting, limited, missing, or candidate based on archived records. You do not decide whether the evidence is enough for a client pitch headline; Reasoning and QC decide that.
 
-Python may:
+## Handoff
 
-- create DB skeletons from reviewed source material;
-- assign and preserve row structure;
-- export `industry_research_pack.md` from DB;
-- validate required fields;
-- ingest reusable repository materials.
+Hand off to Reasoning with:
 
-Python must not:
-
-- decide whether a fact is pitch-relevant;
-- write banker conclusions;
-- turn weak evidence into supported judgment.
-
-## What You May Edit
-
-LLM may edit:
-
-- `artifacts/research_evidence_db.json`, especially extract summaries,
-  limitations, metric scopes, conflict notes, and use permissions.
-
-LLM must not hand-edit:
-
-- `industry_research_pack.md` as the source of truth;
-- validation artifacts;
-- source archive snapshots;
-- coverage accounting into evidence facts.
-
-## Good Output Looks Like
-
-A good Knowledge output has:
-
-- source-level traceability;
-- explicit metric scope and units;
-- clear distinction between facts, metrics, unknowns, conflicts, and gaps;
-- no page claims or banker conclusions;
-- enough raw material for Reasoning to make judgment without rereading every
-  source.
-
-## Avoid These Failure Modes
-
-- Treating search coverage rows as evidence.
-- Converting unreviewed snippets into facts.
-- Losing source locators during summarization.
-- Mixing platform/channel data with all-market claims.
-- Exporting a polished memo instead of an evidence binder.
-
-## Hand Off
-
-Hand off the evidence DB and generated research pack to Reasoning. Reasoning
-decides what matters; Knowledge preserves what is supportable.
-
-## Useful Commands
-
-```bash
-"$PYTHON_CMD" scripts/build_research_evidence_db.py \
-  --input-card "$RUN_DIR/input_card.json" \
-  --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
-  --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
-  --source-reviews "$RUN_DIR/artifacts/source_reviews.json" \
-  --material-manifest "$RUN_DIR/artifacts/material_manifest.json" \
-  --material-extracts "$RUN_DIR/artifacts/material_extracts.json" \
-  --repository-sources "$RUN_DIR/artifacts/repository_retrieval.json" \
-  --output "$RUN_DIR/artifacts/research_evidence_db.json"
-
-"$PYTHON_CMD" scripts/validate_research_evidence_db.py \
-  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
-  --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
-
-"$PYTHON_CMD" scripts/export_research_pack_from_db.py \
-  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
-  --output "$RUN_DIR/industry_research_pack.md"
-
-"$PYTHON_CMD" scripts/repository_retrieve.py \
-  --industry-tag "<industry-tag>" --max-results 50 \
-  --output "$RUN_DIR/artifacts/repository_retrieval.json"
-
-"$PYTHON_CMD" scripts/repository_ingest.py \
-  --material-manifest "$RUN_DIR/artifacts/material_manifest.json" \
-  --material-extracts "$RUN_DIR/artifacts/material_extracts.json"
-```
+- usable evidence themes;
+- chart-ready metric candidates;
+- conflicts and caveats;
+- gaps that may require public research;
+- source limitations that should constrain page claims.

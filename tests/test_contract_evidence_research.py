@@ -140,7 +140,7 @@ class TestIssueAnalysisSkeleton:
         skeleton_path = _pipeline_run_dir["run_dir"] / "industry_issue_analysis_skeleton.json"
         skeleton_path.write_text(json.dumps(skeleton, ensure_ascii=False, indent=2), encoding="utf-8")
         result = _run([
-            sys.executable, "scripts/validate_issue_analysis.py",
+            sys.executable, "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
             "--issue-analysis", str(skeleton_path),
             "--research-pack", str(_pipeline_run_dir["run_dir"] / "industry_research_pack.md"),
         ])

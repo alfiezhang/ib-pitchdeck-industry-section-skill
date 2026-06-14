@@ -22,14 +22,14 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
 class TestIssueAnalysisValidation:
     def test_valid_issue_analysis_passes(self):
         result = _run([
-            sys.executable, "scripts/validate_issue_analysis.py",
+            sys.executable, "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
             "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
         ])
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_invalid_issue_analysis_fails(self):
         result = _run([
-            sys.executable, "scripts/validate_issue_analysis.py",
+            sys.executable, "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
             "--issue-analysis", str(FIXTURES_DIR / "invalid_issue_analysis.json"),
         ])
         assert result.returncode != 0, "invalid_issue_analysis.json should fail validation"

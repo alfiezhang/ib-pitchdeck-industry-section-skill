@@ -52,8 +52,8 @@ Fixed 8-Slide Structure Preserved:
 ---
 
 ## Scope Pack And Formal Research Execution Summary
-> Summarize `artifacts/industry_scope_pack.json`, `artifacts/formal_search_plan.json`, and `artifacts/formal_research_execution_report.json`. Use the scope pack only for industry boundary, category-definition risk, data hierarchy, and reconciliation requirements. Do not treat scope-pack leads as validated facts. Do not invent a separate issue tree in the research pack. The research pack should reflect the issue/subissue research actually executed and the source reviews completed before synthesis.
-> The run must include passing `artifacts/formal_search_plan_validation.json`, `artifacts/formal_research_execution_validation.json`, `artifacts/source_reviews.json`, `artifacts/source_archive/source_archive_index.json`, `artifacts/source_archive_validation.json`, and `artifacts/source_reviews_validation.json`, proving the search plan was executable, formal/latest searches were executed, and the underlying evidence sources were opened/reviewed and archived before research pack synthesis.
+> Summarize `artifacts/industry_scope_pack.json`, `artifacts/formal_search_plan.json`, and `artifacts/formal_research_execution_report.json`. Use the scope pack only for industry boundary, category-definition risk, data hierarchy, and reconciliation requirements. Do not treat scope-pack leads as validated facts. Do not invent a separate issue tree in the research pack. The research pack should reflect the issue/subissue research actually executed, archived, and extracted into `artifacts/research_evidence_db.json`.
+> The run must include passing `artifacts/formal_search_plan_validation.json`, `artifacts/formal_research_execution_validation.json`, `artifacts/source_archive/source_archive_index.json`, `artifacts/source_archive_validation.json`, and `artifacts/research_evidence_db_validation.json`, proving the search plan was executable, formal/latest searches were executed, and the underlying evidence sources were archived before research pack synthesis.
 
 Scope Boundary Check:
 - LLM definition draft:
@@ -81,7 +81,7 @@ Formal Research Execution Results:
 ## Formal Research Extracts
 > Preserve the raw research substrate before synthesis. This section is not page strategy and not slide copy.
 > For every material `FR-xxx` and `SRC-xxx`, include the reviewed locator/excerpt, extracted fact, metric candidates, limitations, and whether the item is promoted to EV/MET. This prevents the research pack from becoming an over-compressed memo.
-> This Markdown file is generated from `artifacts/research_evidence_db.json` with `scripts/export_research_pack_from_db.py`. Edit the database, not this export. Do not delete thin or insufficient rows to make the file shorter.
+> This Markdown file is generated from `artifacts/research_evidence_db.json` with `skills/knowledge-repository/scripts/export_research_pack_from_db.py`. Edit the database, not this export. Do not delete thin or insufficient rows to make the file shorter.
 
 | Result ID | Source Review ID | Search Attempt IDs | Source URL | Locator | Reviewed Excerpt / Paraphrase | Extracted Fact Or Metric Candidate | Status | Promoted EV/MET IDs | Limitations |
 |---|---|---|---|---|---|---|---|---|---|
@@ -242,12 +242,12 @@ Source Locator: page number, section, table, paragraph, or URL anchor
 -->
 
 Before using this research pack downstream, the run must already have passed:
-- `artifacts/formal_search_plan_validation.json` via `scripts/validate_formal_search_plan.py`
-- `artifacts/formal_research_execution_validation.json` via `scripts/validate_formal_research_execution.py`
-- `artifacts/source_reviews_validation.json` via `scripts/validate_source_reviews.py`
-- `artifacts/source_archive_validation.json` via `scripts/validate_source_archive.py`
-- `artifacts/stage_gate_pre_research_pack_validation.json` via `scripts/validate_stage_gate.py --stage pre_research_pack`
-- `artifacts/research_pack_validation.json` via `scripts/validate_research_pack.py`
+- `artifacts/formal_search_plan_validation.json` via `skills/qc/scripts/validators/research/validate_formal_search_plan.py`
+- `artifacts/formal_research_execution_validation.json` via `skills/qc/scripts/validators/research/validate_formal_research_execution.py`
+- `artifacts/source_archive_validation.json` via `skills/qc/scripts/validators/research/validate_source_archive.py`
+- `artifacts/research_evidence_db_validation.json` via `skills/qc/scripts/validators/knowledge/validate_research_evidence_db.py`
+- `artifacts/stage_gate_pre_research_pack_validation.json` refreshed through `scripts/pipeline.py rebuild-stale` or the state dashboard
+- `artifacts/research_pack_validation.json` via `skills/qc/scripts/validators/knowledge/validate_research_pack.py`
 
 Claim strength values:
 - hard_fact: directly sourced; preserve period, geography, unit, and scope

@@ -134,41 +134,41 @@ class TestUpstreamFailurePropagation:
             _write_json(artifacts / name, {"is_valid": True, "error_count": 0})
         _write_json(artifacts / "industry_scope_pack.json", {"schema_version": "industry_scope_pack_v1"})
         _write_json(artifacts / "research_evidence_db.json", {"schema_version": "research_evidence_db_v1", "source_of_truth": True})
-        _write_json(artifacts / "source_reviews_validation.json", {"is_valid": False, "error_count": 1})
+        _write_json(artifacts / "source_archive_validation.json", {"is_valid": False, "error_count": 1})
         return run_dir
 
-    def test_research_pack_surfaces_failed_source_reviews(self, bad_upstream_run):
+    def test_research_pack_surfaces_failed_source_archive(self, bad_upstream_run):
         from validate_research_pack import validate as validate_research_pack
         result = validate_research_pack(bad_upstream_run / "industry_research_pack.md", run_dir=bad_upstream_run)
-        assert any("source_reviews_validation.json is_valid=false" in e for e in result["errors"]), result
+        assert any("source_archive_validation.json is_valid=false" in e for e in result["errors"]), result
 
-    def test_issue_analysis_rejects_failed_source_reviews(self, bad_upstream_run):
+    def test_issue_analysis_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
-            sys.executable, "scripts/validate_issue_analysis.py",
+            sys.executable, "skills/qc/scripts/validators/reasoning/validate_issue_analysis.py",
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--research-pack", str(bad_upstream_run / "industry_research_pack.md"),
         ])
-        assert result.returncode != 0, "validate_issue_analysis must reject formal run with failed source_reviews_validation"
-        assert "source_reviews_validation.json is_valid=false" in result.stdout + result.stderr
+        assert result.returncode != 0, "validate_issue_analysis must reject formal run with failed source_archive_validation"
+        assert "source_archive_validation.json is_valid=false" in result.stdout + result.stderr
 
-    def test_deck_blueprint_rejects_failed_source_reviews(self, bad_upstream_run):
+    def test_deck_blueprint_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
-            sys.executable, "scripts/validate_deck_blueprint.py",
+            sys.executable, "skills/qc/scripts/validators/generation/validate_deck_blueprint.py",
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--deck-blueprint", str(bad_upstream_run / "deck_blueprint.json"),
             "--template-registry", str(bad_upstream_run / "template_registry.json"),
         ])
-        assert result.returncode != 0, "validate_deck_blueprint must reject formal run with failed source_reviews_validation"
-        assert "source_reviews_validation.json is_valid=false" in result.stdout + result.stderr
+        assert result.returncode != 0, "validate_deck_blueprint must reject formal run with failed source_archive_validation"
+        assert "source_archive_validation.json is_valid=false" in result.stdout + result.stderr
 
-    def test_compile_rejects_failed_source_reviews(self, bad_upstream_run):
+    def test_compile_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
-            sys.executable, "scripts/compile_deck_blueprint.py",
+            sys.executable, "skills/generation/scripts/compile_deck_blueprint.py",
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--deck-blueprint", str(bad_upstream_run / "deck_blueprint.json"),
             "--template-registry", str(bad_upstream_run / "template_registry.json"),
             "--page-contract-output", str(bad_upstream_run / "page_evidence_contract.json"),
             "--renderer-spec-output", str(bad_upstream_run / "renderer_spec.json"),
         ])
-        assert result.returncode != 0, "compile_deck_blueprint must reject formal run with failed source_reviews_validation"
-        assert "source_reviews_validation.json is_valid=false" in result.stdout + result.stderr
+        assert result.returncode != 0, "compile_deck_blueprint must reject formal run with failed source_archive_validation"
+        assert "source_archive_validation.json is_valid=false" in result.stdout + result.stderr

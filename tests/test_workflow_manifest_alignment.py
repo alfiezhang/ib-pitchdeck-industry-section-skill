@@ -71,8 +71,8 @@ def test_artifact_manifest_layers_reference_known_artifacts() -> None:
     assert not sorted(set(unknown))
 
 
-def test_workflow_commands_generate_incremental_and_template_fit_plan() -> None:
-    workflow_text = (RUNTIME / "scripts" / "workflow.py").read_text(encoding="utf-8")
+def test_state_report_commands_generate_incremental_and_template_fit_plan() -> None:
+    workflow_text = (RUNTIME / "scripts" / "state_report.py").read_text(encoding="utf-8")
 
     assert "--incremental-search-plan {{run_dir}}/artifacts/incremental_search_plan.json" in workflow_text
     assert "--fit-plan-output {{run_dir}}/artifacts/template_fit_plan.json" in workflow_text
@@ -83,7 +83,7 @@ def test_runtime_package_scripts_for_packaging_and_legacy_audit_are_registered()
     package = manifest["artifacts"]["plugin_package_validation"]
     legacy = manifest["artifacts"]["legacy_install_audit"]
 
-    assert package["builder"] == "scripts/validate_plugin_package.py"
+    assert package["builder"] == "skills/qc/scripts/validators/system/validate_plugin_package.py"
     assert legacy["builder"] == "scripts/audit_legacy_installs.py"
     assert (RUNTIME / "scripts" / "package_plugin.py").exists()
     assert (RUNTIME / "scripts" / "install_plugin_local.py").exists()

@@ -11,15 +11,23 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
 RUNTIME_DIR = SCRIPT_DIR.parent
+QC_SYSTEM_VALIDATOR_DIR = RUNTIME_DIR / "skills" / "qc" / "scripts" / "validators" / "system"
+
+
+def _script_path(script: str) -> Path:
+    for candidate in (SCRIPT_DIR / script, QC_SYSTEM_VALIDATOR_DIR / script):
+        if candidate.exists():
+            return candidate
+    return SCRIPT_DIR / script
 
 
 def _run(script: str, args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(SCRIPT_DIR / script), *args],
+        [sys.executable, str(_script_path(script)), *args],
         cwd=str(RUNTIME_DIR),
         text=True,
         capture_output=True,
-        env={**os.environ, "PYTHONPATH": str(SCRIPT_DIR)},
+        env={**os.environ, "PYTHONPATH": os.pathsep.join([str(SCRIPT_DIR), str(QC_SYSTEM_VALIDATOR_DIR)])},
     )
 
 

@@ -5,10 +5,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import zipfile
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 from plugin_package_common import PLUGIN_NAME, REPO_ROOT, RUNTIME_ROOT, iter_package_files, relpath
+QC_SYSTEM_VALIDATORS = RUNTIME_ROOT / "skills" / "qc" / "scripts" / "validators" / "system"
+if str(QC_SYSTEM_VALIDATORS) not in sys.path:
+    sys.path.insert(0, str(QC_SYSTEM_VALIDATORS))
+
 from validate_plugin_package import validate_entries
 from plugin_package_common import package_entries_from_zip
 

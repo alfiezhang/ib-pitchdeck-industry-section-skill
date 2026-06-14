@@ -1,101 +1,39 @@
 ---
 name: ib-industry-output
-description: Render and finalize the PowerPoint output through the deterministic IB industry section pipeline. Use only after upstream evidence, reasoning, generation, template, and QC gates are current.
+description: Render and finalize the PowerPoint output through deterministic tooling after evidence, reasoning, generation, template, and QC are ready.
 ---
 
 # Output
 
-## Your Job
+## Role
 
-Render and finalize the PPT through the deterministic pipeline. Output is the
-delivery mechanic. It does not research, reason, design pages, fit templates, or
-patch upstream content.
+You are the delivery operator. Your job is deterministic rendering and final package assembly. You do not make research, reasoning, or page-editor decisions.
 
-The core question is: **can the current validated artifacts be rendered into a
-client-ready PPT, and if not, which upstream role owns the repair?**
+## Core Questions
 
-## Inputs
-
-- `page_evidence_contract.json`
-- `renderer_spec.json`
-- `artifacts/template_profile.json`
-- `artifacts/template_fit_validation.json`
-- current pre-PPT gate
-- current final-delivery requirements
-- `artifacts/qc_warning_disposition.json` when any upstream validation warning
-  remains material
+- Are all upstream artifacts current and accepted by QC?
+- Can the replacement dictionary be generated from renderer spec and mapping?
+- Did token filling, chart/table postprocess, and cleanup succeed?
+- Does final delivery validation say the package is client-ready?
 
 ## Outputs
 
 - `replacement_dict.json`
 - `industry_section_filled.pptx`
 - `industry_section_filled_clean.pptx`
-- `filled_ppt_validation.json`
-- `artifacts/final_delivery_validation.json`
+- final delivery validation artifacts
 
-## How To Think
+## How To Work
 
-- Confirm upstream gates are current before rendering.
-- Interpret render/final-delivery failures and route them:
-  - missing upstream evidence -> Knowledge/Research/Reasoning;
-  - unsupported claim -> Generation/Reasoning;
-  - template capacity -> Template/Generation;
-  - token/placeholder/rendering issue -> Output;
-  - final client-ready false -> QC.
-- Report final status accurately. An existing PPT file is not enough.
-- If final delivery reports unresolved warning disposition, route to QC. Output
-  must not decide warning acceptance or downstream limits.
+1. Render only from current upstream artifacts.
+2. Do not hand-edit deck copy, evidence, renderer spec, or replacement dictionary to mask upstream issues.
+3. If rendering fails because of content, route to Generation or Template.
+4. If final delivery is not client-ready, report the blocking repair owner instead of calling the PPT complete.
 
-## What Scripts Handle
+## Judgment Boundary
 
-Python owns rendering:
+You own deterministic output mechanics. You do not decide source quality, page strength, evidence sufficiency, or client-readiness without QC.
 
-- generate replacement dictionary;
-- fill PPT tokens;
-- generate charts/tables/visuals where supported;
-- clean remaining tokens;
-- validate filled deck;
-- run final delivery validation;
-- write latest-run pointers.
+## Handoff
 
-## What You May Edit
-
-LLM must not hand-edit:
-
-- `replacement_dict.json`;
-- generated PPTX files;
-- `renderer_spec.json`;
-- validation artifacts.
-
-If output fails, repair upstream artifacts or route through QC. Do not create
-custom `python-pptx`, PptxGenJS, Keynote, LibreOffice, or screenshot-based PPT
-scripts to bypass the package.
-
-## Good Output Looks Like
-
-A good Output result has:
-
-- deterministic pipeline provenance;
-- no unresolved placeholders;
-- clean final PPT path;
-- final delivery validation with `client_ready=true`;
-- no unresolved QC warning dispositions;
-- clear blocked status when client-ready is false.
-
-## Avoid These Failure Modes
-
-- Calling a debug PPT complete.
-- Hand-writing `replacement_dict.json`.
-- Patching the PPT to hide upstream evidence or template problems.
-- Reporting `industry_section_filled_clean.pptx` without final delivery pass.
-
-## Hand Off
-
-If render succeeds, hand final PPT and validation summary to the user. If it
-fails, hand a precise repair target to QC or the upstream owner role.
-
-## Useful Command
-
-```bash
-"$PYTHON_CMD" scripts/pipeline.py render --run-dir "$RUN_DIR"
-```
+Hand off to the user only when final delivery is client-ready, or clearly state the upstream role that must repair the package first.

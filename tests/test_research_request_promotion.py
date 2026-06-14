@@ -215,7 +215,7 @@ def test_promote_research_requests_cli_requires_valid_inputs(tmp_path: Path) -> 
     result = subprocess.run(
         [
             sys.executable,
-            "scripts/promote_research_requests.py",
+            "skills/reasoning/scripts/promote_research_requests.py",
             "--research-request-queue",
             str(queue_path),
             "--formal-search-plan",

@@ -13,7 +13,7 @@ SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from pipeline import _write_run_flags  # noqa: E402
+from pipeline import _clear_draft_state, _write_draft_flags, _write_run_flags  # noqa: E402
 
 
 def test_pipeline_run_flags_preserve_formal_defaults(tmp_path: Path) -> None:
@@ -53,5 +53,19 @@ def test_pipeline_run_flags_preserves_debug_only_when_set(tmp_path: Path) -> Non
     assert run_flags["debug_reason"] == "explicit-debug-mode", run_flags
     assert run_flags["package_of_record"] == "debug-package", run_flags
 
+
+def test_pipeline_run_flags_can_replace_draft_flags_for_formal_render(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    _write_draft_flags(run_dir, entrypoint="scripts/pipeline.py draft")
+    (run_dir / "DRAFT_NOT_CLIENT_READY.txt").write_text("draft\n", encoding="utf-8")
+
+    _clear_draft_state(run_dir)
+    _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render")
+
+    run_flags = json.loads((run_dir / "artifacts" / "run_flags.json").read_text(encoding="utf-8"))
+    assert run_flags["debug_output_only"] is False, run_flags
+    assert run_flags.get("draft_output_only") is not True, run_flags
+    assert run_flags["pipeline_entrypoint"] == "scripts/pipeline.py render", run_flags
+    assert not (run_dir / "DRAFT_NOT_CLIENT_READY.txt").exists()
 
 

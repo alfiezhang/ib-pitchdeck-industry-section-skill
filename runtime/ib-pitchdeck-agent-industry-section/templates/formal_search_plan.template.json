@@ -27,7 +27,7 @@
       "formal_research_seed_questions"
     ]
   },
-  "builder_instruction": "Do not copy this template as a final plan. First run scripts/build_formal_search_plan_skeleton.py to generate one issue_search_plan row for every canonical issue_area/subissue, then edit the generated research questions, queries, purposes, and source hints. The validator requires full taxonomy coverage.",
+  "builder_instruction": "Do not copy this template as a final plan. First run skills/research-external-evidence/scripts/build_formal_search_plan_skeleton.py to generate one issue_search_plan row for every canonical issue_area/subissue, then edit the generated research questions, queries, purposes, and source hints. The validator requires full taxonomy coverage.",
   "allowed_issue_taxonomy": {
     "instruction": "Use only these issue_area/subissue pairs. Do not invent new subissue names; if a topic does not fit, choose the closest valid subissue and note the limitation in research_question.",
     "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],

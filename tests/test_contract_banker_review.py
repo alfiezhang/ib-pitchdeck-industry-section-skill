@@ -21,7 +21,7 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
 class TestBankerReviewReport:
     def test_build_skeleton(self, deck_blueprint_path, compiled_artifacts, tmp_path):
         result = _run([
-            sys.executable, "scripts/build_banker_review_report_skeleton.py",
+            sys.executable, "skills/generation/scripts/build_banker_review_report_skeleton.py",
             "--deck-blueprint", str(deck_blueprint_path),
             "--page-contract", str(compiled_artifacts["page_evidence_contract"]),
             "--renderer-spec", str(compiled_artifacts["renderer_spec"]),

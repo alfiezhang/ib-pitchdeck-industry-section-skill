@@ -22,11 +22,35 @@ from pathlib import Path
 from typing import Any
 
 from layout_config import layout_config_paths
+ROOT_DIR = Path(__file__).resolve().parent.parent
+QC_SYSTEM_VALIDATORS = ROOT_DIR / "skills" / "qc" / "scripts" / "validators" / "system"
+if str(QC_SYSTEM_VALIDATORS) not in sys.path:
+    sys.path.insert(0, str(QC_SYSTEM_VALIDATORS))
+
 from validate_run_state import validate_run_state
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT_DIR = SCRIPT_DIR.parent
+
+
+def _load_role_script_paths() -> dict[str, Path]:
+    path = ROOT_DIR / "templates" / "script_role_map.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    paths: dict[str, Path] = {}
+    for script_name, entrypoint in payload.items():
+        script = str(script_name)
+        path_text = str(entrypoint)
+        if script.endswith(".py") and path_text:
+            paths[script] = ROOT_DIR / path_text
+    return paths
+
+
+ROLE_SCRIPT_DIRS = _load_role_script_paths()
 
 # --- Tool integrity: do not modify this file during a run ---
 _TOOL_SOURCE_REPO = ROOT_DIR.parent.parent  # expected: <repo>/runtime/ib-pitchdeck-agent-industry-section
@@ -43,6 +67,9 @@ TEMPLATE_PROFILE = LAYOUT_PATHS["template_profile"]
 
 FILLED_PPT = "industry_section_filled.pptx"
 CLEAN_PPT = "industry_section_filled_clean.pptx"
+DRAFT_REPLACEMENT_DICT = "replacement_dict.draft.json"
+DRAFT_FILLED_PPT = "industry_section_DRAFT_NOT_CLIENT_READY_filled.pptx"
+DRAFT_CLEAN_PPT = "industry_section_DRAFT_NOT_CLIENT_READY.pptx"
 FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
 
 
@@ -119,7 +146,7 @@ def _preflight(run_dir: Path) -> None:
         raise PipelineError(
             "run is not ready for deterministic PPT rendering. "
             f"current_stage={state['current_stage']} status={state['status']}. "
-            "Run scripts/workflow.py next --run-dir <run_dir> and repair the listed upstream gate first."
+            "Run scripts/state_report.py next --run-dir <run_dir> and repair the listed upstream gate first."
         )
     if state.get("debug_only"):
         raise PipelineError("debug-only runs cannot be rendered/finalized by the formal Python pipeline")
@@ -136,7 +163,7 @@ def _mark_not_client_ready(run_dir: Path) -> None:
         marker.write_text(
             "Formal PPT pipeline failed before client-ready final delivery.\n"
             "Any generated PPT was renamed with NOT_CLIENT_READY_ and must not be described as a final deliverable.\n"
-            "Fix the current workflow gate and rerun scripts/pipeline.py render.\n",
+            "Fix the current upstream blocker and rerun scripts/pipeline.py render.\n",
             encoding="utf-8",
         )
 
@@ -149,6 +176,28 @@ def _clear_not_client_ready(run_dir: Path) -> None:
     marker = run_dir / "NOT_CLIENT_READY_OUTPUT.txt"
     if marker.exists():
         marker.unlink()
+
+
+def _clear_draft_state(run_dir: Path) -> None:
+    """Remove draft-only markers before a formal render attempt.
+
+    Draft output is an internal preview path, not a permanent run mode. Once the
+    upstream package is repaired, a formal render in the same attempt should be
+    able to replace draft flags with formal run flags. Explicit debug markers
+    are intentionally not cleared here.
+    """
+
+    run_flags_path = run_dir / "artifacts" / "run_flags.json"
+    existing = _json(run_flags_path)
+    if existing.get("draft_output_only") is True and existing.get("debug_output_only") is True:
+        run_flags_path.unlink(missing_ok=True)
+    for rel in (
+        "DRAFT_NOT_CLIENT_READY.txt",
+        "artifacts/draft_delivery_manifest.json",
+    ):
+        path = run_dir / rel
+        if path.exists():
+            path.unlink()
 
 
 def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool = False) -> None:
@@ -164,7 +213,9 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool 
     artifacts.mkdir(parents=True, exist_ok=True)
     path = artifacts / "run_flags.json"
     existing = _json(path)
-    if existing.get("debug_output_only") is True:
+    if (run_dir / "DEBUG_OUTPUT_ONLY.txt").exists():
+        return
+    if existing.get("debug_output_only") is True and existing.get("draft_output_only") is not True:
         return
     payload = {
         "schema_version": "run_flags_v1",
@@ -183,6 +234,49 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool 
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _write_draft_flags(run_dir: Path, *, entrypoint: str) -> None:
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": "run_flags_v1",
+        "research_gate": 0,
+        "issue_analysis_layer": 0,
+        "quality_gate": 0,
+        "source_run_dir": str(run_dir),
+        "output_run_dir": str(run_dir),
+        "package_of_record": str(run_dir),
+        "debug_output_only": True,
+        "debug_reason": "evidence_limited_draft_not_client_ready",
+        "draft_output_only": True,
+        "pipeline_entrypoint": entrypoint,
+        "preflight_skipped": True,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (artifacts / "run_flags.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_draft_manifest(run_dir: Path, validation_path: Path) -> None:
+    payload = {
+        "schema_version": "draft_delivery_v1",
+        "client_ready": False,
+        "draft_output_only": True,
+        "draft_ppt": DRAFT_CLEAN_PPT,
+        "filled_draft_ppt": DRAFT_FILLED_PPT,
+        "replacement_dict": DRAFT_REPLACEMENT_DICT,
+        "validation": str(validation_path.relative_to(run_dir)) if validation_path.is_relative_to(run_dir) else str(validation_path),
+        "use": "internal review only; not client-ready final delivery",
+        "next_step": "Use state_report.py next or qc_router.py to repair upstream evidence/content issues before formal render.",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (run_dir / "artifacts" / "draft_delivery_manifest.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
@@ -190,7 +284,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TE
     _run(
         [
             python_cmd,
-            SCRIPT_DIR / "validate_chart_metric_binding.py",
+            ROLE_SCRIPT_DIRS["validate_chart_metric_binding.py"],
             "--renderer-spec",
             run_dir / "renderer_spec.json",
             "--research-pack",
@@ -204,7 +298,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TE
     _run(
         [
             python_cmd,
-            SCRIPT_DIR / "validate_content_quality.py",
+            ROLE_SCRIPT_DIRS["validate_content_quality.py"],
             "--renderer-spec",
             run_dir / "renderer_spec.json",
             "--research-pack",
@@ -222,7 +316,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TE
     _run(
         [
             python_cmd,
-            SCRIPT_DIR / "template_analyzer.py",
+            ROLE_SCRIPT_DIRS["template_analyzer.py"],
             "--template",
             template_path,
             "--layout-config",
@@ -234,7 +328,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TE
     _run(
         [
             python_cmd,
-            SCRIPT_DIR / "template_fit.py",
+            ROLE_SCRIPT_DIRS["template_fit.py"],
             "--renderer-spec",
             run_dir / "renderer_spec.json",
             "--template-profile",
@@ -248,7 +342,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path = TE
     _run(
         [
             python_cmd,
-            SCRIPT_DIR / "validate_stage_gate.py",
+            ROLE_SCRIPT_DIRS["validate_stage_gate.py"],
             "--stage",
             "pre_ppt",
             "--run-dir",
@@ -271,6 +365,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
     run_dir = _ensure_run_dir(run_dir)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
+    _clear_draft_state(run_dir)
     if not skip_preflight:
         _preflight(run_dir)
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render", preflight_skipped=skip_preflight)
@@ -280,7 +375,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         _run(
             [
                 python_cmd,
-                SCRIPT_DIR / "check_template_tokens.py",
+                ROLE_SCRIPT_DIRS["check_template_tokens.py"],
                 "--template",
                 template_path,
                 "--ppt-mapping",
@@ -293,7 +388,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         _run(
             [
                 python_cmd,
-                SCRIPT_DIR / "generate_replacement_dict.py",
+                ROLE_SCRIPT_DIRS["generate_replacement_dict.py"],
                 "--renderer-spec",
                 run_dir / "renderer_spec.json",
                 "--ppt-mapping",
@@ -305,7 +400,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         _run(
             [
                 python_cmd,
-                SCRIPT_DIR / "validate_replacement_dict.py",
+                ROLE_SCRIPT_DIRS["validate_replacement_dict.py"],
                 "--replacement-dict",
                 run_dir / "replacement_dict.json",
                 "--renderer-spec",
@@ -319,7 +414,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         _run(
             [
                 python_cmd,
-                SCRIPT_DIR / "fill_ppt_tokens.py",
+                ROLE_SCRIPT_DIRS["fill_ppt_tokens.py"],
                 "--template",
                 template_path,
                 "--replacement-dict",
@@ -333,7 +428,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         _run(
             [
                 python_cmd,
-                SCRIPT_DIR / "clean_filled_ppt.py",
+                ROLE_SCRIPT_DIRS["clean_filled_ppt.py"],
                 "--input",
                 run_dir / FILLED_PPT,
                 "--control-file",
@@ -347,7 +442,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         _run(
             [
                 python_cmd,
-                SCRIPT_DIR / "postprocess_ppt_visuals.py",
+                ROLE_SCRIPT_DIRS["postprocess_ppt_visuals.py"],
                 "--input-ppt",
                 run_dir / CLEAN_PPT,
                 "--renderer-spec",
@@ -366,7 +461,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         _run(
             [
                 python_cmd,
-                SCRIPT_DIR / "validate_filled_ppt.py",
+                ROLE_SCRIPT_DIRS["validate_filled_ppt.py"],
                 "--filled-ppt",
                 run_dir / FILLED_PPT,
                 "--clean-ppt",
@@ -404,6 +499,186 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         )
 
 
+def draft(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> None:
+    """Render an explicit internal draft without claiming client readiness.
+
+    Draft mode exists for pre-mandate iteration when the evidence chain is not
+    yet clean enough for formal delivery but the team needs to inspect page
+    shape. It requires renderer inputs, labels every output as not client-ready,
+    and never writes final_delivery_validation.json.
+    """
+
+    run_dir = _ensure_run_dir(run_dir)
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(exist_ok=True)
+    required = [run_dir / "renderer_spec.json", run_dir / "page_evidence_contract.json"]
+    missing = [str(path.relative_to(run_dir)) for path in required if not path.exists()]
+    if missing:
+        raise PipelineError(
+            "draft render requires compiled page artifacts first: " + ", ".join(missing)
+        )
+
+    _append_failure_memory(
+        run_dir,
+        "pipeline_draft",
+        outcome="start",
+        command=f"{python_cmd} {Path('scripts/pipeline.py')} draft --run-dir {run_dir} --template {template_path}",
+    )
+    _write_draft_flags(run_dir, entrypoint="scripts/pipeline.py draft")
+    (run_dir / "DRAFT_NOT_CLIENT_READY.txt").write_text(
+        "Evidence-limited draft output. Not client-ready final delivery.\n",
+        encoding="utf-8",
+    )
+    draft_env = dict(os.environ)
+    draft_env["IB_SKILL_ALLOW_DRAFT_RENDER"] = "1"
+
+    try:
+        template_profile_path = artifacts / "template_profile.json"
+        if not template_profile_path.exists():
+            _run(
+                [
+                    python_cmd,
+                    ROLE_SCRIPT_DIRS["template_analyzer.py"],
+                    "--template",
+                    template_path,
+                    "--layout-config",
+                    ROOT_DIR / "templates" / "layout_config.json",
+                    "--output",
+                    template_profile_path,
+                ]
+            )
+        _run(
+            [
+                python_cmd,
+                ROLE_SCRIPT_DIRS["check_template_tokens.py"],
+                "--template",
+                template_path,
+                "--ppt-mapping",
+                PPT_MAPPING,
+                "--output",
+                artifacts / "template_token_check.draft.json",
+                "--fail-on-diff",
+            ]
+        )
+        _run(
+            [
+                python_cmd,
+                ROLE_SCRIPT_DIRS["generate_replacement_dict.py"],
+                "--renderer-spec",
+                run_dir / "renderer_spec.json",
+                "--ppt-mapping",
+                PPT_MAPPING,
+                "--output",
+                run_dir / DRAFT_REPLACEMENT_DICT,
+                "--allow-ungated-debug",
+            ],
+            env=draft_env,
+        )
+        _run(
+            [
+                python_cmd,
+                ROLE_SCRIPT_DIRS["validate_replacement_dict.py"],
+                "--replacement-dict",
+                run_dir / DRAFT_REPLACEMENT_DICT,
+                "--renderer-spec",
+                run_dir / "renderer_spec.json",
+                "--ppt-mapping",
+                PPT_MAPPING,
+                "--output",
+                artifacts / "replacement_dict_draft_validation.json",
+            ]
+        )
+        _run(
+            [
+                python_cmd,
+                ROLE_SCRIPT_DIRS["fill_ppt_tokens.py"],
+                "--template",
+                template_path,
+                "--replacement-dict",
+                run_dir / DRAFT_REPLACEMENT_DICT,
+                "--output",
+                run_dir / DRAFT_FILLED_PPT,
+                "--log",
+                artifacts / "fill_ppt_tokens.draft.log.json",
+                "--allow-ungated-debug",
+            ],
+            env=draft_env,
+        )
+        _run(
+            [
+                python_cmd,
+                ROLE_SCRIPT_DIRS["clean_filled_ppt.py"],
+                "--input",
+                run_dir / DRAFT_FILLED_PPT,
+                "--control-file",
+                run_dir / "renderer_spec.json",
+                "--output",
+                run_dir / DRAFT_CLEAN_PPT,
+                "--log",
+                artifacts / "clean_filled_ppt.draft.log.json",
+                "--allow-ungated-debug",
+            ],
+            env=draft_env,
+        )
+        _run(
+            [
+                python_cmd,
+                ROLE_SCRIPT_DIRS["postprocess_ppt_visuals.py"],
+                "--input-ppt",
+                run_dir / DRAFT_CLEAN_PPT,
+                "--renderer-spec",
+                run_dir / "renderer_spec.json",
+                "--output",
+                run_dir / DRAFT_CLEAN_PPT,
+                "--template-profile",
+                template_profile_path,
+                "--render-layouts",
+                RENDER_LAYOUTS,
+                "--log",
+                artifacts / "postprocess_ppt_visuals.draft.log.json",
+                "--allow-ungated-debug",
+            ],
+            env=draft_env,
+        )
+        validation_path = artifacts / "filled_ppt_draft_validation.json"
+        _run(
+            [
+                python_cmd,
+                ROLE_SCRIPT_DIRS["validate_filled_ppt.py"],
+                "--filled-ppt",
+                run_dir / DRAFT_FILLED_PPT,
+                "--clean-ppt",
+                run_dir / DRAFT_CLEAN_PPT,
+                "--control-file",
+                run_dir / "renderer_spec.json",
+                "--replacement-dict",
+                run_dir / DRAFT_REPLACEMENT_DICT,
+                "--ppt-mapping",
+                PPT_MAPPING,
+                "--output",
+                validation_path,
+            ]
+        )
+        _write_draft_manifest(run_dir, validation_path)
+    except Exception:
+        _append_failure_memory(
+            run_dir,
+            "pipeline_draft",
+            outcome="failure",
+            command=f"{python_cmd} {Path('scripts/pipeline.py')} draft --run-dir {run_dir} --template {template_path}",
+            details={"template": str(template_path)},
+        )
+        raise
+    else:
+        _append_failure_memory(
+            run_dir,
+            "pipeline_draft",
+            outcome="success",
+            command=f"{python_cmd} {Path('scripts/pipeline.py')} draft --run-dir {run_dir} --template {template_path}",
+            details={"template": str(template_path), "draft_ppt": DRAFT_CLEAN_PPT},
+        )
+
+
 def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> None:
     run_dir = _ensure_run_dir(run_dir)
     artifacts = run_dir / "artifacts"
@@ -411,7 +686,7 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py finalize")
     cmd = [
         python_cmd,
-        SCRIPT_DIR / "validate_final_delivery.py",
+        ROLE_SCRIPT_DIRS["validate_final_delivery.py"],
         "--run-dir",
         run_dir,
         "--source-registry",
@@ -442,11 +717,285 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
         command=" ".join(str(part) for part in cmd),
         details={"require_client_ready": require_client_ready, "return_code": final_returncode},
     )
-    _run([python_cmd, SCRIPT_DIR / "generate_run_quality_summary.py", "--run-dir", run_dir])
+    _run([python_cmd, ROLE_SCRIPT_DIRS["generate_run_quality_summary.py"], "--run-dir", run_dir])
     if run_dir.name.startswith("attempt_"):
         runs_dir = run_dir.parent
         (runs_dir / "ACTIVE_ATTEMPT.txt").write_text(run_dir.name + "\n", encoding="utf-8")
         _run([python_cmd, SCRIPT_DIR / "update_runs_index.py", "--runs-dir", runs_dir])
+
+
+def _run_if_inputs_exist(run_dir: Path, required: list[str]) -> tuple[bool, list[str]]:
+    missing = [rel for rel in required if not (run_dir / rel).exists()]
+    return not missing, missing
+
+
+def _rebuild_source_archive(run_dir: Path, python_cmd: str) -> None:
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["build_source_archive.py"],
+            "--search-log",
+            run_dir / "artifacts/search_log.md",
+            "--run-dir",
+            run_dir,
+            "--overwrite",
+        ]
+    )
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["validate_source_archive.py"],
+            "--source-archive-index",
+            run_dir / "artifacts/source_archive/source_archive_index.json",
+            "--run-dir",
+            run_dir,
+            "--output",
+            run_dir / "artifacts/source_archive_validation.json",
+        ]
+    )
+
+
+def _rebuild_execution_report(run_dir: Path, python_cmd: str) -> None:
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["build_formal_research_execution_report_skeleton.py"],
+            "--formal-search-plan",
+            run_dir / "artifacts/formal_search_plan.json",
+            "--search-log",
+            run_dir / "artifacts/search_log.md",
+            "--source-archive-index",
+            run_dir / "artifacts/source_archive/source_archive_index.json",
+            "--include-unexecuted",
+            "--output",
+            run_dir / "artifacts/formal_research_execution_report.json",
+            "--coverage-accounting",
+            run_dir / "artifacts/coverage_accounting.json",
+        ]
+    )
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["validate_formal_research_execution.py"],
+            "--report",
+            run_dir / "artifacts/formal_research_execution_report.json",
+            "--formal-search-plan",
+            run_dir / "artifacts/formal_search_plan.json",
+            "--search-log",
+            run_dir / "artifacts/search_log.md",
+            "--output",
+            run_dir / "artifacts/formal_research_execution_validation.json",
+        ]
+    )
+
+
+def _rebuild_pre_research_gate(run_dir: Path, python_cmd: str) -> None:
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["validate_stage_gate.py"],
+            "--stage",
+            "pre_research_pack",
+            "--run-dir",
+            run_dir,
+            "--source-registry",
+            SOURCE_REGISTRY,
+            "--output",
+            run_dir / "artifacts/stage_gate_pre_research_pack_validation.json",
+        ]
+    )
+
+
+def _rebuild_research_pack_export(run_dir: Path, python_cmd: str) -> None:
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["export_research_pack_from_db.py"],
+            "--research-evidence-db",
+            run_dir / "artifacts/research_evidence_db.json",
+            "--output",
+            run_dir / "industry_research_pack.md",
+        ]
+    )
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["validate_research_pack.py"],
+            "--research-pack",
+            run_dir / "industry_research_pack.md",
+            "--run-dir",
+            run_dir,
+            "--source-registry",
+            SOURCE_REGISTRY,
+            "--output",
+            run_dir / "artifacts/research_pack_validation.json",
+        ]
+    )
+
+
+def _rebuild_compiled_deck(run_dir: Path, python_cmd: str) -> None:
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["compile_deck_blueprint.py"],
+            "--issue-analysis",
+            run_dir / "industry_issue_analysis.json",
+            "--deck-blueprint",
+            run_dir / "deck_blueprint.json",
+            "--template-registry",
+            run_dir / "template_registry.json",
+            "--page-contract-output",
+            run_dir / "page_evidence_contract.json",
+            "--renderer-spec-output",
+            run_dir / "renderer_spec.json",
+        ]
+    )
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["validate_page_evidence_contract.py"],
+            "--page-contract",
+            run_dir / "page_evidence_contract.json",
+            "--issue-analysis",
+            run_dir / "industry_issue_analysis.json",
+            "--deck-blueprint",
+            run_dir / "deck_blueprint.json",
+            "--output",
+            run_dir / "artifacts/page_evidence_contract_validation.json",
+        ]
+    )
+    _run(
+        [
+            python_cmd,
+            ROLE_SCRIPT_DIRS["validate_renderer_spec.py"],
+            "--renderer-spec",
+            run_dir / "renderer_spec.json",
+            "--page-contract",
+            run_dir / "page_evidence_contract.json",
+            "--template-registry",
+            run_dir / "template_registry.json",
+            "--deck-blueprint",
+            run_dir / "deck_blueprint.json",
+            "--output",
+            run_dir / "artifacts/renderer_spec_validation.json",
+        ]
+    )
+
+
+def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path = TEMPLATE) -> None:
+    """Rebuild the shortest deterministic stale chain without authoring content."""
+
+    run_dir = _ensure_run_dir(run_dir)
+    state = validate_run_state(run_dir)
+    stage = str(state.get("current_stage") or "")
+    status_value = str(state.get("status") or "")
+    _append_failure_memory(
+        run_dir,
+        "pipeline_rebuild_stale",
+        outcome="start",
+        command=f"{python_cmd} {Path('scripts/pipeline.py')} rebuild-stale --run-dir {run_dir}",
+        details={"stage": stage, "status": status_value},
+    )
+
+    deterministic_requirements: dict[str, list[str]] = {
+        "SOURCE_ARCHIVE_MISSING_OR_FAILED": ["artifacts/search_log.md"],
+        "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
+            "artifacts/formal_search_plan.json",
+            "artifacts/search_log.md",
+            "artifacts/source_archive/source_archive_index.json",
+        ],
+        "PRE_RESEARCH_PACK_GATE_FAILED": [
+            "artifacts/formal_research_execution_report.json",
+            "artifacts/source_archive/source_archive_index.json",
+        ],
+        "RESEARCH_PACK_MISSING_OR_FAILED": ["artifacts/research_evidence_db.json"],
+        "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": [
+            "industry_issue_analysis.json",
+            "deck_blueprint.json",
+            "template_registry.json",
+        ],
+        "RENDERER_SPEC_MISSING_OR_FAILED": [
+            "industry_issue_analysis.json",
+            "deck_blueprint.json",
+            "template_registry.json",
+        ],
+        "TEMPLATE_PROFILE_MISSING_OR_FAILED": ["renderer_spec.json"],
+        "TEMPLATE_FIT_FAILED": ["renderer_spec.json", "artifacts/template_profile.json"],
+        "CHART_METRIC_BINDING_FAILED": ["renderer_spec.json", "industry_research_pack.md", "page_evidence_contract.json"],
+        "CONTENT_QUALITY_FAILED": ["renderer_spec.json", "industry_research_pack.md"],
+        "PRE_PPT_GATE_FAILED": ["renderer_spec.json", "industry_research_pack.md", "page_evidence_contract.json"],
+    }
+    ok, missing = _run_if_inputs_exist(run_dir, deterministic_requirements.get(stage, []))
+    if not ok:
+        raise PipelineError(
+            f"cannot rebuild {stage}: missing required upstream artifact(s): {', '.join(missing)}"
+        )
+
+    try:
+        if stage == "SOURCE_ARCHIVE_MISSING_OR_FAILED":
+            _rebuild_source_archive(run_dir, python_cmd)
+        elif stage == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
+            _rebuild_execution_report(run_dir, python_cmd)
+        elif stage == "PRE_RESEARCH_PACK_GATE_FAILED":
+            _rebuild_pre_research_gate(run_dir, python_cmd)
+        elif stage == "RESEARCH_PACK_MISSING_OR_FAILED":
+            _rebuild_research_pack_export(run_dir, python_cmd)
+        elif stage in {"PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED", "RENDERER_SPEC_MISSING_OR_FAILED"}:
+            _rebuild_compiled_deck(run_dir, python_cmd)
+        elif stage == "TEMPLATE_PROFILE_MISSING_OR_FAILED":
+            _run(
+                [
+                    python_cmd,
+                    ROLE_SCRIPT_DIRS["template_analyzer.py"],
+                    "--template",
+                    template_path,
+                    "--layout-config",
+                    ROOT_DIR / "templates" / "layout_config.json",
+                    "--output",
+                    run_dir / "artifacts/template_profile.json",
+                ]
+            )
+        elif stage == "TEMPLATE_FIT_FAILED":
+            _run(
+                [
+                    python_cmd,
+                    ROLE_SCRIPT_DIRS["template_fit.py"],
+                    "--renderer-spec",
+                    run_dir / "renderer_spec.json",
+                    "--template-profile",
+                    run_dir / "artifacts/template_profile.json",
+                    "--output",
+                    run_dir / "artifacts/template_fit_validation.json",
+                    "--fit-plan-output",
+                    run_dir / "artifacts/template_fit_plan.json",
+                ]
+            )
+        elif stage in {"CHART_METRIC_BINDING_FAILED", "CONTENT_QUALITY_FAILED", "PRE_PPT_GATE_FAILED"}:
+            validate_pre_ppt(run_dir, python_cmd, template_path=template_path)
+        else:
+            raise PipelineError(
+                f"rebuild-stale does not auto-rebuild stage {stage}. "
+                "This stage likely needs LLM judgment or authoring repair; run state_report.py next and follow owner role guidance."
+            )
+    except Exception:
+        _append_failure_memory(
+            run_dir,
+            "pipeline_rebuild_stale",
+            outcome="failure",
+            command=f"{python_cmd} {Path('scripts/pipeline.py')} rebuild-stale --run-dir {run_dir}",
+            details={"stage": stage, "status": status_value},
+        )
+        raise
+
+    new_state = validate_run_state(run_dir)
+    _append_failure_memory(
+        run_dir,
+        "pipeline_rebuild_stale",
+        outcome="success",
+        command=f"{python_cmd} {Path('scripts/pipeline.py')} rebuild-stale --run-dir {run_dir}",
+        details={"before_stage": stage, "after_stage": new_state.get("current_stage")},
+    )
+    print(json.dumps({"is_valid": True, "before_stage": stage, "after_stage": new_state.get("current_stage")}, ensure_ascii=False, indent=2))
 
 
 def status(run_dir: Path) -> None:
@@ -454,7 +1003,7 @@ def status(run_dir: Path) -> None:
 
 
 def next_action(run_dir: Path) -> None:
-    from workflow import next_payload
+    from state_report import next_payload
 
     print(json.dumps(next_payload(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
 
@@ -495,21 +1044,33 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     validate_pre_ppt_parser = None
     render_parser = None
+    draft_parser = None
+    rebuild_stale_parser = None
     finalize_parser = None
-    for name in ("status", "next", "validate-pre-ppt", "render", "finalize"):
+    for name in ("status", "next", "validate-pre-ppt", "rebuild-stale", "draft", "render", "finalize"):
         p = sub.add_parser(name)
         p.add_argument("--run-dir", required=True)
         if name == "validate-pre-ppt":
             validate_pre_ppt_parser = p
+        elif name == "rebuild-stale":
+            rebuild_stale_parser = p
+        elif name == "draft":
+            draft_parser = p
         elif name == "render":
             render_parser = p
         elif name == "finalize":
             finalize_parser = p
 
-    if validate_pre_ppt_parser is None or render_parser is None or finalize_parser is None:
-        raise RuntimeError("failed to construct parser for render/finalize commands")
+    if (
+        validate_pre_ppt_parser is None
+        or rebuild_stale_parser is None
+        or draft_parser is None
+        or render_parser is None
+        or finalize_parser is None
+    ):
+        raise RuntimeError("failed to construct parser for pipeline commands")
 
-    for template_parser in (validate_pre_ppt_parser, render_parser):
+    for template_parser in (validate_pre_ppt_parser, rebuild_stale_parser, draft_parser, render_parser):
         template_parser.add_argument(
             "--template",
             default=str(TEMPLATE),
@@ -518,7 +1079,7 @@ def main() -> int:
     render_parser.add_argument(
         "--skip-preflight",
         action="store_true",
-        help="Only for repairing a run whose workflow status is stale but the operator has verified pre-PPT readiness.",
+        help="Only for repairing a run whose state report is stale but the operator has verified pre-PPT readiness.",
     )
     finalize_parser.add_argument("--require-client-ready", action="store_true")
     args = parser.parse_args()
@@ -532,6 +1093,10 @@ def main() -> int:
             next_action(run_dir)
         elif args.command == "validate-pre-ppt":
             validate_pre_ppt(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template))
+        elif args.command == "rebuild-stale":
+            rebuild_stale(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template))
+        elif args.command == "draft":
+            draft(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template))
         elif args.command == "render":
             render(
                 _ensure_run_dir(run_dir),

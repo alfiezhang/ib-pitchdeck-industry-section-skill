@@ -82,22 +82,14 @@ class TestRunState:
 
 
 class TestWorkflowNextCommands:
-    def test_source_review_commands(self, _pipeline_run_dir):
-        from workflow import recommended_commands
-        run_dir = str(_pipeline_run_dir["run_dir"])
-        commands = recommended_commands({"run_dir": run_dir, "current_stage": "SOURCE_REVIEWS_MISSING_OR_FAILED"})
-        validation_cmds = [c["command"] for c in commands if "validate_source_reviews.py" in c["command"]]
-        assert validation_cmds, commands
-        assert "--formal-research-execution-report" not in validation_cmds[0], validation_cmds
-        assert "--source-archive-index" not in validation_cmds[0], validation_cmds
-
     def test_source_archive_commands(self, _pipeline_run_dir):
         from workflow import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED"})
-        assert commands and "scripts/build_source_archive.py" in commands[0]["command"], commands
-        assert "--run-dir" in commands[0]["command"], commands
-        assert "--output-dir" not in commands[0]["command"], commands
+        archive_cmds = [c["command"] for c in commands if "skills/research-external-evidence/scripts/build_source_archive.py" in c["command"]]
+        assert archive_cmds, commands
+        assert "--search-log" in archive_cmds[0], archive_cmds
+        assert "--source-reviews" not in archive_cmds[0], archive_cmds
 
     def test_execution_commands(self, _pipeline_run_dir):
         from workflow import recommended_commands
@@ -112,13 +104,13 @@ class TestWorkflowNextCommands:
         from workflow import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
-        assert commands and "scripts/build_research_evidence_db.py" in commands[0]["command"], commands
+        assert commands and "skills/knowledge-repository/scripts/build_research_evidence_db.py" in commands[0]["command"], commands
 
     def test_research_pack_commands(self, _pipeline_run_dir):
         from workflow import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
-        assert commands and "scripts/export_research_pack_from_db.py" in commands[0]["command"], commands
+        assert commands and "skills/knowledge-repository/scripts/export_research_pack_from_db.py" in commands[0]["command"], commands
         validation_cmds = [c["command"] for c in commands if "validate_research_pack.py" in c["command"]]
         assert validation_cmds and "--source-registry templates/source_registry.json" in validation_cmds[0], validation_cmds
 
@@ -133,6 +125,75 @@ class TestWorkflowNextCommands:
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "FINAL_DELIVERY_NOT_READY"})
         assert commands and "scripts/pipeline.py render" in commands[0]["command"], commands
+
+    def test_pre_research_pack_gate_uses_pipeline_facade(self, _pipeline_run_dir):
+        from workflow import recommended_commands
+        run_dir = str(_pipeline_run_dir["run_dir"])
+        commands = recommended_commands({"run_dir": run_dir, "current_stage": "PRE_RESEARCH_PACK_GATE_FAILED"})
+        command_text = "\n".join(item["command"] for item in commands)
+        assert "scripts/pipeline.py rebuild-stale" in command_text, commands
+        assert "validate_stage_gate.py" not in command_text, commands
+
+    def test_content_quality_gate_uses_pipeline_facade(self, _pipeline_run_dir):
+        from workflow import recommended_commands
+        run_dir = str(_pipeline_run_dir["run_dir"])
+        commands = recommended_commands({"run_dir": run_dir, "current_stage": "CONTENT_QUALITY_FAILED"})
+        command_text = "\n".join(item["command"] for item in commands)
+        assert "scripts/pipeline.py rebuild-stale" in command_text, commands
+        assert "validate_content_quality.py" not in command_text, commands
+
+    def test_next_payload_prefers_rebuild_stale_for_deterministic_stale_stage(self, tmp_path, monkeypatch):
+        import workflow
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+
+        def fake_state(_run_dir):
+            return {
+                "run_dir": str(run_dir),
+                "current_stage": "CONTENT_QUALITY_FAILED",
+                "status": "stale",
+                "blocking_gate": "artifacts/content_quality_validation.json",
+                "owner_role": "generation",
+                "owner_skill": "skills/generation/SKILL.md",
+                "allowed_next_actions": ["rerun_content_quality"],
+                "forbidden_actions": ["render_ppt"],
+                "debug_only": False,
+                "final_delivery_valid": False,
+                "message": "content quality validation is stale",
+            }
+
+        monkeypatch.setattr(workflow, "validate_run_state", fake_state)
+        payload = workflow.next_payload(run_dir)
+        assert payload["shortest_repair_path"]["available"] is True, payload
+        assert "scripts/pipeline.py rebuild-stale" in payload["recommended_next_command"], payload
+
+    def test_next_payload_exposes_internal_draft_only_when_compiled_artifacts_exist(self, tmp_path, monkeypatch):
+        import workflow
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        (run_dir / "renderer_spec.json").write_text("{}", encoding="utf-8")
+        (run_dir / "page_evidence_contract.json").write_text("{}", encoding="utf-8")
+
+        def fake_state(_run_dir):
+            return {
+                "run_dir": str(run_dir),
+                "current_stage": "CONTENT_QUALITY_FAILED",
+                "status": "failed",
+                "blocking_gate": "artifacts/content_quality_validation.json",
+                "owner_role": "generation",
+                "owner_skill": "skills/generation/SKILL.md",
+                "allowed_next_actions": ["repair_generation"],
+                "forbidden_actions": ["client_delivery"],
+                "debug_only": False,
+                "final_delivery_valid": False,
+                "message": "content quality failed",
+            }
+
+        monkeypatch.setattr(workflow, "validate_run_state", fake_state)
+        payload = workflow.next_payload(run_dir)
+        assert payload["internal_draft_option"]["available"] is True, payload
+        assert "scripts/pipeline.py draft" in payload["internal_draft_option"]["command"], payload
+        assert "client-ready" in payload["internal_draft_option"]["not_allowed_for"], payload
 
 
 class TestAgentHandoff:

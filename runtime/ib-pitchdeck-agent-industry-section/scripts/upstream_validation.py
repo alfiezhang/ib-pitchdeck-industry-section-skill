@@ -12,7 +12,6 @@ BASE_RESEARCH_VALIDATIONS = (
     "artifacts/formal_search_plan_validation.json",
     "artifacts/formal_research_execution_validation.json",
     "artifacts/source_archive_validation.json",
-    "artifacts/source_reviews_validation.json",
     "artifacts/stage_gate_pre_research_pack_validation.json",
     "artifacts/research_evidence_db_validation.json",
     "artifacts/research_pack_validation.json",
@@ -77,5 +76,5 @@ def assert_formal_upstream_valid(
     detail = "; ".join(blocking[:10])
     return [
         f"cannot validate {stage_name} for a formal run with incomplete upstream gates: {detail}. "
-        "Run scripts/workflow.py status/next, fix the failed upstream gate, then rerun this validator."
+        "Run scripts/state_report.py status/next, fix the failed upstream gate, then rerun this validator."
     ]

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Full-Taxonomy Formal Search Plan",
-  "description": "Industry-scope-pack-driven executable issue/subissue search instruction plan. The schema documents shape; scripts/validate_formal_search_plan.py enforces full taxonomy coverage and execution readiness before formal searches.",
+  "description": "Industry-scope-pack-driven executable issue/subissue search instruction plan. The schema documents shape; skills/qc/scripts/validators/research/validate_formal_search_plan.py enforces full taxonomy coverage and execution readiness before formal searches.",
   "type": "object",
     "required": ["schema_version", "meta", "industry_scope_pack", "plan_mode", "issue_search_plan"],
   "properties": {

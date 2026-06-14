@@ -32,7 +32,10 @@ class TestContentRootCauses:
         root_causes = classify_content_root_causes(messages)
         by_code = {item["code"]: item for item in root_causes}
         assert by_code["CHART_METRIC_BINDING"]["repair_target"] == "deck_blueprint.json"
-        assert "scripts/validate_chart_metric_binding.py" in by_code["CHART_METRIC_BINDING"]["rerun_steps"]
+        assert (
+            "skills/qc/scripts/validators/final/validate_chart_metric_binding.py"
+            in by_code["CHART_METRIC_BINDING"]["rerun_steps"]
+        )
 
     def test_classify_layout_fit_risk(self):
         from validate_content_quality import classify_content_root_causes

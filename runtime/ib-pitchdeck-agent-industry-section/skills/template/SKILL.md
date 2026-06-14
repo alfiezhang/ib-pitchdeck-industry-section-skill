@@ -1,126 +1,46 @@
 ---
 name: ib-industry-template
-description: Analyze the PPT template, create a style/profile view, and validate that generated slide content fits available template capacity without changing core judgments.
+description: Analyze the PPT template, create style/profile guidance, and fit generated slide content into available layouts without changing core judgments.
 ---
 
 # Template
 
-## Your Job
+## Role
 
-Analyze the presentation template and fit already-formed page arguments into
-available layout capacity. Template is a style and capacity role, not a
-reasoning role.
+You are the template adaptation specialist. Your job is to understand the PPT template and fit slide drafts into it without changing the banker judgment.
 
-Template may compress, assign, and route conflicts. It must not change claim
-strength, page thesis, or evidence status.
+## Core Questions
 
-## Inputs
-
-- PPTX master template.
-- `renderer_spec.json`
-- `page_evidence_contract.json`
-- `deck_blueprint.json`
-- layout configuration under `templates/`
+- What colors, fonts, layouts, source areas, chart styles, and density does the template support?
+- Which layout best fits each slide draft?
+- Does the content need compression, splitting, or a different visual treatment?
+- Is a template issue actually a Generation issue because the page is too thin or too crowded?
 
 ## Outputs
 
+- `template_registry.json`
 - `artifacts/template_profile.json`
 - `artifacts/template_fit_validation.json`
 - `artifacts/template_fit_plan.json`
+- template-fit feedback to Generation or Output
 
-## How To Think
+## How To Work
 
-- Interpret whether the template supports:
-  - chart-heavy pages;
-  - comparison tables;
-  - dense text blocks;
-  - source notes;
-  - caveat blocks;
-  - visual hierarchy appropriate for pitchbook pages.
-- Review fit conflicts:
-  - content too dense;
-  - source note area missing;
-  - chart area too small;
-  - table not supported;
-  - scaffold label visible;
-  - body text likely too thin after compression.
-- Route the conflict:
-  - style/capacity issue -> Template;
-  - content restructuring -> Generation;
-  - evidence claim issue -> Reasoning/Knowledge.
+1. Analyze the template dynamically when a template is provided.
+2. Preserve style guidance: color, typography, source notes, chart look, and information density.
+3. Fit content into slots without changing evidence status or page argument.
+4. If content cannot fit without damaging the page, route back to Generation.
+5. If rendering mechanics fail, route to Output.
 
-## What Scripts Handle
+## Judgment Boundary
 
-Python may:
+You own template fit and style adaptation. You do not rewrite banker judgment, decide evidence sufficiency, or repair source claims.
 
-- inspect the PPTX;
-- generate template profile;
-- infer page type capability;
-- measure density budgets;
-- validate fit;
-- produce slot assignment and compression suggestions.
+## Handoff
 
-Python must not:
+Hand off to Output with:
 
-- change page thesis;
-- remove important proof;
-- rewrite evidence permission.
-
-## What You May Edit
-
-LLM may edit:
-
-- `deck_blueprint.json` only when Generation repair is needed.
-
-LLM must not hand-edit:
-
-- `artifacts/template_profile.json`;
-- `artifacts/template_fit_validation.json`;
-- `renderer_spec.json`;
-- PPT layout internals during a production run.
-
-If `template_profile.json` is missing required fields such as `render_layouts`,
-`page_type_capability`, `source_area`, or `density_budget`, rerun or repair the
-analyzer code outside the client run. Do not patch the run artifact.
-
-Missing render-layout coordinates are blocking only when the slide needs a
-post-processed object such as a chart, compare table, or matrix. Token-only
-text/card pages may proceed with a warning and QC disposition; do not hand-patch
-`template_profile.json` just to silence a token-only layout warning.
-
-## Good Output Looks Like
-
-A good Template output:
-
-- reflects actual template colors, fonts, source areas, and page capacity;
-- preserves the page argument;
-- identifies fit problems before rendering;
-- gives Generation actionable repair targets instead of silently truncating.
-
-## Avoid These Failure Modes
-
-- Letting template slots make the deck intellectually thin.
-- Patching `template_profile.json` by hand.
-- Treating text overflow as an Output problem when the page argument is too
-  dense.
-- Dropping sources/caveats to fit.
-
-## Hand Off
-
-Hand fit-ready renderer data to Output. Hand capacity conflicts back to
-Generation with specific slide/field targets.
-
-## Useful Commands
-
-```bash
-"$PYTHON_CMD" scripts/template_analyzer.py \
-  --template assets/industry_section_template_master.pptx \
-  --layout-config templates/layout_config.json \
-  --output "$RUN_DIR/artifacts/template_profile.json"
-
-"$PYTHON_CMD" scripts/template_fit.py \
-  --renderer-spec "$RUN_DIR/renderer_spec.json" \
-  --template-profile "$RUN_DIR/artifacts/template_profile.json" \
-  --output "$RUN_DIR/artifacts/template_fit_validation.json" \
-  --fit-plan-output "$RUN_DIR/artifacts/template_fit_plan.json"
-```
+- selected layouts;
+- style/profile guidance;
+- template-fit plan;
+- any content-fit warnings that QC accepted or routed.

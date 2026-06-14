@@ -12,6 +12,17 @@ import pytest
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
 RUNTIME_DIR = SCRIPT_DIR.parent
+ROLE_SCRIPT_DIRS = sorted((RUNTIME_DIR / "skills").glob("*/scripts"))
+QC_VALIDATOR_DIRS = sorted((RUNTIME_DIR / "skills" / "qc" / "scripts" / "validators").glob("*"))
+SCRIPT_IMPORT_DIRS = [SCRIPT_DIR, *ROLE_SCRIPT_DIRS, *QC_VALIDATOR_DIRS]
+
+
+def _script_path(script: str) -> Path:
+    root_path = SCRIPT_DIR / script
+    if root_path.exists():
+        return root_path
+    matches = [role_dir / script for role_dir in [*ROLE_SCRIPT_DIRS, *QC_VALIDATOR_DIRS] if (role_dir / script).exists()]
+    return matches[0] if matches else root_path
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -21,11 +32,11 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _run_script(script: str, args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(SCRIPT_DIR / script), *args],
+        [sys.executable, str(_script_path(script)), *args],
         cwd=str(RUNTIME_DIR),
         text=True,
         capture_output=True,
-        env={**os.environ, "PYTHONPATH": str(SCRIPT_DIR)},
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(str(path) for path in SCRIPT_IMPORT_DIRS)},
     )
 
 

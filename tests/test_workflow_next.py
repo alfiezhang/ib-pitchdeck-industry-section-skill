@@ -12,6 +12,7 @@ SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from gate_report import build_gate_report  # noqa: E402
 from workflow import next_payload  # noqa: E402
 
 
@@ -257,6 +258,26 @@ def test_workflow_next_empty_run_returns_input_card_missing(tmp_path: Path) -> N
     run_dir.mkdir(parents=True)
     payload = next_payload(run_dir)
     assert payload["current_stage"] == "MATERIAL_INTAKE_MISSING_OR_FAILED", payload
+    assert "scripts/gate_report.py" in payload["gate_report_command"], payload
+
+
+def test_gate_report_empty_run_groups_material_root_causes(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    report = build_gate_report(run_dir)
+    assert report["schema_version"] == "gate_report_v1", report
+    assert report["report_role"] == "dashboard_triage_not_new_gate", report
+    assert report["overall"] == "needs_fix", report
+    assert report["hard_block_final_delivery"] is True, report
+    assert {group["artifact"] for group in report["root_cause_groups"]} == {
+        "artifacts/material_manifest.json",
+        "artifacts/material_extracts.json",
+        "artifacts/source_classification.json",
+    }
+    assert {group["repair_owner"] for group in report["root_cause_groups"]} == {"material-intake"}
+    command_text = "\n".join(item["command"] for item in report["public_next_actions"])
+    assert "skills/material-intake/scripts/ingest_materials.py" in command_text
+    assert "/skills/material-intake/skills/material-intake/" not in command_text
 
 
 def _seed_full_research_ready(run_dir: Path) -> None:

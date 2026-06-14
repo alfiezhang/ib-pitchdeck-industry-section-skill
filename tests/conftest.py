@@ -12,7 +12,22 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
 SCRIPT_DIR = SKILL_DIR / "scripts"
+ROLE_SCRIPT_PATHS = sorted((SKILL_DIR / "skills").glob("*/scripts"))
+QC_VALIDATOR_PATHS = sorted((SKILL_DIR / "skills" / "qc" / "scripts" / "validators").glob("*"))
+SCRIPT_IMPORT_PATHS = [SCRIPT_DIR, *ROLE_SCRIPT_PATHS, *QC_VALIDATOR_PATHS]
+ROLE_SCRIPT_DIRS = {
+    script.name: script
+    for role_dir in [*ROLE_SCRIPT_PATHS, *QC_VALIDATOR_PATHS]
+    for script in role_dir.glob("*.py")
+}
 FIXTURES_DIR = ROOT / "tests" / "fixtures"
+
+for _path in SCRIPT_IMPORT_PATHS:
+    text = str(_path)
+    if text in sys.path:
+        sys.path.remove(text)
+for _path in reversed(SCRIPT_IMPORT_PATHS):
+    sys.path.insert(0, str(_path))
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -22,9 +37,10 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _run_script(script_name: str, args: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess:
     """Run a script from SCRIPT_DIR with PYTHONPATH set."""
-    env_overrides = {"PYTHONPATH": str(SCRIPT_DIR)}
+    env_overrides = {"PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)}
+    script_path = ROLE_SCRIPT_DIRS.get(script_name, SCRIPT_DIR / script_name)
     return subprocess.run(
-        [sys.executable, str(SCRIPT_DIR / script_name), *args],
+        [sys.executable, str(script_path), *args],
         text=True,
         capture_output=True,
         cwd=cwd or str(SKILL_DIR),
@@ -301,13 +317,13 @@ def _compile_blueprint(tmp_path: Path, blueprint_path: Path | None = None, issue
     pc_out = tmp_path / "page_evidence_contract.json"
     rs_out = tmp_path / "renderer_spec.json"
     result = subprocess.run(
-        [sys.executable, str(SCRIPT_DIR / "compile_deck_blueprint.py"),
+        [sys.executable, str(ROLE_SCRIPT_DIRS["compile_deck_blueprint.py"]),
          "--issue-analysis", str(ia), "--deck-blueprint", str(bp),
          "--template-registry", str(tr),
          "--page-contract-output", str(pc_out),
          "--renderer-spec-output", str(rs_out)],
         text=True, capture_output=True, cwd=str(SKILL_DIR),
-        env={**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)},
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
     )
     if result.returncode != 0:
         raise RuntimeError(f"compile_deck_blueprint failed: {result.stdout}\n{result.stderr}")
