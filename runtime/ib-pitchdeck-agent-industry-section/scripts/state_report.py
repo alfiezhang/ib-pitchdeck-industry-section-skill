@@ -417,7 +417,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         },
         {
             "purpose": "validate generated research evidence pack",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/knowledge/validate_research_pack.py --research-pack {{run_dir}}/industry_research_pack.md --run-dir {{run_dir}} --source-registry configs/source_registry.json --source-registry {ROOT_DIR}/configs/source_registry.json --output {{run_dir}}/artifacts/research_pack_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/knowledge/validate_research_pack.py --research-pack {{run_dir}}/industry_research_pack.md --run-dir {{run_dir}} --source-registry {ROOT_DIR}/configs/source_registry.json --output {{run_dir}}/artifacts/research_pack_validation.json",
         },
     ],
     "ISSUE_ANALYSIS_MISSING_OR_FAILED": [
@@ -625,6 +625,13 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
         and state.get("final_delivery_valid") is not True
         and not state.get("debug_only")
     )
+    quick_draft_missing_requirements = []
+    if not Path(run_dir_str, "artifacts", "page_argument_pack.json").exists():
+        quick_draft_missing_requirements.append("artifacts/page_argument_pack.json")
+    if state.get("debug_only"):
+        quick_draft_missing_requirements.append("debug_only run state must be cleared before rendering a new quick draft")
+    if state.get("final_delivery_valid") is True:
+        quick_draft_missing_requirements.append("final delivery is already valid; quick draft is unnecessary")
     quick_draft_command = _quick_draft_command(run_dir_str)
     blocking_risks: list[str] = []
     if state.get("missing_artifacts"):
@@ -725,6 +732,7 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
         "quick_draft_option": {
             "available": bool(quick_draft_available),
             "command": quick_draft_command["command"] if quick_draft_available else "",
+            "missing_requirements": quick_draft_missing_requirements,
             "use_only_for": "early internal page-shape review from page_argument_pack.json when deck_blueprint/renderer_spec are not ready",
             "not_allowed_for": "client-ready delivery, final status, or claiming the engagement output is complete",
             "expected_output_marker": "DRAFT_NOT_CLIENT_READY",

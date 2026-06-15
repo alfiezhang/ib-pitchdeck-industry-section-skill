@@ -214,7 +214,9 @@ def test_workflow_next_keeps_research_pack_derived() -> None:
     command_text = "\n".join(item["command"] for item in commands)
     assert "export_research_pack_from_db.py" in command_text
     assert "validate_research_pack.py" in command_text
-    assert "--source-registry configs/source_registry.json" in command_text
+    assert "--source-registry" in command_text
+    assert "/configs/source_registry.json" in command_text
+    assert "configs/source_registry.json --source-registry" not in command_text
     assert "build_research_evidence_pack_skeleton.py" not in command_text
 
 
@@ -358,4 +360,3 @@ def test_build_db_preserves_new_material_manifest_fields() -> None:
     assert by_id["MAT-001"]["source_access_path"] == "inline_user_text"
     assert by_id["MAT-001"]["reviewed_excerpt"] == "Target sells base makeup products in China."
     assert by_id["MAT-002"]["source_url"] == "https://example.com/report"
-

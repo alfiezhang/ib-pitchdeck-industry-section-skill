@@ -703,19 +703,29 @@ def _pipeline_run_dir(tmp_path_factory):
     archive_dir = artifacts / "source_archive"
     archive_dir.mkdir()
     (archive_dir / "SRC-001.md").write_text(
-        "# SRC-001 Snapshot\n\nURL: https://example.com/market-size\n\nLocator: table 2.\n\nReviewed excerpt: The report gives a current market-size datapoint with geography and source scope.\n",
+        "# SRC-001 Snapshot\n\n"
+        "URL: https://example.com/market-size\n\n"
+        "Locator: table 2, current market-size row with geography and scope columns.\n\n"
+        "## Reviewed Excerpt / Faithful Paraphrase\n\n"
+        "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit.\n\n"
+        "## Archive Note\n\nSynthetic contract-test archive.\n",
         encoding="utf-8",
     )
     (archive_dir / "SRC-002.md").write_text(
-        "# SRC-002 Snapshot\n\nURL: https://example.com/value-chain\n\nLocator: section 3.\n\nReviewed excerpt: The source describes where value accrues across the example industry chain.\n",
+        "# SRC-002 Snapshot\n\n"
+        "URL: https://example.com/value-chain\n\n"
+        "Locator: section 3, value-chain economics paragraph and margin-pool discussion.\n\n"
+        "## Reviewed Excerpt / Faithful Paraphrase\n\n"
+        "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit.\n\n"
+        "## Archive Note\n\nSynthetic contract-test archive.\n",
         encoding="utf-8",
     )
     source_archive_index = {
         "schema_version": "source_archive_index_v1",
         "created_at": "2026-06-07T10:10:00",
         "entries": [
-            {"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-001.md", "captured_at": "2026-06-07T10:10:00", "locator": "table 2", "reviewed_excerpt": "The report gives a current market-size datapoint with geography and scope."},
-            {"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-002.md", "captured_at": "2026-06-07T10:11:00", "locator": "section 3", "reviewed_excerpt": "The source describes where value accrues across the example industry chain."},
+                {"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-001.md", "captured_at": "2026-06-07T10:10:00", "locator": "table 2, current market-size row with geography and scope columns", "reviewed_excerpt": "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit."},
+                {"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-002.md", "captured_at": "2026-06-07T10:11:00", "locator": "section 3, value-chain economics paragraph and margin-pool discussion", "reviewed_excerpt": "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit."},
         ],
     }
     _write_json(archive_dir / "source_archive_index.json", source_archive_index)

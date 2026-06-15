@@ -187,6 +187,22 @@ def render_quick_draft(run_dir: Path, *, template_path: Path, output: Path) -> d
         "This run contains an internal evidence-limited quick draft. It is not client-ready final delivery.\n",
         encoding="utf-8",
     )
+    run_flags = {
+        "schema_version": "run_flags_v1",
+        "research_gate": 0,
+        "issue_analysis_layer": 0,
+        "quality_gate": 0,
+        "source_run_dir": str(run_dir),
+        "output_run_dir": str(run_dir),
+        "package_of_record": str(run_dir),
+        "debug_output_only": True,
+        "debug_reason": "evidence_limited_quick_draft_not_client_ready",
+        "draft_output_only": True,
+        "pipeline_entrypoint": "scripts/output/quick_render_from_page_arguments.py",
+        "preflight_skipped": True,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _write_json(run_dir / "artifacts" / "run_flags.json", run_flags)
     manifest = {
         "schema_version": "quick_draft_manifest_v1",
         "created_at": datetime.now(timezone.utc).isoformat(),

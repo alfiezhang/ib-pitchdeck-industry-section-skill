@@ -112,7 +112,9 @@ class TestWorkflowNextCommands:
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
         assert commands and "scripts/knowledge-repository/export_research_pack_from_db.py" in commands[0]["command"], commands
         validation_cmds = [c["command"] for c in commands if "validate_research_pack.py" in c["command"]]
-        assert validation_cmds and "--source-registry configs/source_registry.json" in validation_cmds[0], validation_cmds
+        assert validation_cmds and "--source-registry" in validation_cmds[0], validation_cmds
+        assert "/configs/source_registry.json" in validation_cmds[0], validation_cmds
+        assert "configs/source_registry.json --source-registry" not in validation_cmds[0], validation_cmds
 
     def test_replacement_dict_commands(self, _pipeline_run_dir):
         from workflow import recommended_commands

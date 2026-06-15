@@ -250,7 +250,9 @@ def test_workflow_next_produces_pack_stage_repair_commands(tmp_path: Path) -> No
     command_text = "\n".join(item["command"] for item in payload["recommended_next_commands"])
     assert "export_research_pack_from_db.py" in command_text, payload["recommended_next_commands"]
     assert "validate_research_pack.py" in command_text, payload["recommended_next_commands"]
-    assert "--source-registry configs/source_registry.json" in command_text, payload["recommended_next_commands"]
+    assert "--source-registry" in command_text, payload["recommended_next_commands"]
+    assert "/configs/source_registry.json" in command_text, payload["recommended_next_commands"]
+    assert "configs/source_registry.json --source-registry" not in command_text, payload["recommended_next_commands"]
 
 
 def test_workflow_next_empty_run_returns_input_card_missing(tmp_path: Path) -> None:

@@ -165,6 +165,17 @@ def _path_is_within_run(path: Path, run_dir: Path) -> bool:
         return False
 
 
+def _archive_reviewed_excerpt_text(text: str) -> str:
+    """Return the human-reviewed excerpt body from a markdown archive snapshot."""
+    marker = "## Reviewed Excerpt / Faithful Paraphrase"
+    if marker not in text:
+        return ""
+    body = text.split(marker, 1)[1]
+    if "## Archive Note" in body:
+        body = body.split("## Archive Note", 1)[0]
+    return body.strip()
+
+
 def _entry_by_review_id(entries: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], list[str]]:
     by_id: dict[str, dict[str, Any]] = {}
     errors: list[str] = []
@@ -264,6 +275,30 @@ def validate(
             minimum_size = 80 if status == "excerpt_snapshot" else 160
             if size < minimum_size:
                 errors.append(f"{review_id}: archive file is too small to support later review: {archive_path}")
+            if status == "excerpt_snapshot":
+                locator = _text(entry.get("locator"))
+                reviewed_excerpt = _text(entry.get("reviewed_excerpt") or entry.get("excerpt"))
+                if len(locator) < 8:
+                    errors.append(
+                        f"{review_id}: excerpt_snapshot requires a locator/page/section/table reference; "
+                        "a URL/title-only archive is not enough."
+                    )
+                if len(reviewed_excerpt) < 40:
+                    errors.append(
+                        f"{review_id}: excerpt_snapshot requires reviewed_excerpt of at least 40 characters; "
+                        "search snippets or title-only notes cannot become evidence."
+                    )
+                try:
+                    archive_text = resolved.read_text(encoding="utf-8", errors="ignore")
+                except OSError as exc:
+                    errors.append(f"{review_id}: cannot read archive_path {archive_path}: {exc}")
+                    return
+                archived_excerpt = _archive_reviewed_excerpt_text(archive_text)
+                if len(archived_excerpt) < 40:
+                    errors.append(
+                        f"{review_id}: archive file must contain a substantive Reviewed Excerpt / Faithful Paraphrase section; "
+                        "metadata-only source snapshots are not acceptable."
+                    )
             saved_count += 1
         elif status == "archive_unavailable":
             reason = _text(entry.get("archive_unavailable_reason"))

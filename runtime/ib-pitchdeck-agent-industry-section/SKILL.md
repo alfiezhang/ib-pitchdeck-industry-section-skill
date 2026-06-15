@@ -78,6 +78,8 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 
    This path must be labeled `DRAFT_NOT_CLIENT_READY`.
    - Do not create ad-hoc render scripts in the user's run directory.
+   - Do not create fake formal artifacts just to make a draft visible. If formal research, evidence DB, issue analysis, deck blueprint, renderer spec, or replacement dict are not ready, leave them absent or clearly incomplete and use the quick-draft path from `page_argument_pack.json`.
+   - The quick-draft path still follows template selection: user-provided PPT/POTX first, bundled template otherwise.
 
 ## Two Loops To Use
 
@@ -144,6 +146,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - Buyer perspective and transaction relevance are visible where appropriate.
 - A user-provided PPT template is honored; otherwise the bundled template is used.
 - Final output status is honest: client-ready, evidence-limited draft, or blocked.
+- If output is not final client-ready, the handoff includes the current `state_report.py next` stage and the owner role that must repair the run.
 
 ## Failure Modes To Avoid
 
@@ -153,5 +156,6 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - Moving unexecuted or not-material research coverage into the evidence binder.
 - Turning hypotheses into headlines.
 - Rendering a PPT directly from raw research without page arguments.
+- Writing draft-only or off-schema formal artifacts to bypass the formal workflow.
 - Hand-editing `template_profile.json`, `renderer_spec.json`, `replacement_dict.json`, or final flags to hide upstream issues.
 - Claiming a formal delivery when the run is only a draft or when QC has identified unresolved client-readiness problems.

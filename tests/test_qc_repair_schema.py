@@ -207,3 +207,29 @@ def test_qc_router_writes_warning_disposition_file(tmp_path: Path) -> None:
     warning = payload["warnings"][0]
     assert warning["repair_owner"] == "template"
     assert warning["disposition"] == "unresolved"
+
+
+def test_qc_router_detects_ad_hoc_python_ppt_renderer(tmp_path: Path) -> None:
+    work_root = tmp_path / "work"
+    run_dir = work_root / "runs" / "sample_case"
+    tools_dir = work_root / "tools"
+    run_dir.mkdir(parents=True)
+    tools_dir.mkdir(parents=True)
+    (tools_dir / "build_base_makeup_deck.py").write_text(
+        "from pptx import Presentation\n"
+        "prs = Presentation()\n"
+        "prs.save('base_makeup_brand_industry_section_EVIDENCE_LIMITED_DRAFT.pptx')\n",
+        encoding="utf-8",
+    )
+    output = run_dir / "artifacts" / "qc_router_report.json"
+
+    result = _run("qc_router.py", ["--run-dir", str(run_dir), "--output", str(output)])
+
+    assert result.returncode == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    ad_hoc = [issue for issue in payload["issues"] if "ad-hoc PPT renderer" in issue.get("message", "")]
+    assert ad_hoc, payload
+    assert ad_hoc[0]["repair_owner"] == "output"
+    brief = json.loads((output.parent / "qc_repair_brief.json").read_text(encoding="utf-8"))
+    root_causes = {item["root_cause_id"] for item in brief["root_cause_groups"]}
+    assert "ad_hoc_renderer" in root_causes

@@ -102,6 +102,91 @@ def _validation_reports_for_run(run_dir: Path) -> list[Path]:
     return paths
 
 
+def _candidate_user_tool_roots(run_dir: Path) -> list[Path]:
+    roots: list[Path] = []
+    candidates = [
+        run_dir,
+        run_dir / "tools",
+        run_dir.parent / "tools",
+    ]
+    if len(run_dir.parents) >= 2:
+        candidates.append(run_dir.parent.parent / "tools")
+    if len(run_dir.parents) >= 3:
+        candidates.append(run_dir.parent.parent.parent / "tools")
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except Exception:
+            continue
+        if resolved.exists() and resolved.is_dir() and resolved not in roots:
+            roots.append(resolved)
+    return roots
+
+
+def _looks_like_ad_hoc_renderer(path: Path) -> bool:
+    name = path.name.lower()
+    if name in {"render_deck.py", "generate_ppt.py", "build_deck.py"}:
+        return True
+    if re.fullmatch(r"(build|render|generate|make)_[a-z0-9_\-]*(deck|ppt|pptx)[a-z0-9_\-]*\.py", name):
+        return True
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return False
+    return "Presentation(" in text and "pptx" in text.lower()
+
+
+def _ad_hoc_renderer_issues_for_run(run_dir: Path) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    for root in _candidate_user_tool_roots(run_dir):
+        for path in sorted(root.rglob("*.py")):
+            try:
+                resolved = path.resolve()
+            except Exception:
+                continue
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            resolved_text = resolved.as_posix()
+            if "ib-pitchdeck-agent-industry-section" in resolved_text and "/runtime/" in resolved_text:
+                continue
+            if not _looks_like_ad_hoc_renderer(resolved):
+                continue
+            artifact = resolved_text
+            try:
+                artifact = str(resolved.relative_to(run_dir))
+            except Exception:
+                pass
+            issues.append(
+                {
+                    "issue_id": "QC-000",
+                    "severity": "blocking",
+                    "layer": "output",
+                    "artifact": artifact,
+                    "field_path": "local_tools",
+                    "message": (
+                        "ad-hoc PPT renderer detected. This run appears to have a local python-pptx deck script "
+                        "outside the official Output path."
+                    ),
+                    "why_it_matters": (
+                        "Ad-hoc renderers bypass template selection, draft markers, evidence contracts, token checks, "
+                        "and final delivery status."
+                    ),
+                    "repair_owner": "output",
+                    "repair_action": (
+                        "Use scripts/output/quick_render_from_page_arguments.py for evidence-limited drafts, "
+                        "or scripts/pipeline.py render for formal delivery. Do not report this local renderer's PPT as a skill output."
+                    ),
+                    "rerun_command": f"$PYTHON_CMD scripts/qc/qc_router.py --run-dir {run_dir}",
+                    "downstream_blocked": True,
+                    "forbidden_action": "Do not describe PPTs created by local ad-hoc render scripts as skill outputs.",
+                    "downstream_limit": "Only official quick/formal renderer outputs may be reported as workflow outputs.",
+                }
+            )
+    return issues
+
+
 def _warning_issues_for_run(run_dir: Path) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     for report_path in _validation_reports_for_run(run_dir):
@@ -161,6 +246,7 @@ def payload_for_run(run_dir: Path) -> dict[str, Any]:
     payload["repair_schema_version"] = normalized["schema_version"]
     issues = list(normalized["issues"])
     issues.extend(_warning_issues_for_run(run_dir))
+    issues.extend(_ad_hoc_renderer_issues_for_run(run_dir))
     issues = _renumber_issues(issues)
     blocking_count = sum(
         1
@@ -252,6 +338,12 @@ def _root_cause_key(issue: dict[str, Any]) -> tuple[str, str, str]:
             "metric_binding",
             "Visible metric is not bound to a material claim location",
             "Generation/Research should bind the metric to a claim or remove it from client-facing copy.",
+        )
+    if "ad-hoc ppt renderer" in message or "python-pptx deck script" in message:
+        return (
+            "ad_hoc_renderer",
+            "Local ad-hoc PPT renderer bypassed the official Output path",
+            "Output should use the official quick draft renderer or formal pipeline; local renderer output must stay outside delivery.",
         )
     return (
         f"{owner}_repair",

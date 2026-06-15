@@ -333,6 +333,43 @@ class TestSourceReviews:
         )
         assert result["is_valid"], result
 
+    def test_source_archive_rejects_metadata_only_excerpt_snapshot(self, tmp_path):
+        from validate_source_archive import validate as validate_source_archive
+        run_dir = tmp_path / "run"
+        archive_dir = run_dir / "artifacts" / "source_archive"
+        archive_dir.mkdir(parents=True)
+        (archive_dir / "SRC-001.md").write_text(
+            "# SRC-001 Source Archive Snapshot\n\n"
+            "- Title: Example source\n"
+            "- URL: https://example.com/source\n\n"
+            "## Archive Note\n\nMetadata only.\n",
+            encoding="utf-8",
+        )
+        index_path = archive_dir / "source_archive_index.json"
+        _write_json(
+            index_path,
+            {
+                "schema_version": "source_archive_index_v1",
+                "entries": [
+                    {
+                        "source_review_id": "SRC-001",
+                        "url": "https://example.com/source",
+                        "title": "Example source",
+                        "archive_status": "excerpt_snapshot",
+                        "archive_path": "artifacts/source_archive/SRC-001.md",
+                        "locator": "",
+                        "reviewed_excerpt": "",
+                    }
+                ],
+            },
+        )
+
+        result = validate_source_archive(source_archive_index_path=index_path, run_dir=run_dir)
+
+        assert result["is_valid"] is False, result
+        assert any("reviewed_excerpt" in error for error in result["errors"]), result
+        assert any("Reviewed Excerpt" in error for error in result["errors"]), result
+
 
 # ---------------------------------------------------------------------------
 # Formal execution report edge cases

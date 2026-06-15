@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -183,3 +186,37 @@ def test_ingest_materials_end_to_end_from_multiple_sources(tmp_path: Path) -> No
     assert any("PPTX extraction smoke" in value for value in previews)
     assert any("Industry" in value for value in previews)
     assert any("URL extraction smoke" in value for value in previews)
+
+
+def test_start_case_from_brief_runs_from_arbitrary_cwd_without_pythonpath(tmp_path: Path) -> None:
+    script = SCRIPT_DIR / "start_case_from_brief.py"
+    run_dir = tmp_path / "work" / "runs" / "sample_case"
+    env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--case-name",
+            "sample_case",
+            "--run-dir",
+            str(run_dir),
+            "--brief-text",
+            "A short Chinese base makeup brand control-sale brief.",
+            "--industry",
+            "base makeup",
+            "--geography",
+            "China",
+        ],
+        cwd=str(tmp_path),
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["run_dir"] == str(run_dir.resolve())
+    assert (run_dir / "input_card.json").exists()
+    assert (run_dir / "artifacts" / "material_manifest.json").exists()
+    assert (run_dir / "artifacts" / "material_extracts.json").exists()

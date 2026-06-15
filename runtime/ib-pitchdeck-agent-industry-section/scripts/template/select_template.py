@@ -18,11 +18,11 @@ from pathlib import Path as _IbPath
 _IB_ROLE_SCRIPT_DIR = _IbPath(__file__).resolve().parent
 _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
-    if (_p / "configs").is_dir() and (_p / "skills").is_dir() and (_p / "scripts").is_dir()
+    if (_p / "configs").is_dir() and (_p / "scripts").is_dir()
 )
 _IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
-_IB_ROLE_SCRIPT_DIRS = sorted((_IB_RUNTIME_ROOT / "skills").glob("*/scripts"))
-_IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / "skills" / "qc" / "scripts" / "validators").glob("*"))
+_IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / "scripts").iterdir() if _p.is_dir())
+_IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / "scripts" / "qc" / "validators").glob("*"))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
 for _ib_dir in [*_IB_ROLE_SCRIPT_DIRS, *_IB_QC_VALIDATOR_DIRS]:
     _ib_text = str(_ib_dir)
