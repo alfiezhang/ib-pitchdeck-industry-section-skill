@@ -109,7 +109,7 @@ class TestFinalDeliveryIssueArtifacts:
 class TestUpstreamFailurePropagation:
     @pytest.fixture
     def bad_upstream_run(self, deck_blueprint_path, template_registry_path, tmp_path):
-        """Create a run directory with failed source_reviews_validation."""
+        """Create a run directory with failed source_archive_validation."""
         run_dir = tmp_path / "bad_upstream_run"
         artifacts = run_dir / "artifacts"
         artifacts.mkdir(parents=True)

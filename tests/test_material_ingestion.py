@@ -12,10 +12,14 @@ import sys
 from unittest.mock import patch
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
-sys.path.insert(0, str(SCRIPT_DIR))
+ROLE_DIR = SCRIPT_DIR / "material-intake"
+LIB_DIR = SCRIPT_DIR / "_lib"
+for path in (SCRIPT_DIR, ROLE_DIR, LIB_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
-import extract_web_url  # noqa: E402
 from ingest_materials import ingest_materials  # noqa: E402
+import material_extractors  # noqa: E402
 
 
 def _write_minimal_pdf(path: Path) -> None:
@@ -131,7 +135,7 @@ def test_ingest_materials_end_to_end_from_multiple_sources(tmp_path: Path) -> No
         "<html><body><h1>URL Source</h1><p>This is URL extraction smoke.</p></body></html>"
     ).encode("utf-8")
 
-    with patch.object(extract_web_url, "urlopen", return_value=_MockResponse(html_body)):
+    with patch.object(material_extractors, "urlopen", return_value=_MockResponse(html_body)):
         manifest, extracts, source_classification = ingest_materials(
             brief_text="Industry brief includes customer segment and geography context.",
             files=[str(tmp_path / "sample.pdf"), str(tmp_path / "sample.pptx"), str(tmp_path / "sample.xlsx")],

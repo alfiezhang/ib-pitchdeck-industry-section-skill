@@ -11,7 +11,7 @@ This skill helps create the **industry section of a pre-mandate client pitchbook
 
 The default engagement setting is **pre-mandate client pitch**. The output should show the potential client that the bank understands the industry, the target's position, the likely buyer lens, and the transaction story. Do not write it like a CIM, diligence report, investor memo, or signed-engagement workplan unless the user explicitly changes the deliverable.
 
-Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and format validation. They do not replace your judgment. Dashboards such as `state_report.py` and `gate_report.py` are instruments, not autopilots.
+Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and format validation. They do not replace your judgment. Dashboards such as `state_report.py` and `qc/gate_report.py` are instruments, not autopilots.
 
 When a task is narrow enough to delegate or isolate, use a role job packet: the parent agent prepares the packet, the worker handles only that packet, and the parent integrates the result. Do not hand off the whole workflow.
 
@@ -20,7 +20,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 1. Establish the engagement context.
    - Treat the work as a pre-mandate client pitch unless told otherwise.
    - Use only user materials and public evidence. Do not imply confidential diligence access.
-   - Decide whether the user expects a formal client-ready PPT or an evidence-limited internal draft.
+   - Decide whether the user expects a formal client-ready PPT. If evidence is not ready, report the missing owner-role repair instead of rendering a shortcut deck.
 
 2. Ingest the material.
    - Preserve the user's brief exactly before summarizing it.
@@ -51,7 +51,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 6. Form banker judgment.
    - Convert evidence into supported judgments, hypotheses, research requests, buyer concerns, deliverable-depth decisions, and page arguments.
    - Do not let a hypothesis become a conclusion. Resolve each hypothesis as supported, directional, caveat-only, unresolved, or research-needed.
-   - If evidence is too thin for a client-ready section, say so and choose an evidence-limited draft path instead of pretending the deck is complete.
+   - If evidence is too thin for a client-ready section, say so and route repair to Research, Knowledge, or Reasoning. Do not render a shortcut deck from incomplete artifacts.
 
 7. Generate page arguments and slide drafts.
    - Start from page/section arguments, not from raw research notes.
@@ -70,16 +70,9 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 
 10. Render and report.
    - Formal delivery should go through the evidence, reasoning, generation, template, QC, and output path.
-   - For an internal quick draft from page arguments, use the bundled draft renderer:
-
-   ```bash
-   python3 scripts/output/quick_render_from_page_arguments.py --run-dir "<run_dir>"
-   ```
-
-   This path must be labeled `DRAFT_NOT_CLIENT_READY`.
    - Do not create ad-hoc render scripts in the user's run directory.
-   - Do not create fake formal artifacts just to make a draft visible. If formal research, evidence DB, issue analysis, deck blueprint, renderer spec, or replacement dict are not ready, leave them absent or clearly incomplete and use the quick-draft path from `page_argument_pack.json`.
-   - The quick-draft path still follows template selection: user-provided PPT/POTX first, bundled template otherwise.
+   - Do not create fake formal artifacts just to make a deck visible. If formal research, evidence DB, issue analysis, deck blueprint, renderer spec, or replacement dict are not ready, leave them absent or clearly incomplete and report the current blocker.
+   - There is no alternate renderer. A visible PPT should come only from the formal render path after required upstream artifacts are ready.
 
 ## Two Loops To Use
 
@@ -112,7 +105,7 @@ python3 scripts/state_report.py next --run-dir "<run_dir>"
 Use the QC dashboard when multiple issues need triage:
 
 ```bash
-python3 scripts/gate_report.py --run-dir "<run_dir>" --output "<run_dir>/artifacts/gate_report.json" --markdown-output "<run_dir>/artifacts/gate_report.md"
+python3 scripts/qc/gate_report.py --run-dir "<run_dir>" --output "<run_dir>/artifacts/gate_report.json" --markdown-output "<run_dir>/artifacts/gate_report.md"
 ```
 
 These reports should help you decide the next repair. They are not a substitute for banker judgment.
@@ -145,7 +138,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - The deck contains real banker page arguments, not a thin list of caveats.
 - Buyer perspective and transaction relevance are visible where appropriate.
 - A user-provided PPT template is honored; otherwise the bundled template is used.
-- Final output status is honest: client-ready, evidence-limited draft, or blocked.
+- Final output status is honest: client-ready or blocked/not client-ready.
 - If output is not final client-ready, the handoff includes the current `state_report.py next` stage and the owner role that must repair the run.
 
 ## Failure Modes To Avoid

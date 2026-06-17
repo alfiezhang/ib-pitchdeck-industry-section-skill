@@ -9,3 +9,4 @@ Scripts:
 - `fill_ppt_tokens.py`
 - `generate_replacement_dict.py`
 - `postprocess_ppt_visuals.py`
+- `update_runs_index.py`

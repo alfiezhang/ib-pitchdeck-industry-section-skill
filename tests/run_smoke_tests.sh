@@ -12,9 +12,9 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 cd "$SKILL_DIR"
 
 "$PYTHON_CMD" -m compileall -q scripts
-bash -n run_pipeline.sh setup.sh "$ROOT_DIR/tests/run_contract_tests.sh"
+bash -n run_pipeline.sh setup.sh
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck run_pipeline.sh setup.sh "$ROOT_DIR/tests/run_contract_tests.sh" "$ROOT_DIR/tests/run_smoke_tests.sh"
+  shellcheck run_pipeline.sh setup.sh "$ROOT_DIR/tests/run_smoke_tests.sh"
 fi
 
 if bash run_pipeline.sh --no-research-gate --renderer-spec "$TMP_DIR/missing_renderer_spec.json" >/dev/null 2>"$TMP_DIR/no_research_gate.err"; then
@@ -51,10 +51,10 @@ if ! grep -q "DEBUG_NOT_FOR_DELIVERY" "$TMP_DIR/bad_debug_ppt_name.err"; then
   exit 1
 fi
 
-"$PYTHON_CMD" scripts/qc/check_json_files.py --root . >/dev/null
-"$PYTHON_CMD" scripts/qc/check_artifact_manifest.py >/dev/null
-"$PYTHON_CMD" scripts/template/check_slide_registry.py >/dev/null
-"$PYTHON_CMD" scripts/template/check_registry_coverage.py >/dev/null
+"$PYTHON_CMD" "$ROOT_DIR/devtools/checks/check_json_files.py" --root . >/dev/null
+"$PYTHON_CMD" "$ROOT_DIR/devtools/checks/check_artifact_manifest.py" >/dev/null
+"$PYTHON_CMD" "$ROOT_DIR/devtools/checks/check_slide_registry.py" >/dev/null
+"$PYTHON_CMD" "$ROOT_DIR/devtools/checks/check_registry_coverage.py" >/dev/null
 "$PYTHON_CMD" scripts/template/check_template_tokens.py \
   --template assets/industry_section_template_master.pptx \
   --ppt-mapping configs/ppt_mapping.json \

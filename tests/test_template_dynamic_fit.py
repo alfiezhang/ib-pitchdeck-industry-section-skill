@@ -175,48 +175,6 @@ def test_select_template_runs_from_arbitrary_cwd_without_pythonpath(tmp_path: Pa
     assert payload["selected_template_exists"] is True
 
 
-def test_quick_render_from_page_arguments_marks_draft_and_writes_run_flags(tmp_path: Path) -> None:
-    script = SCRIPT_DIR / "output" / "quick_render_from_page_arguments.py"
-    run_dir = tmp_path / "run"
-    artifacts = run_dir / "artifacts"
-    artifacts.mkdir(parents=True)
-    _write_json(
-        artifacts / "page_argument_pack.json",
-        {
-            "schema_version": "page_argument_pack_v1",
-            "page_arguments": [
-                {
-                    "page_argument": "Base makeup brand draft page argument",
-                    "source_issue_analysis_id": "IA-001",
-                    "evidence_status": "directional",
-                    "allowed_deck_usage": "body_only",
-                    "evidence_ids": ["EV-001"],
-                    "metric_ids": [],
-                    "caveat_or_diligence_question": "Evidence remains directional.",
-                }
-            ],
-        },
-    )
-    env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
-
-    result = subprocess.run(
-        [sys.executable, str(script), "--run-dir", str(run_dir)],
-        cwd=str(tmp_path),
-        text=True,
-        capture_output=True,
-        env=env,
-    )
-
-    assert result.returncode == 0, result.stderr or result.stdout
-    assert (run_dir / "industry_section_QUICK_DRAFT_NOT_CLIENT_READY.pptx").exists()
-    assert (run_dir / "DRAFT_NOT_CLIENT_READY.txt").exists()
-    run_flags = json.loads((artifacts / "run_flags.json").read_text(encoding="utf-8"))
-    assert run_flags["draft_output_only"] is True
-    assert run_flags["debug_output_only"] is True
-    manifest = json.loads((artifacts / "quick_draft_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["client_ready"] is False
-
-
 def test_template_fit_outputs_plan_and_blocks_capacity_conflict(tmp_path: Path) -> None:
     profile_path = tmp_path / "template_profile.json"
     renderer_path = tmp_path / "renderer_spec.json"

@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -77,7 +77,6 @@ UPSTREAM_VALIDATION_ARTIFACTS = (
     "artifacts/industry_scope_pack_validation.json",
     "artifacts/formal_search_plan_validation.json",
     "artifacts/formal_research_execution_validation.json",
-    "artifacts/source_reviews_validation.json",
     "artifacts/source_archive_validation.json",
     "artifacts/stage_gate_pre_research_pack_validation.json",
     "artifacts/research_pack_validation.json",
@@ -151,8 +150,7 @@ def _active_fields_hint(slide_no: int, page_type: str, fields: list[str]) -> str
     allowed = ", ".join(fields) if fields else "(none)"
     return (
         f"Allowed active body fields: {allowed}. "
-        "Use one of these values, or remove target_field and let the compiler map by role. "
-        f"Inspect with: python scripts/generation/describe_slide_fields.py --slide-no {slide_no} --page-type {page_type}"
+        "Use one of these values, or remove target_field and let the compiler map by role."
     )
 
 

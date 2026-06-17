@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -42,12 +42,11 @@ def main() -> int:
     parser.add_argument("--formal-search-plan", required=True)
     parser.add_argument("--formal-research-execution-report", required=True)
     parser.add_argument("--source-archive-index", required=True)
-    parser.add_argument("--source-reviews", help="Optional legacy/enrichment source_reviews.json")
     parser.add_argument("--material-manifest")
     parser.add_argument("--material-extracts")
     parser.add_argument(
         "--repository-sources",
-        help="Optional repository_retrieve output (JSON dict or list) used as repo-backed source material",
+        help="Optional repository.py retrieve output (JSON dict or list) used as repo-backed source material",
     )
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
@@ -57,7 +56,7 @@ def main() -> int:
         scope_pack=load_optional_json(args.scope_pack),
         formal_search_plan=load_optional_json(args.formal_search_plan),
         execution_report=load_optional_json(args.formal_research_execution_report),
-        source_reviews=load_optional_json(args.source_reviews),
+        source_reviews={},
         source_archive_index=load_optional_json(args.source_archive_index),
         material_manifest=load_optional_json(args.material_manifest),
         material_extracts=load_optional_json(args.material_extracts),

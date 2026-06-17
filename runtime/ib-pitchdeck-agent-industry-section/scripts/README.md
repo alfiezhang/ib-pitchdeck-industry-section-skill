@@ -1,43 +1,34 @@
 # Runtime Scripts
 
-Role agents should use production entrypoints under:
+Do not treat this folder as a menu. Most files here are internal helpers,
+validators, or deterministic render utilities. The main agent should start from
+`SKILL.md`, read the relevant `references/*.md`, and use only the entrypoint
+named by the current role or QC repair brief.
 
-```text
-scripts/<role>/
-```
+## Public Agent Surface
 
-This `scripts/` tree contains:
+Normal agent work should use only:
 
-- public shared control scripts such as `state_report.py`, `gate_report.py`, and
-  `pipeline.py`;
-- shared utility modules imported by multiple roles;
-- role production scripts under `scripts/<role>/`;
-- QC validators under `scripts/qc/validators/`;
-- packaging, install, and shared support modules.
-
-Do not browse this entire directory during normal agent work. Use
-`state_report.py next` as the dashboard, use `gate_report.py` when several checks
-or warnings need one root-cause view, then use the owner role document under
-`references/`.
-
-Shared runtime/orchestration scripts stay here, including:
-
-- `state_report.py`
-- `gate_report.py`
-- `pipeline.py`
-- `workflow.py` as a legacy alias for `state_report.py`
-- `bootstrap_runtime.py`
-- shared modules such as `json_utils.py`, `issue_taxonomy.py`, and
-  `validation_common.py`
-
-Normal agent work should treat the public control surface as:
-
+- `start_case_from_brief.py` for one-shot text brief intake;
 - `state_report.py next` for observed state and owner routing;
-- `gate_report.py` for one aggregated root-cause / owner / next-action report;
+- `qc/gate_report.py` for one aggregated root-cause / owner / next-action report;
 - `pipeline.py rebuild-stale` for deterministic stale/failed aggregate chains;
 - `pipeline.py validate-pre-ppt`, `pipeline.py render`, and
   `pipeline.py finalize` for output readiness and delivery;
 - `scripts/qc/qc_router.py` for repair grouping.
+
+Everything else should be called only when a role reference, `state_report.py`,
+`qc/gate_report.py`, or QC repair brief names the exact script.
+
+## Internal Layout
+
+- root `scripts/*.py`: small public runtime entrypoints only.
+- `scripts/<role>/`: role production tools.
+- `scripts/qc/validators/<layer>/`: deterministic QC validators.
+- `scripts/_lib/`: shared imports used by multiple role tools; not commands.
+
+Install/package/manifest-check tooling lives in the repository-level
+`devtools/` folder and is not part of the installed runtime skill.
 
 All deterministic validators belong to QC:
 

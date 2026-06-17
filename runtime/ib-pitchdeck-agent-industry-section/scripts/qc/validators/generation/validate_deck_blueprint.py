@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -213,8 +213,7 @@ def _active_fields_hint(slide_no: int, page_type: str, fields: list[str]) -> str
     allowed = ", ".join(fields) if fields else "(none)"
     return (
         f"Allowed active body fields: {allowed}. "
-        "Use one of these values, or remove target_field and let the compiler map by role. "
-        f"Inspect with: python scripts/generation/describe_slide_fields.py --slide-no {slide_no} --page-type {page_type}"
+        "Use one of these values, or remove target_field and let the compiler map by role."
     )
 
 
@@ -328,7 +327,7 @@ def build_warning_repair_plan(warnings: list[str]) -> dict[str, Any]:
                     "warning": warning_text,
                     "repair_target": "deck_blueprint.json",
                     "repair_fields": ["slides[].body_blocks[].target_field"],
-                    "repair_hint": "Use only active fields listed in the validator message or describe_slide_fields.py for the selected page type.",
+                    "repair_hint": "Use only active fields listed in the validator message for the selected page type, or remove target_field and let generation map by role.",
                 }
             )
     if not targets:

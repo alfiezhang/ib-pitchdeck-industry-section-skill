@@ -10,16 +10,18 @@ import sys
 import zipfile
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
-RUNTIME_DIR = SCRIPT_DIR.parent
-QC_SYSTEM_VALIDATOR_DIR = RUNTIME_DIR / "scripts" / "qc" / "validators" / "system"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_DIR = REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
+SCRIPT_DIR = RUNTIME_DIR / "scripts"
+DEVTOOLS_PACKAGE = REPO_ROOT / "devtools" / "package"
+DEVTOOLS_INSTALL = REPO_ROOT / "devtools" / "install"
 
 
 def _script_path(script: str) -> Path:
-    for candidate in (SCRIPT_DIR / script, QC_SYSTEM_VALIDATOR_DIR / script):
+    for candidate in (DEVTOOLS_PACKAGE / script, DEVTOOLS_INSTALL / script, SCRIPT_DIR / script):
         if candidate.exists():
             return candidate
-    return SCRIPT_DIR / script
+    return DEVTOOLS_PACKAGE / script
 
 
 def _run(script: str, args: list[str]) -> subprocess.CompletedProcess:
@@ -28,7 +30,7 @@ def _run(script: str, args: list[str]) -> subprocess.CompletedProcess:
         cwd=str(RUNTIME_DIR),
         text=True,
         capture_output=True,
-        env={**os.environ, "PYTHONPATH": os.pathsep.join([str(SCRIPT_DIR), str(QC_SYSTEM_VALIDATOR_DIR)])},
+        env={**os.environ, "PYTHONPATH": os.pathsep.join([str(SCRIPT_DIR), str(DEVTOOLS_PACKAGE), str(DEVTOOLS_INSTALL)])},
     )
 
 

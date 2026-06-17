@@ -7,8 +7,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+DEVTOOLS_DIAGNOSTICS = ROOT / "devtools" / "diagnostics"
+for path in (SCRIPT_DIR, DEVTOOLS_DIAGNOSTICS):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from conftest import _rewrite_plan_queries_for_contract_test  # noqa: E402
 
@@ -51,7 +53,7 @@ from validate_final_delivery import _looks_like_research_error, _template_layer_
 from validate_formal_search_plan import validate as validate_formal_search_plan  # noqa: E402
 from validate_input_card import validate as validate_input_card  # noqa: E402
 from validate_run_state import validate_run_state  # noqa: E402
-from workflow import next_payload  # noqa: E402
+from state_report import next_payload  # noqa: E402
 
 
 def test_finalize_short_circuits_on_validation_failure(tmp_path: Path) -> None:
@@ -277,8 +279,6 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     (artifacts / "industry_scope_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "formal_search_plan.json").write_text("{}", encoding="utf-8")
     (artifacts / "formal_search_plan_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
-    (artifacts / "source_reviews.json").write_text("{}", encoding="utf-8")
-    (artifacts / "source_reviews_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "source_archive").mkdir(parents=True, exist_ok=True)
     (artifacts / "source_archive" / "source_archive_index.json").write_text("{}", encoding="utf-8")
     (artifacts / "source_archive_validation.json").write_text('{"is_valid": true}', encoding="utf-8")

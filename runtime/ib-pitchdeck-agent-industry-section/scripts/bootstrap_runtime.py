@@ -26,7 +26,7 @@ from typing import Optional
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VENV_DIR = REPO_ROOT / ".venv"
 REQUIREMENTS = REPO_ROOT / "requirements.txt"
-CHECK_SCRIPT = REPO_ROOT / "scripts" / "check_runtime_dependencies.py"
+CHECK_SCRIPT = REPO_ROOT / "scripts" / "qc" / "check_runtime_dependencies.py"
 
 PREFERRED_INTERPRETERS = [
     "python3.11",

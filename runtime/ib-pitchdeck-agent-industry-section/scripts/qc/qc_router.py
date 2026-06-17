@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -175,13 +175,13 @@ def _ad_hoc_renderer_issues_for_run(run_dir: Path) -> list[dict[str, Any]]:
                     ),
                     "repair_owner": "output",
                     "repair_action": (
-                        "Use scripts/output/quick_render_from_page_arguments.py for evidence-limited drafts, "
-                        "or scripts/pipeline.py render for formal delivery. Do not report this local renderer's PPT as a skill output."
+                        "Delete the local renderer and repair upstream artifacts until scripts/pipeline.py render can be used for formal delivery. "
+                        "Do not report this local renderer's PPT as a skill output."
                     ),
                     "rerun_command": f"$PYTHON_CMD scripts/qc/qc_router.py --run-dir {run_dir}",
                     "downstream_blocked": True,
                     "forbidden_action": "Do not describe PPTs created by local ad-hoc render scripts as skill outputs.",
-                    "downstream_limit": "Only official quick/formal renderer outputs may be reported as workflow outputs.",
+                    "downstream_limit": "Only formal pipeline renderer outputs may be reported as workflow outputs.",
                 }
             )
     return issues
@@ -343,7 +343,7 @@ def _root_cause_key(issue: dict[str, Any]) -> tuple[str, str, str]:
         return (
             "ad_hoc_renderer",
             "Local ad-hoc PPT renderer bypassed the official Output path",
-            "Output should use the official quick draft renderer or formal pipeline; local renderer output must stay outside delivery.",
+            "Output should use the formal pipeline only; local renderer output must stay outside delivery.",
         )
     return (
         f"{owner}_repair",

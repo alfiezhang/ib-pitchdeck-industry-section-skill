@@ -22,7 +22,7 @@ ROOT_DIR = next(
 )
 ROLE_SCRIPT_DIRS = sorted(path for path in (ROOT_DIR / "scripts").iterdir() if path.is_dir())
 QC_VALIDATOR_DIRS = sorted((ROOT_DIR / "scripts" / "qc" / "validators").glob("*"))
-for path in [*ROLE_SCRIPT_DIRS, *QC_VALIDATOR_DIRS, ROOT_DIR / "scripts"]:
+for path in [*ROLE_SCRIPT_DIRS, *QC_VALIDATOR_DIRS, ROOT_DIR / "scripts" / "_lib"]:
     text_path = str(path)
     if text_path not in sys.path:
         sys.path.insert(0, text_path)

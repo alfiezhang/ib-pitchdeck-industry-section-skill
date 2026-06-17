@@ -160,7 +160,7 @@ in the execution report. Do not write the execution report from the plan alone.
 Prefer the append helper instead of hand-editing search numbering:
 
 ```bash
-"$PYTHON_CMD" scripts/research-external-evidence/append_search_attempt.py \
+"$PYTHON_CMD" scripts/research-external-evidence/search_log.py append \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
   --query "<exact query actually searched>" \
   --stage formal_research_execution \
@@ -172,9 +172,8 @@ Prefer the append helper instead of hand-editing search numbering:
 
 After actual searches are logged, archive opened/reviewed sources before
 Knowledge extraction. `source_archive` is the main Research-to-Knowledge
-handoff. Standalone `source_reviews.json` is compatibility/diagnostic only; new
-runs should place source review status, use tier, limitations, and claim-use
-scope inside `artifacts/research_evidence_db.json`.
+handoff. Source review status, use tier, limitations, and claim-use scope live
+inside `artifacts/research_evidence_db.json`.
 
 ```bash
 "$PYTHON_CMD" scripts/research-external-evidence/build_source_archive.py \
@@ -323,10 +322,9 @@ metrics:
 ## Source Archive And Embedded Source Review
 
 `search_log.md` records search execution. `source_archive/` records the opened
-source material that Knowledge can inspect. New runs should not create a
-standalone `source_reviews.json` as a required main-path artifact. Source-review
-decisions live inside `artifacts/research_evidence_db.json` under embedded
-source review/source material fields.
+source material that Knowledge can inspect. Source-review decisions live inside
+`artifacts/research_evidence_db.json` under embedded source review/source
+material fields.
 
 Root domains, search result snippets, or unreviewed pages are not formal
 evidence. Archive only what was actually opened/reviewed, with a URL, title,

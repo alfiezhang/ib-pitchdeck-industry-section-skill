@@ -7,8 +7,5 @@ Use these only when the knowledge-repository role or a QC repair brief names the
 Scripts:
 - `build_research_evidence_db.py`
 - `export_research_pack_from_db.py`
-- `repository_dedupe.py`
-- `repository_ingest.py`
-- `repository_retrieve.py`
-- `repository_validate.py`
+- `repository.py`
 - `research_evidence_db.py`

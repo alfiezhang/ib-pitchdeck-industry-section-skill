@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
+DEVTOOLS = ROOT / "devtools"
 
 
 def _manifest() -> dict:
@@ -26,7 +27,6 @@ def test_artifact_manifest_covers_main_mental_path() -> None:
         "boundary_loop_status",
         "formal_search_plan",
         "search_log",
-        "source_reviews",
         "source_archive",
         "formal_research_execution_report",
         "research_pack",
@@ -44,8 +44,6 @@ def test_artifact_manifest_covers_main_mental_path() -> None:
         "replacement_dict",
         "filled_ppt",
         "final_delivery",
-        "skill_package_validation",
-        "legacy_install_audit",
     ]
 
     missing = [name for name in required_path if name not in artifacts]
@@ -78,13 +76,13 @@ def test_state_report_commands_generate_incremental_and_template_fit_plan() -> N
     assert "--fit-plan-output {{run_dir}}/artifacts/template_fit_plan.json" in workflow_text
 
 
-def test_runtime_package_scripts_for_packaging_and_legacy_audit_are_registered() -> None:
+def test_development_package_scripts_are_outside_runtime() -> None:
     manifest = _manifest()
-    package = manifest["artifacts"]["skill_package_validation"]
-    legacy = manifest["artifacts"]["legacy_install_audit"]
-
-    assert package["builder"] == "scripts/qc/validators/system/validate_skill_package.py"
-    assert legacy["builder"] == "scripts/audit_legacy_installs.py"
-    assert (RUNTIME / "scripts" / "package_skill.py").exists()
-    assert (RUNTIME / "scripts" / "install_skill_local.py").exists()
-    assert (RUNTIME / "scripts" / "remove_legacy_installs.py").exists()
+    assert "skill_package_validation" not in manifest["artifacts"]
+    assert "legacy_install_audit" not in manifest["artifacts"]
+    assert not (RUNTIME / "scripts" / "package_skill.py").exists()
+    assert not (RUNTIME / "scripts" / "install_skill_local.py").exists()
+    assert not (RUNTIME / "scripts" / "remove_legacy_installs.py").exists()
+    assert (DEVTOOLS / "package" / "package_skill.py").exists()
+    assert (DEVTOOLS / "install" / "install_skill_local.py").exists()
+    assert (DEVTOOLS / "install" / "remove_legacy_installs.py").exists()

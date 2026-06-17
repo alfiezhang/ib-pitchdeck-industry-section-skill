@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build source_archive snapshots from actual searched or user-provided sources.
 
-The archive is the handoff from Research into Knowledge. It can be built
-directly from search_log.md selected/opened URLs, with source_reviews.json used
-only as an optional compatibility/enrichment input.
+The archive is the handoff from Research into Knowledge. It is built directly
+from search_log.md selected/opened URLs. Source usability is a Knowledge/QC
+judgment stored inside research_evidence_db.json, not a separate artifact.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -39,8 +39,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from json_utils import load_json_file
-from source_classification import is_material_type, normalize_source_type
+from material_intake_common import normalize_source_type
 from validate_formal_research_execution import parse_search_attempts
 
 
@@ -64,61 +63,6 @@ def _as_list(value: Any) -> list[Any]:
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
-
-
-def _is_user_source(review: dict[str, Any]) -> bool:
-    source_type = normalize_source_type(review.get("source_type"))
-    if is_material_type(source_type):
-        return True
-    if _text(review.get("source_access")).strip().lower() == "user_provided":
-        return True
-    value = _text(review.get("url"))
-    return value.strip().lower() in {"user-provided", "user provided", "input_card", "management", "company/user-provided"}
-
-
-def _first_present(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
-    for key in keys:
-        value = item.get(key)
-        if isinstance(value, str) and value.strip():
-            return value
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, list) and value:
-            return value
-        if value not in (None, ""):
-            return value
-    return None
-
-
-def _canonical_review(review: dict[str, Any]) -> dict[str, Any]:
-    canonical = dict(review)
-    aliases = {
-        "source_review_id": ("source_review_id", "review_id", "source_id", "id"),
-        "url": ("url", "source_url", "source", "source_link"),
-        "title": ("title", "source_title", "source_name", "name"),
-        "locator": ("locator", "source_locator", "location", "source_location"),
-        "excerpt": ("excerpt", "raw_excerpt", "reviewed_excerpt", "source_excerpt"),
-        "evidence_ids": ("evidence_ids", "ev_ids"),
-    }
-    for target, keys in aliases.items():
-        if target not in canonical or not _text(canonical.get(target)):
-            value = _first_present(review, keys)
-            if value not in (None, ""):
-                canonical[target] = value
-    return canonical
-
-
-def _load_reviews(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    data = load_json_file(path)
-    if isinstance(data, list):
-        raw = data
-    elif isinstance(data, dict):
-        raw = data.get("reviews") if "reviews" in data else data.get("source_reviews", [])
-    else:
-        raw = []
-    return [_canonical_review(item) for item in raw if isinstance(item, dict)]
 
 
 def _stage_is_formal(attempt: dict[str, str]) -> bool:
@@ -197,14 +141,6 @@ def _reviews_from_search_log(path: Path | None, *, starting_index: int, seen_url
     return reviews
 
 
-def _review_is_usable(review: dict[str, Any]) -> bool:
-    usable = review.get("usable_as_evidence")
-    if isinstance(usable, bool):
-        return usable
-    status = str(review.get("evidence_status") or review.get("status") or "").strip().lower()
-    return status in {"primary-reviewed", "secondary-reviewed", "reviewed", "usable"}
-
-
 def _markdown_snapshot(review: dict[str, Any], captured_at: str) -> str:
     source_review_id = _text(review.get("source_review_id"))
     title = _text(review.get("title")) or source_review_id
@@ -258,7 +194,6 @@ def _relative_archive_path(run_dir: Path, archive_file: Path) -> str:
 
 def build_archive(
     *,
-    source_reviews_path: Path | None = None,
     search_log_path: Path | None = None,
     archive_dir: Path,
     source_archive_index_path: Path,
@@ -266,41 +201,29 @@ def build_archive(
     overwrite: bool,
 ) -> dict[str, Any]:
     captured_at = datetime.now().astimezone().isoformat(timespec="seconds")
-    reviews = _load_reviews(source_reviews_path) if source_reviews_path else []
-    seen_urls = {_text(review.get("url")).rstrip("/") for review in reviews if _text(review.get("url"))}
-    reviews.extend(
-        _reviews_from_search_log(
-            search_log_path,
-            starting_index=len(reviews),
-            seen_urls=seen_urls,
-        )
+    reviews = _reviews_from_search_log(
+        search_log_path,
+        starting_index=0,
+        seen_urls=set(),
     )
     archive_dir.mkdir(parents=True, exist_ok=True)
     entries: list[dict[str, Any]] = []
     skipped: list[str] = []
     written: list[str] = []
 
-    archive_all_candidates = bool(search_log_path)
     for review in reviews:
         source_review_id = _text(review.get("source_review_id"))
         url = _text(review.get("url"))
         if not source_review_id or not SRC_RE.fullmatch(source_review_id):
             skipped.append(source_review_id or "(missing SRC ID)")
             continue
-        if not archive_all_candidates and not _review_is_usable(review):
-            skipped.append(source_review_id)
-            continue
-
         archive_status = "excerpt_snapshot"
         archive_path = ""
-        if _is_user_source(review):
-            archive_status = "user_provided"
-        else:
-            archive_file = archive_dir / f"{source_review_id}.md"
-            if overwrite or not archive_file.exists():
-                archive_file.write_text(_markdown_snapshot(review, captured_at), encoding="utf-8")
-                written.append(str(archive_file))
-            archive_path = str(archive_file)
+        archive_file = archive_dir / f"{source_review_id}.md"
+        if overwrite or not archive_file.exists():
+            archive_file.write_text(_markdown_snapshot(review, captured_at), encoding="utf-8")
+            written.append(str(archive_file))
+        archive_path = str(archive_file)
         entries.append(
             {
                 "source_review_id": source_review_id,
@@ -324,7 +247,7 @@ def build_archive(
     index = {
         "schema_version": "source_archive_index_v1",
         "created_at": captured_at,
-        "purpose": "Archive reviewable snapshots for actual searched or user-provided sources before Knowledge/LLM evidence extraction. source_reviews.json is optional compatibility input.",
+        "purpose": "Archive reviewable snapshots for actual searched or user-provided sources before Knowledge/LLM evidence extraction. Source usability is reviewed inside research_evidence_db.json.",
         "entries": entries,
     }
     source_archive_index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -339,11 +262,9 @@ def build_archive(
     }
 
 
-def _default_paths(source_reviews_path: Path | None, search_log_path: Path | None, run_dir_arg: str | None) -> tuple[Path, Path, Path]:
+def _default_paths(search_log_path: Path | None, run_dir_arg: str | None) -> tuple[Path, Path, Path]:
     if run_dir_arg:
         run_dir = Path(run_dir_arg)
-    elif source_reviews_path:
-        run_dir = source_reviews_path.parent.parent if source_reviews_path.parent.name == "artifacts" else source_reviews_path.parent
     elif search_log_path:
         run_dir = search_log_path.parent.parent if search_log_path.parent.name == "artifacts" else search_log_path.parent
     else:
@@ -355,24 +276,19 @@ def _default_paths(source_reviews_path: Path | None, search_log_path: Path | Non
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-reviews", help="Optional legacy/enrichment source_reviews.json")
-    parser.add_argument("--search-log", help="Preferred archive-first input: artifacts/search_log.md")
+    parser.add_argument("--search-log", required=True, help="Archive-first input: artifacts/search_log.md")
     parser.add_argument("--run-dir")
     parser.add_argument("--archive-dir")
     parser.add_argument("--source-archive-index")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing SRC-xxx.md excerpt snapshots.")
     args = parser.parse_args()
 
-    source_reviews_path = Path(args.source_reviews) if args.source_reviews else None
-    search_log_path = Path(args.search_log) if args.search_log else None
-    if not source_reviews_path and not search_log_path:
-        parser.error("provide --search-log and/or --source-reviews")
-    run_dir, default_archive_dir, default_index_path = _default_paths(source_reviews_path, search_log_path, args.run_dir)
+    search_log_path = Path(args.search_log)
+    run_dir, default_archive_dir, default_index_path = _default_paths(search_log_path, args.run_dir)
     archive_dir = Path(args.archive_dir) if args.archive_dir else default_archive_dir
     index_path = Path(args.source_archive_index) if args.source_archive_index else default_index_path
 
     result = build_archive(
-        source_reviews_path=source_reviews_path,
         search_log_path=search_log_path,
         archive_dir=archive_dir,
         source_archive_index_path=index_path,

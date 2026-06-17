@@ -1,4 +1,4 @@
-"""Contract tests: evidence candidates, research evidence DB, research pack, issue analysis skeleton.
+"""Contract tests: research evidence DB, research pack, issue analysis skeleton.
 
 Covers Groups 16d-16e from the monolith (lines 1204-1391).
 """
@@ -29,19 +29,6 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(args, text=True, capture_output=True, cwd=str(SKILL_DIR), env=env)
 
 
-class TestEvidenceCandidateSkeleton:
-    def test_build_from_execution_report(self, _pipeline_run_dir):
-        from build_evidence_candidate_skeleton import build_candidates as build_evidence_candidate_skeleton
-        artifacts = _pipeline_run_dir["artifacts"]
-        report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
-        source_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
-        skeleton = build_evidence_candidate_skeleton(report, source_reviews)
-        assert skeleton["evidence_candidates"], skeleton
-        assert any(item["candidate_evidence_id"] == "EV-001" for item in skeleton["evidence_candidates"]), skeleton
-        assert skeleton["metric_candidates"], skeleton
-        assert skeleton["metric_candidates"][0]["promotion_decision"] == "pending_llm_review", skeleton
-
-
 class TestStageGate:
     def test_pre_research_pack_gate_passes(self, _pipeline_run_dir):
         from validate_stage_gate import validate_stage
@@ -58,7 +45,8 @@ class TestResearchEvidenceDB:
         from research_evidence_db import export_markdown as export_research_pack_from_db
         artifacts = _pipeline_run_dir["artifacts"]
         report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
-        source_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
+        source_reviews = _pipeline_run_dir["embedded_reviews"]
+        source_archive_index = json.loads((artifacts / "source_archive" / "source_archive_index.json").read_text(encoding="utf-8"))
         plan = json.loads((artifacts / "formal_search_plan.json").read_text(encoding="utf-8"))
         scope_pack = _pipeline_run_dir["scope_pack"]
 
@@ -66,6 +54,7 @@ class TestResearchEvidenceDB:
             input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "Samplestan"},
             scope_pack=scope_pack, formal_search_plan=plan,
             execution_report=report, source_reviews=source_reviews,
+            source_archive_index=source_archive_index,
         )
         # Fill extracts
         for extract in research_db["formal_research_extracts"]:

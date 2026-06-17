@@ -20,7 +20,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / "configs").is_dir() and (_p / "scripts").is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / "scripts").iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / "scripts" / "qc" / "validators").glob("*"))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -43,7 +43,7 @@ from typing import Any
 
 from check_template_tokens import build_report, collect_mapping_tokens, collect_template_tokens
 from json_utils import load_json_file
-from source_classification import normalize_source_type
+from material_intake_common import normalize_source_type
 
 
 ROOT = _IB_RUNTIME_ROOT

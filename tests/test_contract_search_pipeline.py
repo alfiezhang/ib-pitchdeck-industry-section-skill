@@ -84,7 +84,7 @@ class TestSearchLogAndAttempts:
         from validate_formal_research_execution import parse_search_attempts
         search_log = tmp_path / "search_log_auto.md"
         _run([
-            sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/search_log.py", "append",
             "--search-log", str(search_log),
             "--query", "example industry formal source",
             "--stage", "formal_research_execution",
@@ -104,7 +104,7 @@ class TestSearchLogAndAttempts:
         template = SKILL_DIR / "references" / "search_log_template.md"
         search_log.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
         _run([
-            sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/search_log.py", "append",
             "--search-log", str(search_log),
             "--query", "example broad definition source",
             "--stage", "broad_discovery",
@@ -120,7 +120,7 @@ class TestSearchLogAndAttempts:
         from validate_formal_research_execution import parse_search_attempts
         search_log = tmp_path / "search_log_edit.md"
         _run([
-            sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/search_log.py", "append",
             "--search-log", str(search_log),
             "--query", "example industry formal source",
             "--stage", "formal_research_execution",
@@ -131,7 +131,7 @@ class TestSearchLogAndAttempts:
             "--locator-excerpt", "section 1 contains reviewed source context.",
         ])
         result = _run([
-            sys.executable, "scripts/research-external-evidence/edit_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/search_log.py", "edit",
             "--search-log", str(search_log),
             "--attempt-id", "S-001",
             "--set-field", "Result Count=5",
@@ -145,7 +145,7 @@ class TestSearchLogAndAttempts:
         search_log = tmp_path / "search_log_delete.md"
         for query in ("first query", "accidental query"):
             _run([
-                sys.executable, "scripts/research-external-evidence/append_search_attempt.py",
+                sys.executable, "scripts/research-external-evidence/search_log.py", "append",
                 "--search-log", str(search_log),
                 "--query", query,
                 "--stage", "formal_research_execution",
@@ -156,7 +156,7 @@ class TestSearchLogAndAttempts:
                 "--locator-excerpt", "section 1 contains reviewed source context.",
             ])
         result = _run([
-            sys.executable, "scripts/research-external-evidence/edit_search_attempt.py",
+            sys.executable, "scripts/research-external-evidence/search_log.py", "edit",
             "--search-log", str(search_log),
             "--attempt-id", "S-002",
             "--delete",
@@ -216,122 +216,11 @@ class TestFormalSearchPlan:
 
 
 # ---------------------------------------------------------------------------
-# Source reviews
+# Source archive
 # ---------------------------------------------------------------------------
 
 
-class TestSourceReviews:
-    def test_skeleton_source_reviews(self, _pipeline_run_dir):
-        """Source reviews skeleton from search log should be valid."""
-        from build_source_reviews_skeleton import build_source_reviews as build_source_reviews_skeleton
-        from validate_source_reviews import validate as validate_source_reviews
-        artifacts = _pipeline_run_dir["artifacts"]
-        skeleton = build_source_reviews_skeleton(artifacts / "search_log.md", formal_only=True)
-        assert skeleton["source_reviews"]
-        assert skeleton["source_reviews"][0]["source_review_id"] == "SRC-001"
-        assert skeleton["source_reviews"][0]["usable_as_evidence"] is False
-        assert skeleton["source_reviews"][0]["evidence_use_tier"] == "lead_only"
-        skeleton_path = artifacts / "source_reviews_skeleton.json"
-        _write_json(skeleton_path, skeleton)
-        result = validate_source_reviews(skeleton_path, search_log_path=artifacts / "search_log.md")
-        assert result["is_valid"], result
-
-    def test_false_with_ev_rejected(self, _pipeline_run_dir):
-        """Source review with usable_as_evidence=false but evidence_ids present should be rejected."""
-        from validate_source_reviews import validate as validate_source_reviews
-        artifacts = _pipeline_run_dir["artifacts"]
-        source_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
-        false_reviews = json.loads(json.dumps(source_reviews))
-        false_reviews["reviews"][0]["usable_as_evidence"] = False
-        false_path = artifacts / "source_reviews_false_with_ev.json"
-        false_path.write_text(json.dumps(false_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
-        result = validate_source_reviews(
-            false_path, search_log_path=artifacts / "search_log.md",
-            formal_research_execution_report_path=artifacts / "formal_research_execution_report.json",
-            source_archive_index_path=artifacts / "source_archive" / "source_archive_index.json",
-            run_dir=_pipeline_run_dir["run_dir"],
-        )
-        assert not result["is_valid"], result
-        assert any("evidence_ids are present but usable_as_evidence is false" in e for e in result["errors"]), result
-        assert any("all referenced reviews are usable_as_evidence=false" in e for e in result["errors"]), result
-
-    def test_weak_source_warns_until_recovered(self, _pipeline_run_dir):
-        """Weak-source marker requires LLM/QC assessment, not script rejection."""
-        from validate_source_reviews import validate as validate_source_reviews
-        artifacts = _pipeline_run_dir["artifacts"]
-        source_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
-        weak_reviews = json.loads(json.dumps(source_reviews))
-        weak_reviews["reviews"][0]["limitations"] = ["This page is a repost without methodology and should remain lead-only."]
-        weak_path = artifacts / "source_reviews_weak.json"
-        weak_path.write_text(json.dumps(weak_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
-        result = validate_source_reviews(
-            weak_path, search_log_path=artifacts / "search_log.md",
-            formal_research_execution_report_path=artifacts / "formal_research_execution_report.json",
-            source_archive_index_path=artifacts / "source_archive" / "source_archive_index.json",
-            run_dir=_pipeline_run_dir["run_dir"],
-        )
-        assert result["is_valid"], result
-        assert any("weak-source marker" in w for w in result["warnings"]), result
-        # Recover with methodology_locator
-        weak_reviews["reviews"][0]["methodology_locator"] = "Original report methodology and table 2 were reviewed directly."
-        recovered_path = artifacts / "source_reviews_weak_with_original.json"
-        recovered_path.write_text(json.dumps(weak_reviews, ensure_ascii=False, indent=2), encoding="utf-8")
-        result2 = validate_source_reviews(
-            recovered_path, search_log_path=artifacts / "search_log.md",
-            formal_research_execution_report_path=artifacts / "formal_research_execution_report.json",
-            source_archive_index_path=artifacts / "source_archive" / "source_archive_index.json",
-            run_dir=_pipeline_run_dir["run_dir"],
-        )
-        assert result2["is_valid"], result2
-        assert not any("weak-source marker" in w for w in result2["warnings"]), result2
-
-    def test_alias_key_accepted(self, _pipeline_run_dir):
-        """source_reviews alias for 'reviews' key should be accepted."""
-        from validate_source_reviews import validate as validate_source_reviews
-        artifacts = _pipeline_run_dir["artifacts"]
-        source_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
-        alias = json.loads(json.dumps(source_reviews))
-        alias["source_reviews"] = alias.pop("reviews")
-        alias_path = artifacts / "source_reviews_alias.json"
-        alias_path.write_text(json.dumps(alias, ensure_ascii=False, indent=2), encoding="utf-8")
-        result = validate_source_reviews(
-            alias_path, search_log_path=artifacts / "search_log.md",
-            formal_research_execution_report_path=artifacts / "formal_research_execution_report.json",
-            source_archive_index_path=artifacts / "source_archive" / "source_archive_index.json",
-            run_dir=_pipeline_run_dir["run_dir"],
-        )
-        assert result["is_valid"], result
-        assert result["review_count"] == len(source_reviews["reviews"]), result
-
-    def test_field_alias_accepted(self, _pipeline_run_dir):
-        """Field aliases (review_id, source_url, etc.) should be accepted."""
-        from validate_source_reviews import validate as validate_source_reviews
-        artifacts = _pipeline_run_dir["artifacts"]
-        source_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
-        field_alias = {"source_reviews": []}
-        for review in source_reviews["reviews"]:
-            field_alias["source_reviews"].append({
-                "review_id": review["source_review_id"],
-                "source_url": review["url"],
-                "source_title": review["title"],
-                "source_locator": review["locator"],
-                "raw_excerpt": review["excerpt"],
-                "search_attempt_ids": review["search_attempt_ids"],
-                "evidence_ids": review["evidence_ids"],
-                "evidence_use_tier": review["evidence_use_tier"],
-                "claim_use_scope": review["claim_use_scope"],
-                "usable_as_evidence": review["usable_as_evidence"],
-                "source_type": review["source_type"],
-            })
-        alias_path = artifacts / "source_reviews_field_alias.json"
-        alias_path.write_text(json.dumps(field_alias, ensure_ascii=False, indent=2), encoding="utf-8")
-        result = validate_source_reviews(
-            alias_path, search_log_path=artifacts / "search_log.md",
-            formal_research_execution_report_path=artifacts / "formal_research_execution_report.json",
-            source_archive_index_path=artifacts / "source_archive" / "source_archive_index.json",
-            run_dir=_pipeline_run_dir["run_dir"],
-        )
-        assert result["is_valid"], result
+class TestSourceArchive:
 
     def test_source_archive_rejects_metadata_only_excerpt_snapshot(self, tmp_path):
         from validate_source_archive import validate as validate_source_archive

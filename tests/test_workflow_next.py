@@ -9,11 +9,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+QC_DIR = SCRIPT_DIR / "qc"
+for path in (SCRIPT_DIR, QC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from gate_report import build_gate_report  # noqa: E402
-from workflow import next_payload  # noqa: E402
+from state_report import next_payload  # noqa: E402
 
 
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "minimal_research_db"
@@ -106,12 +108,6 @@ def _seed_research_pack_ready(run_dir: Path) -> None:
     _write_json(artifacts / "formal_search_plan.json", {"issue_search_plan": []})
     _write_json(
         artifacts / "formal_search_plan_validation.json",
-        {"is_valid": True, "errors": [], "warnings": []},
-    )
-
-    _write_json(artifacts / "source_reviews.json", {"schema_version": "source_reviews_v1", "reviews": []})
-    _write_json(
-        artifacts / "source_reviews_validation.json",
         {"is_valid": True, "errors": [], "warnings": []},
     )
 
@@ -260,7 +256,7 @@ def test_workflow_next_empty_run_returns_input_card_missing(tmp_path: Path) -> N
     run_dir.mkdir(parents=True)
     payload = next_payload(run_dir)
     assert payload["current_stage"] == "MATERIAL_INTAKE_MISSING_OR_FAILED", payload
-    assert "scripts/gate_report.py" in payload["gate_report_command"], payload
+    assert "scripts/qc/gate_report.py" in payload["gate_report_command"], payload
 
 
 def test_gate_report_empty_run_groups_material_root_causes(tmp_path: Path) -> None:

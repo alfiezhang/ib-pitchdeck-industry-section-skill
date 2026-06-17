@@ -63,10 +63,9 @@ runtime/ib-pitchdeck-agent-industry-section/
 安装到本机 Codex / Claude / WorkBuddy 的 skills 目录：
 
 ```bash
-cd runtime/ib-pitchdeck-agent-industry-section
-python3 scripts/install_skill_local.py --host codex
-python3 scripts/install_skill_local.py --host claude
-python3 scripts/install_skill_local.py --host workbuddy
+python3 devtools/install/install_skill_local.py --host codex
+python3 devtools/install/install_skill_local.py --host claude
+python3 devtools/install/install_skill_local.py --host workbuddy
 ```
 
 也可以手动复制 `runtime/ib-pitchdeck-agent-industry-section/` 到对应宿主的 `skills/ib-pitchdeck-agent-industry-section/`。
@@ -74,16 +73,14 @@ python3 scripts/install_skill_local.py --host workbuddy
 ### 打包与校验
 
 ```bash
-cd runtime/ib-pitchdeck-agent-industry-section
-python3 scripts/package_skill.py
-python3 scripts/qc/validators/system/validate_skill_package.py --package .
+python3 devtools/package/package_skill.py
+python3 devtools/package/validate_skill_package.py --package runtime/ib-pitchdeck-agent-industry-section
 ```
 
 开发回归测试从仓库根目录运行：
 
 ```bash
 PYTHON_CMD=python3 bash tests/run_smoke_tests.sh
-PYTHON_CMD=python3 bash tests/run_contract_tests.sh
 python3 -m pytest -q
 ```
 
@@ -115,16 +112,14 @@ runtime/ib-pitchdeck-agent-industry-section/
 ### Install
 
 ```bash
-cd runtime/ib-pitchdeck-agent-industry-section
-python3 scripts/install_skill_local.py --host codex
-python3 scripts/install_skill_local.py --host claude
-python3 scripts/install_skill_local.py --host workbuddy
+python3 devtools/install/install_skill_local.py --host codex
+python3 devtools/install/install_skill_local.py --host claude
+python3 devtools/install/install_skill_local.py --host workbuddy
 ```
 
 ### Package
 
 ```bash
-cd runtime/ib-pitchdeck-agent-industry-section
-python3 scripts/package_skill.py
-python3 scripts/qc/validators/system/validate_skill_package.py --package .
+python3 devtools/package/package_skill.py
+python3 devtools/package/validate_skill_package.py --package runtime/ib-pitchdeck-agent-industry-section
 ```

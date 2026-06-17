@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+LIB_DIR = ROOT_DIR / "scripts" / "_lib"
+if str(LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(LIB_DIR))
 QC_SYSTEM_VALIDATORS = ROOT_DIR / "scripts" / "qc" / "validators" / "system"
 if str(QC_SYSTEM_VALIDATORS) not in sys.path:
     sys.path.insert(0, str(QC_SYSTEM_VALIDATORS))
@@ -104,21 +107,6 @@ def _pipeline_rebuild_command(run_dir: str) -> dict[str, str]:
     }
 
 
-def _draft_command(run_dir: str) -> dict[str, str]:
-    return {
-        "purpose": "optional internal review only: render an explicitly labelled evidence-limited draft; never use as client-ready delivery",
-        "command": _make_runtime_paths_absolute(f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py draft --run-dir {run_dir}"),
-    }
-
-
-def _quick_draft_command(run_dir: str) -> dict[str, str]:
-    return {
-        "purpose": "official quick draft from page_argument_pack.json when formal renderer artifacts are not ready; writes DRAFT_NOT_CLIENT_READY",
-        "command": _make_runtime_paths_absolute(
-            f"{PYTHON_COMMAND_TEMPLATE} scripts/output/quick_render_from_page_arguments.py --run-dir {run_dir}"
-        ),
-    }
-
 GLOBAL_QC_PROTOCOL: dict[str, Any] = {
     "principle": "LLM QC judges quality and routes repairs; Python checks deterministic structure, provenance, stale state, and renderability.",
     "no_qc_validator_loop": True,
@@ -163,7 +151,7 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     },
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": {
         "checkpoint": "Source archive integrity",
-        "qc_mode": "Research archives actual searched/manual sources before evidence extraction. Source usability is reviewed inside research_evidence_db, not in a standalone source_reviews gate.",
+        "qc_mode": "Research archives actual searched/manual sources before evidence extraction. Source usability is reviewed inside research_evidence_db.",
         "if_not_ok": "Research repairs search_log selected URLs or archive inputs and reruns archive validation.",
     },
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": {
@@ -367,7 +355,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
         {
-            "purpose": "build source archive directly from actual search log selected/opened sources; source_reviews.json is no longer required on the main path",
+            "purpose": "build source archive directly from actual search log selected/opened sources",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_source_archive.py --search-log {{run_dir}}/artifacts/search_log.md --run-dir {{run_dir}} --overwrite",
         },
         {
@@ -377,18 +365,18 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         {
             "purpose": "append each real formal search attempt before archive; S-xxx IDs are only for actual searches, never for unexecuted FS rows",
             "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/append_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md "
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/search_log.py append --search-log {{run_dir}}/artifacts/search_log.md "
                 "--query '<exact query searched>' --stage formal_research_execution --fs-id FS-001 --selected-source '<exact reviewed URL>' "
                 "--opened-reviewed yes --locator-excerpt '<page/section/table and short excerpt or limitation>'"
             ),
         },
         {
             "purpose": "if an accidental S-xxx row was appended, delete it mechanically instead of hand-editing markdown",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/edit_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-023 --delete",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/search_log.py edit --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-023 --delete",
         },
         {
             "purpose": "if a known search-log field is wrong or blank, update only that field mechanically",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/edit_search_attempt.py --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-001 --set-field 'Result Count=5'",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/search_log.py edit --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-001 --set-field 'Result Count=5'",
         },
     ],
     "PRE_RESEARCH_PACK_GATE_FAILED": [
@@ -401,7 +389,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         {
             "purpose": "build research evidence database skeleton from archived formal sources; source reviews are embedded in the DB for LLM/QC judgment",
             "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/repository_retrieve.py --max-results 200 --output {{run_dir}}/artifacts/repository_retrieval.json "
+                f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/repository.py retrieve --max-results 200 --output {{run_dir}}/artifacts/repository_retrieval.json "
                 f"&& {PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --repository-sources {{run_dir}}/artifacts/repository_retrieval.json --output {{run_dir}}/artifacts/research_evidence_db.json"
             ),
         },
@@ -424,10 +412,6 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         {
             "purpose": "build issue analysis skeleton from research-pack inventory",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_issue_analysis_skeleton.py --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --output {{run_dir}}/industry_issue_analysis.json",
-        },
-        {
-            "purpose": "normalize common LLM-shaped issue analysis aliases",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/normalize_issue_analysis.py --input {{run_dir}}/industry_issue_analysis.json --output {{run_dir}}/industry_issue_analysis.json --report {{run_dir}}/artifacts/issue_analysis_normalization.json",
         },
         {
             "purpose": "validate issue analysis after replacing skeleton placeholders with substantive analysis",
@@ -613,26 +597,6 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
     deterministic_rebuild_command = _pipeline_rebuild_command(run_dir_str)
     if deterministic_rebuild_available:
         next_commands = dedupe_commands([deterministic_rebuild_command] + next_commands)
-    draft_available = (
-        Path(run_dir_str, "renderer_spec.json").exists()
-        and Path(run_dir_str, "page_evidence_contract.json").exists()
-        and state.get("final_delivery_valid") is not True
-        and not state.get("debug_only")
-    )
-    internal_draft_command = _draft_command(run_dir_str)
-    quick_draft_available = (
-        Path(run_dir_str, "artifacts", "page_argument_pack.json").exists()
-        and state.get("final_delivery_valid") is not True
-        and not state.get("debug_only")
-    )
-    quick_draft_missing_requirements = []
-    if not Path(run_dir_str, "artifacts", "page_argument_pack.json").exists():
-        quick_draft_missing_requirements.append("artifacts/page_argument_pack.json")
-    if state.get("debug_only"):
-        quick_draft_missing_requirements.append("debug_only run state must be cleared before rendering a new quick draft")
-    if state.get("final_delivery_valid") is True:
-        quick_draft_missing_requirements.append("final delivery is already valid; quick draft is unnecessary")
-    quick_draft_command = _quick_draft_command(run_dir_str)
     blocking_risks: list[str] = []
     if state.get("missing_artifacts"):
         blocking_risks.append("missing_artifacts")
@@ -722,21 +686,10 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
                 "Use owner-role judgment before relying on downstream output.",
             ],
         },
-        "internal_draft_option": {
-            "available": bool(draft_available),
-            "command": internal_draft_command["command"] if draft_available else "",
-            "use_only_for": "internal page-shape review when the team needs a visible draft before client-ready evidence/QC is complete",
-            "not_allowed_for": "client-ready delivery, final status, or claiming the engagement output is complete",
-            "expected_output_marker": "DRAFT_NOT_CLIENT_READY",
-        },
-        "quick_draft_option": {
-            "available": bool(quick_draft_available),
-            "command": quick_draft_command["command"] if quick_draft_available else "",
-            "missing_requirements": quick_draft_missing_requirements,
-            "use_only_for": "early internal page-shape review from page_argument_pack.json when deck_blueprint/renderer_spec are not ready",
-            "not_allowed_for": "client-ready delivery, final status, or claiming the engagement output is complete",
-            "expected_output_marker": "DRAFT_NOT_CLIENT_READY",
-            "do_not": "Do not create ad-hoc render_deck.py files in the run directory.",
+        "render_policy": {
+            "mode": "formal_pipeline_only",
+            "reason": "Render only through formal pipeline after required upstream artifacts are ready.",
+            "do_not": "Do not create ad-hoc render_deck.py files or render from page_argument_pack.json.",
         },
         "orchestrator_decision_required": {
             "required": True,
@@ -767,7 +720,7 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
     }
     payload["gate_report_command"] = (
         _make_runtime_paths_absolute(
-            f"{PYTHON_COMMAND_TEMPLATE} scripts/gate_report.py --run-dir {run_dir} "
+            f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/gate_report.py --run-dir {run_dir} "
             f"--output {run_dir}/artifacts/gate_report.json "
             f"--markdown-output {run_dir}/artifacts/gate_report.md"
         )

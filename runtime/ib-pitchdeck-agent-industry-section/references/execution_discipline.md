@@ -4,7 +4,7 @@ This reference keeps the skill aligned with the role-based workflow. It is not a
 
 ## Core Rule
 
-The main agent is the engagement lead. `state_report.py`, `gate_report.py`, validators, and pipeline commands are tools. They do not decide the banker story, evidence readiness, or page quality.
+The main agent is the engagement lead. `state_report.py`, `qc/gate_report.py`, validators, and pipeline commands are tools. They do not decide the banker story, evidence readiness, or page quality.
 
 ## Role-First Execution
 
@@ -49,7 +49,7 @@ Warnings are not silent permission to proceed. Every material warning needs one 
 - `accepted_with_limits` with downstream-use limits;
 - `repair_before_downstream` with owner and repair action.
 
-Use `gate_report.py` or `qc_router.py` when failures are numerous or root cause is unclear.
+Use `qc/gate_report.py` or `qc_router.py` when failures are numerous or root cause is unclear.
 
 ## Repair Discipline
 

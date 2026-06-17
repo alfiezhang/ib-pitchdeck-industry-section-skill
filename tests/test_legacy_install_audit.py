@@ -8,17 +8,20 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts"
-RUNTIME_DIR = SCRIPT_DIR.parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_DIR = REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
+DEVTOOLS_INSTALL = REPO_ROOT / "devtools" / "install"
+DEVTOOLS_DIAGNOSTICS = REPO_ROOT / "devtools" / "diagnostics"
 
 
 def _run(script: str, args: list[str]) -> subprocess.CompletedProcess:
+    script_path = (DEVTOOLS_DIAGNOSTICS / script) if (DEVTOOLS_DIAGNOSTICS / script).exists() else (DEVTOOLS_INSTALL / script)
     return subprocess.run(
-        [sys.executable, str(SCRIPT_DIR / script), *args],
+        [sys.executable, str(script_path), *args],
         cwd=str(RUNTIME_DIR),
         text=True,
         capture_output=True,
-        env={**os.environ, "PYTHONPATH": str(SCRIPT_DIR)},
+        env={**os.environ, "PYTHONPATH": os.pathsep.join([str(DEVTOOLS_INSTALL), str(DEVTOOLS_DIAGNOSTICS)])},
     )
 
 

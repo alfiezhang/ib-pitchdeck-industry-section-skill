@@ -3,18 +3,12 @@
 QC owns every deterministic validator and the repair-routing scripts. Public state dashboards stay in root `scripts/`; QC validators live here so agents do not confuse validation ownership with artifact authoring ownership.
 
 Public QC tools:
-- `build_agent_handoff.py`
-- `check_artifact_manifest.py`
-- `check_json_files.py`
 - `check_runtime_dependencies.py`
-- `doctor_runtime.py`
+- `gate_report.py`
 - `generate_run_quality_summary.py`
 - `qc_normalize_report.py`
 - `qc_repair_targets.py`
 - `qc_router.py`
-- `repair_json_smart_quotes.py`
-- `repair_visible_metric_claims.py`
-- `report_run_status.py`
 
 Validator folders:
 
@@ -53,13 +47,11 @@ Validator folders:
 - `validators/research/validate_formal_research_execution.py`
 - `validators/research/validate_formal_search_plan.py`
 - `validators/research/validate_source_archive.py`
-- `validators/research/validate_source_reviews.py`
 
 ## scoping
 - `validators/scoping/validate_industry_scope_pack.py`
 
 ## system
-- `validators/system/validate_skill_package.py`
 - `validators/system/validate_run_state.py`
 
 ## template

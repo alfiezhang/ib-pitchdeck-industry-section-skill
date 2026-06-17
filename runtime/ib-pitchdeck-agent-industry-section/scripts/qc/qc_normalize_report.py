@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -125,10 +125,10 @@ def _classify_warning(message: str, *, default_layer: str, default_artifact: str
     if any(token in lowered for token in ("source", "src-", "weak", "repost", "snippet", "methodology", "locator")):
         return {
             "layer": "research-external-evidence",
-            "artifact": default_artifact or "artifacts/source_reviews.json",
+            "artifact": default_artifact or "artifacts/source_archive/source_archive_index.json",
             "repair_action": (
-                "Research/QC must classify this source warning as advisory, repair-before-downstream, "
-                "or accept-with-limits before the claim is used downstream."
+                "Research/QC must inspect the archive and embedded source review in research_evidence_db, "
+                "then classify this source warning as advisory, repair-before-downstream, or accept-with-limits before claim use."
             ),
             "downstream_limit": "Do not use this warning-affected source for headline or chart support until QC sets limits.",
         }

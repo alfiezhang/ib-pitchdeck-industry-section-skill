@@ -83,7 +83,7 @@ class TestRunState:
 
 class TestWorkflowNextCommands:
     def test_source_archive_commands(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED"})
         archive_cmds = [c["command"] for c in commands if "scripts/research-external-evidence/build_source_archive.py" in c["command"]]
@@ -92,7 +92,7 @@ class TestWorkflowNextCommands:
         assert "--source-reviews" not in archive_cmds[0], archive_cmds
 
     def test_execution_commands(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED"})
         validation_cmds = [c["command"] for c in commands if "validate_formal_research_execution.py" in c["command"]]
@@ -101,13 +101,13 @@ class TestWorkflowNextCommands:
         assert "--formal-research-execution-report" not in validation_cmds[0], validation_cmds
 
     def test_research_evidence_db_commands(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
         assert commands and "scripts/knowledge-repository/build_research_evidence_db.py" in commands[0]["command"], commands
 
     def test_research_pack_commands(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
         assert commands and "scripts/knowledge-repository/export_research_pack_from_db.py" in commands[0]["command"], commands
@@ -117,19 +117,19 @@ class TestWorkflowNextCommands:
         assert "configs/source_registry.json --source-registry" not in validation_cmds[0], validation_cmds
 
     def test_replacement_dict_commands(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "REPLACEMENT_DICT_MISSING_OR_FAILED"})
         assert commands and "scripts/pipeline.py render" in commands[0]["command"], commands
 
     def test_final_delivery_commands(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "FINAL_DELIVERY_NOT_READY"})
         assert commands and "scripts/pipeline.py render" in commands[0]["command"], commands
 
     def test_pre_research_pack_gate_uses_pipeline_facade(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "PRE_RESEARCH_PACK_GATE_FAILED"})
         command_text = "\n".join(item["command"] for item in commands)
@@ -137,7 +137,7 @@ class TestWorkflowNextCommands:
         assert "validate_stage_gate.py" not in command_text, commands
 
     def test_content_quality_gate_uses_pipeline_facade(self, _pipeline_run_dir):
-        from workflow import recommended_commands
+        from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "CONTENT_QUALITY_FAILED"})
         command_text = "\n".join(item["command"] for item in commands)
@@ -145,7 +145,7 @@ class TestWorkflowNextCommands:
         assert "validate_content_quality.py" not in command_text, commands
 
     def test_next_payload_prefers_rebuild_stale_for_deterministic_stale_stage(self, tmp_path, monkeypatch):
-        import workflow
+        import state_report as workflow
         run_dir = tmp_path / "run"
         run_dir.mkdir()
 
@@ -169,8 +169,8 @@ class TestWorkflowNextCommands:
         assert payload["shortest_repair_path"]["available"] is True, payload
         assert "scripts/pipeline.py rebuild-stale" in payload["recommended_next_command"], payload
 
-    def test_next_payload_exposes_internal_draft_only_when_compiled_artifacts_exist(self, tmp_path, monkeypatch):
-        import workflow
+    def test_next_payload_does_not_expose_shortcut_draft_commands(self, tmp_path, monkeypatch):
+        import state_report as workflow
         run_dir = tmp_path / "run"
         run_dir.mkdir()
         (run_dir / "renderer_spec.json").write_text("{}", encoding="utf-8")
@@ -193,20 +193,10 @@ class TestWorkflowNextCommands:
 
         monkeypatch.setattr(workflow, "validate_run_state", fake_state)
         payload = workflow.next_payload(run_dir)
-        assert payload["internal_draft_option"]["available"] is True, payload
-        assert "scripts/pipeline.py draft" in payload["internal_draft_option"]["command"], payload
-        assert "client-ready" in payload["internal_draft_option"]["not_allowed_for"], payload
-
-
-class TestAgentHandoff:
-    def test_build_handoff(self, _pipeline_run_dir):
-        from build_agent_handoff import build_handoff
-        run_dir = _pipeline_run_dir["run_dir"]
-        handoff = build_handoff(run_dir, run_dir / "artifacts" / "agent_handoff")
-        assert handoff["schema_version"] == "agent_handoff_index_v1", handoff
-        assert len(handoff["roles"]) == 7, handoff
-        assert (run_dir / "artifacts" / "agent_handoff" / "format_qc.md").exists()
-
+        assert "internal_draft_option" not in payload, payload
+        assert "quick_draft_option" not in payload, payload
+        assert payload["render_policy"]["mode"] == "formal_pipeline_only", payload
+        assert "draft" not in json.dumps(payload.get("recommended_next_commands", [])), payload
 
 class TestRunQualitySummary:
     def test_build_summary(self, _pipeline_run_dir):

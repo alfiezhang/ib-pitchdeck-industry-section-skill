@@ -5,8 +5,5 @@ Generation production tools. Validators for generated artifacts are owned by QC.
 Use these only when the generation role or a QC repair brief names the exact tool. Do not browse this folder as a workflow menu.
 
 Scripts:
-- `build_banker_review_packet.py`
-- `build_banker_review_report_skeleton.py`
 - `build_page_evidence_contract.py`
 - `compile_deck_blueprint.py`
-- `describe_slide_fields.py`

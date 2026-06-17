@@ -17,7 +17,7 @@ from pipeline import _write_run_flags  # noqa: E402
 from research_evidence_db import build_db, export_markdown, validate_db  # noqa: E402
 from validate_final_delivery import validate_artifact_provenance  # noqa: E402
 from validate_research_pack import validate as validate_research_pack  # noqa: E402
-from workflow import recommended_commands  # noqa: E402
+from state_report import recommended_commands  # noqa: E402
 
 
 def minimal_research_db() -> dict:

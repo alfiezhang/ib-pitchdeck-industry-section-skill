@@ -145,7 +145,7 @@ def test_qc_normalize_report_routes_warnings_to_owner_with_disposition(tmp_path:
             "--layer",
             "qc",
             "--artifact",
-            "artifacts/source_reviews_validation.json",
+            "artifacts/source_archive_validation.json",
         ],
     )
 

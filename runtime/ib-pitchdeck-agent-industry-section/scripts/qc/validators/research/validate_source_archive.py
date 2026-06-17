@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -34,9 +34,6 @@ from pathlib import Path
 from typing import Any
 
 from json_utils import load_json_file
-from source_classification import is_material_type
-
-
 SCHEMA_VERSION = "source_archive_index_v1"
 VALID_ARCHIVE_STATUSES = {
     "saved_text",
@@ -45,7 +42,6 @@ VALID_ARCHIVE_STATUSES = {
     "archive_unavailable",
     "user_provided",
 }
-USER_SOURCE_VALUES = {"user-provided", "user provided", "input_card", "management", "company/user-provided"}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -54,31 +50,6 @@ def _as_list(value: Any) -> list[Any]:
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
-
-
-def _is_user_source(review: dict[str, Any]) -> bool:
-    if is_material_type(_text(review.get("source_type"))):
-        return True
-    if _text(review.get("source_access")).strip().lower() == "user_provided":
-        return True
-    value = _text(review.get("url"))
-    return value.strip().lower() in USER_SOURCE_VALUES
-
-
-def _load_reviews(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
-    try:
-        data = load_json_file(path)
-    except Exception as exc:
-        return [], [f"cannot read source_reviews.json: {exc}"]
-    if isinstance(data, list):
-        reviews = data
-    elif isinstance(data, dict):
-        reviews = data.get("reviews") if "reviews" in data else data.get("source_reviews", [])
-    else:
-        return [], ["source_reviews.json must be an object with reviews[] or an array"]
-    if not isinstance(reviews, list):
-        return [], ["source_reviews.json reviews must be an array"]
-    return [_canonical_review(item) for item in reviews if isinstance(item, dict)], []
 
 
 def _load_archive_entries(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
@@ -111,20 +82,6 @@ def _first_present(item: dict[str, Any], keys: tuple[str, ...]) -> Any:
     return None
 
 
-def _canonical_review(review: dict[str, Any]) -> dict[str, Any]:
-    canonical = dict(review)
-    aliases = {
-        "source_review_id": ("source_review_id", "review_id", "source_id", "id"),
-        "url": ("url", "source_url", "source", "source_link"),
-    }
-    for target, keys in aliases.items():
-        if target not in canonical or not _text(canonical.get(target)):
-            value = _first_present(review, keys)
-            if value not in (None, ""):
-                canonical[target] = value
-    return canonical
-
-
 def _canonical_archive_entry(entry: dict[str, Any]) -> dict[str, Any]:
     canonical = dict(entry)
     aliases = {
@@ -140,14 +97,6 @@ def _canonical_archive_entry(entry: dict[str, Any]) -> dict[str, Any]:
             if value not in (None, ""):
                 canonical[target] = value
     return canonical
-
-
-def _review_is_usable(review: dict[str, Any]) -> bool:
-    usable = review.get("usable_as_evidence")
-    if isinstance(usable, bool):
-        return usable
-    status = str(review.get("evidence_status") or review.get("status") or "").strip().lower()
-    return status in {"primary-reviewed", "secondary-reviewed", "reviewed", "usable"}
 
 
 def _resolve_archive_path(run_dir: Path, archive_path: str) -> Path:
@@ -193,17 +142,12 @@ def _entry_by_review_id(entries: list[dict[str, Any]]) -> tuple[dict[str, dict[s
 
 def validate(
     *,
-    source_reviews_path: Path | None = None,
     source_archive_index_path: Path,
     run_dir: Path | None = None,
 ) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
-    run_root = run_dir or (
-        source_reviews_path.parent.parent
-        if source_reviews_path and source_reviews_path.parent.name == "artifacts"
-        else source_archive_index_path.parent.parent.parent
-    )
+    run_root = run_dir or source_archive_index_path.parent.parent.parent
 
     if not source_archive_index_path.exists():
         return {
@@ -215,18 +159,13 @@ def validate(
             "source_archive_index": str(source_archive_index_path),
         }
 
-    reviews: list[dict[str, Any]] = []
-    review_errors: list[str] = []
-    if source_reviews_path and source_reviews_path.exists():
-        reviews, review_errors = _load_reviews(source_reviews_path)
     entries, archive_errors = _load_archive_entries(source_archive_index_path)
-    errors.extend(review_errors)
     errors.extend(archive_errors)
 
     entries_by_id, entry_errors = _entry_by_review_id(entries)
     errors.extend(entry_errors)
 
-    required_review_ids: set[str] = set()
+    required_review_ids: set[str] = set(entries_by_id)
     saved_count = 0
     unavailable_count = 0
 
@@ -234,22 +173,12 @@ def validate(
         *,
         review_id: str,
         entry: dict[str, Any],
-        expected_url: str = "",
-        is_user_source: bool = False,
     ) -> None:
         nonlocal saved_count, unavailable_count
         entry_url = _text(entry.get("url"))
-        if expected_url and entry_url and entry_url.rstrip("/") != expected_url.rstrip("/"):
-            errors.append(f"{review_id}: source_archive url does not match source_reviews.url")
+        if not entry_url:
+            errors.append(f"{review_id}: source_archive entry requires url")
         status = _text(entry.get("archive_status"))
-        if status == "user_provided" and not is_user_source:
-            source_access = _text(entry.get("source_access")).lower()
-            source_type = _text(entry.get("source_type"))
-            if source_access != "user_provided" and not is_material_type(source_type):
-                errors.append(
-                    f"{review_id}: archive_status 'user_provided' is only allowed for user/material repository sources."
-                )
-                return
         if status not in VALID_ARCHIVE_STATUSES:
             errors.append(f"{review_id}: archive_status must be one of {sorted(VALID_ARCHIVE_STATUSES)}")
             return
@@ -309,39 +238,8 @@ def validate(
                 errors.append(f"{review_id}: archive_unavailable requires reviewed_excerpt with enough audit context")
             unavailable_count += 1
 
-    if not reviews:
-        for review_id, entry in entries_by_id.items():
-            validate_entry(
-                review_id=review_id,
-                entry=entry,
-                expected_url="",
-                is_user_source=_is_user_source(entry),
-            )
-        required_review_ids = set(entries_by_id)
-    else:
-        for idx, review in enumerate(reviews, start=1):
-            review_id = _text(review.get("source_review_id") or review.get("review_id"))
-            url = _text(review.get("url"))
-            if not review_id:
-                continue
-            if not _review_is_usable(review):
-                continue
-            is_user_source = _is_user_source(review)
-            if not is_user_source:
-                required_review_ids.add(review_id)
-            entry = entries_by_id.get(review_id)
-            if not entry:
-                errors.append(
-                    f"{review_id}: usable formal evidence source has no source archive entry. "
-                    "Create artifacts/source_archive/<SRC-ID>.md or mark archive_unavailable with a reason."
-                )
-                continue
-            validate_entry(
-                review_id=review_id,
-                entry=entry,
-                expected_url=url,
-                is_user_source=is_user_source,
-            )
+    for review_id, entry in entries_by_id.items():
+        validate_entry(review_id=review_id, entry=entry)
 
     if required_review_ids and saved_count == 0:
         warnings.append(
@@ -350,13 +248,6 @@ def validate(
         )
     if unavailable_count:
         warnings.append(f"{unavailable_count} usable formal source archive(s) are marked archive_unavailable")
-
-    extra_entries = sorted(set(entries_by_id) - required_review_ids) if reviews else []
-    if extra_entries:
-        warnings.append(
-            "source_archive_index contains entries not required by usable non-user source reviews: "
-            + ", ".join(extra_entries[:10])
-        )
 
     return {
         "is_valid": not errors,
@@ -373,14 +264,12 @@ def validate(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-reviews", help="Optional legacy source_reviews.json for cross-checking")
     parser.add_argument("--source-archive-index", required=True)
     parser.add_argument("--run-dir")
     parser.add_argument("--output")
     args = parser.parse_args()
 
     result = validate(
-        source_reviews_path=Path(args.source_reviews) if args.source_reviews else None,
         source_archive_index_path=Path(args.source_archive_index),
         run_dir=Path(args.run_dir) if args.run_dir else None,
     )

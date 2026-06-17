@@ -18,7 +18,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -470,7 +470,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--formal-search-plan", required=True)
     parser.add_argument("--search-log", required=True)
-    parser.add_argument("--source-reviews")
     parser.add_argument("--source-archive-index")
     parser.add_argument("--output", required=True)
     parser.add_argument("--coverage-accounting", help="Optional artifacts/coverage_accounting.json output path")
@@ -481,7 +480,6 @@ def main() -> int:
     plan = load_json_file(Path(args.formal_search_plan))
     reviews = _merge_reviews(
         _load_archive_reviews(Path(args.source_archive_index)) if args.source_archive_index else [],
-        _load_reviews(Path(args.source_reviews)) if args.source_reviews else [],
     )
     report = build_report(
         plan=plan,

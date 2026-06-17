@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -98,27 +98,11 @@ def build_summary_payload(run_dir: Path) -> dict[str, Any]:
     chart_binding = load_optional_json(artifacts / "chart_metric_binding_validation.json")
     replacement = load_optional_json(artifacts / "replacement_dict_validation.json")
     final_delivery = load_optional_json(artifacts / "final_delivery_validation.json")
-    banker_review = load_optional_json(artifacts / "banker_review_report.json")
     ppt = load_optional_json(run_dir / "filled_ppt_validation.json")
     current_final = validate_final_delivery_current(run_dir, SOURCE_REGISTRY)
     workflow_state = validate_run_state(run_dir)
 
     ppt_summary = ppt.get("summary", {}) if isinstance(ppt.get("summary"), dict) else {}
-    slide_reviews = banker_review.get("slide_reviews") if isinstance(banker_review.get("slide_reviews"), list) else []
-    banker_flags: list[dict[str, Any]] = []
-    for item in slide_reviews:
-        if not isinstance(item, dict):
-            continue
-        flags = item.get("mechanical_flags")
-        if flags:
-            banker_flags.append(
-                {
-                    "slide_no": item.get("slide_no"),
-                    "selected_page_type": item.get("selected_page_type"),
-                    "mechanical_flags": flags,
-                    "repair_target": item.get("repair_target", "deck_blueprint.json"),
-                }
-            )
 
     client_ready = current_final.get("client_ready") is True
     verdict = "CLIENT_READY" if client_ready else "NOT_CLIENT_READY"
@@ -169,13 +153,10 @@ def build_summary_payload(run_dir: Path) -> dict[str, Any]:
             "formal_research_execution_warning_count": formal_execution.get("warning_count", 0),
             "formal_research_execution_error_count": formal_execution.get("error_count", 0),
             "embedded_source_review_note": "Source-review decisions live in research_evidence_db.source_reviews.",
+            "source_review_warning_count": 0,
+            "source_review_error_count": 0,
             "source_archive_valid": source_archive.get("is_valid") is True,
             "research_pack_valid": research_pack.get("is_valid") is True,
-        },
-        "banker_review": {
-            "exists": bool(banker_review),
-            "slide_review_count": len(slide_reviews),
-            "flagged_slides": banker_flags,
         },
         "content_quality": {
             "is_valid": content.get("is_valid") is True,
@@ -213,7 +194,6 @@ def build_summary(run_dir: Path) -> str:
     research_audit = payload["research_audit"]
     content = payload["content_quality"]
     ppt_integrity = payload["ppt_integrity"]
-    banker = payload["banker_review"]
 
     lines = [
         "# Run Quality Summary",
@@ -259,12 +239,6 @@ def build_summary(run_dir: Path) -> str:
         f"- Layout warnings: {content['layout_warning_count']}",
         f"- Chart data warnings: {content['chart_data_warning_count']}",
         "",
-        "## Banker Review",
-        "",
-        f"- Banker review report exists: {yes_no(banker['exists'])}",
-        f"- Slide review count: {banker['slide_review_count']}",
-        f"- Flagged slides: {len(banker['flagged_slides'])}",
-        "",
         "## PPT Integrity",
         "",
         f"- Replacement dict valid: {yes_no(ppt_integrity['replacement_valid'])}",
@@ -284,10 +258,6 @@ def build_summary(run_dir: Path) -> str:
             notable.append(f"- {key} advisory: {item}")
     for item in _first_items(payload["final_delivery"].get("errors")):
         notable.append(f"- current final delivery error: {item}")
-    for item in banker["flagged_slides"][:8]:
-        notable.append(
-            f"- banker review flag: slide {item.get('slide_no')} {item.get('mechanical_flags')} -> {item.get('repair_target')}"
-        )
 
     if notable:
         lines.extend(["## Notable Issues", "", *notable, ""])

@@ -9,5 +9,4 @@ Scripts:
 - `build_issue_analysis_skeleton.py`
 - `build_page_argument_pack.py`
 - `build_research_request_queue.py`
-- `normalize_issue_analysis.py`
 - `promote_research_requests.py`

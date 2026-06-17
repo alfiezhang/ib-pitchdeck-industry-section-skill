@@ -17,7 +17,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -591,9 +591,8 @@ REPAIR_PROFILES: dict[str, dict[str, Any]] = {
     },
     "mechanical_alias_or_enum": {
         "repair_target": "industry_issue_analysis.json",
-        "repair_hint": "Run scripts/reasoning/normalize_issue_analysis.py first, then revalidate. This handles common aliases such as sufficient/thin statuses and renamed fields.",
+        "repair_hint": "Repair industry_issue_analysis.json directly in the reasoning role: use canonical statuses, explicit evidence IDs, and conservative deck permissions. Do not rely on a normalizer to upgrade judgments.",
         "repair_fields": ["issue_analyses[].status", "issue_analyses[].analysis_type", "issue_analyses[].evidence_sufficiency"],
-        "helper": "scripts/reasoning/normalize_issue_analysis.py",
     },
     "thin_analysis_text": {
         "repair_target": "industry_issue_analysis.json",
@@ -699,7 +698,7 @@ def build_repair_plan(errors: list[str]) -> dict[str, Any]:
         "primary_repair_targets": primary_targets,
         "targets": targets,
         "rerun_steps": [
-            "scripts/reasoning/normalize_issue_analysis.py if mechanical_alias_or_enum appears",
+            "repair industry_issue_analysis.json directly if mechanical_alias_or_enum appears",
             "scripts/qc/validators/reasoning/validate_issue_analysis.py",
             "scripts/state_report.py next --run-dir $RUN_DIR",
         ],

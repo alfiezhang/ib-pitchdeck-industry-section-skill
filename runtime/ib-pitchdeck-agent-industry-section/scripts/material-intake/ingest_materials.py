@@ -12,7 +12,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -34,10 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from extract_excel_text import extract_excel_text
-from extract_pdf_text import extract_pdf_text
-from extract_pptx_text import extract_pptx_text
-from extract_web_url import extract_web_url
+from material_extractors import extract_excel_text, extract_pdf_text, extract_pptx_text, extract_web_url
 from material_intake_common import (
     as_bool,
     clean_text_block,
@@ -48,7 +45,7 @@ from material_intake_common import (
     text,
     infer_material_kind,
 )
-from source_classification import CANONICAL_SOURCE_TYPES, normalize_source_type
+from material_intake_common import CANONICAL_SOURCE_TYPES, normalize_source_type
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:

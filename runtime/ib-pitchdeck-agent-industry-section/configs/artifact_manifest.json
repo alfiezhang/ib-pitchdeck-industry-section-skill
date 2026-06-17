@@ -70,22 +70,6 @@
     "diagnostic": {
       "description": "Optional helper artifacts for debugging or role handoff. They are not part of the main workflow path and should not be required for delivery.",
       "artifacts": [
-        "source_reviews",
-        "evidence_candidate_skeleton",
-        "banker_review_report",
-        "agent_handoff",
-        "handoff_material_to_scoping",
-        "handoff_material_to_scoping_md",
-        "handoff_scoping_to_research",
-        "handoff_scoping_to_research_md",
-        "handoff_research_to_reasoning",
-        "handoff_research_to_reasoning_md",
-        "handoff_reasoning_to_generation",
-        "handoff_reasoning_to_generation_md",
-        "handoff_generation_to_template",
-        "handoff_generation_to_template_md",
-        "handoff_template_to_output",
-        "handoff_template_to_output_md",
         "mission_state",
         "failure_memory",
         "run_quality_summary",
@@ -95,9 +79,7 @@
         "qc_repair_brief_json",
         "qc_repair_brief_md",
         "boundary_loop_status",
-        "incremental_search_plan",
-        "skill_package_validation",
-        "legacy_install_audit"
+        "incremental_search_plan"
       ]
     }
   },
@@ -127,12 +109,10 @@
         "coverage_map",
         "search_batch",
         "search_log",
-        "source_reviews",
         "source_archive",
         "formal_research_execution_report",
         "coverage_accounting",
-        "pre_research_pack_gate",
-        "evidence_candidate_skeleton"
+        "pre_research_pack_gate"
       ]
     },
     "knowledge-repository": {
@@ -162,8 +142,7 @@
         "template_registry",
         "deck_blueprint",
         "page_evidence_contract",
-        "renderer_spec",
-        "banker_review_report"
+        "renderer_spec"
       ]
     },
     "template": {
@@ -183,26 +162,11 @@
         "pre_ppt_gate",
         "final_delivery",
         "run_quality_summary",
-        "agent_handoff",
-        "handoff_material_to_scoping",
-        "handoff_material_to_scoping_md",
-        "handoff_scoping_to_research",
-        "handoff_scoping_to_research_md",
-        "handoff_research_to_reasoning",
-        "handoff_research_to_reasoning_md",
-        "handoff_reasoning_to_generation",
-        "handoff_reasoning_to_generation_md",
-        "handoff_generation_to_template",
-        "handoff_generation_to_template_md",
-        "handoff_template_to_output",
-        "handoff_template_to_output_md",
         "gate_report_json",
         "gate_report_md",
         "qc_router_report",
         "qc_repair_brief_json",
         "qc_repair_brief_md",
-        "skill_package_validation",
-        "legacy_install_audit",
         "mission_state",
         "failure_memory"
       ]
@@ -245,13 +209,13 @@
     "repository_retrieval": {
       "path": "artifacts/repository_retrieval.json",
       "owner": "script_repository_lookup",
-      "builder": "scripts/knowledge-repository/repository_retrieve.py",
+      "builder": "scripts/knowledge-repository/repository.py retrieve",
       "inputs": []
     },
     "repository_index": {
       "path": "$REPOSITORY_ROOT/index/research_repository.jsonl",
       "owner": "script_repository_ingest",
-      "builder": "scripts/knowledge-repository/repository_ingest.py",
+      "builder": "scripts/knowledge-repository/repository.py ingest",
       "inputs": [
         "material_manifest",
         "material_extracts"
@@ -260,7 +224,7 @@
     "repository_fingerprints": {
       "path": "$REPOSITORY_ROOT/index/source_fingerprints.json",
       "owner": "script_repository_ingest",
-      "builder": "scripts/knowledge-repository/repository_ingest.py",
+      "builder": "scripts/knowledge-repository/repository.py ingest",
       "inputs": [
         "material_manifest",
         "material_extracts"
@@ -269,8 +233,8 @@
     "repository_validation": {
       "path": "artifacts/repository_validation.json",
       "owner": "script_repository_validation",
-      "builder": "scripts/knowledge-repository/repository_validate.py",
-      "validator": "scripts/knowledge-repository/repository_validate.py",
+      "builder": "scripts/knowledge-repository/repository.py validate",
+      "validator": "scripts/knowledge-repository/repository.py validate",
       "validation": "artifacts/repository_validation.json",
       "inputs": [
         "repository_retrieval"
@@ -370,25 +334,6 @@
       "builder": "scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py",
       "inputs": [
         "formal_research_execution_report"
-      ]
-    },
-    "source_reviews": {
-      "path": "artifacts/source_reviews.json",
-      "owner": "script_skeleton_llm_source_review_audit",
-      "builder": "scripts/research-external-evidence/build_source_reviews_skeleton.py",
-      "validator": "scripts/qc/validators/research/validate_source_reviews.py",
-      "validation": "artifacts/source_reviews_validation.json",
-      "inputs": [
-        "search_log"
-      ]
-    },
-    "evidence_candidate_skeleton": {
-      "path": "artifacts/evidence_candidate_skeleton.json",
-      "owner": "script_candidate_workspace",
-      "builder": "scripts/research-external-evidence/build_evidence_candidate_skeleton.py",
-      "inputs": [
-        "formal_research_execution_report",
-        "source_archive"
       ]
     },
     "source_archive": {
@@ -593,88 +538,6 @@
         "renderer_spec"
       ]
     },
-    "banker_review_report": {
-      "path": "artifacts/banker_review_report.json",
-      "owner": "script_skeleton_llm_banker_review",
-      "builder": "scripts/generation/build_banker_review_report_skeleton.py",
-      "inputs": [
-        "deck_blueprint",
-        "page_evidence_contract",
-        "renderer_spec"
-      ]
-    },
-    "agent_handoff": {
-      "path": "artifacts/agent_handoff/agent_handoff_index.json",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py",
-      "inputs": [
-        "input_card",
-        "research_pack",
-        "issue_analysis",
-        "deck_blueprint",
-        "renderer_spec"
-      ]
-    },
-    "handoff_material_to_scoping": {
-      "path": "artifacts/handoff_material_to_scoping.json",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_material_to_scoping_md": {
-      "path": "artifacts/handoff_material_to_scoping.md",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_scoping_to_research": {
-      "path": "artifacts/handoff_scoping_to_research.json",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_scoping_to_research_md": {
-      "path": "artifacts/handoff_scoping_to_research.md",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_research_to_reasoning": {
-      "path": "artifacts/handoff_research_to_reasoning.json",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_research_to_reasoning_md": {
-      "path": "artifacts/handoff_research_to_reasoning.md",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_reasoning_to_generation": {
-      "path": "artifacts/handoff_reasoning_to_generation.json",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_reasoning_to_generation_md": {
-      "path": "artifacts/handoff_reasoning_to_generation.md",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_generation_to_template": {
-      "path": "artifacts/handoff_generation_to_template.json",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_generation_to_template_md": {
-      "path": "artifacts/handoff_generation_to_template.md",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_template_to_output": {
-      "path": "artifacts/handoff_template_to_output.json",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
-    "handoff_template_to_output_md": {
-      "path": "artifacts/handoff_template_to_output.md",
-      "owner": "script_role_handoff",
-      "builder": "scripts/qc/build_agent_handoff.py"
-    },
     "mission_state": {
       "path": "artifacts/mission_state.json",
       "owner": "workflow",
@@ -714,7 +577,7 @@
     "gate_report_json": {
       "path": "artifacts/gate_report.json",
       "owner": "script_dashboard_triage",
-      "builder": "scripts/gate_report.py",
+      "builder": "scripts/qc/gate_report.py",
       "inputs": [
         "mission_state"
       ]
@@ -722,7 +585,7 @@
     "gate_report_md": {
       "path": "artifacts/gate_report.md",
       "owner": "script_dashboard_triage",
-      "builder": "scripts/gate_report.py",
+      "builder": "scripts/qc/gate_report.py",
       "inputs": [
         "gate_report_json"
       ]
@@ -736,20 +599,6 @@
       "inputs": [
         "final_delivery"
       ]
-    },
-    "skill_package_validation": {
-      "path": "artifacts/skill_package_validation.json",
-      "owner": "script_skill_packaging",
-      "builder": "scripts/qc/validators/system/validate_skill_package.py",
-      "validator": "scripts/qc/validators/system/validate_skill_package.py",
-      "validation": "artifacts/skill_package_validation.json",
-      "inputs": []
-    },
-    "legacy_install_audit": {
-      "path": "artifacts/legacy_install_audit.json",
-      "owner": "script_legacy_install_audit",
-      "builder": "scripts/audit_legacy_installs.py",
-      "inputs": []
     },
     "pre_ppt_gate": {
       "path": "artifacts/stage_gate_pre_ppt_validation.json",

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -13,7 +13,7 @@ SCRIPT_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from pipeline import _clear_draft_state, _write_draft_flags, _write_run_flags  # noqa: E402
+from pipeline import _clear_draft_state, _write_run_flags  # noqa: E402
 
 
 def test_pipeline_run_flags_preserve_formal_defaults(tmp_path: Path) -> None:
@@ -56,7 +56,25 @@ def test_pipeline_run_flags_preserves_debug_only_when_set(tmp_path: Path) -> Non
 
 def test_pipeline_run_flags_can_replace_draft_flags_for_formal_render(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
-    _write_draft_flags(run_dir, entrypoint="scripts/pipeline.py draft")
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True)
+    (artifacts / "run_flags.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "run_flags_v1",
+                "research_gate": 0,
+                "issue_analysis_layer": 0,
+                "quality_gate": 0,
+                "debug_output_only": True,
+                "draft_output_only": True,
+                "pipeline_entrypoint": "legacy-draft",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     (run_dir / "DRAFT_NOT_CLIENT_READY.txt").write_text("draft\n", encoding="utf-8")
 
     _clear_draft_state(run_dir)
@@ -69,3 +87,15 @@ def test_pipeline_run_flags_can_replace_draft_flags_for_formal_render(tmp_path: 
     assert not (run_dir / "DRAFT_NOT_CLIENT_READY.txt").exists()
 
 
+def test_pipeline_draft_command_is_not_available(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "pipeline.py"), "draft", "--run-dir", str(run_dir)],
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert "invalid choice" in result.stderr

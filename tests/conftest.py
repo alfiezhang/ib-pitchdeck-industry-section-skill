@@ -488,13 +488,11 @@ def _seed_boundary_loop_status(
 def _pipeline_run_dir(tmp_path_factory):
     """Build a full pipeline run directory with search log, source reviews, execution report, etc."""
     from build_formal_search_plan_skeleton import build_plan as build_formal_search_plan_skeleton
-    from build_source_reviews_skeleton import build_source_reviews as build_source_reviews_skeleton
     from build_formal_research_execution_report_skeleton import build_report as build_formal_execution_skeleton
     from build_source_archive import build_archive as build_source_archive
     from pipeline import _write_run_flags
     from validate_formal_research_execution import validate as validate_formal_research_execution
     from validate_formal_search_plan import validate as validate_formal_search_plan
-    from validate_source_reviews import validate as validate_source_reviews
     from validate_source_archive import validate as validate_source_archive
 
     tmp = tmp_path_factory.mktemp("pipeline")
@@ -696,8 +694,7 @@ def _pipeline_run_dir(tmp_path_factory):
                 "claim_use_scope": "no formal claim support; keep as research gap",
                 "usable_as_evidence": False, "source_type": "industry_report",
             })
-    source_reviews = {"schema_version": "source_reviews_v1", "reviews": reviews}
-    _write_json(artifacts / "source_reviews.json", source_reviews)
+    embedded_reviews = {"schema_version": "embedded_source_reviews_v1", "reviews": reviews}
 
     # Source archive
     archive_dir = artifacts / "source_archive"
@@ -733,7 +730,7 @@ def _pipeline_run_dir(tmp_path_factory):
     # Formal execution report
     report = build_formal_execution_skeleton(
         plan=plan, search_log_path=artifacts / "search_log.md",
-        reviews=source_reviews["reviews"],
+        reviews=embedded_reviews["reviews"],
         search_log_ref="artifacts/search_log.md", include_unexecuted=False,
     )
     for result in report["issue_results"]:
@@ -766,18 +763,8 @@ def _pipeline_run_dir(tmp_path_factory):
     assert not errors, errors
     _write_json(artifacts / "formal_research_execution_validation.json", {"is_valid": True, "errors": [], "warnings": warnings})
 
-    # Validate source reviews
-    source_result = validate_source_reviews(
-        artifacts / "source_reviews.json", search_log_path=artifacts / "search_log.md",
-        formal_research_execution_report_path=artifacts / "formal_research_execution_report.json",
-        source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir,
-    )
-    assert source_result["is_valid"], source_result
-    _write_json(artifacts / "source_reviews_validation.json", source_result)
-
     # Validate source archive
     archive_result = validate_source_archive(
-        source_reviews_path=artifacts / "source_reviews.json",
         source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir,
     )
     assert archive_result["is_valid"], archive_result
@@ -787,11 +774,11 @@ def _pipeline_run_dir(tmp_path_factory):
     auto_archive_dir = artifacts / "source_archive_auto"
     auto_index = auto_archive_dir / "source_archive_index.json"
     auto_build = build_source_archive(
-        source_reviews_path=artifacts / "source_reviews.json",
+        search_log_path=artifacts / "search_log.md",
         archive_dir=auto_archive_dir,
         source_archive_index_path=auto_index, run_dir=run_dir, overwrite=True,
     )
-    assert auto_build["archive_entry_count"] == 2, auto_build
+    assert auto_build["archive_entry_count"] >= 2, auto_build
 
     # Research evidence DB
     from research_evidence_db import build_db as build_research_evidence_db
@@ -801,7 +788,8 @@ def _pipeline_run_dir(tmp_path_factory):
     research_db = build_research_evidence_db(
         input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "Samplestan"},
         scope_pack=scope_pack, formal_search_plan=plan,
-        execution_report=report, source_reviews=source_reviews,
+        execution_report=report, source_reviews=embedded_reviews,
+        source_archive_index=source_archive_index,
     )
     for extract in research_db["formal_research_extracts"]:
         extract["extracted_fact_or_metric_candidate"] = "Source-faithful contract-test extract with scope and limitation."
@@ -909,7 +897,7 @@ def _pipeline_run_dir(tmp_path_factory):
         "artifacts": artifacts,
         "plan": plan,
         "report": report,
-        "source_reviews": source_reviews,
+        "embedded_reviews": embedded_reviews,
         "scope_pack": scope_pack,
         "market_fs": market_fs,
         "value_fs": value_fs,

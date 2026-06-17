@@ -15,7 +15,7 @@ _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
     if (_p / 'configs').is_dir() and (_p / 'scripts').is_dir()
 )
-_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts"
+_IB_SHARED_SCRIPT_DIR = _IB_RUNTIME_ROOT / "scripts" / "_lib"
 _IB_ROLE_SCRIPT_DIRS = sorted(_p for _p in (_IB_RUNTIME_ROOT / 'scripts').iterdir() if _p.is_dir())
 _IB_QC_VALIDATOR_DIRS = sorted((_IB_RUNTIME_ROOT / 'scripts' / 'qc' / 'validators').glob('*'))
 _IB_IMPORT_PATHS = [str(_IB_ROLE_SCRIPT_DIR)]
@@ -37,7 +37,7 @@ from typing import Any
 
 from issue_taxonomy import ISSUE_TOPICS_BY_AREA
 from json_utils import load_json_file
-from source_classification import CANONICAL_SOURCE_TYPES, is_material_type, normalize_source_type
+from material_intake_common import CANONICAL_SOURCE_TYPES, is_material_type, normalize_source_type
 
 
 EV_RE = re.compile(r"^EV-\d{3}$")
@@ -243,7 +243,7 @@ def build_db(
     embedded_source_reviews = {
         "schema_version": "embedded_source_reviews_v1",
         "source_of_truth": "artifacts/research_evidence_db.json",
-        "policy": "Review status and evidence usability are LLM/QC judgments stored inside the evidence DB. Standalone source_reviews.json is legacy/diagnostic only.",
+        "policy": "Review status and evidence usability are LLM/QC judgments stored inside the evidence DB. The public workflow does not maintain a standalone source_reviews artifact.",
         "reviews": embedded_review_rows,
     }
     review_map = {review_id(item): item for item in embedded_review_rows if review_id(item)}

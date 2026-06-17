@@ -9,8 +9,10 @@ from pathlib import Path
 
 import pytest
 
-SKILL_DIR = Path(__file__).resolve().parents[1] / "runtime" / "ib-pitchdeck-agent-industry-section"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SKILL_DIR = REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
 SCRIPT_DIR = SKILL_DIR / "scripts"
+DEVTOOLS_CHECKS = REPO_ROOT / "devtools" / "checks"
 
 
 def _run(args: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -30,19 +32,19 @@ class TestCompileAll:
 
 class TestJsonLint:
     def test_check_json_files(self):
-        result = _run([sys.executable, "scripts/qc/check_json_files.py", "--root", "."])
+        result = _run([sys.executable, str(DEVTOOLS_CHECKS / "check_json_files.py"), "--root", "."])
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_check_artifact_manifest(self):
-        result = _run([sys.executable, "scripts/qc/check_artifact_manifest.py"])
+        result = _run([sys.executable, str(DEVTOOLS_CHECKS / "check_artifact_manifest.py")])
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_check_slide_registry(self):
-        result = _run([sys.executable, "scripts/template/check_slide_registry.py"])
+        result = _run([sys.executable, str(DEVTOOLS_CHECKS / "check_slide_registry.py")])
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_check_registry_coverage(self):
-        result = _run([sys.executable, "scripts/template/check_registry_coverage.py"])
+        result = _run([sys.executable, str(DEVTOOLS_CHECKS / "check_registry_coverage.py")])
         assert result.returncode == 0, result.stdout + result.stderr
 
 
