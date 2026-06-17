@@ -188,6 +188,38 @@ class TestFormalSearchPlan:
         assert len(plan["issue_search_plan"]) >= 40, len(plan["issue_search_plan"])
         _write_json(tmp_path / "formal_search_plan.json", plan)
 
+    def test_cli_writes_coverage_map_and_executable_search_batch(self, tmp_path):
+        input_card = tmp_path / "input_card.json"
+        scope_pack = tmp_path / "industry_scope_pack.json"
+        output = tmp_path / "formal_search_plan.json"
+        input_card.write_text(
+            json.dumps({"industry": "sample sector", "geography": "Samplestan"}),
+            encoding="utf-8",
+        )
+        scope_pack.write_text(
+            json.dumps({"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}}),
+            encoding="utf-8",
+        )
+
+        result = _run([
+            sys.executable,
+            str(SCRIPT_DIR / "research-external-evidence" / "build_formal_search_plan_skeleton.py"),
+            "--input-card", str(input_card),
+            "--scope-pack", str(scope_pack),
+            "--output", str(output),
+        ])
+
+        assert result.returncode == 0, result.stderr
+        assert output.exists()
+        coverage_map = tmp_path / "coverage_map.json"
+        executable_batch = tmp_path / "executable_search_batch.json"
+        assert coverage_map.exists()
+        assert executable_batch.exists()
+        batch = json.loads(executable_batch.read_text(encoding="utf-8"))
+        assert batch["schema_version"] == "search_batch_v1"
+        assert batch["batches"], batch
+        assert "LLM_REWRITE_REQUIRED" in batch["batches"][0]["english_query"]
+
     def test_duplicate_instruction_id_rejected(self, tmp_path):
         from build_formal_search_plan_skeleton import build_plan as build_formal_search_plan_skeleton
         from validate_formal_search_plan import validate as validate_formal_search_plan
@@ -258,6 +290,194 @@ class TestSourceArchive:
         assert result["is_valid"] is False, result
         assert any("reviewed_excerpt" in error for error in result["errors"]), result
         assert any("Reviewed Excerpt" in error for error in result["errors"]), result
+
+    def test_source_archive_saves_raw_html_when_fetch_succeeds(self, tmp_path, monkeypatch):
+        import build_source_archive as archive_builder
+
+        run_dir = tmp_path / "run"
+        search_log = run_dir / "artifacts" / "search_log.md"
+        result = _run([
+            sys.executable,
+            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
+            "append",
+            "--search-log", str(search_log),
+            "--query", "sample sector market size official report",
+            "--stage", "formal_research_execution",
+            "--fs-id", "FS-001",
+            "--selected-source", "https://example.com/source",
+            "--opened-reviewed", "yes",
+            "--locator-excerpt", "Example report paragraph with enough locator context for archive review.",
+            "--result-count", "3",
+        ])
+        assert result.returncode == 0, result.stderr
+
+        def fake_fetch(url: str) -> dict[str, str]:
+            assert url == "https://example.com/source"
+            return {
+                "ok": "1",
+                "content_type": "text/html; charset=utf-8",
+                "raw_text": "<html><body><article><h1>Sample</h1><p>Archived source text with enough readable content for audit and source extraction. Market size scope and methodology are visible here.</p></article></body></html>",
+                "review_text": "Sample\nArchived source text with enough readable content for audit and source extraction. Market size scope and methodology are visible here.",
+            }
+
+        monkeypatch.setattr(archive_builder, "_fetch_url", fake_fetch)
+        archive_dir = run_dir / "artifacts" / "source_archive"
+        index_path = archive_dir / "source_archive_index.json"
+
+        build = archive_builder.build_archive(
+            search_log_path=search_log,
+            archive_dir=archive_dir,
+            source_archive_index_path=index_path,
+            run_dir=run_dir,
+            overwrite=True,
+        )
+
+        assert build["full_page_fetch_attempted"] is True, build
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        entry = index["entries"][0]
+        assert entry["archive_status"] == "saved_html", entry
+        assert entry["raw_archive_path"].endswith("SRC-001_raw.html"), entry
+        assert (run_dir / entry["raw_archive_path"]).exists()
+        markdown = (run_dir / entry["archive_path"]).read_text(encoding="utf-8")
+        assert "Archive Status: saved_html" in markdown
+        assert "Raw Archive Path:" in markdown
+
+    def test_source_archive_requires_research_verification_when_fetch_fails(self, tmp_path):
+        import build_source_archive as archive_builder
+        from validate_source_archive import validate as validate_source_archive
+
+        run_dir = tmp_path / "run"
+        search_log = run_dir / "artifacts" / "search_log.md"
+        reviewed_excerpt = (
+            "Opened page excerpt with source-like context, a visible method note, and enough detail for Research "
+            "to verify later, but the page was not captured as a full archive."
+        )
+        result = _run([
+            sys.executable,
+            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
+            "append",
+            "--search-log", str(search_log),
+            "--query", "sample sector report",
+            "--stage", "formal_research_execution",
+            "--fs-id", "FS-001",
+            "--selected-source", "https://example.com/report",
+            "--opened-reviewed", "yes",
+            "--locator-excerpt", reviewed_excerpt,
+            "--result-count", "2",
+        ])
+        assert result.returncode == 0, result.stderr
+        archive_dir = run_dir / "artifacts" / "source_archive"
+        index_path = archive_dir / "source_archive_index.json"
+
+        archive_builder.build_archive(
+            search_log_path=search_log,
+            archive_dir=archive_dir,
+            source_archive_index_path=index_path,
+            run_dir=run_dir,
+            overwrite=True,
+            fetch_web=False,
+        )
+
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        entry = index["entries"][0]
+        assert entry["archive_status"] == "needs_research_verification", entry
+        validation = validate_source_archive(source_archive_index_path=index_path, run_dir=run_dir)
+        assert validation["is_valid"] is True, validation
+        assert validation["needs_research_verification_count"] == 1, validation
+        assert validation["evidence_ready_archive_count"] == 0, validation
+
+    def test_source_archive_promotes_manual_verified_excerpt_after_research_check(self, tmp_path):
+        import build_source_archive as archive_builder
+        from validate_source_archive import validate as validate_source_archive
+
+        run_dir = tmp_path / "run"
+        search_log = run_dir / "artifacts" / "search_log.md"
+        reviewed_excerpt = (
+            "Research reopened the page and matched this report excerpt against the source title, paragraph, "
+            "and methodology note; it is long enough to preserve the fact context for later extraction."
+        )
+        verification_note = "Research reopened the URL and matched the quoted paragraph against the report page."
+        result = _run([
+            sys.executable,
+            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
+            "append",
+            "--search-log", str(search_log),
+            "--query", "sample sector report",
+            "--stage", "formal_research_execution",
+            "--fs-id", "FS-001",
+            "--selected-source", "https://example.com/report",
+            "--opened-reviewed", "yes",
+            "--locator-excerpt", reviewed_excerpt,
+            "--result-count", "2",
+            "--secondary-verification", "verified",
+            "--secondary-verification-notes", verification_note,
+            "--research-archive-status", "manual_verified_excerpt",
+        ])
+        assert result.returncode == 0, result.stderr
+        archive_dir = run_dir / "artifacts" / "source_archive"
+        index_path = archive_dir / "source_archive_index.json"
+
+        archive_builder.build_archive(
+            search_log_path=search_log,
+            archive_dir=archive_dir,
+            source_archive_index_path=index_path,
+            run_dir=run_dir,
+            overwrite=True,
+            fetch_web=False,
+        )
+
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        entry = index["entries"][0]
+        assert entry["archive_status"] == "manual_verified_excerpt", entry
+        assert entry["secondary_verification"] == "verified", entry
+        validation = validate_source_archive(source_archive_index_path=index_path, run_dir=run_dir)
+        assert validation["is_valid"] is True, validation
+        assert validation["evidence_ready_archive_count"] == 1, validation
+
+    def test_source_archive_does_not_infer_manual_verified_from_secondary_verification(self, tmp_path):
+        import build_source_archive as archive_builder
+        from validate_source_archive import validate as validate_source_archive
+
+        run_dir = tmp_path / "run"
+        search_log = run_dir / "artifacts" / "search_log.md"
+        reviewed_excerpt = (
+            "Research wrote a long opened-page excerpt and noted a verification action, but did not explicitly "
+            "declare that this source should be treated as a manual verified archive."
+        )
+        result = _run([
+            sys.executable,
+            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
+            "append",
+            "--search-log", str(search_log),
+            "--query", "sample sector report",
+            "--stage", "formal_research_execution",
+            "--fs-id", "FS-001",
+            "--selected-source", "https://example.com/report",
+            "--opened-reviewed", "yes",
+            "--locator-excerpt", reviewed_excerpt,
+            "--result-count", "2",
+            "--secondary-verification", "verified",
+            "--secondary-verification-notes", "Research reopened the URL and matched the paragraph.",
+        ])
+        assert result.returncode == 0, result.stderr
+        archive_dir = run_dir / "artifacts" / "source_archive"
+        index_path = archive_dir / "source_archive_index.json"
+
+        archive_builder.build_archive(
+            search_log_path=search_log,
+            archive_dir=archive_dir,
+            source_archive_index_path=index_path,
+            run_dir=run_dir,
+            overwrite=True,
+            fetch_web=False,
+        )
+
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        entry = index["entries"][0]
+        assert entry["archive_status"] == "needs_research_verification", entry
+        validation = validate_source_archive(source_archive_index_path=index_path, run_dir=run_dir)
+        assert validation["is_valid"] is True, validation
+        assert validation["evidence_ready_archive_count"] == 0, validation
 
 
 # ---------------------------------------------------------------------------

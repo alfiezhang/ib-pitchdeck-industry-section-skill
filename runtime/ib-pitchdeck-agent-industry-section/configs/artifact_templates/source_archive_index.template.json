@@ -10,19 +10,28 @@
       "source_review_id": "SRC-001",
       "url": "https://example.com/report-or-article",
       "title": "",
-      "archive_status": "excerpt_snapshot",
+      "archive_status": "saved_html",
       "archive_path": "artifacts/source_archive/SRC-001.md",
+      "raw_archive_path": "artifacts/source_archive/raw/SRC-001_raw.html",
       "captured_at": "",
       "source_type": "web_search_result",
       "locator": "page/section/table/paragraph used for later Knowledge/QC review",
       "reviewed_excerpt": "Short reviewed excerpt or paraphrased locator context used to support the EV row.",
-      "archive_unavailable_reason": ""
+      "archive_unavailable_reason": "",
+      "excerpt_origin": "opened_page",
+      "secondary_verification": "verified",
+      "secondary_verification_notes": "Research reopened the URL or found matching source text/report context after full-page download failed.",
+      "research_archive_status": "manual_verified_excerpt"
     }
   ],
   "status_values": {
+    "saved_html": "Full HTML source was downloaded and a reviewable markdown/text snapshot was saved at archive_path.",
     "saved_text": "Clean markdown/text/html snapshot saved at archive_path.",
     "saved_pdf": "PDF source saved at archive_path.",
-    "excerpt_snapshot": "Full download was not practical; archive_path contains reviewed excerpt, locator, URL, title, and limitation notes.",
+    "manual_verified_excerpt": "Full download failed, but Research completed secondary verification, explicitly declared research_archive_status=manual_verified_excerpt, and saved a source-faithful excerpt with locator and verification notes.",
+    "needs_research_verification": "Full download failed and Research has not yet completed secondary verification. Keep as a lead/gap, not evidence.",
+    "search_snippet_only": "Only a search-result snippet is available. Keep as a lead only.",
+    "excerpt_snapshot": "Legacy ambiguous status. Rebuild as manual_verified_excerpt or needs_research_verification.",
     "archive_unavailable": "No file could be saved; reviewed_excerpt and archive_unavailable_reason must explain the limitation.",
     "user_provided": "Source is user-provided/management material and is governed by the user file, not web archive."
   }

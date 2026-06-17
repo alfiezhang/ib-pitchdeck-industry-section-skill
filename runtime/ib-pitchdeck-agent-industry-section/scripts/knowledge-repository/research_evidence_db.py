@@ -44,6 +44,8 @@ EV_RE = re.compile(r"^EV-\d{3}$")
 MET_RE = re.compile(r"^MET-\d{3}$")
 NO_EVIDENCE_TERMINAL_STATUSES = {"not_executed", "not_material", "accounting_only"}
 EVIDENCE_TERMINAL_STATUS = "executed_with_evidence"
+EVIDENCE_READY_ARCHIVE_STATUSES = {"saved_html", "saved_text", "saved_pdf", "user_provided", "manual_verified_excerpt"}
+NON_EVIDENCE_ARCHIVE_STATUSES = {"needs_research_verification", "search_snippet_only", "archive_unavailable", "excerpt_snapshot"}
 PLACEHOLDER_MARKERS = (
     "TODO",
     "TODO_REPLACE",
@@ -155,11 +157,26 @@ def review_from_archive_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "limitations": text(entry.get("limitations") or entry.get("archive_unavailable_reason")),
         "archive_status": text(entry.get("archive_status")),
         "archive_path": text(entry.get("archive_path")),
+        "raw_archive_path": text(entry.get("raw_archive_path")),
+        "excerpt_origin": text(entry.get("excerpt_origin")),
+        "secondary_verification": text(entry.get("secondary_verification")),
+        "secondary_verification_notes": text(entry.get("secondary_verification_notes")),
         "source_date": text(entry.get("source_date")),
         "geography": text(entry.get("geography")),
         "data_period": text(entry.get("data_period")),
         "methodology_locator": text(entry.get("methodology_locator")),
     }
+
+
+def archive_status(review: dict[str, Any]) -> str:
+    return text(review.get("archive_status"))
+
+
+def evidence_ready_archive(review: dict[str, Any]) -> bool:
+    status = archive_status(review)
+    if not status:
+        return not review_url(review).startswith("http")
+    return status in EVIDENCE_READY_ARCHIVE_STATUSES
 
 
 def merged_reviews(
@@ -302,6 +319,10 @@ def build_db(
                 "limitations": text(item.get("limitations")),
                 "archive_status": text(item.get("archive_status")),
                 "archive_path": text(item.get("archive_path")),
+                "raw_archive_path": text(item.get("raw_archive_path")),
+                "excerpt_origin": text(item.get("excerpt_origin")),
+                "secondary_verification": text(item.get("secondary_verification")),
+                "secondary_verification_notes": text(item.get("secondary_verification_notes")),
                 "review_status": text(item.get("review_status")),
             }
         )
@@ -382,6 +403,8 @@ def build_db(
 
         for src_id in source_review_ids:
             review = review_map.get(src_id, {})
+            source_is_evidence_ready = evidence_ready_archive(review)
+            archive_state = archive_status(review)
             formal_extracts.append(
                 {
                     "extract_id": f"FX-{len(formal_extracts) + 1:03d}",
@@ -396,13 +419,22 @@ def build_db(
                     "extracted_fact_or_metric_candidate": "TODO_REPLACE_WITH_SOURCE_FAITHFUL_EXTRACT",
                     "status": text(result.get("status")),
                     "terminal_status": terminal_status,
-                    "promoted_evidence_ids": evidence_ids if terminal_status == EVIDENCE_TERMINAL_STATUS else [],
-                    "promoted_metric_ids": metric_ids if terminal_status == EVIDENCE_TERMINAL_STATUS else [],
+                    "archive_status": archive_state,
+                    "archive_eligibility": "evidence_ready" if source_is_evidence_ready else "research_verification_required",
+                    "promoted_evidence_ids": evidence_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
+                    "promoted_metric_ids": metric_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
                     "limitations": [text(item) for item in as_list(result.get("limitations")) if text(item)],
                 }
             )
         primary_review = review_map.get(source_review_ids[0], {}) if source_review_ids else {}
         if terminal_status != EVIDENCE_TERMINAL_STATUS or not source_review_ids:
+            continue
+        if not evidence_ready_archive(primary_review):
+            critical_gap_rows.append(
+                f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                f"source {source_review_ids[0]} archive_status={archive_status(primary_review) or 'missing'}; "
+                "Research must complete full-page archive or secondary verification before Knowledge can promote EV/MET rows."
+            )
             continue
         for ev_id in evidence_ids:
             if ev_id in evidence_seen:
@@ -456,14 +488,32 @@ def build_db(
     for area, subissues in ISSUE_TOPICS_BY_AREA.items():
         for subissue in sorted(subissues):
             result = results.get((area, subissue), {})
+            result_source_ids = [text(item) for item in as_list(result.get("source_review_ids")) if text(item)]
+            result_sources_ready = (
+                bool(result_source_ids)
+                and all(evidence_ready_archive(review_map.get(src_id, {})) for src_id in result_source_ids)
+            )
+            raw_evidence_ids = [text(item) for item in as_list(result.get("evidence_ids")) if text(item)]
+            raw_metric_ids = [text(item) for item in as_list(result.get("metric_ids")) if text(item)]
+            effective_evidence_ids = raw_evidence_ids if result_sources_ready else []
+            effective_metric_ids = raw_metric_ids if result_sources_ready else []
+            if result and text(result.get("terminal_status")) == EVIDENCE_TERMINAL_STATUS and not result_sources_ready:
+                fact_status = "insufficient"
+                notes = (
+                    f"{text(result.get('findings_summary'))} "
+                    "Source archive is not evidence-ready; Research secondary verification is required."
+                ).strip()
+            else:
+                fact_status = issue_fact_status(result) if result else "insufficient"
+                notes = text(result.get("findings_summary")) if result else "No formal result found; keep as research gap until searched."
             inventory.append(
                 {
                     "issue_area": area,
                     "subissue": subissue,
-                    "evidence_ids": [text(item) for item in as_list(result.get("evidence_ids")) if text(item)],
-                    "metric_ids": [text(item) for item in as_list(result.get("metric_ids")) if text(item)],
-                    "fact_status": issue_fact_status(result) if result else "insufficient",
-                    "notes": text(result.get("findings_summary")) if result else "No formal result found; keep as research gap until searched.",
+                    "evidence_ids": effective_evidence_ids,
+                    "metric_ids": effective_metric_ids,
+                    "fact_status": fact_status,
+                    "notes": notes,
                 }
             )
 
@@ -598,6 +648,11 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             warnings.append(
                 f"{src_id}: source_materials.source_access_path missing for material source; add file path / URL / locator source path"
             )
+        status = text(source.get("archive_status"))
+        if status in NON_EVIDENCE_ARCHIVE_STATUSES:
+            warnings.append(
+                f"{src_id}: archive_status={status}; Research must verify/archive before this source can support promoted evidence"
+            )
 
     formal_result_by_id: dict[str, dict[str, Any]] = {}
     ev_to_result: dict[str, dict[str, Any]] = {}
@@ -709,6 +764,11 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
                     errors.append(
                         f"{ev_id}: public/search source {src_id} must have archive_path before it can support evidence; "
                         "search snippets and result pages are leads only"
+                    )
+                if not evidence_ready_archive(source):
+                    errors.append(
+                        f"{ev_id}: source {src_id} archive_status={text(source.get('archive_status')) or 'missing'} is not evidence-ready; "
+                        "Research must complete full-page archive or secondary verification before evidence promotion"
                     )
                 if "snippet" in text(row.get("raw_excerpt")).lower() or "search result" in text(row.get("raw_excerpt")).lower():
                     errors.append(

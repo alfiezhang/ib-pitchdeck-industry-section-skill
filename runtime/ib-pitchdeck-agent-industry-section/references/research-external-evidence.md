@@ -15,6 +15,8 @@ You are the public evidence researcher. Your job is to find and archive public o
 ## Outputs
 
 - `artifacts/formal_search_plan.json`
+- `artifacts/coverage_map.json`
+- `artifacts/executable_search_batch.json`
 - `artifacts/search_log.md`
 - `artifacts/source_archive/` and archive index
 - `artifacts/formal_research_execution_report.json`
@@ -23,14 +25,27 @@ You are the public evidence researcher. Your job is to find and archive public o
 ## How To Work
 
 1. Separate taxonomy coverage from executable search batches.
-2. Write queries like a researcher, not like a schema generator.
-3. Actual `S-xxx` IDs belong only to executed searches.
-4. Planned rows without actual searches become not-executed/backlog/gap accounting, not evidence.
-5. Build `source_archive` directly from actual search-log selected/opened sources and manual/user-provided sources.
-6. Source usability, use tier, and claim-use limits are embedded in `research_evidence_db.json`.
-7. Archive enough source material for later audit.
-8. Treat search results and snippets as leads only. A URL cannot support evidence until it has been opened, archived, and excerpted with a locator.
-9. Never pass a search-result snippet directly into `research_evidence_db.evidence_ledger`.
+2. Treat `formal_search_plan.json` as the coverage map and
+   `executable_search_batch.json` as the actual query workbench.
+3. Write queries like a researcher, not like a schema generator.
+   Query strings should be specific to the source type, language, geography,
+   period, and likely publisher. Do not run the mechanical taxonomy wording.
+4. Actual `S-xxx` IDs belong only to executed searches.
+5. Planned rows without actual searches become not-executed/backlog/gap accounting, not evidence.
+6. Build `source_archive` directly from actual search-log selected/opened sources and manual/user-provided sources.
+7. First try to save a full reviewable web archive. If full download fails,
+   save the excerpt as `needs_research_verification`; Research must perform a
+   second-pass check and explicitly declare Research Archive Status before it
+   can become `manual_verified_excerpt`.
+8. Secondary verification belongs to Research, not QC. Reopen the URL, search a
+   distinctive quote, find the original report/PDF, or locate the same passage
+   in a credible repost; record the method in `Secondary Verification Notes`.
+   Do not rely on the archive builder to infer source quality from text length
+   or `secondary_verification=verified`.
+9. Source usability, use tier, and claim-use limits are embedded in `research_evidence_db.json`.
+10. Archive enough source material for later audit.
+11. Treat search results and snippets as leads only. A URL cannot support evidence until it has been opened, archived, and excerpted with a locator.
+12. Never pass a search-result snippet directly into `research_evidence_db.evidence_ledger`.
 
 ## Judgment Boundary
 

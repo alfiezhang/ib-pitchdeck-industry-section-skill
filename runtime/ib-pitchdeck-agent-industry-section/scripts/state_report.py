@@ -87,8 +87,6 @@ def _prefer_role_local_entrypoints(command: str) -> str:
 
 def _make_runtime_paths_absolute(command: str) -> str:
     """Return commands that work outside the skill runtime cwd."""
-    preserved_source_registry = "__IB_SOURCE_REGISTRY_RELATIVE__"
-    command = command.replace(" configs/source_registry.json", f" {preserved_source_registry}")
     replacements = {
         " scripts/": f" {ROOT_DIR}/scripts/",
         " configs/": f" {ROOT_DIR}/configs/",
@@ -97,7 +95,7 @@ def _make_runtime_paths_absolute(command: str) -> str:
     rewritten = command
     for needle, replacement in replacements.items():
         rewritten = rewritten.replace(needle, replacement)
-    return rewritten.replace(preserved_source_registry, "configs/source_registry.json")
+    return rewritten
 
 
 def _pipeline_rebuild_command(run_dir: str) -> dict[str, str]:
@@ -336,7 +334,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "FORMAL_SEARCH_PLAN_MISSING": [
         {
             "purpose": "export searchable coverage map and executable search batch for downstream planning and repair traceability",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_formal_search_plan_skeleton.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/formal_search_plan.json --coverage-map {{run_dir}}/artifacts/coverage_map.json --search-batch {{run_dir}}/artifacts/search_batch.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_formal_search_plan_skeleton.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/formal_search_plan.json --coverage-map {{run_dir}}/artifacts/coverage_map.json --search-batch {{run_dir}}/artifacts/executable_search_batch.json",
         },
         {
             "purpose": "validate formal search plan after editing executable queries",
@@ -624,6 +622,8 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
             "owner_role": state.get("owner_role", "orchestrator"),
         }
     )
+    if state.get("status") in {"missing", "failed", "stale", "blocked"}:
+        mission_state["ready_for_next_stage"] = False
     payload = {
         "schema_version": "state_report_v1",
         "state_report_role": "dashboard_not_driver",
@@ -748,6 +748,25 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
             "smallest_upstream_repair_first": True,
             "must_not_call_validator_failure_a_parsing_edge_case": True,
             "downstream_risk_actions": state["forbidden_actions"],
+        }
+    if state["current_stage"] == "INDUSTRY_BOUNDARY_QC_REQUIRED":
+        payload["blocked_downstream_authoring"] = {
+            "reason": (
+                "Industry Boundary QC has not passed. Formal research, evidence DB, reasoning, "
+                "generation, template, and output artifacts would be built on unreviewed scope."
+            ),
+            "do_not_create_before_qc_pass": [
+                "artifacts/formal_search_plan.json",
+                "artifacts/coverage_map.json",
+                "artifacts/executable_search_batch.json",
+                "artifacts/search_log.md",
+                "artifacts/source_archive/source_archive_index.json",
+                "artifacts/formal_research_execution_report.json",
+                "artifacts/research_evidence_db.json",
+                "industry_issue_analysis.json",
+                "artifacts/page_argument_pack.json",
+                "deck_blueprint.json",
+            ],
         }
     if state["current_stage"] == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
         payload["planned_vs_actual_search_policy"] = {

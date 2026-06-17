@@ -33,8 +33,11 @@ for _ib_path in reversed(_IB_IMPORT_PATHS):
     _ib_sys.path.insert(0, _ib_path)
 
 import argparse
+from html.parser import HTMLParser
 import json
 import re
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -55,6 +58,49 @@ FORMAL_STAGES = {
     "peer_check",
     "peer check",
 }
+RESEARCH_DECLARED_ARCHIVE_STATUSES = {
+    "manual_verified_excerpt",
+    "needs_research_verification",
+    "search_snippet_only",
+    "archive_unavailable",
+}
+MAX_FETCH_BYTES = 5_000_000
+FETCH_TIMEOUT_SECONDS = 20
+
+
+class _HTMLTextExtractor(HTMLParser):
+    """Small stdlib HTML-to-text extractor for archive review snapshots."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._skip_depth = 0
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() in {"script", "style", "noscript", "svg"}:
+            self._skip_depth += 1
+        if tag.lower() in {"p", "br", "div", "section", "article", "li", "tr", "h1", "h2", "h3"}:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"script", "style", "noscript", "svg"} and self._skip_depth:
+            self._skip_depth -= 1
+        if tag.lower() in {"p", "div", "section", "article", "li", "tr", "h1", "h2", "h3"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth:
+            return
+        text = " ".join(data.split())
+        if text:
+            self.parts.append(text)
+
+    def text(self) -> str:
+        body = " ".join(self.parts)
+        body = re.sub(r"\s*\n\s*", "\n", body)
+        body = re.sub(r"[ \t]{2,}", " ", body)
+        body = re.sub(r"\n{3,}", "\n\n", body)
+        return body.strip()
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -92,12 +138,91 @@ def _short_title(url: str) -> str:
 
 def _attempt_locator_excerpt(attempt: dict[str, str]) -> str:
     return _text(
-        attempt.get("locator / excerpt")
+        attempt.get("source locator / raw excerpt")
+        or attempt.get("locator / excerpt")
         or attempt.get("locator excerpt")
         or attempt.get("locator")
         or attempt.get("reviewed excerpt")
         or attempt.get("notes")
     )
+
+
+def _attempt_excerpt_origin(attempt: dict[str, str]) -> str:
+    value = _text(attempt.get("excerpt origin")).lower()
+    return value or "opened_page"
+
+
+def _attempt_secondary_verification(attempt: dict[str, str]) -> str:
+    value = _text(attempt.get("secondary verification")).lower()
+    return value or "not_done"
+
+
+def _attempt_secondary_verification_notes(attempt: dict[str, str]) -> str:
+    return _text(attempt.get("secondary verification notes"))
+
+
+def _attempt_research_archive_status(attempt: dict[str, str]) -> str:
+    value = _text(attempt.get("research archive status")).lower()
+    return value if value in RESEARCH_DECLARED_ARCHIVE_STATUSES else ""
+
+
+def _safe_filename(source_review_id: str, content_type: str) -> str:
+    suffix = ".html" if "html" in content_type.lower() else ".txt"
+    return f"{source_review_id}_raw{suffix}"
+
+
+def _decode_body(body: bytes, content_type: str) -> str:
+    charset_match = re.search(r"charset=([A-Za-z0-9._-]+)", content_type or "", flags=re.IGNORECASE)
+    encodings = [charset_match.group(1)] if charset_match else []
+    encodings.extend(["utf-8", "gb18030", "latin-1"])
+    for encoding in encodings:
+        try:
+            return body.decode(encoding, errors="replace")
+        except LookupError:
+            continue
+    return body.decode("utf-8", errors="replace")
+
+
+def _html_to_text(html: str) -> str:
+    parser = _HTMLTextExtractor()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:
+        return " ".join(re.sub(r"<[^>]+>", " ", html).split())
+    return parser.text()
+
+
+def _fetch_url(url: str) -> dict[str, str]:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; IBPitchdeckSkill/1.0; source archive)",
+            "Accept": "text/html,application/xhtml+xml,application/xml,text/plain;q=0.9,*/*;q=0.8",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
+            content_type = response.headers.get("Content-Type", "")
+            raw = response.read(MAX_FETCH_BYTES + 1)
+            truncated = len(raw) > MAX_FETCH_BYTES
+            raw = raw[:MAX_FETCH_BYTES]
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return {
+            "ok": "",
+            "reason": f"Could not download full source page: {exc}",
+        }
+    decoded = _decode_body(raw, content_type)
+    text = _html_to_text(decoded) if "html" in content_type.lower() or "<html" in decoded[:500].lower() else decoded.strip()
+    if truncated:
+        text = f"{text}\n\n[Archive note: response was truncated at {MAX_FETCH_BYTES} bytes.]"
+    return {
+        "ok": "1",
+        "content_type": content_type or "application/octet-stream",
+        "raw_text": decoded,
+        "review_text": text.strip(),
+        "truncated": "1" if truncated else "",
+    }
 
 
 def _reviews_from_search_log(path: Path | None, *, starting_index: int, seen_urls: set[str]) -> list[dict[str, Any]]:
@@ -114,6 +239,10 @@ def _reviews_from_search_log(path: Path | None, *, starting_index: int, seen_url
         if not urls:
             continue
         locator_excerpt = _attempt_locator_excerpt(attempt)
+        excerpt_origin = _attempt_excerpt_origin(attempt)
+        secondary_verification = _attempt_secondary_verification(attempt)
+        secondary_verification_notes = _attempt_secondary_verification_notes(attempt)
+        research_archive_status = _attempt_research_archive_status(attempt)
         for url in urls:
             norm_url = url.rstrip("/")
             if norm_url in seen_urls:
@@ -136,17 +265,33 @@ def _reviews_from_search_log(path: Path | None, *, starting_index: int, seen_url
                     "usable_as_evidence": False,
                     "review_status": "needs_llm_source_review",
                     "limitations": "Archive-first candidate. Source quality and claim-use scope are decided inside research_evidence_db.",
+                    "excerpt_origin": excerpt_origin,
+                    "secondary_verification": secondary_verification,
+                    "secondary_verification_notes": secondary_verification_notes,
+                    "research_archive_status": research_archive_status,
                 }
             )
     return reviews
 
 
-def _markdown_snapshot(review: dict[str, Any], captured_at: str) -> str:
+def _markdown_snapshot(
+    review: dict[str, Any],
+    captured_at: str,
+    *,
+    archive_status: str,
+    reviewed_text: str,
+    raw_archive_path: str = "",
+    archive_unavailable_reason: str = "",
+    excerpt_origin: str = "",
+    secondary_verification: str = "",
+    secondary_verification_notes: str = "",
+    research_archive_status: str = "",
+) -> str:
     source_review_id = _text(review.get("source_review_id"))
     title = _text(review.get("title")) or source_review_id
     url = _text(review.get("url"))
     locator = _text(review.get("locator"))
-    excerpt = _text(review.get("excerpt"))
+    excerpt = reviewed_text or _text(review.get("excerpt"))
     limitations = _text(review.get("limitations"))
     evidence_ids = ", ".join(_text(item) for item in _as_list(review.get("evidence_ids")) if _text(item))
     methodology = _text(review.get("methodology_locator"))
@@ -159,7 +304,7 @@ def _markdown_snapshot(review: dict[str, Any], captured_at: str) -> str:
         f"- Title: {title}",
         f"- URL: {url}",
         f"- Captured At: {captured_at}",
-        f"- Archive Status: excerpt_snapshot",
+        f"- Archive Status: {archive_status}",
         f"- Locator: {locator}",
         f"- Evidence IDs: {evidence_ids}",
     ]
@@ -169,6 +314,18 @@ def _markdown_snapshot(review: dict[str, Any], captured_at: str) -> str:
         lines.append(f"- Methodology Locator: {methodology}")
     if limitations:
         lines.append(f"- Limitations: {limitations}")
+    if raw_archive_path:
+        lines.append(f"- Raw Archive Path: {raw_archive_path}")
+    if archive_unavailable_reason:
+        lines.append(f"- Archive Unavailable Reason: {archive_unavailable_reason}")
+    if excerpt_origin:
+        lines.append(f"- Excerpt Origin: {excerpt_origin}")
+    if secondary_verification:
+        lines.append(f"- Secondary Verification: {secondary_verification}")
+    if secondary_verification_notes:
+        lines.append(f"- Secondary Verification Notes: {secondary_verification_notes}")
+    if research_archive_status:
+        lines.append(f"- Research Archive Status: {research_archive_status}")
     lines.extend(
         [
             "",
@@ -178,7 +335,7 @@ def _markdown_snapshot(review: dict[str, Any], captured_at: str) -> str:
             "",
             "## Archive Note",
             "",
-            "This file was generated as an archive-first source snapshot. It preserves the selected URL, locator/excerpt/paraphrase, search linkage, and limitations for downstream Knowledge/QC review. It is not a full-page scrape unless explicitly replaced by a saved_text or saved_pdf archive.",
+            "This file was generated as an archive-first source snapshot. It preserves the selected URL, locator/excerpt/paraphrase, search linkage, and limitations for downstream Knowledge/QC review. If Archive Status is saved_html/saved_text, a full-page raw archive was attempted and the extracted text above is the review workspace. If Archive Status is manual_verified_excerpt, Research explicitly declared that status after secondary verification.",
             "",
         ]
     )
@@ -199,6 +356,7 @@ def build_archive(
     source_archive_index_path: Path,
     run_dir: Path,
     overwrite: bool,
+    fetch_web: bool = True,
 ) -> dict[str, Any]:
     captured_at = datetime.now().astimezone().isoformat(timespec="seconds")
     reviews = _reviews_from_search_log(
@@ -217,11 +375,66 @@ def build_archive(
         if not source_review_id or not SRC_RE.fullmatch(source_review_id):
             skipped.append(source_review_id or "(missing SRC ID)")
             continue
-        archive_status = "excerpt_snapshot"
+        archive_status = "archive_unavailable"
         archive_path = ""
         archive_file = archive_dir / f"{source_review_id}.md"
+        raw_relative_path = ""
+        archive_unavailable_reason = ""
+        reviewed_text = ""
+        fetch_result: dict[str, str] = {}
+        excerpt_origin = _text(review.get("excerpt_origin")) or "opened_page"
+        secondary_verification = _text(review.get("secondary_verification")) or "not_done"
+        secondary_verification_notes = _text(review.get("secondary_verification_notes"))
+        research_archive_status = _text(review.get("research_archive_status"))
+        if fetch_web and url.lower().startswith(("http://", "https://")):
+            fetch_result = _fetch_url(url)
+        if fetch_result.get("ok"):
+            raw_dir = archive_dir / "raw"
+            raw_dir.mkdir(parents=True, exist_ok=True)
+            raw_file = raw_dir / _safe_filename(source_review_id, fetch_result.get("content_type", ""))
+            if overwrite or not raw_file.exists():
+                raw_file.write_text(fetch_result.get("raw_text", ""), encoding="utf-8")
+            raw_relative_path = _relative_archive_path(run_dir, raw_file)
+            reviewed_text = fetch_result.get("review_text", "")
+            archive_status = "saved_html" if raw_file.suffix == ".html" else "saved_text"
+            if len(reviewed_text) < 80:
+                archive_status = "archive_unavailable"
+                archive_unavailable_reason = "Downloaded source page produced too little readable text for audit extraction."
+        else:
+            archive_unavailable_reason = fetch_result.get("reason") or "Full source page was not downloaded."
+            reviewed_text = _text(review.get("excerpt"))
+            if research_archive_status:
+                archive_status = research_archive_status
+                archive_unavailable_reason = (
+                    f"{archive_unavailable_reason} Research declared archive_status={research_archive_status}."
+                )
+            elif excerpt_origin == "search_snippet":
+                archive_status = "search_snippet_only"
+                archive_unavailable_reason = (
+                    f"{archive_unavailable_reason} Excerpt origin is search_snippet, so this remains a lead until Research opens and verifies the source. "
+                    "Research Archive Status was not explicitly declared."
+                )
+            elif len(reviewed_text) >= 80:
+                archive_status = "needs_research_verification"
+                archive_unavailable_reason = (
+                    f"{archive_unavailable_reason} Research must explicitly declare Research Archive Status before Knowledge can promote this excerpt."
+                )
         if overwrite or not archive_file.exists():
-            archive_file.write_text(_markdown_snapshot(review, captured_at), encoding="utf-8")
+            archive_file.write_text(
+                _markdown_snapshot(
+                    review,
+                    captured_at,
+                    archive_status=archive_status,
+                    reviewed_text=reviewed_text,
+                    raw_archive_path=raw_relative_path,
+                    archive_unavailable_reason=archive_unavailable_reason,
+                    excerpt_origin=excerpt_origin,
+                    secondary_verification=secondary_verification,
+                    secondary_verification_notes=secondary_verification_notes,
+                    research_archive_status=research_archive_status,
+                ),
+                encoding="utf-8",
+            )
             written.append(str(archive_file))
         archive_path = str(archive_file)
         entries.append(
@@ -230,17 +443,30 @@ def build_archive(
                 "url": url,
                 "title": _text(review.get("title")),
                 "archive_status": archive_status,
-                "archive_path": archive_path if archive_status == "user_provided" else _relative_archive_path(run_dir, Path(archive_path)),
+                "archive_path": _relative_archive_path(run_dir, Path(archive_path)),
+                "raw_archive_path": raw_relative_path,
                 "captured_at": captured_at,
                 "source_type": normalize_source_type(review.get("source_type")),
                 "search_attempt_ids": [_text(item) for item in _as_list(review.get("search_attempt_ids")) if _text(item)],
                 "evidence_use_tier": _text(review.get("evidence_use_tier")),
                 "usable_as_evidence": review.get("usable_as_evidence") if isinstance(review.get("usable_as_evidence"), bool) else False,
-                "review_status": _text(review.get("review_status")) or "needs_llm_source_review",
+                "review_status": (
+                    "research_verified_excerpt"
+                    if archive_status == "manual_verified_excerpt"
+                    else "needs_research_secondary_verification"
+                    if archive_status == "needs_research_verification"
+                    else "lead_only_search_snippet"
+                    if archive_status == "search_snippet_only"
+                    else _text(review.get("review_status")) or "needs_llm_source_review"
+                ),
                 "claim_use_scope": _text(review.get("claim_use_scope")),
                 "locator": _text(review.get("locator")),
-                "reviewed_excerpt": _text(review.get("excerpt")),
-                "archive_unavailable_reason": "",
+                "reviewed_excerpt": reviewed_text[:4000],
+                "archive_unavailable_reason": archive_unavailable_reason,
+                "excerpt_origin": excerpt_origin,
+                "secondary_verification": secondary_verification,
+                "secondary_verification_notes": secondary_verification_notes,
+                "research_archive_status": research_archive_status,
             }
         )
 
@@ -257,6 +483,7 @@ def build_archive(
         "source_review_count": len(reviews),
         "archive_entry_count": len(entries),
         "written_snapshot_count": len(written),
+        "full_page_fetch_attempted": bool(fetch_web),
         "skipped_review_ids": skipped,
         "source_archive_index": str(source_archive_index_path),
     }
@@ -281,6 +508,7 @@ def main() -> int:
     parser.add_argument("--archive-dir")
     parser.add_argument("--source-archive-index")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing SRC-xxx.md excerpt snapshots.")
+    parser.add_argument("--no-fetch-web", action="store_true", help="Do not attempt to download selected source URLs; write excerpt/unavailable snapshots only.")
     args = parser.parse_args()
 
     search_log_path = Path(args.search_log)
@@ -294,6 +522,7 @@ def main() -> int:
         source_archive_index_path=index_path,
         run_dir=run_dir,
         overwrite=args.overwrite,
+        fetch_web=not args.no_fetch_web,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

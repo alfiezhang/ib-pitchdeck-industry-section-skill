@@ -68,8 +68,11 @@ into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
 Create these artifacts before formal research execution:
 
 - `artifacts/industry_scope_pack.json`
+- `artifacts/industry_boundary_qc.json`
 - `artifacts/industry_scope_pack_validation.json`
 - `artifacts/formal_search_plan.json`
+- `artifacts/coverage_map.json`
+- `artifacts/executable_search_batch.json`
 - `artifacts/formal_search_plan_validation.json`
 - `artifacts/search_log.md`
 
@@ -95,14 +98,20 @@ Recommended sequence:
    - data hierarchy and metric scopes that cannot be compared directly;
    - unvalidated numerical/directional leads that require formal validation;
    - required reconciliations and seed questions.
-7. Validate the scope pack:
+7. Run Industry Boundary QC before formal research planning. QC must decide
+   `pass`, `needs_scope_repair`, or `needs_boundary_validation`. If the QC
+   artifact is missing or not `pass`, do not create formal research artifacts.
+   Boundary QC may use small validation searches, but it must not become full
+   market research.
+8. Validate the scope pack after boundary QC has passed:
    ```bash
    "$PYTHON_CMD" scripts/qc/validators/scoping/validate_industry_scope_pack.py \
      --scope-pack artifacts/industry_scope_pack.json \
      --output artifacts/industry_scope_pack_validation.json
    ```
-8. Build `artifacts/formal_search_plan.json` from the full-taxonomy skeleton,
-   then edit queries using the scope pack:
+9. Build `artifacts/formal_search_plan.json`, `artifacts/coverage_map.json`,
+   and `artifacts/executable_search_batch.json` from the full-taxonomy
+   skeleton, then edit executable queries using the scope pack:
    ```bash
    "$PYTHON_CMD" scripts/research-external-evidence/build_formal_search_plan_skeleton.py \
      --input-card "$RUN_DIR/input_card.json" \
@@ -111,10 +120,13 @@ Recommended sequence:
    ```
    Use `configs/artifact_templates/formal_search_plan.template.json` for field meaning, not as a
    final copy/paste artifact.
+   The formal plan is the coverage map. `executable_search_batch.json` is the
+   researcher's workbench for actual source-specific Chinese/English queries.
    The skeleton intentionally emits `LLM_REWRITE_REQUIRED` query workspaces.
    Research must replace them with real, executable, source-specific queries
-   before validation or search execution.
-9. Validate `artifacts/formal_search_plan.json` with
+   before validation or search execution. Do not execute searches from the
+   mechanical coverage-map wording.
+10. Validate `artifacts/formal_search_plan.json` with
    `scripts/qc/validators/research/validate_formal_search_plan.py` before executing formal searches.
 
 Do not put confirmed market size, growth rate, share, ranking, valuation,
@@ -167,13 +179,36 @@ Prefer the append helper instead of hand-editing search numbering:
   --fs-id FS-001 \
   --selected-source "<exact opened/reviewed URL>" \
   --opened-reviewed yes \
-  --locator-excerpt "<page/section/table plus short excerpt or limitation>"
+  --locator-excerpt "<page/section/table plus short excerpt or limitation>" \
+  --excerpt-origin opened_page \
+  --secondary-verification not_done \
+  --research-archive-status needs_research_verification
 ```
 
 After actual searches are logged, archive opened/reviewed sources before
 Knowledge extraction. `source_archive` is the main Research-to-Knowledge
 handoff. Source review status, use tier, limitations, and claim-use scope live
 inside `artifacts/research_evidence_db.json`.
+
+If full-page archive fails but Research did open and read the page, the archive
+is only `needs_research_verification`. Research, not QC, must do the second-pass
+check. Reopen the page, search a distinctive quote, find the original report or
+credible repost, then update the same `S-xxx` row:
+
+```bash
+"$PYTHON_CMD" scripts/research-external-evidence/search_log.py edit \
+  --search-log "$RUN_DIR/artifacts/search_log.md" \
+  --attempt-id S-001 \
+  --set-field "Secondary Verification=verified" \
+  --set-field "Secondary Verification Notes=Research reopened the source or matched the excerpt against the original report/repost." \
+  --set-field "Research Archive Status=manual_verified_excerpt"
+```
+
+Then rerun `build_source_archive.py`. Only full saved sources and
+Research-declared `manual_verified_excerpt` rows can feed promoted EV/MET
+evidence. `secondary_verification=verified` alone is not enough; Research must
+also make the archive-status decision explicitly. Search snippets and
+`needs_research_verification` rows stay as leads/gaps.
 
 ```bash
 "$PYTHON_CMD" scripts/research-external-evidence/build_source_archive.py \

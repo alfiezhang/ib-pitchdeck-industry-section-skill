@@ -283,10 +283,87 @@ def test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence() -> Non
                 }
             ]
         },
+        source_archive_index={
+            "schema_version": "source_archive_index_v1",
+            "entries": [
+                {
+                    "source_review_id": "SRC-001",
+                    "url": "https://example.com/report",
+                    "title": "Example report",
+                    "source_type": "industry_report",
+                    "archive_status": "manual_verified_excerpt",
+                    "archive_path": "artifacts/source_archive/SRC-001.md",
+                    "locator": "section 1",
+                    "reviewed_excerpt": "Reviewed source exists with enough source-faithful context for fixture evidence.",
+                    "secondary_verification": "verified",
+                    "secondary_verification_notes": "Fixture source excerpt was treated as research-verified.",
+                    "research_archive_status": "manual_verified_excerpt",
+                }
+            ],
+        },
     )
     assert [row["result_id"] for row in db["formal_research_extracts"]] == ["FR-001"], db["formal_research_extracts"]
     assert [row["evidence_id"] for row in db["evidence_ledger"]] == ["EV-001"], db["evidence_ledger"]
     assert any("FR-002" in item and "not_executed" in item for item in db["research_gap_audit"]["critical_gaps"])
+
+
+def test_build_db_does_not_promote_unverified_excerpt_to_evidence() -> None:
+    execution_report = {
+        "issue_results": [
+            {
+                "result_id": "FR-001",
+                "issue_area": "market_size_growth",
+                "subissue": "current_market_size",
+                "research_question": "What is the market size?",
+                "status": "supported",
+                "terminal_status": "executed_with_evidence",
+                "downstream_permission": "may_support_claim",
+                "minimum_actual_searches": 1,
+                "actual_search_attempt_count": 1,
+                "search_instruction_ids": ["FS-001"],
+                "search_attempt_ids": ["S-001"],
+                "source_review_ids": ["SRC-001"],
+                "evidence_ids": ["EV-001"],
+                "metric_ids": ["MET-001"],
+                "findings_summary": "Source looked relevant but still needs Research verification.",
+                "limitations": [],
+                "research_pack_handling": "Do not promote until archive verification is complete.",
+            }
+        ]
+    }
+    db = build_db(
+        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "Sampleland"},
+        scope_pack={"scope_summary": {"working_market": "sample market"}},
+        formal_search_plan={"issue_search_plan": [{}]},
+        execution_report=execution_report,
+        source_reviews={"source_reviews": []},
+        source_archive_index={
+            "schema_version": "source_archive_index_v1",
+            "entries": [
+                {
+                    "source_review_id": "SRC-001",
+                    "url": "https://example.com/report",
+                    "title": "Example report",
+                    "source_type": "web_search_result",
+                    "archive_status": "needs_research_verification",
+                    "archive_path": "artifacts/source_archive/SRC-001.md",
+                    "locator": "section 1",
+                    "reviewed_excerpt": "Opened page excerpt exists but has not been verified after download failure.",
+                    "archive_unavailable_reason": "Full source page was not downloaded; Research must verify.",
+                }
+            ],
+        },
+    )
+
+    assert db["evidence_ledger"] == []
+    assert db["metric_reconciliation"] == []
+    assert any("Research must complete full-page archive or secondary verification" in item for item in db["research_gap_audit"]["critical_gaps"])
+    inventory_row = next(
+        row for row in db["issue_fact_inventory"]
+        if row["issue_area"] == "market_size_growth" and row["subissue"] == "current_market_size"
+    )
+    assert inventory_row["fact_status"] == "insufficient"
+    assert inventory_row["evidence_ids"] == []
 
 
 def test_build_db_imports_repository_sources_as_material_candidates_only() -> None:

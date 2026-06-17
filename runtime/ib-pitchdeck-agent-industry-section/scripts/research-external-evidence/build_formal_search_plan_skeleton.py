@@ -376,8 +376,8 @@ def main() -> int:
     parser.add_argument("--input-card", help="Optional input_card.json path")
     parser.add_argument("--scope-pack", help="Optional artifacts/industry_scope_pack.json path")
     parser.add_argument("--output", required=True)
-    parser.add_argument("--coverage-map", help="Optional artifacts/coverage_map.json output path")
-    parser.add_argument("--search-batch", help="Optional artifacts/search_batch.json output path")
+    parser.add_argument("--coverage-map", help="Optional artifacts/coverage_map.json output path; defaults next to formal_search_plan.json")
+    parser.add_argument("--search-batch", help="Optional artifacts/executable_search_batch.json output path; defaults next to formal_search_plan.json")
     args = parser.parse_args()
 
     input_card = _load_optional(args.input_card)
@@ -389,15 +389,19 @@ def main() -> int:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    if args.coverage_map:
-        coverage_map_path = Path(args.coverage_map)
-        coverage_map_path.parent.mkdir(parents=True, exist_ok=True)
-        coverage_map_path.write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    if args.search_batch:
-        search_batch_path = Path(args.search_batch)
-        search_batch_path.parent.mkdir(parents=True, exist_ok=True)
-        search_batch_path.write_text(json.dumps(search_batch, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"is_valid": True, "output": str(output_path), "issue_search_plan_count": len(plan["issue_search_plan"])}, ensure_ascii=False, indent=2))
+    coverage_map_path = Path(args.coverage_map) if args.coverage_map else output_path.with_name("coverage_map.json")
+    coverage_map_path.parent.mkdir(parents=True, exist_ok=True)
+    coverage_map_path.write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    search_batch_path = Path(args.search_batch) if args.search_batch else output_path.with_name("executable_search_batch.json")
+    search_batch_path.parent.mkdir(parents=True, exist_ok=True)
+    search_batch_path.write_text(json.dumps(search_batch, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps({
+        "is_valid": True,
+        "output": str(output_path),
+        "coverage_map": str(coverage_map_path),
+        "search_batch": str(search_batch_path),
+        "issue_search_plan_count": len(plan["issue_search_plan"]),
+    }, ensure_ascii=False, indent=2))
     return 0
 
 

@@ -36,8 +36,12 @@ from typing import Any
 from json_utils import load_json_file
 SCHEMA_VERSION = "source_archive_index_v1"
 VALID_ARCHIVE_STATUSES = {
+    "saved_html",
     "saved_text",
     "saved_pdf",
+    "manual_verified_excerpt",
+    "needs_research_verification",
+    "search_snippet_only",
     "excerpt_snapshot",
     "archive_unavailable",
     "user_provided",
@@ -166,15 +170,18 @@ def validate(
     errors.extend(entry_errors)
 
     required_review_ids: set[str] = set(entries_by_id)
+    evidence_ready_count = 0
     saved_count = 0
     unavailable_count = 0
+    needs_verification_count = 0
+    snippet_only_count = 0
 
     def validate_entry(
         *,
         review_id: str,
         entry: dict[str, Any],
     ) -> None:
-        nonlocal saved_count, unavailable_count
+        nonlocal evidence_ready_count, saved_count, unavailable_count, needs_verification_count, snippet_only_count
         entry_url = _text(entry.get("url"))
         if not entry_url:
             errors.append(f"{review_id}: source_archive entry requires url")
@@ -183,8 +190,9 @@ def validate(
             errors.append(f"{review_id}: archive_status must be one of {sorted(VALID_ARCHIVE_STATUSES)}")
             return
         if status == "user_provided":
+            evidence_ready_count += 1
             return
-        if status in {"saved_text", "saved_pdf", "excerpt_snapshot"}:
+        if status in {"saved_html", "saved_text", "saved_pdf", "manual_verified_excerpt", "needs_research_verification", "search_snippet_only", "excerpt_snapshot"}:
             archive_path = _text(entry.get("archive_path"))
             if not archive_path:
                 errors.append(f"{review_id}: archive_path is required for archive_status={status}")
@@ -201,20 +209,20 @@ def validate(
             except OSError as exc:
                 errors.append(f"{review_id}: cannot stat archive_path {archive_path}: {exc}")
                 return
-            minimum_size = 80 if status == "excerpt_snapshot" else 160
+            minimum_size = 80 if status in {"manual_verified_excerpt", "needs_research_verification", "search_snippet_only", "excerpt_snapshot"} else 160
             if size < minimum_size:
                 errors.append(f"{review_id}: archive file is too small to support later review: {archive_path}")
-            if status == "excerpt_snapshot":
+            if status in {"manual_verified_excerpt", "needs_research_verification", "search_snippet_only", "excerpt_snapshot"}:
                 locator = _text(entry.get("locator"))
                 reviewed_excerpt = _text(entry.get("reviewed_excerpt") or entry.get("excerpt"))
                 if len(locator) < 8:
                     errors.append(
-                        f"{review_id}: excerpt_snapshot requires a locator/page/section/table reference; "
+                        f"{review_id}: {status} requires a locator/page/section/table reference; "
                         "a URL/title-only archive is not enough."
                     )
                 if len(reviewed_excerpt) < 40:
                     errors.append(
-                        f"{review_id}: excerpt_snapshot requires reviewed_excerpt of at least 40 characters; "
+                        f"{review_id}: {status} requires reviewed_excerpt of at least 40 characters; "
                         "search snippets or title-only notes cannot become evidence."
                     )
                 try:
@@ -228,6 +236,31 @@ def validate(
                         f"{review_id}: archive file must contain a substantive Reviewed Excerpt / Faithful Paraphrase section; "
                         "metadata-only source snapshots are not acceptable."
                     )
+            if status == "manual_verified_excerpt":
+                verification = _text(entry.get("secondary_verification"))
+                notes = _text(entry.get("secondary_verification_notes"))
+                declared_status = _text(entry.get("research_archive_status"))
+                if declared_status != "manual_verified_excerpt":
+                    errors.append(
+                        f"{review_id}: manual_verified_excerpt requires research_archive_status=manual_verified_excerpt; "
+                        "Research must explicitly make this judgment, not leave it to the archive builder"
+                    )
+                if verification != "verified":
+                    errors.append(f"{review_id}: manual_verified_excerpt requires secondary_verification=verified")
+                if len(notes) < 12:
+                    errors.append(f"{review_id}: manual_verified_excerpt requires secondary_verification_notes explaining how Research verified it")
+                evidence_ready_count += 1
+            elif status == "needs_research_verification":
+                needs_verification_count += 1
+            elif status == "search_snippet_only":
+                snippet_only_count += 1
+            elif status == "excerpt_snapshot":
+                needs_verification_count += 1
+                warnings.append(
+                    f"{review_id}: archive_status=excerpt_snapshot is legacy/ambiguous; Research should rebuild as manual_verified_excerpt or needs_research_verification"
+                )
+            elif status in {"saved_html", "saved_text", "saved_pdf"}:
+                evidence_ready_count += 1
             saved_count += 1
         elif status == "archive_unavailable":
             reason = _text(entry.get("archive_unavailable_reason"))
@@ -241,13 +274,16 @@ def validate(
     for review_id, entry in entries_by_id.items():
         validate_entry(review_id=review_id, entry=entry)
 
-    if required_review_ids and saved_count == 0:
+    if required_review_ids and evidence_ready_count == 0:
         warnings.append(
-            "no usable formal evidence source has a saved archive file; all are unavailable/excerpt-only. "
-            "This may be acceptable for inaccessible pages, but weakens later auditability."
+            "no formal source is evidence-ready yet; Research must complete full-page archive or secondary verification before Knowledge promotes evidence"
         )
     if unavailable_count:
         warnings.append(f"{unavailable_count} usable formal source archive(s) are marked archive_unavailable")
+    if needs_verification_count:
+        warnings.append(f"{needs_verification_count} source archive(s) need Research secondary verification before evidence promotion")
+    if snippet_only_count:
+        warnings.append(f"{snippet_only_count} source archive(s) are search_snippet_only and must remain leads, not evidence")
 
     return {
         "is_valid": not errors,
@@ -258,7 +294,10 @@ def validate(
         "source_archive_index": str(source_archive_index_path),
         "required_source_count": len(required_review_ids),
         "saved_archive_count": saved_count,
+        "evidence_ready_archive_count": evidence_ready_count,
         "archive_unavailable_count": unavailable_count,
+        "needs_research_verification_count": needs_verification_count,
+        "search_snippet_only_count": snippet_only_count,
     }
 
 

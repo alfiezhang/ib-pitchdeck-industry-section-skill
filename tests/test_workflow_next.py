@@ -170,6 +170,32 @@ def _seed_boundary_loop_ready(run_dir: Path) -> None:
         )
 
 
+def test_workflow_next_blocks_formal_research_before_boundary_qc(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    _seed_material_intake(run_dir)
+    _write_json(
+        artifacts / "industry_scope_pack.json",
+        {
+            "schema_version": "industry_scope_pack_v1",
+            "scope_summary": {"working_market": "sample sector"},
+        },
+    )
+
+    payload = next_payload(run_dir)
+    command_text = "\n".join(item["command"] for item in payload["recommended_next_commands"])
+
+    assert payload["current_stage"] == "INDUSTRY_BOUNDARY_QC_REQUIRED", payload
+    assert payload["mission_state"]["ready_for_next_stage"] is False
+    assert "blocked_downstream_authoring" in payload
+    assert "formal_search_plan.json" not in command_text
+    assert "build_formal_search_plan" not in command_text
+    assert "build_research_evidence_db" not in command_text
+    assert "deck_blueprint" not in command_text
+
+
 def _seed_template_layer_artifacts(run_dir: Path) -> None:
     artifacts = run_dir / "artifacts"
     _write_json(
@@ -229,6 +255,19 @@ def test_workflow_next_prefers_template_profile_repair_stage(tmp_path: Path) -> 
     assert "template_analyzer.py" in command_text
     assert "pipeline.py validate-pre-ppt" in command_text
     assert "pipeline.py render" in command_text
+
+
+def test_gate_report_public_commands_are_runtime_absolute(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+
+    report = build_gate_report(run_dir)
+    commands = [item["command"] for item in report["public_next_actions"]]
+
+    assert commands, report
+    assert any(str(SCRIPT_DIR / "state_report.py") in command for command in commands), commands
+    assert all(" scripts/" not in command for command in commands if not command.startswith("LLM task:")), commands
+    assert all(" configs/" not in command for command in commands if not command.startswith("LLM task:")), commands
 
 
 def test_workflow_next_produces_pack_stage_repair_commands(tmp_path: Path) -> None:

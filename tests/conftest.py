@@ -721,8 +721,8 @@ def _pipeline_run_dir(tmp_path_factory):
         "schema_version": "source_archive_index_v1",
         "created_at": "2026-06-07T10:10:00",
         "entries": [
-                {"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-001.md", "captured_at": "2026-06-07T10:10:00", "locator": "table 2, current market-size row with geography and scope columns", "reviewed_excerpt": "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit."},
-                {"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "archive_status": "excerpt_snapshot", "archive_path": "artifacts/source_archive/SRC-002.md", "captured_at": "2026-06-07T10:11:00", "locator": "section 3, value-chain economics paragraph and margin-pool discussion", "reviewed_excerpt": "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit."},
+                {"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "archive_status": "manual_verified_excerpt", "archive_path": "artifacts/source_archive/SRC-001.md", "captured_at": "2026-06-07T10:10:00", "locator": "table 2, current market-size row with geography and scope columns", "reviewed_excerpt": "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit.", "secondary_verification": "verified", "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.", "research_archive_status": "manual_verified_excerpt"},
+                {"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "archive_status": "manual_verified_excerpt", "archive_path": "artifacts/source_archive/SRC-002.md", "captured_at": "2026-06-07T10:11:00", "locator": "section 3, value-chain economics paragraph and margin-pool discussion", "reviewed_excerpt": "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit.", "secondary_verification": "verified", "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.", "research_archive_status": "manual_verified_excerpt"},
         ],
     }
     _write_json(archive_dir / "source_archive_index.json", source_archive_index)
@@ -776,7 +776,7 @@ def _pipeline_run_dir(tmp_path_factory):
     auto_build = build_source_archive(
         search_log_path=artifacts / "search_log.md",
         archive_dir=auto_archive_dir,
-        source_archive_index_path=auto_index, run_dir=run_dir, overwrite=True,
+        source_archive_index_path=auto_index, run_dir=run_dir, overwrite=True, fetch_web=False,
     )
     assert auto_build["archive_entry_count"] >= 2, auto_build
 

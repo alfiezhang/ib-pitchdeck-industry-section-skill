@@ -54,8 +54,19 @@ stay parseable:
   --fs-id FS-001 \
   --selected-source "<exact opened/reviewed URL>" \
   --opened-reviewed yes \
-  --locator-excerpt "<page/section/table plus short excerpt or limitation>"
+  --locator-excerpt "<page/section/table plus short excerpt or limitation>" \
+  --excerpt-origin opened_page \
+  --secondary-verification not_done \
+  --research-archive-status needs_research_verification
 ```
+
+If full-page archive fails, Research must verify opened-page excerpts before
+Knowledge can promote them. Use `search_log.py edit` to set
+`Secondary Verification=verified`, explain the method in
+`Secondary Verification Notes`, and explicitly set
+`Research Archive Status=manual_verified_excerpt` only when Research decides
+the excerpt is source-faithful enough for downstream evidence use. Then rebuild
+`source_archive`.
 
 Field reference for a helper-generated block:
 - Query
@@ -71,6 +82,10 @@ Field reference for a helper-generated block:
 - Selected Sources
 - Opened / Reviewed
 - Source Locator / Raw Excerpt
+- Excerpt Origin
+- Secondary Verification
+- Secondary Verification Notes
+- Research Archive Status
 - Source Review IDs
 - Source Archive IDs / Paths
 - Lead-only Sources

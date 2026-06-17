@@ -118,6 +118,10 @@ def build_block(args: argparse.Namespace, attempt_no: int) -> str:
         _line("Selected Sources", selected_sources),
         _line("Opened / Reviewed", args.opened_reviewed),
         _line("Source Locator / Raw Excerpt", args.locator_excerpt or ""),
+        _line("Excerpt Origin", args.excerpt_origin),
+        _line("Secondary Verification", args.secondary_verification),
+        _line("Secondary Verification Notes", args.secondary_verification_notes or ""),
+        _line("Research Archive Status", args.research_archive_status or ""),
         _line("Source Review IDs", source_review_ids),
         _line("Source Archive IDs / Paths", archive_paths),
         _line("Lead-only Sources", lead_only),
@@ -249,6 +253,28 @@ def build_parser() -> argparse.ArgumentParser:
     append.add_argument("--result-count", type=int)
     append.add_argument("--opened-reviewed", default="no", choices=("yes", "no"))
     append.add_argument("--locator-excerpt", default="")
+    append.add_argument(
+        "--excerpt-origin",
+        default="opened_page",
+        choices=("opened_page", "search_snippet", "user_report", "unknown"),
+        help="Where the locator excerpt came from. Search snippets remain leads until a source is opened and verified.",
+    )
+    append.add_argument(
+        "--secondary-verification",
+        default="not_done",
+        choices=("not_done", "verified", "failed"),
+        help="Research's second-pass verification result when full page archive fails.",
+    )
+    append.add_argument("--secondary-verification-notes", default="")
+    append.add_argument(
+        "--research-archive-status",
+        default="",
+        choices=("", "manual_verified_excerpt", "needs_research_verification", "search_snippet_only", "archive_unavailable"),
+        help=(
+            "Research's explicit archive-status decision when full page archive fails. "
+            "Do not set manual_verified_excerpt unless Research completed secondary verification."
+        ),
+    )
     append.add_argument("--source-review-id", action="append")
     append.add_argument("--source-archive-path", action="append")
     append.add_argument("--lead-only-source", action="append")

@@ -19,9 +19,11 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from state_report import ROOT_DIR as RUNTIME_ROOT
+from state_report import _make_runtime_paths_absolute
 from state_report import next_payload
 
-PYTHON_COMMAND_TEMPLATE = '"$PYTHON_CMD"'
+PYTHON_COMMAND_TEMPLATE = sys.executable
 
 VALIDATION_REPORT_NAMES = {
     "material_manifest_validation.json",
@@ -188,7 +190,7 @@ def _command_items(payload: dict[str, Any]) -> list[dict[str, str]]:
     commands: list[dict[str, str]] = [
         {
             "purpose": "refresh observed state after any repair",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/state_report.py next --run-dir {run_dir}",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} {RUNTIME_ROOT}/scripts/state_report.py next --run-dir {run_dir}",
         }
     ]
     shortest = payload.get("shortest_repair_path") if isinstance(payload.get("shortest_repair_path"), dict) else {}
@@ -202,11 +204,11 @@ def _command_items(payload: dict[str, Any]) -> list[dict[str, str]]:
     seen: set[str] = set()
     deduped: list[dict[str, str]] = []
     for item in commands:
-        command = item["command"]
+        command = _make_runtime_paths_absolute(item["command"])
         if command in seen:
             continue
         seen.add(command)
-        deduped.append(item)
+        deduped.append({**item, "command": command})
     return deduped[:8]
 
 

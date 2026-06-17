@@ -302,7 +302,7 @@
       ]
     },
     "search_batch": {
-      "path": "artifacts/search_batch.json",
+      "path": "artifacts/executable_search_batch.json",
       "owner": "script_skeleton_llm_query_planning",
       "builder": "scripts/research-external-evidence/build_formal_search_plan_skeleton.py",
       "inputs": [
@@ -338,7 +338,7 @@
     },
     "source_archive": {
       "path": "artifacts/source_archive/source_archive_index.json",
-      "owner": "script_excerpt_snapshot_builder",
+      "owner": "research_archive_builder",
       "validator": "scripts/qc/validators/research/validate_source_archive.py",
       "validation": "artifacts/source_archive_validation.json",
       "inputs": [
