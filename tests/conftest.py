@@ -49,24 +49,16 @@ def _run_script(script_name: str, args: list[str], *, cwd: Path | None = None) -
 
 
 def _rewrite_plan_queries_for_contract_test(plan: dict, *, market: str = "sample sector") -> dict:
-    """Simulate Research-role query editing for fixtures.
+    """Normalize source hints for formal-plan fixtures.
 
-    The production skeleton intentionally emits LLM_REWRITE_REQUIRED workspaces.
-    Contract fixtures need an executable plan, so tests rewrite every query
-    before validating.
+    Executable queries now live only in executable_search_batch.json. Formal
+    search-plan fixtures should keep coverage/evidence-need rows clean.
     """
 
+    _ = market
     for row in plan.get("issue_search_plan", []):
         issue_area = row.get("issue_area", "industry")
-        subissue = row.get("subissue", "topic")
-        variants = [
-            f"{market} {subissue} industry report 2026",
-            f"{market} {subissue} official data association filing",
-            f"{market} {subissue} methodology scope comparison",
-        ]
         for instruction in row.get("search_instructions", []):
-            instruction["query"] = variants[0]
-            instruction["query_variants"] = variants
             instruction["source_hint"] = instruction.get("source_hint") or f"{issue_area} source review"
     return plan
 
@@ -436,9 +428,19 @@ def _seed_boundary_loop_status(
             {
                 "schema_version": "industry_boundary_qc_v1",
                 "decision": "pass",
-                "rationale": "synthetic boundary QC pass for fixture after boundary loop readiness",
+                "boundary_quality_rationale": "Synthetic boundary QC pass for fixture after boundary loop readiness.",
+                "validated_scope": {
+                    "working_market": "sample sector",
+                    "parent_market": "sample parent market",
+                    "broader_market": "sample broader market",
+                },
+                "areas_confirmed": ["working market"],
+                "areas_uncertain": [],
+                "excluded_scope_confirmed": ["excluded adjacent scope"],
                 "feedback": [],
                 "boundary_validation_requests": [],
+                "formal_research_allowed_scope": ["sample sector"],
+                "do_not_research_as_market_scope": ["sample adjacent scope"],
             },
         )
         if (artifacts / "industry_scope_pack_validation.json").exists():
@@ -628,7 +630,7 @@ def _pipeline_run_dir(tmp_path_factory):
                     "attempts": [
                         {
                             "search_attempt_id": "S-002",
-                            "query": unit["planned_queries"][0],
+                            "query": f"sample sector {fs_id} formal search",
                             "provider": "contract_fixture",
                             "selected_source_urls": ["https://example.com/market-size"],
                             "opened_reviewed": "yes",
@@ -652,6 +654,7 @@ def _pipeline_run_dir(tmp_path_factory):
                             "evidence_use_tier": "core_evidence",
                             "claim_use_scope": "current market-size test fixture only",
                             "secondary_verification": "verified",
+                            "verification_method": "manual_source_reviewed",
                             "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
                             "research_archive_status": "manual_verified_excerpt",
                         }
@@ -703,7 +706,7 @@ def _pipeline_run_dir(tmp_path_factory):
                     "attempts": [
                         {
                             "search_attempt_id": "S-003",
-                            "query": unit["planned_queries"][0],
+                            "query": f"sample sector {fs_id} formal search",
                             "provider": "contract_fixture",
                             "selected_source_urls": ["https://example.com/value-chain"],
                             "opened_reviewed": "yes",
@@ -727,6 +730,7 @@ def _pipeline_run_dir(tmp_path_factory):
                             "evidence_use_tier": "contextual_evidence",
                             "claim_use_scope": "value-chain directional test fixture only",
                             "secondary_verification": "verified",
+                            "verification_method": "manual_source_reviewed",
                             "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
                             "research_archive_status": "manual_verified_excerpt",
                         }
@@ -764,7 +768,7 @@ def _pipeline_run_dir(tmp_path_factory):
                     "attempts": [
                         {
                             "search_attempt_id": attempt_id,
-                            "query": unit["planned_queries"][0] if unit.get("planned_queries") else "sample sector formal search",
+                            "query": f"sample sector {fs_id} formal search",
                             "provider": "contract_fixture",
                             "result_count": 1,
                             "selected_source_urls": [f"https://example.com/research/{fs_id.lower()}"],
@@ -850,6 +854,22 @@ def _pipeline_run_dir(tmp_path_factory):
     # Issue analysis (minimal, so run state advances past ISSUE_ANALYSIS)
     _write_json(run_dir / "industry_issue_analysis.json", {"schema_version": "industry_issue_analysis_v1", "issue_analyses": []})
     _write_json(artifacts / "issue_analysis_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "page_argument_pack.json",
+        {
+            "schema_version": "page_argument_pack_v1",
+            "page_arguments": [
+                {
+                    "page_argument_id": "PA-001",
+                    "source_issue_analysis_id": "IA-001",
+                    "page_argument": "Fixture page argument bridges issue analysis to deck generation.",
+                    "evidence_status": "directional",
+                    "allowed_deck_usage": "body_only",
+                }
+            ],
+        },
+    )
+    _write_json(artifacts / "page_argument_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
 
     # Template registry (copy from session fixture)
     from extract_template_registry import build_registry

@@ -47,6 +47,13 @@ VALID_ARCHIVE_STATUSES = {
     "user_provided",
     "research_context",
 }
+VALID_VERIFICATION_METHODS = {
+    "opened_original_url",
+    "user_provided_pdf",
+    "archived_copy_reviewed",
+    "official_filing_reviewed",
+    "manual_source_reviewed",
+}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -245,6 +252,7 @@ def validate(
                 verification = _text(entry.get("secondary_verification"))
                 notes = _text(entry.get("secondary_verification_notes"))
                 declared_status = _text(entry.get("research_archive_status"))
+                verification_method = _text(entry.get("verification_method"))
                 if declared_status != "manual_verified_excerpt":
                     errors.append(
                         f"{review_id}: manual_verified_excerpt requires research_archive_status=manual_verified_excerpt; "
@@ -252,7 +260,11 @@ def validate(
                     )
                 if verification != "verified":
                     errors.append(f"{review_id}: manual_verified_excerpt requires secondary_verification=verified")
-                if len(notes) < 12:
+                if verification_method not in VALID_VERIFICATION_METHODS:
+                    errors.append(
+                        f"{review_id}: manual_verified_excerpt requires verification_method one of {sorted(VALID_VERIFICATION_METHODS)}"
+                    )
+                if len(notes) < 30:
                     errors.append(f"{review_id}: manual_verified_excerpt requires secondary_verification_notes explaining how Research verified it")
                 evidence_ready_count += 1
             elif status == "needs_research_verification":

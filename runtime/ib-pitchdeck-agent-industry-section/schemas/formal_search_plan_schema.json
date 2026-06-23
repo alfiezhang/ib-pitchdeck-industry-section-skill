@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Full-Taxonomy Formal Search Plan",
-  "description": "Industry-scope-pack-driven executable issue/subissue search instruction plan. The schema documents shape; scripts/qc/validators/research/validate_formal_search_plan.py enforces full taxonomy coverage and execution readiness before formal searches.",
+  "description": "Industry-scope-pack-driven coverage and evidence-need plan. Executable queries belong only in executable_search_batch.json. The schema documents shape; scripts/qc/validators/research/validate_formal_search_plan.py enforces full taxonomy coverage before formal searches.",
   "type": "object",
     "required": ["schema_version", "meta", "industry_scope_pack", "plan_mode", "issue_search_plan"],
   "properties": {
@@ -32,13 +32,12 @@
             "minItems": 1,
             "items": {
               "type": "object",
-                  "required": ["instruction_id", "query", "purpose", "search_stage"],
+                  "required": ["instruction_id", "purpose", "search_stage"],
                   "properties": {
                     "instruction_id": { "type": "string", "pattern": "^FS-\\d{3}$" },
-                    "query": { "type": "string", "minLength": 6 },
-                    "query_variants": { "type": "array", "items": { "type": "string", "minLength": 6 } },
                     "purpose": { "type": "string", "minLength": 6 },
                     "source_hint": { "type": "string" },
+                    "query_authoring_artifact": { "type": "string" },
                     "search_stage": {
                       "type": "string",
                       "const": "formal_research_execution"

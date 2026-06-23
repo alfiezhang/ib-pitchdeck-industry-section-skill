@@ -12,6 +12,7 @@ PRE_RESEARCH_PACK = "pre_research_pack"
 RESEARCH_EVIDENCE_DB = "research_evidence_db"
 RESEARCH_PACK = "research_pack"
 ISSUE_ANALYSIS = "issue_analysis"
+PAGE_ARGUMENT_PACK = "page_argument_pack"
 TEMPLATE_PROFILE = "template_profile"
 TEMPLATE_FIT_VALIDATION = "template_fit_validation"
 TEMPLATE_REGISTRY = "template_registry"
@@ -37,6 +38,7 @@ CANONICAL_GATES = [
     RESEARCH_EVIDENCE_DB,
     RESEARCH_PACK,
     ISSUE_ANALYSIS,
+    PAGE_ARGUMENT_PACK,
     TEMPLATE_PROFILE,
     TEMPLATE_FIT_VALIDATION,
     TEMPLATE_REGISTRY,

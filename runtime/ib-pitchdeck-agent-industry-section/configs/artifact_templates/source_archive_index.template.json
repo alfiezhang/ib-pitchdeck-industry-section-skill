@@ -20,6 +20,7 @@
       "archive_unavailable_reason": "",
       "audit_level": "audited_metric",
       "excerpt_origin": "opened_page",
+      "verification_method": "opened_original_url",
       "secondary_verification": "verified",
       "secondary_verification_notes": "Research reopened the URL or found matching source text/report context after full-page download failed.",
       "research_archive_status": "manual_verified_excerpt"
@@ -29,7 +30,7 @@
     "saved_html": "Full HTML source was downloaded and a reviewable markdown/text snapshot was saved at archive_path.",
     "saved_text": "Clean markdown/text/html snapshot saved at archive_path.",
     "saved_pdf": "PDF source saved at archive_path.",
-    "manual_verified_excerpt": "Full download failed, but Research completed secondary verification, explicitly declared research_archive_status=manual_verified_excerpt, and saved a source-faithful excerpt with locator and verification notes.",
+    "manual_verified_excerpt": "Full download failed, but Research completed secondary verification, explicitly declared research_archive_status=manual_verified_excerpt, verification_method, and saved a source-faithful excerpt with locator and verification notes.",
     "needs_research_verification": "Full download failed and Research has not yet completed secondary verification. Keep as a lead/gap, not evidence.",
     "search_snippet_only": "Only a search-result snippet is available. Keep as a lead only.",
     "excerpt_snapshot": "Legacy ambiguous status. Rebuild as manual_verified_excerpt or needs_research_verification.",

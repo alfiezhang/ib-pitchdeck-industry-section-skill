@@ -80,7 +80,7 @@ class TestFormalSearchPlan:
             {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
         )
         skeleton_errors, _ = validate_formal_search_plan(plan)
-        assert skeleton_errors
+        assert not skeleton_errors, skeleton_errors
         _rewrite_plan_queries_for_contract_test(plan)
         errors, warnings = validate_formal_search_plan(plan)
         assert not errors, errors
@@ -139,7 +139,7 @@ class TestFormalSearchPlan:
         invalid_plan["issue_search_plan"][1]["search_instructions"][0]["query"] = "<industry> placeholder"
         errors, _ = validate_formal_search_plan(invalid_plan)
         assert any("duplicate instruction_id" in e for e in errors), errors
-        assert any("placeholder" in e for e in errors), errors
+        assert any("executable query fields belong only" in e for e in errors), errors
 
     def test_invalid_taxonomy_rejected(self, tmp_path):
         from ib_research_graph import build_formal_search_plan

@@ -159,9 +159,19 @@ def _seed_boundary_loop_ready(run_dir: Path) -> None:
         {
             "schema_version": "industry_boundary_qc_v1",
             "decision": "pass",
-            "rationale": "synthetic boundary QC pass for workflow fixture",
+            "boundary_quality_rationale": "Synthetic boundary QC pass for workflow fixture with validated scope handoff.",
+            "validated_scope": {
+                "working_market": "sample sector",
+                "parent_market": "sample parent market",
+                "broader_market": "sample broader market",
+            },
+            "areas_confirmed": ["working market"],
+            "areas_uncertain": [],
+            "excluded_scope_confirmed": ["excluded adjacent scope"],
             "feedback": [],
             "boundary_validation_requests": [],
+            "formal_research_allowed_scope": ["sample sector"],
+            "do_not_research_as_market_scope": ["sample adjacent scope"],
         },
     )
     if (artifacts / "industry_scope_pack_validation.json").exists():
@@ -169,6 +179,26 @@ def _seed_boundary_loop_ready(run_dir: Path) -> None:
             artifacts / "industry_scope_pack_validation.json",
             {"is_valid": True, "errors": [], "warnings": []},
         )
+
+
+def _seed_page_argument_pack_ready(run_dir: Path) -> None:
+    artifacts = run_dir / "artifacts"
+    _write_json(
+        artifacts / "page_argument_pack.json",
+        {
+            "schema_version": "page_argument_pack_v1",
+            "page_arguments": [
+                {
+                    "page_argument_id": "PA-001",
+                    "source_issue_analysis_id": "IA-001",
+                    "page_argument": "Fixture page argument bridges issue analysis to deck generation.",
+                    "evidence_status": "directional",
+                    "allowed_deck_usage": "body_only",
+                }
+            ],
+        },
+    )
+    _write_json(artifacts / "page_argument_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
 
 
 def test_workflow_next_blocks_formal_research_before_boundary_qc(tmp_path: Path) -> None:
@@ -230,6 +260,7 @@ def test_workflow_next_prefers_template_profile_repair_stage(tmp_path: Path) -> 
     # Seed issue analysis + validation
     _write_json(run_dir / "industry_issue_analysis.json", {"issues": []})
     _write_json(artifacts / "issue_analysis_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _seed_page_argument_pack_ready(run_dir)
     # Seed template registry + validation
     _write_json(run_dir / "template_registry.json", {"slides": []})
     _write_json(artifacts / "template_registry_validation.json", {"is_valid": True, "errors": [], "warnings": []})
@@ -326,6 +357,7 @@ def _seed_full_research_ready(run_dir: Path) -> None:
     # Issue analysis
     _write_json(run_dir / "industry_issue_analysis.json", {"issues": []})
     _write_json(artifacts / "issue_analysis_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _seed_page_argument_pack_ready(run_dir)
     # Template registry
     _write_json(run_dir / "template_registry.json", {"slides": []})
     _write_json(artifacts / "template_registry_validation.json", {"is_valid": True, "errors": [], "warnings": []})

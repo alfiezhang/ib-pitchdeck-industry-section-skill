@@ -15,6 +15,11 @@ for path in (SCRIPT_DIR, DEVTOOLS_DIAGNOSTICS):
 from conftest import _rewrite_plan_queries_for_contract_test  # noqa: E402
 
 
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def _seed_material_intake(run_dir: Path) -> None:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -108,23 +113,15 @@ def test_research_error_matching_is_specific() -> None:
     assert not _looks_like_research_error("renderer spec schema invalid")
 
 
-def test_formal_search_plan_high_priority_warning_allows_multivariants() -> None:
+def test_formal_search_plan_rejects_query_fields_in_plan() -> None:
     plan = build_plan({}, {})
     _rewrite_plan_queries_for_contract_test(plan)
     for issue in plan["issue_search_plan"]:
         if issue.get("priority") == "high":
-            issue["search_instructions"] = [
-                {
-                    "instruction_id": issue["search_instructions"][0]["instruction_id"],
-                    "query": issue["search_instructions"][0]["query"],
-                    "query_variants": ["Variant A for verification", "Variant B for verification"],
-                    "purpose": issue["search_instructions"][0]["purpose"],
-                    "search_stage": "formal_research_execution",
-                }
-            ]
+            issue["search_instructions"][0]["query"] = "sample sector official market query"
             break
     errors, warnings = validate_formal_search_plan(plan)
-    assert not errors
+    assert any("executable query fields belong only" in error for error in errors)
     assert not any("high-priority issue has only" in warning for warning in warnings)
 
 
@@ -272,9 +269,24 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     (run_dir / "input_card.json").write_text("{}", encoding="utf-8")
     (artifacts / "input_card_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "industry_scope_pack.json").write_text("{}", encoding="utf-8")
-    (artifacts / "industry_boundary_qc.json").write_text(
-        '{"schema_version":"industry_boundary_qc_v1","decision":"pass","rationale":"synthetic pass"}',
-        encoding="utf-8",
+    _write_json(
+        artifacts / "industry_boundary_qc.json",
+        {
+            "schema_version": "industry_boundary_qc_v1",
+            "decision": "pass",
+            "boundary_quality_rationale": "Synthetic boundary QC pass for renderer-order regression fixture.",
+            "validated_scope": {
+                "working_market": "sample sector",
+                "parent_market": "sample parent market",
+                "broader_market": "sample broader market",
+            },
+            "areas_confirmed": ["working market"],
+            "areas_uncertain": [],
+            "excluded_scope_confirmed": ["excluded adjacent scope"],
+            "boundary_validation_requests": [],
+            "formal_research_allowed_scope": ["sample sector"],
+            "do_not_research_as_market_scope": ["sample adjacent scope"],
+        },
     )
     (artifacts / "industry_scope_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "formal_search_plan.json").write_text("{}", encoding="utf-8")
@@ -291,6 +303,22 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     (artifacts / "research_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (run_dir / "industry_issue_analysis.json").write_text("{}", encoding="utf-8")
     (artifacts / "issue_analysis_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    _write_json(
+        artifacts / "page_argument_pack.json",
+        {
+            "schema_version": "page_argument_pack_v1",
+            "page_arguments": [
+                {
+                    "page_argument_id": "PA-001",
+                    "source_issue_analysis_id": "IA-001",
+                    "page_argument": "Fixture page argument bridges issue analysis to deck generation.",
+                    "evidence_status": "directional",
+                    "allowed_deck_usage": "body_only",
+                }
+            ],
+        },
+    )
+    _write_json(artifacts / "page_argument_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
     (run_dir / "template_registry.json").write_text("{}", encoding="utf-8")
     (artifacts / "template_registry_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (run_dir / "deck_blueprint.json").write_text("{}", encoding="utf-8")

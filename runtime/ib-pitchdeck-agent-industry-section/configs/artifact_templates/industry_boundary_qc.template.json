@@ -1,0 +1,20 @@
+{
+  "schema_version": "industry_boundary_qc_v1",
+  "_template_only": true,
+  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. QC writes the actual artifact after reviewing industry_scope_pack.json.",
+  "decision": "pass",
+  "boundary_quality_rationale": "Concise rationale for why the working, parent, and broader market boundaries are fit for formal research.",
+  "validated_scope": {
+    "working_market": "",
+    "parent_market": "",
+    "broader_market": ""
+  },
+  "areas_confirmed": [],
+  "areas_uncertain": [],
+  "excluded_scope_confirmed": [],
+  "boundary_validation_requests": [],
+  "formal_research_allowed_scope": [],
+  "do_not_research_as_market_scope": [],
+  "feedback": [],
+  "notes": "Use decision=needs_boundary_validation or needs_scope_repair when the boundary is not ready. A pass must carry enough scope context for Research to avoid drifting."
+}

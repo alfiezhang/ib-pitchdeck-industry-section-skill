@@ -352,6 +352,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
 
 
 def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, template_path: Path | None = None) -> None:
+    run_dir = _ensure_run_dir(run_dir)
     template_path = _select_template_for_run(run_dir, python_cmd, template_path)
     _append_failure_memory(
         run_dir,
@@ -359,7 +360,6 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
         outcome="start",
         command=f"{python_cmd} {Path('scripts/pipeline.py')} render --run-dir {run_dir} --template {template_path}",
     )
-    run_dir = _ensure_run_dir(run_dir)
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
     _clear_draft_state(run_dir)

@@ -113,15 +113,16 @@ Recommended sequence:
 9. Prepare the research graph in one operator-facing step. This writes
    `artifacts/formal_search_plan.json`, `artifacts/coverage_map.json`,
    `artifacts/executable_search_batch.json`, and
-   `artifacts/research_graph_state.json`; then edit executable queries using
-   the scope pack:
+   `artifacts/research_graph_state.json`; then edit executable queries in
+   the executable batch using the scope pack:
    ```bash
    "$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py prepare \
      --run-dir "$RUN_DIR"
    ```
    Use `configs/artifact_templates/formal_search_plan.template.json` for field meaning, not as a
    final copy/paste artifact.
-   The formal plan is the coverage map. `executable_search_batch.json` is the
+   The formal plan is the coverage and evidence-need map. It must not contain
+   `query` or `query_variants`. `executable_search_batch.json` is the
    researcher's workbench for actual source-specific Chinese/English queries.
    The skeleton intentionally emits `LLM_REWRITE_REQUIRED` query workspaces.
    Research must replace them with real, executable, source-specific queries
@@ -147,9 +148,10 @@ subissue from the same taxonomy used by `industry_issue_analysis.json`:
 - `pitch_relevance_target_context`
 
 Do not write investment hypotheses in the search plan. For every
-issue/subissue, write a research question and executable `search_instructions[]`
-with exact query strings the next step should actually run. Do not delete
-low-relevance subissues. Use `execution_expectation` to decide depth:
+issue/subissue, write a research question, evidence need, source hint, and
+planned FS instruction. Author exact executable query strings only in
+`artifacts/executable_search_batch.json`. Do not delete low-relevance subissues.
+Use `execution_expectation` to decide depth:
 
 - `deep_search`: material row; normally needs multiple actual searches or a
   documented unavailable result.
@@ -206,6 +208,9 @@ original report or credible repost, then update the matching source entry in
 `research_graph_state.json` with `secondary_verification=verified`,
 `secondary_verification_notes`, and
 `research_archive_status=manual_verified_excerpt`.
+Also record `verification_method` as one of `opened_original_url`,
+`user_provided_pdf`, `archived_copy_reviewed`, `official_filing_reviewed`, or
+`manual_source_reviewed`.
 
 Only full saved sources and Research-declared `manual_verified_excerpt` rows can
 feed promoted EV/MET evidence. `secondary_verification=verified` alone is not

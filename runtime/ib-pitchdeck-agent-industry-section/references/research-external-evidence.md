@@ -26,8 +26,9 @@ You are the public evidence researcher. Your job is to find and archive public o
 ## How To Work
 
 1. Separate taxonomy coverage from executable search batches.
-2. Treat `formal_search_plan.json` as the coverage map and
+2. Treat `formal_search_plan.json` as the coverage/evidence-need map and
    `executable_search_batch.json` as the actual query workbench.
+   Do not put `query` or `query_variants` in `formal_search_plan.json`.
 3. Write queries like a researcher, not like a schema generator.
    Query strings should be specific to the source type, language, geography,
    period, and likely publisher. Do not run the mechanical taxonomy wording.
@@ -46,7 +47,8 @@ You are the public evidence researcher. Your job is to find and archive public o
    Archive Status before it can become `manual_verified_excerpt`.
 9. Secondary verification belongs to Research, not QC. Reopen the URL, search a
    distinctive quote, find the original report/PDF, or locate the same passage
-   in a credible repost; record the method in `Secondary Verification Notes`.
+   in a credible repost; record both `verification_method` and the method in
+   `Secondary Verification Notes`.
    Do not rely on the archive builder to infer source quality from text length
    or `secondary_verification=verified`.
 10. Source usability, use tier, and claim-use limits are embedded in `research_evidence_db.json`.

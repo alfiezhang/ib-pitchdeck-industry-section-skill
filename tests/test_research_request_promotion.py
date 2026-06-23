@@ -37,7 +37,10 @@ def _base_formal_search_plan() -> dict:
                 "search_instructions": [
                     {
                         "instruction_id": "FS-005",
-                        "query": "existing coverage row",
+                        "purpose": "Existing coverage row.",
+                        "search_stage": "formal_research_execution",
+                        "source_hint": "public search",
+                        "query_authoring_artifact": "artifacts/executable_search_batch.json",
                     }
                 ],
             }
@@ -119,6 +122,9 @@ def test_promote_requests_appends_new_fs_rows_without_io_side_effects(tmp_path: 
     assert updated_plan["issue_search_plan"][2]["hypothesis_id"] == "HYP-002"
     assert updated_plan["issue_search_plan"][1]["downstream_permission_if_unresolved"] == "caveat_or_diligence_question_only"
     assert updated_plan["issue_search_plan"][2]["downstream_permission_if_unresolved"] == "context_only"
+    assert "query" not in updated_plan["issue_search_plan"][1]["search_instructions"][0]
+    assert added[0]["query_status"] == "needs_authoring"
+    assert "LLM_REWRITE_REQUIRED" in added[0]["english_query"]
 
     for row in updated_plan["issue_search_plan"][1:]:
         assert row["coverage_required"] is True
@@ -140,7 +146,10 @@ def test_promote_requests_is_idempotent_and_safely_skips_already_promoted_rows(t
             "search_instructions": [
                 {
                     "instruction_id": "FS-001",
-                    "query": "already promoted row",
+                    "purpose": "Already promoted row.",
+                    "search_stage": "formal_research_execution",
+                    "source_hint": "public search",
+                    "query_authoring_artifact": "artifacts/incremental_search_plan.json",
                     "request_id": "RQ-001",
                 }
             ],

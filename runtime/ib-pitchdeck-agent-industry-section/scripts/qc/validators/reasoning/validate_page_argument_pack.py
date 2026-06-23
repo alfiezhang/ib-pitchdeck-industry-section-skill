@@ -70,6 +70,8 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
             errors.append(f"{arg_id}: headline_allowed requires evidence_ids or metric_ids")
         if text(row.get("evidence_status")) in {"not_researched", "rejected"} and usage != "not_allowed":
             errors.append(f"{arg_id}: not_researched/rejected evidence cannot be used in deck")
+        if not text(row.get("hypothesis_resolution_status")):
+            warnings.append(f"{arg_id}: hypothesis_resolution_status is missing; link page arguments back to hypothesis resolution when available")
         if usage in {"caveat_or_diligence_question_only", "not_allowed_in_headline"}:
             warnings.append(f"{arg_id}: cannot be used as headline; keep as caveat/body/open question")
     return errors, warnings

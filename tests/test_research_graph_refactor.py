@@ -93,6 +93,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
                     "evidence_use_tier": "core_evidence",
                     "claim_use_scope": "industry-level market-size claim only",
                     "secondary_verification": "verified",
+                    "verification_method": "manual_source_reviewed",
                     "secondary_verification_notes": "Research reopened the report fixture and matched the reviewed paragraph.",
                     "research_archive_status": "manual_verified_excerpt",
                     "raw_archive_content_type": "text/plain",
@@ -239,3 +240,50 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     assert "MET-001" in pack
     assert "RMB bn" in pack
     assert "## Research Context" in pack
+
+
+def test_research_graph_does_not_synthesize_attempts_for_untraced_evidence(tmp_path: Path) -> None:
+    input_card = {"industry": "sample sector", "geography": "Samplestan"}
+    scope_pack = _minimal_scope_pack()
+    plan = build_formal_search_plan(input_card, scope_pack)
+    state = init_graph_state(formal_search_plan=plan, input_card=input_card, scope_pack=scope_pack)
+    first_unit = state["research_units"][0]
+    first_unit.update(
+        {
+            "status": "supported",
+            "terminal_status": "executed_with_evidence",
+            "findings_summary": "This should not promote because no executed attempt exists.",
+            "sources": [
+                {
+                    "url": "https://example.com/untraced",
+                    "title": "Untraced source",
+                    "source_type": "industry_report",
+                    "archive_status": "manual_verified_excerpt",
+                    "locator": "section 1",
+                    "reviewed_excerpt": "A source-looking excerpt exists but there is no attempt trace, so it cannot become evidence.",
+                    "usable_as_evidence": True,
+                    "secondary_verification": "verified",
+                    "verification_method": "manual_source_reviewed",
+                    "secondary_verification_notes": "This fixture intentionally omits attempts.",
+                    "research_archive_status": "manual_verified_excerpt",
+                }
+            ],
+            "evidence": [{"claim_or_metric": "Untraced source-backed claim."}],
+            "metrics": [{"metric_name": "Untraced metric", "value": "1", "unit": "RMB bn"}],
+        }
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir()
+
+    result = compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
+
+    assert result["compiled_counts"]["attempts"] == 0
+    assert result["compiled_counts"]["sources"] == 0
+    assert result["compiled_counts"]["evidence_rows"] == 0
+    assert result["compiled_counts"]["metric_rows"] == 0
+    report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
+    assert report["issue_results"][0]["terminal_status"] == "not_executed"
+    assert report["issue_results"][0]["search_attempt_ids"] == []
+    assert "attempt" in report["issue_results"][0]["limitations"][0].lower()

@@ -308,6 +308,7 @@ def test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence() -> Non
                     "locator": "section 1",
                     "reviewed_excerpt": "Reviewed source exists with enough source-faithful context for fixture evidence.",
                     "secondary_verification": "verified",
+                    "verification_method": "manual_source_reviewed",
                     "secondary_verification_notes": "Fixture source excerpt was treated as research-verified.",
                     "research_archive_status": "manual_verified_excerpt",
                 }

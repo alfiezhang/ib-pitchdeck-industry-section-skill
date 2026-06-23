@@ -5,8 +5,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Optional
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+_RUNTIME_ROOT = next(
+    parent for parent in [SCRIPT_DIR, *SCRIPT_DIR.parents]
+    if (parent / "configs").is_dir() and (parent / "scripts").is_dir()
+)
+_SHARED_SCRIPT_DIR = _RUNTIME_ROOT / "scripts" / "_lib"
+if str(_SHARED_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SHARED_SCRIPT_DIR))
 
 from gate_retry_state import load_state as load_gate_retry_state
 from gate_names import (
@@ -20,6 +30,7 @@ from gate_names import (
     INDUSTRY_SCOPE_PACK,
     INPUT_CARD,
     ISSUE_ANALYSIS,
+    PAGE_ARGUMENT_PACK,
     RESEARCH_PACK,
     DECK_BLUEPRINT,
     PAGE_EVIDENCE_CONTRACT,
@@ -34,6 +45,7 @@ from gate_names import (
     TEMPLATE_PROFILE,
     TEMPLATE_FIT_VALIDATION,
 )
+from runtime_paths import find_runtime_root
 
 
 DOWNSTREAM_ACTIONS = [
@@ -50,8 +62,7 @@ DOWNSTREAM_ACTIONS = [
 READINESS_DECISION_STATUSES = {"llm_decided", "qc_confirmed"}
 READINESS_DECISION_OWNERS = {"reasoning", "qc"}
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT_DIR = SCRIPT_DIR.parent
+ROOT_DIR = find_runtime_root(__file__)
 DEFAULT_ARTIFACT_MANIFEST = ROOT_DIR / "configs" / "artifact_manifest.json"
 DEFAULT_MISSION_STATE = "artifacts/mission_state.json"
 DEFAULT_FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
@@ -69,6 +80,7 @@ ROLE_BY_STAGE = {
     "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": "knowledge-repository",
     "RESEARCH_PACK_MISSING_OR_FAILED": "knowledge-repository",
     "ISSUE_ANALYSIS_MISSING_OR_FAILED": "reasoning",
+    "PAGE_ARGUMENT_PACK_MISSING_OR_FAILED": "reasoning",
     "TEMPLATE_REGISTRY_MISSING_OR_FAILED": "generation",
     "DECK_BLUEPRINT_MISSING_OR_FAILED": "generation",
     "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": "generation",
@@ -118,6 +130,35 @@ def load_artifact_manifest(path: Path = DEFAULT_ARTIFACT_MANIFEST) -> dict[str, 
     if not isinstance(data.get("artifacts"), dict) or not isinstance(data.get("gates"), list):
         return {"artifacts": {}, "gates": []}
     return data
+
+
+def boundary_qc_contract_errors(payload: dict[str, Any]) -> list[str]:
+    """Check that a boundary pass carries usable Research handoff context."""
+
+    errors: list[str] = []
+    if str(payload.get("decision") or "").strip() != "pass":
+        return errors
+    rationale = str(payload.get("boundary_quality_rationale") or payload.get("rationale") or "").strip()
+    if len(rationale) < 20:
+        errors.append("industry_boundary_qc pass requires boundary_quality_rationale of at least 20 characters")
+    validated_scope = payload.get("validated_scope")
+    if not isinstance(validated_scope, dict):
+        errors.append("industry_boundary_qc pass requires validated_scope")
+        validated_scope = {}
+    for field in ("working_market", "parent_market", "broader_market"):
+        if not str(validated_scope.get(field) or "").strip():
+            errors.append(f"industry_boundary_qc.validated_scope.{field} is required for pass")
+    for field in (
+        "areas_confirmed",
+        "areas_uncertain",
+        "excluded_scope_confirmed",
+        "boundary_validation_requests",
+        "formal_research_allowed_scope",
+        "do_not_research_as_market_scope",
+    ):
+        if not isinstance(payload.get(field), list):
+            errors.append(f"industry_boundary_qc.{field} must be an array")
+    return errors
 
 
 def manifest_gate_inputs(manifest: dict[str, Any], gate_id: str) -> list[str]:
@@ -729,6 +770,14 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
             "forbidden": ["write_deck_blueprint", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
         },
         {
+            "stage": "PAGE_ARGUMENT_PACK_MISSING_OR_FAILED",
+            "artifact": "artifacts/page_argument_pack.json",
+            "validation": "artifacts/page_argument_pack_validation.json",
+            "gate": PAGE_ARGUMENT_PACK,
+            "allowed": ["build_page_argument_pack", "fix_page_argument_pack", "rerun_page_argument_pack_validation"],
+            "forbidden": ["write_deck_blueprint", "compile_deck_blueprint", "run_ppt_pipeline", "publish_final"],
+        },
+        {
             "stage": "TEMPLATE_REGISTRY_MISSING_OR_FAILED",
             "artifact": "template_registry.json",
             "validation": "artifacts/template_registry_validation.json",
@@ -825,6 +874,7 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
         if str(check.get("gate") or "") == INDUSTRY_BOUNDARY_QC:
             qc_payload = load_json(run_dir / check["artifact"])
             decision = str(qc_payload.get("decision") or "").strip()
+            contract_errors = boundary_qc_contract_errors(qc_payload)
             if decision != "pass":
                 return {
                     **check,
@@ -837,6 +887,18 @@ def first_failed_gate(run_dir: Path) -> dict[str, Any]:
                                 "QC did not grant boundary pass. Route feedback to Scoping or run boundary "
                                 "validation searches before formal search planning."
                             ),
+                        }
+                    ],
+                }
+            if contract_errors:
+                return {
+                    **check,
+                    "status": "failed",
+                    "failed_validations": [
+                        {
+                            "path": check["artifact"],
+                            "status": "qc_contract_failed",
+                            "message": "; ".join(contract_errors),
                         }
                     ],
                 }

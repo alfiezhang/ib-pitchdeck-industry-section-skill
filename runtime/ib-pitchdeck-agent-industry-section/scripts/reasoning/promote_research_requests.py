@@ -147,11 +147,11 @@ def _execution_expectation(request: dict[str, Any]) -> tuple[str, int, str]:
     )
 
 
-def _build_search_query(request: dict[str, Any], issue_area: str, issue_subissue: str) -> str:
+def _research_question(request: dict[str, Any], issue_area: str, issue_subissue: str) -> str:
     question = as_text(request.get("research_question"))
     if question:
-        return f"LLM_REWRITE_REQUIRED: rewrite research request into executable source-specific query: {question}"
-    return f"LLM_REWRITE_REQUIRED: write executable source-specific query for {issue_area}/{issue_subissue}"
+        return question
+    return f"What formal evidence is needed to resolve the promoted research request for {issue_area}/{issue_subissue}?"
 
 
 def _build_plan_row(
@@ -164,7 +164,7 @@ def _build_plan_row(
     required_source_type = as_text(request.get("required_source_type") or "public_search")
     request_id = as_text(request.get("request_id") or request.get("research_request_id"))
     hypothesis_id = as_text(request.get("hypothesis_id"))
-    query = _build_search_query(request, issue_area, issue_subissue)
+    research_question = _research_question(request, issue_area, issue_subissue)
 
     return {
         "issue_area": issue_area,
@@ -175,7 +175,7 @@ def _build_plan_row(
         "coverage_required": True,
         "terminal_status": "pending",
         "execution_rationale": rationale,
-        "research_question": query,
+        "research_question": research_question,
         "request_id": request_id,
         "origin_issue_id": as_text(request.get("origin_issue_id") or request.get("issue_analysis_id")),
         "hypothesis_id": hypothesis_id,
@@ -188,15 +188,10 @@ def _build_plan_row(
         "search_instructions": [
             {
                 "instruction_id": fs_id,
-                "query": query,
-                "query_variants": [
-                    query,
-                    f"LLM_REWRITE_REQUIRED: authority/source-specific query for {issue_area}/{issue_subissue}",
-                    f"LLM_REWRITE_REQUIRED: reconciliation query for {issue_area}/{issue_subissue}",
-                ],
                 "purpose": "Promote unresolved hypothesis to formal execution queue.",
                 "search_stage": "formal_research_execution",
                 "source_hint": _source_hint(required_source_type),
+                "query_authoring_artifact": "artifacts/incremental_search_plan.json",
                 "request_id": request_id,
                 "hypothesis_id": hypothesis_id,
             }
@@ -356,6 +351,14 @@ def promote_requests(
                 "request_id": request_id,
                 "hypothesis_id": hypothesis_id,
                 "instruction_id": fs_id,
+                "issue_area": issue_area,
+                "subissue": issue_subissue,
+                "research_question": row["research_question"],
+                "query_status": "needs_authoring",
+                "english_query": f"LLM_REWRITE_REQUIRED: write executable English/source-specific query for {issue_area}/{issue_subissue}",
+                "chinese_query": f"LLM_REWRITE_REQUIRED: write executable Chinese/source-specific query for {issue_area}/{issue_subissue}",
+                "source_specific_query": f"LLM_REWRITE_REQUIRED: write executable query against {_source_hint(as_text(request.get('required_source_type') or 'public_search'))}",
+                "expected_source_type": _source_hint(as_text(request.get("required_source_type") or "public_search")),
             }
         )
         existing_request_ids.add(request_id)
@@ -411,7 +414,19 @@ def main() -> int:
     incremental = [row for row in added]
     if incremental_path is not None:
         incremental_rows = [
-            {"request_id": row["request_id"], "instruction_id": row["instruction_id"], "hypothesis_id": row.get("hypothesis_id", "")}
+            {
+                "request_id": row["request_id"],
+                "instruction_id": row["instruction_id"],
+                "hypothesis_id": row.get("hypothesis_id", ""),
+                "issue_area": row.get("issue_area", ""),
+                "subissue": row.get("subissue", ""),
+                "research_question": row.get("research_question", ""),
+                "query_status": row.get("query_status", "needs_authoring"),
+                "english_query": row.get("english_query", ""),
+                "chinese_query": row.get("chinese_query", ""),
+                "source_specific_query": row.get("source_specific_query", ""),
+                "expected_source_type": row.get("expected_source_type", ""),
+            }
             for row in incremental
         ]
         incremental_path.parent.mkdir(parents=True, exist_ok=True)

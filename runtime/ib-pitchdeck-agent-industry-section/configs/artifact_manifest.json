@@ -13,6 +13,7 @@
         "research_evidence_db",
         "hypothesis_store",
         "issue_analysis",
+        "page_argument_pack",
         "deck_blueprint"
       ],
       "artifacts": [
@@ -722,6 +723,10 @@
     {
       "gate": "issue_analysis",
       "artifact": "issue_analysis"
+    },
+    {
+      "gate": "page_argument_pack",
+      "artifact": "page_argument_pack"
     },
     {
       "gate": "template_registry",

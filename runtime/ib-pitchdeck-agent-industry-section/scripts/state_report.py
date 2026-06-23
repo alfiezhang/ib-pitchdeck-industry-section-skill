@@ -318,11 +318,13 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "INDUSTRY_BOUNDARY_QC_REQUIRED": [
         {
-            "purpose": "required: QC LLM reviews industry boundary quality and uses boundary-validation search/sources as needed; write pass/needs_boundary_validation/needs_scope_repair into industry_boundary_qc.json",
+            "purpose": "required: QC LLM reviews industry boundary quality and writes an auditable pass/needs_boundary_validation/needs_scope_repair contract",
             "command": (
                 "LLM task: QC reads {run_dir}/input_card.json, {run_dir}/artifacts/material_extracts.json, "
                 "{run_dir}/artifacts/industry_scope_pack.json; performs boundary validation search when needed; "
-                "writes {run_dir}/artifacts/industry_boundary_qc.json with decision, rationale, feedback, and any boundary_validation_requests."
+                "writes {run_dir}/artifacts/industry_boundary_qc.json with decision, boundary_quality_rationale, "
+                "validated_scope, areas_confirmed/uncertain, excluded_scope_confirmed, boundary_validation_requests, "
+                "formal_research_allowed_scope, and do_not_research_as_market_scope."
             ),
         },
         {
@@ -342,7 +344,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/ib_research_graph.py prepare --run-dir {{run_dir}}",
         },
         {
-            "purpose": "validate formal search plan after editing executable queries",
+            "purpose": "validate formal search plan coverage/evidence-need contract before executing the authored query batch",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
         },
     ],
@@ -425,12 +427,14 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
             "purpose": "optional: re-validate formal search plan after promotion rows are appended",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
         },
+    ],
+    "PAGE_ARGUMENT_PACK_MISSING_OR_FAILED": [
         {
-            "purpose": "optional: build page argument pack from issue analysis and resolved hypotheses",
+            "purpose": "required: build page argument pack as the bridge from Reasoning to Generation",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_page_argument_pack.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/page_argument_pack.json",
         },
         {
-            "purpose": "optional: validate page argument pack before deck blueprint writing",
+            "purpose": "validate page argument pack before deck blueprint writing",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_page_argument_pack.py --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --output {{run_dir}}/artifacts/page_argument_pack_validation.json",
         },
     ],

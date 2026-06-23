@@ -196,7 +196,6 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
         if not isinstance(instructions, list) or not instructions:
             errors.append(f"{prefix}: search_instructions must be a non-empty array")
             instructions = []
-        total_query_variants = 0
         for inst_idx, instruction in enumerate(instructions, start=1):
             inst_prefix = f"{prefix}.search_instructions[{inst_idx}]"
             if not isinstance(instruction, dict):
@@ -210,40 +209,28 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
             else:
                 seen_fs.add(instruction_id)
 
-            query = _text(instruction.get("query"))
             purpose = _text(instruction.get("purpose"))
             search_stage = _text(instruction.get("search_stage"))
             if search_stage != PLANNED_SEARCH_STAGE:
                 errors.append(
                     f"{inst_prefix}: search_stage must be '{PLANNED_SEARCH_STAGE}' to distinguish planned formal search rows from boundary scoping queries"
                 )
-            if len(query) < 8:
-                errors.append(f"{inst_prefix}: query is too short to execute")
-            if PLACEHOLDER_RE.search(query):
-                errors.append(f"{inst_prefix}: query still contains placeholder/example text")
-            query_variants = [_text(item) for item in _as_list(instruction.get("query_variants")) if _text(item)]
-            total_query_variants += len(query_variants)
-            if not query_variants:
-                warnings.append(f"{inst_prefix}: query_variants is missing; include direct, authority, and reconciliation variants when possible")
-            elif execution_expectation == "deep_search" and len(query_variants) < 2:
-                warnings.append(f"{inst_prefix}: deep_search should include at least 2 query_variants")
-            for variant_idx, variant in enumerate(query_variants, start=1):
-                if len(variant) < 8:
-                    errors.append(f"{inst_prefix}.query_variants[{variant_idx}]: query variant is too short")
-                if PLACEHOLDER_RE.search(variant):
-                    errors.append(f"{inst_prefix}.query_variants[{variant_idx}]: query variant still contains placeholder/example text")
+            if "query" in instruction or "query_variants" in instruction:
+                errors.append(
+                    f"{inst_prefix}: executable query fields belong only in artifacts/executable_search_batch.json; "
+                    "formal_search_plan is the coverage/evidence-need source of truth"
+                )
             if len(purpose) < 8:
                 errors.append(f"{inst_prefix}: purpose is too short")
-            if _contains_marker(query + " " + purpose, PAGE_PLAN_MARKERS):
+            if _contains_marker(purpose, PAGE_PLAN_MARKERS):
                 errors.append(f"{inst_prefix}: search instruction contains page/deck planning language")
-            if _contains_marker(query + " " + purpose, PREMATURE_FINDING_MARKERS):
+            if _contains_marker(purpose, PREMATURE_FINDING_MARKERS):
                 errors.append(f"{inst_prefix}: search instruction contains premature conclusion language")
 
-        if priority == "high" and len(instructions) < 2 and total_query_variants < 2:
+        if priority == "high" and execution_expectation == "deep_search" and len(instructions) < 1:
             warnings.append(
-                f"{prefix}: high-priority issue has only {len(instructions)} search instruction(s) and "
-                f"{total_query_variants} query variant(s) total. "
-                "Use at least 2 planned search instructions, or at least 2 total query variants."
+                f"{prefix}: high-priority deep_search issue has no planned instruction. "
+                "Use executable_search_batch.json for multiple concrete query attempts."
             )
 
     for text in _walk_text(plan.get("research_discipline", {})):
@@ -255,7 +242,7 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
         preview = ", ".join(f"{area}/{subissue}" for area, subissue in missing_pairs[:20])
         errors.append(
             "formal_search_plan must cover every canonical issue_area/subissue so upstream research is not thin. "
-            "Add issue_search_plan entries with executable search_instructions for: "
+            "Add issue_search_plan entries with planned FS instructions for: "
             + preview
         )
         if len(missing_pairs) > 20:

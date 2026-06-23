@@ -46,11 +46,11 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 
 5. Collect public evidence.
    - Use the host's web search, SearXNG/manual URL ingestion, user-provided reports, or repository retrieval as available.
-   - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage map, `executable_search_batch.json` is the query workbench, and `research_graph_state.json` is the editable execution state.
+   - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage/evidence-need map, `executable_search_batch.json` is the only query workbench, and `research_graph_state.json` is the editable execution state.
    - Treat search results as leads. A search snippet is not evidence.
    - Keep ordinary background as `research_context`; promote only hard facts and key numbers into EV/MET evidence.
    - Open/archive or manually verify a source before using it for EV/MET evidence. Key numbers require audited metric fields.
-   - If a page supports EV/MET but full-page archive fails, Research must perform secondary verification and explicitly declare the Research Archive Status before Knowledge promotes the excerpt; QC only checks that the verification and status decision are clear and credible.
+   - If a page supports EV/MET but full-page archive fails, Research must perform secondary verification, record `verification_method`, and explicitly declare the Research Archive Status before Knowledge promotes the excerpt; QC only checks that the verification and status decision are clear and credible.
    - Separate coverage accounting from the evidence binder: unexecuted searches and research gaps belong in coverage/gap audit, not in the usable evidence body.
 
 6. Form banker judgment.

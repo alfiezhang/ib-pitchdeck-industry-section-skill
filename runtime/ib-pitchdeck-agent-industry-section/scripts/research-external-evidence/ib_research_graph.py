@@ -216,8 +216,6 @@ def _plan_rows(plan: dict[str, Any]) -> list[dict[str, Any]]:
                     "execution_expectation": _text(issue.get("execution_expectation")),
                     "minimum_actual_searches": int(issue.get("minimum_actual_searches") or 0),
                     "coverage_required": issue.get("coverage_required") is True,
-                    "query": _text(instruction.get("query")),
-                    "query_variants": [_text(item) for item in _as_list(instruction.get("query_variants")) if _text(item)],
                     "purpose": _text(instruction.get("purpose")),
                     "source_hint": _text(instruction.get("source_hint")),
                 }
@@ -291,12 +289,16 @@ def build_search_batch(plan: dict[str, Any]) -> dict[str, Any]:
         first_instruction = instructions[0] if instructions and isinstance(instructions[0], dict) else {}
         rows.append(
             {
+                "search_instruction_id": _text(first_instruction.get("instruction_id")),
                 "issue_area": issue_area,
                 "subissue": subissue,
+                "research_question": research_question,
+                "query_status": "needs_authoring",
                 "english_query": english_query,
                 "chinese_query": chinese_query,
-                "source_specific_query": first_instruction.get("query", ""),
+                "source_specific_query": f"LLM_REWRITE_REQUIRED: write an executable source-specific query for {issue_area}/{subissue}",
                 "expected_source_type": _expected_source_type(issue_area),
+                "source_hint": _text(first_instruction.get("source_hint")),
                 "why_this_search_matters": _text(row.get("execution_rationale")) or _to_text_query(row.get("research_question")),
                 "how_result_will_be_used": "Drive source-reviewed evidence for the paired issue/subissue and map it to issue analysis deck rows.",
             }
@@ -358,17 +360,6 @@ def _priority_for_expectation(expectation: str) -> str:
     return "medium"
 
 
-def _query_variants(market_terms: str, issue_label: str, subissue_label: str, expectation: str) -> list[str]:
-    direct = f"LLM_REWRITE_REQUIRED: direct category query for {subissue_label} in {market_terms}"
-    authority = f"LLM_REWRITE_REQUIRED: source-specific authority query for {subissue_label} using reports, filings, associations, or official data"
-    reconciliation = f"LLM_REWRITE_REQUIRED: reconciliation query for scope, denominator, period, geography, or methodology conflicts on {subissue_label}"
-    if expectation == "deep_search":
-        return [direct, authority, reconciliation]
-    if expectation == "light_search":
-        return [direct]
-    return [direct]
-
-
 def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[str, Any]:
     meta = _meta_from_inputs(input_card=input_card, scope_pack=scope_pack, formal_search_plan={})
     market_terms = _market_terms(meta, scope_pack)
@@ -382,11 +373,11 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
             issue_label = _label(issue_area)
             subissue_label = _label(subissue)
             execution_expectation, minimum_actual_searches, rationale = _execution_policy(issue_area, subissue)
-            query_variants = _query_variants(market_terms, issue_label, subissue_label, execution_expectation)
             issue_search_plan.append(
                 {
                     "issue_area": issue_area,
                     "subissue": subissue,
+                    "plan_layer": "core_research_thread" if execution_expectation == "deep_search" else "coverage_audit_row",
                     "priority": _priority_for_expectation(execution_expectation),
                     "execution_expectation": execution_expectation,
                     "minimum_actual_searches": minimum_actual_searches,
@@ -400,14 +391,13 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
                     "search_instructions": [
                         {
                             "instruction_id": fs_id,
-                            "query": query_variants[0],
-                            "query_variants": query_variants,
                             "purpose": (
                                 f"Find formal evidence for {issue_area}/{subissue}; capture facts, metrics, "
                                 "scope, period, source authority, and limitations."
                             ),
                             "search_stage": "formal_research_execution",
                             "source_hint": SOURCE_HINTS_BY_AREA.get(issue_area, "industry report, company disclosure, official or authoritative source"),
+                            "query_authoring_artifact": "artifacts/executable_search_batch.json",
                         }
                     ],
                 }
@@ -429,17 +419,18 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
             "canonical_issue_area_count": len(ISSUE_TOPICS_BY_AREA),
             "canonical_subissue_count": sum(len(items) for items in ISSUE_TOPICS_BY_AREA.values()),
             "instruction": (
-                "Retain every issue_search_plan row. Edit queries to fit the industry, "
-                "but do not delete low-relevance subissues. The taxonomy is a coverage audit, "
-                "not an equal-depth search mandate: execute deep/light rows as planned, and explicitly "
+                "Retain every issue_search_plan row. Author executable query strings only in "
+                "artifacts/executable_search_batch.json, not in this coverage plan. The taxonomy is a coverage audit, "
+                "not an equal-depth search mandate: execute deep/light rows when material, and explicitly "
                 "account for not_material, not_executed, or unavailable rows in formal_research_execution_report.json."
             ),
         },
         "allowed_issue_taxonomy": {area: sorted(subissues) for area, subissues in ISSUE_TOPICS_BY_AREA.items()},
         "planning_instruction": (
             "This plan intentionally covers every canonical issue/subissue to thicken upstream research. "
-            "For each row, refine executable query variants and execution expectations. Do not write investment "
-            "hypotheses, validated findings, slide conclusions, or page plans. A planned FS row or query is not evidence."
+            "For each row, define the evidence need, source hint, and execution expectation only. "
+            "Executable queries belong in artifacts/executable_search_batch.json. Do not write investment "
+            "hypotheses, validated findings, slide conclusions, or page plans. A planned FS row is not evidence."
         ),
         "issue_search_plan": issue_search_plan,
         "research_discipline": {
@@ -508,7 +499,8 @@ def init_graph_state(
                 "priority": row["priority"],
                 "execution_expectation": row["execution_expectation"],
                 "minimum_actual_searches": row["minimum_actual_searches"],
-                "planned_queries": _unique([row["query"], *row["query_variants"]]),
+                "query_authoring_ref": f"artifacts/executable_search_batch.json#{row['fs_id']}",
+                "executable_query_status": "needs_authoring",
                 "expected_source_type": row["source_hint"],
                 "status": "planned",
                 "terminal_status": "not_executed",
@@ -537,7 +529,7 @@ def init_graph_state(
             "operator_surface": {
                 "primary_write_fields": ["research_context", "metrics", "evidence"],
                 "internal_tracking_ids": ["FS", "S", "SRC"],
-                "policy": "FS/S/SRC IDs are internal traceability. Operators should write ordinary background to research_context, key numbers to audited metrics, and only hard non-numeric facts to evidence.",
+                "policy": "FS/S/SRC IDs are internal traceability. Operators author executable searches in executable_search_batch.json, then write ordinary background to research_context, key numbers to audited metrics, and only hard non-numeric facts to evidence.",
             },
         },
         "research_units": units,
@@ -572,25 +564,16 @@ def _normalize_source(
         source.get("audit_level"),
         AUDITED_METRIC_LEVEL if usable_as_evidence else RESEARCH_CONTEXT_LEVEL,
     )
-    default_archive_status = (
-        "manual_verified_excerpt"
-        if usable_as_evidence and reviewed_excerpt
-        else RESEARCH_CONTEXT_ARCHIVE_STATUS
-        if audit_level == RESEARCH_CONTEXT_LEVEL
-        else "needs_research_verification"
-    )
+    default_archive_status = RESEARCH_CONTEXT_ARCHIVE_STATUS if audit_level == RESEARCH_CONTEXT_LEVEL and not usable_as_evidence else "needs_research_verification"
     archive_status = _first_text(
         source.get("archive_status"),
         source.get("research_archive_status"),
         default_archive_status,
     )
     if archive_status == "manual_verified_excerpt":
-        secondary_verification = _first_text(source.get("secondary_verification"), "verified")
-        verification_notes = _first_text(
-            source.get("secondary_verification_notes"),
-            "Research graph state marked this source as matched to the reviewed source context.",
-        )
-        research_archive_status = "manual_verified_excerpt"
+        secondary_verification = _text(source.get("secondary_verification"))
+        verification_notes = _text(source.get("secondary_verification_notes"))
+        research_archive_status = _text(source.get("research_archive_status"))
     elif archive_status == RESEARCH_CONTEXT_ARCHIVE_STATUS:
         secondary_verification = _text(source.get("secondary_verification"))
         verification_notes = _first_text(
@@ -602,6 +585,19 @@ def _normalize_source(
         secondary_verification = _first_text(source.get("secondary_verification"), "not_verified")
         verification_notes = _first_text(source.get("secondary_verification_notes"), "Source requires additional verification before evidence promotion.")
         research_archive_status = _first_text(source.get("research_archive_status"), archive_status if archive_status == "manual_verified_excerpt" else "")
+    verification_method = _text(source.get("verification_method"))
+    review_status = _first_text(source.get("review_status"))
+    if not review_status:
+        review_status = (
+            "research_verified_excerpt"
+            if (
+                archive_status == "manual_verified_excerpt"
+                and secondary_verification == "verified"
+                and research_archive_status == "manual_verified_excerpt"
+                and verification_method
+            )
+            else "needs_research_secondary_verification"
+        )
     return {
         "source_review_id": source_id,
         "url": url,
@@ -638,13 +634,11 @@ def _normalize_source(
         "raw_archive_content_type": _text(source.get("raw_archive_content_type") or source.get("content_type")),
         "archive_unavailable_reason": _text(source.get("archive_unavailable_reason")),
         "excerpt_origin": _first_text(source.get("excerpt_origin"), "opened_page"),
+        "verification_method": verification_method,
         "secondary_verification": secondary_verification,
         "secondary_verification_notes": verification_notes,
         "research_archive_status": research_archive_status,
-        "review_status": _first_text(
-            source.get("review_status"),
-            "research_verified_excerpt" if archive_status == "manual_verified_excerpt" else "needs_research_secondary_verification",
-        ),
+        "review_status": review_status,
         "search_attempt_ids": [_text(item) for item in _as_list(source.get("search_attempt_ids")) if _text(item)] or default_attempt_ids,
         "evidence_ids": [_text(item) for item in _as_list(source.get("evidence_ids")) if _text(item)],
         "metric_ids": [_text(item) for item in _as_list(source.get("metric_ids")) if _text(item)],
@@ -713,22 +707,19 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
         raw_evidence = [item for item in _as_list(unit.get("evidence")) if isinstance(item, dict)]
         raw_metrics = [item for item in _as_list(unit.get("metrics")) if isinstance(item, dict)]
         raw_context = [item for item in _as_list(unit.get("research_context")) if isinstance(item, dict)]
-        should_synthesize_attempt = bool(raw_sources or raw_evidence or raw_metrics or raw_context) and not _as_list(unit.get("attempts"))
         raw_attempts = [item for item in _as_list(unit.get("attempts")) if isinstance(item, dict)]
-        if should_synthesize_attempt:
-            raw_attempts = [
-                {
-                    "query": _first_text(plan_row.get("query"), unit.get("research_question"), "compiled research graph unit"),
-                    "provider": _first_text(state.get("graph_config", {}).get("worker_backend") if isinstance(state.get("graph_config"), dict) else "", "research_graph"),
-                    "selected_source_urls": [_first_text(src.get("url"), src.get("source_url")) for src in raw_sources],
-                    "opened_reviewed": "yes",
-                    "locator_excerpt": _first_text(raw_sources[0].get("reviewed_excerpt") if raw_sources else "", unit.get("findings_summary")),
-                    "excerpt_origin": "opened_page",
-                    "secondary_verification": "verified" if raw_sources else "not_verified",
-                    "secondary_verification_notes": "Compiled from research_graph_state evidence/source unit.",
-                    "research_archive_status": "manual_verified_excerpt" if raw_sources else "",
-                }
-            ]
+        if not raw_attempts and (raw_sources or raw_evidence or raw_metrics or raw_context):
+            trace_note = (
+                "Research graph state contained sources/evidence/metrics/context without any explicit executed "
+                "attempt. Compiler ignored those rows; rerun Research with a real attempts[] entry or explicit "
+                "manual-source intake trace before evidence promotion."
+            )
+            unit["execution_trace_status"] = "missing_attempt_trace"
+            unit["limitations"] = _as_list(unit.get("limitations")) + [trace_note]
+            raw_sources = []
+            raw_evidence = []
+            raw_metrics = []
+            raw_context = []
 
         attempts: list[dict[str, Any]] = []
         for raw_attempt in raw_attempts:
@@ -739,7 +730,7 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
             attempts.append(
                 {
                     "attempt_id": attempt_id,
-                    "query": _first_text(raw_attempt.get("query"), plan_row.get("query"), unit.get("research_question")),
+                    "query": _first_text(raw_attempt.get("query"), raw_attempt.get("executed_query")),
                     "provider": _first_text(raw_attempt.get("provider"), "research_graph"),
                     "domain_constraint": _text(raw_attempt.get("domain_constraint")),
                     "source_pack": _text(raw_attempt.get("source_pack")),
@@ -753,7 +744,7 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
                     "opened_reviewed": _first_text(raw_attempt.get("opened_reviewed"), "yes" if raw_sources else "no"),
                     "locator_excerpt": _first_text(raw_attempt.get("locator_excerpt"), raw_attempt.get("source_locator_raw_excerpt"), raw_attempt.get("excerpt")),
                     "excerpt_origin": _first_text(raw_attempt.get("excerpt_origin"), "opened_page" if raw_sources else "unknown"),
-                    "secondary_verification": _first_text(raw_attempt.get("secondary_verification"), "verified" if raw_sources else "not_verified"),
+                    "secondary_verification": _first_text(raw_attempt.get("secondary_verification"), "not_verified"),
                     "secondary_verification_notes": _text(raw_attempt.get("secondary_verification_notes")),
                     "research_archive_status": _text(raw_attempt.get("research_archive_status")),
                     "source_review_ids": [_text(item) for item in _as_list(raw_attempt.get("source_review_ids")) if _text(item)],
@@ -962,6 +953,7 @@ def _archive_snapshot(source: dict[str, Any], *, captured_at: str, archive_statu
     lines.extend(
         [
             f"- Excerpt Origin: {_text(source.get('excerpt_origin'))}",
+            f"- Verification Method: {_text(source.get('verification_method'))}",
             f"- Secondary Verification: {_text(source.get('secondary_verification'))}",
             f"- Secondary Verification Notes: {_text(source.get('secondary_verification_notes'))}",
             f"- Research Archive Status: {_text(source.get('research_archive_status'))}",
@@ -1044,6 +1036,7 @@ def _write_archive_index(
                 "reviewed_excerpt": _text(source.get("reviewed_excerpt"))[:4000],
                 "archive_unavailable_reason": _text(source.get("archive_unavailable_reason")),
                 "excerpt_origin": _text(source.get("excerpt_origin")),
+                "verification_method": _text(source.get("verification_method")),
                 "secondary_verification": _text(source.get("secondary_verification")),
                 "secondary_verification_notes": _text(source.get("secondary_verification_notes")),
                 "research_archive_status": _text(source.get("research_archive_status")),
@@ -1339,6 +1332,7 @@ def _compile_research_db(
                 "archive_path": _text(source.get("archive_path")),
                 "raw_archive_path": _text(source.get("raw_archive_path")),
                 "excerpt_origin": _text(source.get("excerpt_origin")),
+                "verification_method": _text(source.get("verification_method")),
                 "secondary_verification": _text(source.get("secondary_verification")),
                 "secondary_verification_notes": _text(source.get("secondary_verification_notes")),
                 "review_status": _text(source.get("review_status")),
