@@ -370,28 +370,18 @@ def compiled_artifacts(_session_tmp, deck_blueprint_path, template_registry_path
 
 def _minimal_scope_pack() -> dict:
     return {
-        "schema_version": "industry_scope_pack_v1",
-        "meta": {"industry": "example"},
-        "llm_definition_draft": {
-            "purpose": "LLM-only definition draft before scoping search.",
-            "working_market_draft": "example working market",
-            "parent_market_draft": "example parent market",
-            "broader_market_draft": "example broader market",
-            "included_segments_draft": ["core segment"],
-            "excluded_segments_draft": ["adjacent category"],
-            "adjacent_markets_draft": ["adjacent category"],
-            "ambiguous_boundaries_to_check": ["adjacent extension"],
-            "data_scope_questions": ["Which source definitions include adjacent extensions?"],
-            "scoping_search_queries": [
-                "example industry definition included segments adjacent categories",
-                "example industry taxonomy metric definition scope methodology",
-            ],
+        "schema_version": "industry_scope_pack_v2",
+        "meta": {
+            "target_company": "example target",
+            "transaction_type": "pre-mandate pitch",
+            "geography": "Exampleland",
+            "language": "English",
+            "prepared_date": "2026-01-01",
         },
         "scope_summary": {
             "working_market": "example working market",
             "parent_market": "example parent market",
             "broader_market": "example broader market",
-            "adjacent_markets": ["adjacent category"],
         },
         "scope_classification": {
             "core": ["core segment"],
@@ -399,50 +389,25 @@ def _minimal_scope_pack() -> dict:
             "adjacent": ["adjacent category"],
             "excluded": ["non-relevant category"],
         },
-        "market_definitions": {
-            "narrow_definition": {
-                "included_segments": ["core segment"],
-                "excluded_segments": ["adjacent category"],
-                "use_case": "market sizing / competitive share",
-            },
-            "broad_definition": {
-                "included_segments": ["core segment"],
-                "additional_segments": ["adjacent extension"],
-                "use_case": "trend discussion / product ecosystem",
-            },
+        "must_reconcile": [
+            {
+                "topic": "working vs parent scope",
+                "why_it_matters": "prevents non-comparable metrics",
+                "research_instruction": "label every metric by source scope",
+            }
+        ],
+        "boundary_validation_needed": [
+            {
+                "question": "is adjacent extension in scope",
+                "why_needed": "source taxonomies may differ",
+                "suggested_validation_source": "industry taxonomy",
+            }
+        ],
+        "handoff_to_research": {
+            "research_scope": "Focus formal research on example working market. Use adjacent extension only as labeled context.",
+            "do_not_use_as_market_scope": ["example parent market"],
+            "must_label_when_used": ["platform GMV", "broad-scope data"],
         },
-        "ambiguous_boundaries": [
-            {
-                "item": "adjacent extension",
-                "why_ambiguous": "It may be classified in the parent category or adjacent category.",
-                "research_treatment": "Track separately until formal sources reconcile scope.",
-            }
-        ],
-        "data_hierarchy": [
-            {"level": 1, "metric_scope": "broader market", "can_be_compared_with": ["same scope"], "cannot_be_compared_with": ["working market"]},
-            {"level": 2, "metric_scope": "parent market", "can_be_compared_with": ["same parent scope"], "cannot_be_compared_with": ["platform GMV"]},
-            {"level": 3, "metric_scope": "working market", "can_be_compared_with": ["same working scope"], "cannot_be_compared_with": ["brand ranking"]},
-        ],
-        "unvalidated_leads": [
-            {
-                "lead": "A source lead may contain a numerical market-size datapoint.",
-                "claim_type": "market_size",
-                "source_hint": "example source",
-                "must_validate": ["Confirm definition, period, geography, and methodology."],
-            }
-        ],
-        "required_reconciliations": [
-            {
-                "topic": "working market size scope",
-                "why_it_matters": "Different sources may include adjacent extensions.",
-                "formal_research_requirement": "Record source definition before promoting any metric.",
-            }
-        ],
-        "formal_research_seed_questions": [
-            "What is the current market size under narrow and broad definitions?",
-            "Which segments are included by each source?",
-            "Which source definitions cannot be compared directly?",
-        ],
         "do_not_use_as_claims": True,
     }
 
@@ -487,9 +452,8 @@ def _seed_boundary_loop_status(
 @pytest.fixture(scope="session")
 def _pipeline_run_dir(tmp_path_factory):
     """Build a full pipeline run directory with search log, source reviews, execution report, etc."""
-    from build_formal_search_plan_skeleton import build_plan as build_formal_search_plan_skeleton
-    from build_formal_research_execution_report_skeleton import build_report as build_formal_execution_skeleton
-    from build_source_archive import build_archive as build_source_archive
+    from ib_research_graph import build_coverage_map, build_formal_search_plan, build_search_batch
+    from ib_research_graph import compile_graph_state, init_graph_state
     from pipeline import _write_run_flags
     from validate_formal_research_execution import validate as validate_formal_research_execution
     from validate_formal_search_plan import validate as validate_formal_search_plan
@@ -586,11 +550,16 @@ def _pipeline_run_dir(tmp_path_factory):
     assert not scope_errors, scope_errors
     _write_json(artifacts / "industry_scope_pack_validation.json", {"is_valid": True, "errors": [], "warnings": scope_warnings})
 
-    # Formal search plan
-    plan = build_formal_search_plan_skeleton(
-        {"industry": "sample sector", "geography": "Samplestan"},
-        {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
-    )
+    # State-first formal research graph
+    input_card_payload = {
+        "target_company": "Sample Target",
+        "industry": "sample sector",
+        "subsector": "sample subsector",
+        "geography": "Samplestan",
+        "transaction_type": "control sale",
+        "language": "English",
+    }
+    plan = build_formal_search_plan(input_card_payload, scope_pack)
     _rewrite_plan_queries_for_contract_test(plan)
 
     def fs_for(area, subissue):
@@ -602,210 +571,240 @@ def _pipeline_run_dir(tmp_path_factory):
     market_fs = fs_for("market_size_growth", "current_market_size")
     value_fs = fs_for("industry_structure", "value_chain")
     _write_json(artifacts / "formal_search_plan.json", plan)
+    _write_json(artifacts / "coverage_map.json", build_coverage_map(plan))
+    _write_json(artifacts / "executable_search_batch.json", build_search_batch(plan))
     plan_errors, plan_warnings = validate_formal_search_plan(plan)
     assert not plan_errors, plan_errors
     _write_json(artifacts / "formal_search_plan_validation.json", {"is_valid": True, "errors": [], "warnings": plan_warnings})
 
-    # Build search log with formal attempts
-    fs_to_attempt: dict[str, str] = {}
-    log_lines = [
-        "# Search Log", "", "## Search Attempts", "",
-        "### Search 1",
-        "- Query: example industry definition",
-        "- Provider: WebSearch",
-        "- Search Stage: broad_discovery",
-        "- Result Count: 5",
-        "- Selected Sources: https://example.com/scope",
-        "- Dimension: industry_definition_scope",
-        "- Opened / Reviewed: yes",
-        "- Source Locator / Raw Excerpt: section 1 explains the relevant industry boundary and source leads.",
-        "",
-    ]
-    attempt_no = 2
-    for row in plan["issue_search_plan"]:
-        instruction = row["search_instructions"][0]
-        fs_id = instruction["instruction_id"]
-        attempt_id = f"S-{attempt_no:03d}"
-        fs_to_attempt[fs_id] = attempt_id
-        if fs_id == market_fs:
-            selected_sources = "https://example.com/market-size"
-            opened_reviewed = "yes"
-            excerpt = "table 2 contains current market size and scope definition."
-        elif fs_id == value_fs:
-            selected_sources = "https://example.com/value-chain"
-            opened_reviewed = "yes"
-            excerpt = "section 3 describes value chain economics and margin pools."
-        else:
-            selected_sources = f"https://example.com/research/{fs_id.lower()}"
-            opened_reviewed = "yes"
-            excerpt = "Reviewed synthetic contract-test page; no usable evidence was identified for promotion."
-        log_lines.extend([
-            f"### {attempt_id}",
-            f"- Query: {instruction['query']}",
-            "- Provider: WebSearch",
-            "- Search Stage: formal_research_execution",
-            f"- Search Instruction IDs: {fs_id}",
-            "- Result Count: 4",
-            f"- Selected Sources: {selected_sources}",
-            f"- Dimension: {row['issue_area']}",
-            f"- Opened / Reviewed: {opened_reviewed}",
-            f"- Source Locator / Raw Excerpt: {excerpt}",
-            "",
-        ])
-        attempt_no += 1
-    (artifacts / "search_log.md").write_text("\n".join(log_lines), encoding="utf-8")
-
-    # Source reviews
-    reviews = []
-    for idx, row in enumerate(plan["issue_search_plan"], start=1):
-        instruction = row["search_instructions"][0]
-        fs_id = instruction["instruction_id"]
-        if fs_id == market_fs:
-            reviews.append({
-                "source_review_id": "SRC-001", "url": "https://example.com/market-size",
-                "title": "Example market size report",
-                "locator": "table 2, current market-size row with geography and scope columns",
-                "excerpt": "The report gives a current market-size datapoint with geography and scope.",
-                "search_attempt_ids": [fs_to_attempt[market_fs]], "evidence_ids": ["EV-001"],
-                "evidence_use_tier": "core_evidence",
-                "claim_use_scope": "current market-size test fixture only",
-                "usable_as_evidence": True, "source_type": "industry_report",
-            })
-        elif fs_id == value_fs:
-            reviews.append({
-                "source_review_id": "SRC-002", "url": "https://example.com/value-chain",
-                "title": "Example value chain report",
-                "locator": "section 3, value-chain economics paragraph and margin-pool discussion",
-                "excerpt": "The source describes where value accrues across the example industry chain.",
-                "search_attempt_ids": [fs_to_attempt[value_fs]], "evidence_ids": ["EV-002"],
-                "evidence_use_tier": "contextual_evidence",
-                "claim_use_scope": "value-chain directional test fixture only",
-                "usable_as_evidence": True, "source_type": "industry_report",
-            })
-        else:
-            reviews.append({
-                "source_review_id": f"SRC-{idx + 100:03d}",
-                "url": f"https://example.com/research/{fs_id.lower()}",
-                "title": f"Synthetic review for {fs_id}",
-                "locator": "contract-test reviewed page",
-                "excerpt": "Reviewed synthetic contract-test page; no usable evidence was identified for promotion.",
-                "search_attempt_ids": [fs_to_attempt[fs_id]], "evidence_ids": [],
-                "evidence_use_tier": "lead_only",
-                "claim_use_scope": "no formal claim support; keep as research gap",
-                "usable_as_evidence": False, "source_type": "industry_report",
-            })
-    embedded_reviews = {"schema_version": "embedded_source_reviews_v1", "reviews": reviews}
-
-    # Source archive
-    archive_dir = artifacts / "source_archive"
-    archive_dir.mkdir()
-    (archive_dir / "SRC-001.md").write_text(
-        "# SRC-001 Snapshot\n\n"
-        "URL: https://example.com/market-size\n\n"
-        "Locator: table 2, current market-size row with geography and scope columns.\n\n"
-        "## Reviewed Excerpt / Faithful Paraphrase\n\n"
-        "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit.\n\n"
-        "## Archive Note\n\nSynthetic contract-test archive.\n",
-        encoding="utf-8",
+    state = init_graph_state(
+        formal_search_plan=plan,
+        input_card=input_card_payload,
+        scope_pack=scope_pack,
+        worker_backend="contract_fixture",
     )
-    (archive_dir / "SRC-002.md").write_text(
-        "# SRC-002 Snapshot\n\n"
-        "URL: https://example.com/value-chain\n\n"
-        "Locator: section 3, value-chain economics paragraph and margin-pool discussion.\n\n"
-        "## Reviewed Excerpt / Faithful Paraphrase\n\n"
-        "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit.\n\n"
-        "## Archive Note\n\nSynthetic contract-test archive.\n",
-        encoding="utf-8",
+    state["research_units"].insert(
+        0,
+        {
+            "research_unit_id": "RU-000",
+            "issue_area": "boundary_validation",
+            "subissue": "broad_definition",
+            "fs_ids": [],
+            "research_question": "Broad discovery fixture row.",
+            "status": "thin",
+            "terminal_status": "directional_only",
+            "downstream_permission": "contextual_only",
+            "attempts": [
+                {
+                    "search_attempt_id": "S-001",
+                    "query": "example industry definition",
+                    "provider": "contract_fixture",
+                    "stage": "broad_discovery",
+                    "selected_source_urls": ["https://example.com/scope"],
+                    "opened_reviewed": "yes",
+                    "locator_excerpt": "section 1 explains the relevant industry boundary and source leads.",
+                }
+            ],
+            "sources": [],
+            "evidence": [],
+            "metrics": [],
+            "limitations": ["Broad discovery rows are not formal evidence."],
+        },
     )
-    source_archive_index = {
-        "schema_version": "source_archive_index_v1",
-        "created_at": "2026-06-07T10:10:00",
-        "entries": [
-                {"source_review_id": "SRC-001", "url": "https://example.com/market-size", "title": "Example market size report", "archive_status": "manual_verified_excerpt", "archive_path": "artifacts/source_archive/SRC-001.md", "captured_at": "2026-06-07T10:10:00", "locator": "table 2, current market-size row with geography and scope columns", "reviewed_excerpt": "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit.", "secondary_verification": "verified", "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.", "research_archive_status": "manual_verified_excerpt"},
-                {"source_review_id": "SRC-002", "url": "https://example.com/value-chain", "title": "Example value chain report", "archive_status": "manual_verified_excerpt", "archive_path": "artifacts/source_archive/SRC-002.md", "captured_at": "2026-06-07T10:11:00", "locator": "section 3, value-chain economics paragraph and margin-pool discussion", "reviewed_excerpt": "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit.", "secondary_verification": "verified", "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.", "research_archive_status": "manual_verified_excerpt"},
-        ],
-    }
-    _write_json(archive_dir / "source_archive_index.json", source_archive_index)
-
-    # Formal execution report
-    report = build_formal_execution_skeleton(
-        plan=plan, search_log_path=artifacts / "search_log.md",
-        reviews=embedded_reviews["reviews"],
-        search_log_ref="artifacts/search_log.md", include_unexecuted=False,
-    )
-    for result in report["issue_results"]:
-        fs_id = result["search_instruction_ids"][0]
-        result["source_discovery_attempt_ids"] = ["S-001"]
+    fs_to_attempt: dict[str, str] = {market_fs: "S-002", value_fs: "S-003"}
+    fallback_attempt_no = 4
+    for unit in state["research_units"]:
+        fs_ids = unit.get("fs_ids") or []
+        fs_id = fs_ids[0] if fs_ids else ""
         if fs_id == market_fs:
-            result.update({
-                "status": "supported",
-                "selected_source_urls": ["https://example.com/market-size"],
-                "source_review_ids": ["SRC-001"],
-                "evidence_ids": ["EV-001"], "metric_ids": ["MET-001"],
-                "findings_summary": "Current market size is source-backed with explicit scope.",
-                "limitations": [],
-                "research_pack_handling": "Promote to Evidence Ledger and Metric Reconciliation.",
-            })
+            unit.update(
+                {
+                    "status": "supported",
+                    "terminal_status": "executed_with_evidence",
+                    "downstream_permission": "may_support_claim",
+                    "findings_summary": "Current market size is source-backed with explicit scope.",
+                    "limitations": ["Contract fixture only."],
+                    "research_pack_handling": "Promote to Evidence Ledger and Metric Reconciliation.",
+                    "attempts": [
+                        {
+                            "search_attempt_id": "S-002",
+                            "query": unit["planned_queries"][0],
+                            "provider": "contract_fixture",
+                            "selected_source_urls": ["https://example.com/market-size"],
+                            "opened_reviewed": "yes",
+                            "locator_excerpt": "table 2 contains current market size and scope definition.",
+                            "excerpt_origin": "opened_page",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        }
+                    ],
+                    "sources": [
+                        {
+                            "source_review_id": "SRC-001",
+                            "url": "https://example.com/market-size",
+                            "title": "Example market size report",
+                            "source_type": "industry_report",
+                            "archive_status": "manual_verified_excerpt",
+                            "locator": "table 2, current market-size row with geography and scope columns",
+                            "reviewed_excerpt": "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit.",
+                            "usable_as_evidence": True,
+                            "evidence_use_tier": "core_evidence",
+                            "claim_use_scope": "current market-size test fixture only",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        }
+                    ],
+                    "evidence": [
+                        {
+                            "evidence_id": "EV-001",
+                            "source_review_id": "SRC-001",
+                            "claim_or_metric": "Current market size is source-backed with explicit scope.",
+                            "claim_scope": "industry-level",
+                            "source_type": "industry_report",
+                            "evidence_status": "primary-reviewed",
+                            "source_locator": "table 2, current market-size row",
+                            "raw_excerpt": "The report gives a current market-size datapoint with geography and source scope; the fixture preserves enough context for audit.",
+                            "reliability": "reviewed_source",
+                            "confidence": "high",
+                            "data_period": "2026",
+                        }
+                    ],
+                    "metrics": [
+                        {
+                            "metric_id": "MET-001",
+                            "source_review_id": "SRC-001",
+                            "metric_group": "market_size_growth",
+                            "metric_name": "Current market size",
+                            "metric_type": "market_size",
+                            "market_definition": "sample sector market",
+                            "channel_scope": "all_channel",
+                            "geography": "Samplestan",
+                            "data_period": "2026",
+                            "value": "100",
+                            "unit": "RMB bn",
+                            "conflict_status": "single-source",
+                            "resolution": "Use as contract-test metric only.",
+                            "chart_ready": True,
+                        }
+                    ],
+                }
+            )
         elif fs_id == value_fs:
-            result.update({
-                "status": "thin",
-                "selected_source_urls": ["https://example.com/value-chain"],
-                "source_review_ids": ["SRC-002"],
-                "evidence_ids": ["EV-002"], "metric_ids": [],
-                "findings_summary": "Value-chain economics are directionally supported.",
-                "limitations": ["Quantified profit-pool data is not available."],
-                "research_pack_handling": "Use as a caveated industry structure finding.",
-            })
-        else:
-            result["research_pack_handling"] = "Keep as a research gap/backlog unless later searches produce usable evidence."
-    _write_json(artifacts / "formal_research_execution_report.json", report)
+            unit.update(
+                {
+                    "status": "thin",
+                    "terminal_status": "executed_with_evidence",
+                    "downstream_permission": "may_support_claim",
+                    "findings_summary": "Value-chain economics are directionally supported.",
+                    "limitations": ["Quantified profit-pool data is not available."],
+                    "research_pack_handling": "Use as a caveated industry structure finding.",
+                    "attempts": [
+                        {
+                            "search_attempt_id": "S-003",
+                            "query": unit["planned_queries"][0],
+                            "provider": "contract_fixture",
+                            "selected_source_urls": ["https://example.com/value-chain"],
+                            "opened_reviewed": "yes",
+                            "locator_excerpt": "section 3 describes value chain economics and margin pools.",
+                            "excerpt_origin": "opened_page",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        }
+                    ],
+                    "sources": [
+                        {
+                            "source_review_id": "SRC-002",
+                            "url": "https://example.com/value-chain",
+                            "title": "Example value chain report",
+                            "source_type": "industry_report",
+                            "archive_status": "manual_verified_excerpt",
+                            "locator": "section 3, value-chain economics paragraph and margin-pool discussion",
+                            "reviewed_excerpt": "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit.",
+                            "usable_as_evidence": True,
+                            "evidence_use_tier": "contextual_evidence",
+                            "claim_use_scope": "value-chain directional test fixture only",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        }
+                    ],
+                    "evidence": [
+                        {
+                            "evidence_id": "EV-002",
+                            "source_review_id": "SRC-002",
+                            "claim_or_metric": "Value-chain economics are directionally supported.",
+                            "claim_scope": "industry-level",
+                            "source_type": "industry_report",
+                            "evidence_status": "secondary-reviewed",
+                            "source_locator": "section 3, value-chain economics paragraph",
+                            "raw_excerpt": "The source describes where value accrues across the example industry chain and preserves directional margin-pool context for audit.",
+                            "reliability": "reviewed_source",
+                            "confidence": "medium",
+                            "data_period": "2026",
+                        }
+                    ],
+                    "metrics": [],
+                }
+            )
+        elif fs_id:
+            attempt_id = f"S-{fallback_attempt_no:03d}"
+            fallback_attempt_no += 1
+            fs_to_attempt[fs_id] = attempt_id
+            unit.update(
+                {
+                    "status": "insufficient",
+                    "terminal_status": "executed_no_usable_source",
+                    "downstream_permission": "research_backlog_only",
+                    "findings_summary": "Formal search was executed in the contract fixture, but no usable evidence was promoted.",
+                    "limitations": ["Reviewed synthetic contract-test page; no usable evidence was identified for promotion."],
+                    "research_pack_handling": "Keep as a research gap/backlog unless later searches produce usable evidence.",
+                    "attempts": [
+                        {
+                            "search_attempt_id": attempt_id,
+                            "query": unit["planned_queries"][0] if unit.get("planned_queries") else "sample sector formal search",
+                            "provider": "contract_fixture",
+                            "result_count": 1,
+                            "selected_source_urls": [f"https://example.com/research/{fs_id.lower()}"],
+                            "opened_reviewed": "yes",
+                            "locator_excerpt": "Reviewed synthetic contract-test page; no usable evidence was identified for promotion.",
+                            "excerpt_origin": "opened_page",
+                            "secondary_verification": "not_verified",
+                            "secondary_verification_notes": "No promotable source was identified in this contract fixture row.",
+                            "research_archive_status": "",
+                        }
+                    ],
+                    "sources": [],
+                    "evidence": [],
+                    "metrics": [],
+                }
+            )
+    _write_json(artifacts / "research_graph_state.json", state)
+    compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
+    report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
     errors, warnings = validate_formal_research_execution(report, plan, artifacts / "search_log.md")
     assert not errors, errors
     _write_json(artifacts / "formal_research_execution_validation.json", {"is_valid": True, "errors": [], "warnings": warnings})
 
     # Validate source archive
+    archive_dir = artifacts / "source_archive"
     archive_result = validate_source_archive(
         source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir,
     )
     assert archive_result["is_valid"], archive_result
     _write_json(artifacts / "source_archive_validation.json", archive_result)
 
-    # Auto-archive build
-    auto_archive_dir = artifacts / "source_archive_auto"
-    auto_index = auto_archive_dir / "source_archive_index.json"
-    auto_build = build_source_archive(
-        search_log_path=artifacts / "search_log.md",
-        archive_dir=auto_archive_dir,
-        source_archive_index_path=auto_index, run_dir=run_dir, overwrite=True, fetch_web=False,
-    )
-    assert auto_build["archive_entry_count"] >= 2, auto_build
-
     # Research evidence DB
-    from research_evidence_db import build_db as build_research_evidence_db
     from research_evidence_db import validate_db as validate_research_evidence_db
     from research_evidence_db import export_markdown as export_research_pack_from_db
 
-    research_db = build_research_evidence_db(
-        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "Samplestan"},
-        scope_pack=scope_pack, formal_search_plan=plan,
-        execution_report=report, source_reviews=embedded_reviews,
-        source_archive_index=source_archive_index,
-    )
-    for extract in research_db["formal_research_extracts"]:
-        extract["extracted_fact_or_metric_candidate"] = "Source-faithful contract-test extract with scope and limitation."
-    for ev in research_db["evidence_ledger"]:
-        if ev["evidence_id"] == "EV-001":
-            ev.update({"claim_or_metric": "Current market size is source-backed with explicit scope.", "claim_scope": "industry-level", "source_type": "industry_report", "reliability": "reviewed_source", "data_period": "2026"})
-        if ev["evidence_id"] == "EV-002":
-            ev.update({"claim_or_metric": "Value-chain economics are directionally supported.", "claim_scope": "industry-level", "source_type": "industry_report", "reliability": "reviewed_source", "data_period": "2026"})
-    for met in research_db["metric_reconciliation"]:
-        met.update({"metric_name": "Current market size", "metric_type": "market_size", "market_definition": "sample sector market", "channel_scope": "all_channel", "geography": "Samplestan", "data_period": "2026", "value": "100", "unit": "RMB bn", "conflict_status": "single-source", "resolution": "Use as contract-test metric only.", "chart_ready": True})
-    research_db["research_gap_audit"]["critical_gaps"] = []
-    research_db["research_gap_audit"]["metric_consistency_check"] = {"GMV vs revenue": "No conflict.", "Cross-slide repeated metric consistency": "No conflict.", "Target financials consistency": "No conflict.", "User-provided vs external-source discrepancy": "No conflict.", "Chart number consistency": "Chart numbers bind to MET-001."}
+    research_db = json.loads((artifacts / "research_evidence_db.json").read_text(encoding="utf-8"))
     db_errors, db_warnings, _ = validate_research_evidence_db(research_db)
     assert not db_errors, db_errors
-    _write_json(artifacts / "research_evidence_db.json", research_db)
     _write_json(artifacts / "research_evidence_db_validation.json", {"is_valid": True, "errors": [], "warnings": db_warnings})
+    embedded_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
 
     boundary_status = _seed_boundary_loop_status(
         run_dir,

@@ -88,8 +88,8 @@ VALID_TERMINAL_STATUSES = {
 NO_ATTEMPT_TERMINAL_STATUSES = {"not_executed", "not_material", "accounting_only"}
 VALID_DOWNSTREAM_PERMISSIONS = {"may_support_claim", "contextual_only", "research_backlog_only", "not_allowed"}
 REPORT_STRUCTURE_HINT = (
-    "Start from configs/artifact_templates/formal_research_execution_report.skeleton.json. "
-    "For each executed FS-xxx, create one FR-xxx issue_results[] entry and copy "
+    "Generate this artifact through scripts/research-external-evidence/ib_research_graph.py compile. "
+    "For each executed FS-xxx, the compiler creates one FR-xxx issue_results[] entry and copies "
     "issue_area, subissue, and research_question from the owning formal_search_plan issue_search_plan[] item."
 )
 ATTEMPT_ID_HINT = (

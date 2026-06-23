@@ -91,7 +91,11 @@ def _scope_required_errors(scope_pack: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     scope_summary = _as_dict(scope_pack.get("scope_summary"))
     classification = _as_dict(scope_pack.get("scope_classification"))
-    draft = _as_dict(scope_pack.get("llm_definition_draft"))
+    handoff = _as_dict(scope_pack.get("handoff_to_research"))
+    if scope_pack.get("schema_version") != "industry_scope_pack_v2":
+        errors.append("schema_version must be industry_scope_pack_v2")
+    if scope_pack.get("do_not_use_as_claims") is not True:
+        errors.append("do_not_use_as_claims must be true")
     if not _text(scope_summary.get("working_market")):
         errors.append("scope_summary.working_market is required")
     if not _text(scope_summary.get("parent_market")):
@@ -100,14 +104,15 @@ def _scope_required_errors(scope_pack: dict[str, Any]) -> list[str]:
         errors.append("scope_summary.broader_market is required")
     if not _as_list(classification.get("core")):
         errors.append("scope_classification.core is required")
-    if not _as_list(classification.get("adjacent")):
-        errors.append("scope_classification.adjacent is required")
-    if not _text(draft.get("working_market_draft")):
-        errors.append("llm_definition_draft.working_market_draft is required")
-    if len(_as_list(draft.get("scoping_search_queries"))) < 2:
-        errors.append("llm_definition_draft.scoping_search_queries must contain at least 2 items")
-    if not _as_list(scope_pack.get("formal_research_seed_questions")):
-        errors.append("formal_research_seed_questions are required")
+    for field in ("broad", "adjacent", "excluded"):
+        if not isinstance(classification.get(field), list):
+            errors.append(f"scope_classification.{field} must be an array")
+    if not isinstance(scope_pack.get("must_reconcile"), list):
+        errors.append("must_reconcile must be an array")
+    if not isinstance(scope_pack.get("boundary_validation_needed"), list):
+        errors.append("boundary_validation_needed must be an array")
+    if not _text(handoff.get("research_scope")):
+        errors.append("handoff_to_research.research_scope is required")
     return errors
 
 
@@ -122,12 +127,8 @@ def _validation_needed(scope_pack: dict[str, Any]) -> list[str]:
         warnings.append("working_market and parent_market are identical; scope may be too broad")
     if working and broader and working == broader:
         warnings.append("working_market and broader_market are identical; narrower definitions needed")
-    if not _as_list(scope_summary.get("adjacent_markets")):
-        warnings.append("adjacent_markets is empty; adjacent categories should be documented")
-    if not _as_list(classification.get("excluded")):
-        warnings.append("excluded scope is empty; explicit exclusions are needed")
-    if not _as_list(scope_pack.get("ambiguous_boundaries")) and not _text(scope_pack.get("scope_confidence_rationale")):
-        warnings.append("ambiguous boundaries are not listed; provide scope confidence rationale if intentionally empty")
+    if _as_list(scope_pack.get("boundary_validation_needed")):
+        warnings.append("boundary_validation_needed contains unresolved scope questions")
     return warnings
 
 

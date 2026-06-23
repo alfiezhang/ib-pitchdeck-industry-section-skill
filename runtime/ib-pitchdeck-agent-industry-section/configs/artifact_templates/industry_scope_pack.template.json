@@ -1,155 +1,57 @@
 {
-  "schema_version": "industry_scope_pack_v1",
+  "schema_version": "industry_scope_pack_v2",
+  "_template_only": true,
+  "_template_only_note": "Do not copy this as final content. Write a brief boundary card, not a scoping memo or research plan.",
   "meta": {
     "target_company": "",
     "transaction_type": "",
-    "industry": "",
-    "subsector": "",
     "geography": "",
-    "language": "English",
-    "prepared_date": "",
-    "research_as_of_date": ""
-  },
-  "scope_stage_instruction": "Scoping only. Broad discovery query strings should focus on definition, classification, included/excluded segments, adjacent markets, data hierarchy, metric scope, methodology terms, and boundary risks. Do not write confirmed market size, growth rate, market share, channel ranking, competitive landscape, valuation multiples, M&A conclusions, or page-ready claims. Any numerical or directional finding encountered during broad discovery must be stored only as an unvalidated lead.",
-  "llm_definition_draft": {
-    "purpose": "LLM-only pre-search draft based on the user brief and general domain understanding. Do not include numbers, market conclusions, rankings, valuation, or investment claims.",
-    "working_market_draft": "Core category in the user-defined geography with matching customer and distribution logic.",
-    "parent_market_draft": "Related sector family that includes adjacent product clusters.",
-    "broader_market_draft": "Industry-adjacent consumer services and supply-chain categories with partial overlap.",
-    "included_segments_draft": [
-      "Primary target category aligned to the user brief",
-      "Segments with direct competitive comparison logic"
-    ],
-    "excluded_segments_draft": [
-      "Unrelated categories outside the target customer set",
-      "Purely upstream raw-material businesses without downstream commercialization continuity"
-    ],
-    "adjacent_markets_draft": [
-      "Support services with shared distribution and buyer access",
-      "Cross-category alternatives that can reframe buyer alternatives"
-    ],
-    "ambiguous_boundaries_to_check": [
-      "Whether adjacent branded consumer products should stay excluded or be included for diligence context",
-      "Whether multi-country revenue definitions can be merged for direct comparison"
-    ],
-    "data_scope_questions": [],
-    "scoping_search_queries": [
-      "industry definition classification included segments and adjacent categories",
-      "industry taxonomy methodology and metric scope by geography"
-    ]
+    "language": "Chinese",
+    "prepared_date": ""
   },
   "scope_summary": {
-    "working_market": "Working market scope for this engagement as defined by user-provided material.",
-    "parent_market": "Immediate parent category above the target sector.",
-    "broader_market": "Related consumer and service clusters with partial overlap.",
-    "adjacent_markets": [
-      "Customer-adjacent channel ecosystems",
-      "Indirect comparison pools for diligence triangulation"
-    ]
+    "working_market": "One-line target market definition.",
+    "parent_market": "One-line immediate parent market.",
+    "broader_market": "One-line broader market context."
   },
   "scope_classification": {
-    "broad": [
-      "Customer-facing peers with high substitution risk",
-      "Channels with similar conversion and retention mechanics"
-    ],
     "core": [
-      "Directly comparable peers in the defined sector",
-      "Primary business-model segment in user scope"
+      "direct target category"
+    ],
+    "broad": [
+      "wider but label-required category"
     ],
     "adjacent": [
-      "Peripheral product/service lines with secondary similarity",
-      "Potential white-space peers from adjacent end-user cohorts"
+      "context-only adjacent theme"
     ],
     "excluded": [
-      "Non-core upstream suppliers",
-      "Non-relevant regional variants outside geography definition"
+      "out-of-scope category"
     ]
   },
-  "market_definitions": {
-    "narrow_definition": {
-      "included_segments": [
-        "Directly comparable revenue and geographic segments",
-        "Core customer cohort with similar unit economics"
-      ],
-      "excluded_segments": [
-        "Non-comparable adjacent sectors",
-        "Purely support-only revenue lines"
-      ],
-      "use_case": "market sizing / competitive share"
-    },
-    "broad_definition": {
-      "included_segments": [
-        "Wider peer segments to cross-check scope validity",
-        "Related service channels that shape competitive intensity"
-      ],
-      "additional_segments": [
-        "Consumer-adjacent channels with partial overlap",
-        "Secondary distribution-layer alternatives"
-      ],
-      "use_case": "trend discussion / product ecosystem"
+  "must_reconcile": [
+    {
+      "topic": "scope or metric definition conflict",
+      "why_it_matters": "why comparability could break",
+      "research_instruction": "how Research must label or separate it"
     }
+  ],
+  "boundary_validation_needed": [
+    {
+      "question": "boundary question to validate",
+      "why_needed": "why it affects scope",
+      "suggested_validation_source": "report, filing, association, platform taxonomy, or official source"
+    }
+  ],
+  "handoff_to_research": {
+    "research_scope": "Focus formal research on the working market. Use parent/broad/adjacent only as labeled context or reconciliation support.",
+    "do_not_use_as_market_scope": [
+      "parent market as target market"
+    ],
+    "must_label_when_used": [
+      "platform GMV",
+      "user-provided target data",
+      "broad-scope market data"
+    ]
   },
-  "ambiguous_boundaries": [
-    {
-      "item": "Whether adjacent platform models belong in core scope",
-      "why_ambiguous": "These players share channels but differ in business model depth.",
-      "research_treatment": "Treat as scoped-out unless supported by formal research with explicit scope notes."
-    }
-  ],
-  "scope_confidence_rationale": "Confidence is provisional until formal boundary and source quality are reviewed.",
-  "data_hierarchy": [
-    {
-      "level": 1,
-      "metric_scope": "broader beauty / personal care market",
-      "can_be_compared_with": [
-        "industry-level macro trend references",
-        "global growth context with clear geography mapping"
-      ],
-      "cannot_be_compared_with": [
-        "private internal figures without methodology disclosure"
-      ]
-    },
-    {
-      "level": 2,
-      "metric_scope": "parent category market",
-      "can_be_compared_with": [
-        "cross-country comparable releases with aligned definitions"
-      ],
-      "cannot_be_compared_with": [
-        "unpublished or unreviewed peer-reported subsets"
-      ]
-    },
-    {
-      "level": 3,
-      "metric_scope": "working market / subsector",
-      "can_be_compared_with": [
-        "formal research rows backed by reviewed sources"
-      ],
-      "cannot_be_compared_with": [
-        "unreviewed broad-discovery snippets"
-      ]
-    }
-  ],
-  "unvalidated_leads": [
-    {
-      "lead": "Potential channel-adjacent overlap may inflate peer set if not scoped first.",
-      "claim_type": "scope_note",
-      "source_hint": "Formal search required for source-backed boundary setting.",
-      "must_validate": ["reconciliation_policy"]
-    }
-  ],
-  "required_reconciliations": [
-    {
-      "topic": "Sector scope versus buyer context",
-      "why_it_matters": "Inconsistent scope assumptions can invalidate subsequent evidence mapping.",
-      "formal_research_requirement": "Formal_research_scope_search must confirm final inclusion/exclusion rules."
-    }
-  ],
-  "reconciliation_policy": "Validate all scope ambiguities with formal research and record final boundary rules in scope_summary and scope_classification.",
-  "formal_research_seed_questions": [
-    "Which geography and channel constraints define the final metric denominator?",
-    "Which segments remain comparable for investor-style peer calibration?",
-    "Which user-provided materials are in-scope for direct evidence, and which are context-only?"
-  ],
   "do_not_use_as_claims": true
 }

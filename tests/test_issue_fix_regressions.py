@@ -45,9 +45,9 @@ def _seed_boundary_loop_ready(run_dir: Path) -> None:
 
 import check_runtime_dependencies  # noqa: E402
 import pipeline  # noqa: E402
-from build_formal_search_plan_skeleton import build_plan  # noqa: E402
 from doctor_runtime import runtime_diagnostic_payload  # noqa: E402
 from gate_guard import _looks_like_formal_run  # noqa: E402
+from ib_research_graph import build_plan  # noqa: E402
 from pipeline import PipelineError, finalize  # noqa: E402
 from validate_final_delivery import _looks_like_research_error, _template_layer_validation  # noqa: E402
 from validate_formal_search_plan import validate as validate_formal_search_plan  # noqa: E402

@@ -108,6 +108,13 @@ REQUIRED_METRIC_FIELDS = (
     "Value",
     "Unit",
     "Conflict Status",
+    "Audit Level",
+    "Source Name",
+    "Source URL",
+    "Source Type",
+    "Source Locator",
+    "Raw Excerpt",
+    "Audit Note",
 )
 
 VALID_ISSUE_AREAS = set(VALID_ISSUE_TOPICS_BY_AREA)
@@ -658,6 +665,8 @@ def metric_required_field_issues(text: str) -> list[str]:
         missing = [field for field in REQUIRED_METRIC_FIELDS if not row.get(field, "").strip()]
         if missing:
             issues.append(f"{met_id}: missing required Metric Reconciliation field(s): {', '.join(missing)}")
+        if row.get("Audit Level", "").strip() != "audited_metric":
+            issues.append(f"{met_id}: Audit Level must be audited_metric; context-only numbers do not belong in Metric Reconciliation")
         conflict = row.get("Conflict Status", "").strip().lower()
         if conflict in {"conflicting", "not_comparable", "unresolved"} and not row.get("Resolution", "").strip():
             issues.append(f"{met_id}: Conflict Status is '{conflict}' but Resolution is blank")

@@ -95,6 +95,10 @@ def minimal_research_db() -> dict:
                 "source_locator": "section 1",
                 "reviewed_excerpt": "The sample market was RMB 100bn in 2026.",
                 "limitations": "Contract fixture only.",
+                "archive_status": "manual_verified_excerpt",
+                "archive_path": "artifacts/source_archive/SRC-001.md",
+                "secondary_verification": "verified",
+                "secondary_verification_notes": "Regression fixture manually verifies the excerpt against the source.",
             }
         ],
         "evidence_ledger": [
@@ -117,6 +121,7 @@ def minimal_research_db() -> dict:
         ],
         "metric_reconciliation": [
             {
+                "audit_level": "audited_metric",
                 "metric_group": "Market sizing",
                 "metric_id": "MET-001",
                 "metric_name": "Sample market size",
@@ -133,6 +138,13 @@ def minimal_research_db() -> dict:
                 "conflict_status": "single-source",
                 "resolution": "Use only as a contract fixture.",
                 "chart_ready": True,
+                "source_review_id": "SRC-001",
+                "source_name": "Example Industry Report",
+                "source_url": "https://example.com/report",
+                "source_type": "industry_report",
+                "source_locator": "section 1",
+                "raw_excerpt": "The sample market was RMB 100bn in 2026.",
+                "audit_note": "Contract fixture metric; use only as a regression fixture.",
             }
         ],
         "issue_fact_inventory": [

@@ -546,16 +546,18 @@ def _run_if_inputs_exist(run_dir: Path, required: list[str]) -> tuple[bool, list
     return not missing, missing
 
 
-def _rebuild_source_archive(run_dir: Path, python_cmd: str) -> None:
+def _compile_research_graph_for_archive(run_dir: Path, python_cmd: str) -> None:
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["build_source_archive.py"],
-            "--search-log",
-            run_dir / "artifacts/search_log.md",
+            ROLE_SCRIPT_DIRS["ib_research_graph.py"],
+            "compile",
+            "--state",
+            run_dir / "artifacts/research_graph_state.json",
+            "--formal-search-plan",
+            run_dir / "artifacts/formal_search_plan.json",
             "--run-dir",
             run_dir,
-            "--overwrite",
         ]
     )
     _run(
@@ -576,18 +578,14 @@ def _rebuild_execution_report(run_dir: Path, python_cmd: str) -> None:
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["build_formal_research_execution_report_skeleton.py"],
+            ROLE_SCRIPT_DIRS["ib_research_graph.py"],
+            "compile",
+            "--state",
+            run_dir / "artifacts/research_graph_state.json",
             "--formal-search-plan",
             run_dir / "artifacts/formal_search_plan.json",
-            "--search-log",
-            run_dir / "artifacts/search_log.md",
-            "--source-archive-index",
-            run_dir / "artifacts/source_archive/source_archive_index.json",
-            "--include-unexecuted",
-            "--output",
-            run_dir / "artifacts/formal_research_execution_report.json",
-            "--coverage-accounting",
-            run_dir / "artifacts/coverage_accounting.json",
+            "--run-dir",
+            run_dir,
         ]
     )
     _run(
@@ -716,11 +714,13 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
     )
 
     deterministic_requirements: dict[str, list[str]] = {
-        "SOURCE_ARCHIVE_MISSING_OR_FAILED": ["artifacts/search_log.md"],
+        "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
+            "artifacts/formal_search_plan.json",
+            "artifacts/research_graph_state.json",
+        ],
         "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
             "artifacts/formal_search_plan.json",
-            "artifacts/search_log.md",
-            "artifacts/source_archive/source_archive_index.json",
+            "artifacts/research_graph_state.json",
         ],
         "PRE_RESEARCH_PACK_GATE_FAILED": [
             "artifacts/formal_research_execution_report.json",
@@ -751,7 +751,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
 
     try:
         if stage == "SOURCE_ARCHIVE_MISSING_OR_FAILED":
-            _rebuild_source_archive(run_dir, python_cmd)
+            _compile_research_graph_for_archive(run_dir, python_cmd)
         elif stage == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
             _rebuild_execution_report(run_dir, python_cmd)
         elif stage == "PRE_RESEARCH_PACK_GATE_FAILED":

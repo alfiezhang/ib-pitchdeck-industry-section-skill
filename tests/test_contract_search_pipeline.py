@@ -38,133 +38,32 @@ class TestScopePackValidation:
         errors, warnings = validate_industry_scope_pack(scope)
         assert not errors, errors
 
-    def test_numeric_finding_in_scope_summary_rejected(self):
+    def test_market_size_claim_in_scope_summary_rejected(self):
         from validate_industry_scope_pack import validate as validate_industry_scope_pack
         scope = json.loads(json.dumps(_minimal_scope_pack()))
-        scope["scope_summary"]["working_market"] = "example market is 100亿元 and already validated"
+        scope["scope_summary"]["working_market"] = "example market size reached 100亿元"
         errors, _ = validate_industry_scope_pack(scope)
-        assert any("numeric finding appears outside unvalidated_leads" in e for e in errors), errors
+        assert any("market size claim belongs in formal research" in e for e in errors), errors
 
-    def test_research_query_in_scoping_rejected(self):
+    def test_empty_boundary_validation_needed_allowed(self):
         from validate_industry_scope_pack import validate as validate_industry_scope_pack
         scope = json.loads(json.dumps(_minimal_scope_pack()))
-        scope["llm_definition_draft"]["scoping_search_queries"][0] = "example industry market size growth 2026"
-        errors, _ = validate_industry_scope_pack(scope)
-        assert any("broad discovery must validate definition/scope only" in e for e in errors), errors
-
-    def test_no_gap_scope_passes(self):
-        from validate_industry_scope_pack import validate as validate_industry_scope_pack
-        scope = json.loads(json.dumps(_minimal_scope_pack()))
-        scope["ambiguous_boundaries"] = []
-        scope["required_reconciliations"] = []
-        scope["scope_confidence_rationale"] = "No material category boundary ambiguity was identified from the brief at scoping stage."
-        scope["reconciliation_policy"] = "No material metric-scope conflict was identified at scoping stage; formal research will still record source definitions."
+        scope["boundary_validation_needed"] = []
         errors, _ = validate_industry_scope_pack(scope)
         assert not errors, errors
 
-    def test_missing_policy_fields_rejected(self):
+    def test_legacy_v1_scope_pack_rejected(self):
+        from validate_industry_scope_pack import validate as validate_industry_scope_pack
+        scope = {"schema_version": "industry_scope_pack_v1", "scope_summary": {"working_market": "sample"}}
+        errors, _ = validate_industry_scope_pack(scope)
+        assert any("v1 scope memo artifacts are no longer accepted" in e for e in errors), errors
+
+    def test_legacy_v1_fields_rejected(self):
         from validate_industry_scope_pack import validate as validate_industry_scope_pack
         scope = json.loads(json.dumps(_minimal_scope_pack()))
-        scope["ambiguous_boundaries"] = []
-        scope["required_reconciliations"] = []
-        scope["scope_confidence_rationale"] = ""
-        scope["reconciliation_policy"] = ""
+        scope["llm_definition_draft"] = {"working_market_draft": "old memo field"}
         errors, _ = validate_industry_scope_pack(scope)
-        assert any("scope_confidence_rationale" in e for e in errors), errors
-        assert any("reconciliation_policy" in e for e in errors), errors
-
-
-# ---------------------------------------------------------------------------
-# Search log and attempts
-# ---------------------------------------------------------------------------
-
-
-class TestSearchLogAndAttempts:
-    def test_auto_search_log(self, tmp_path):
-        from validate_formal_research_execution import parse_search_attempts
-        search_log = tmp_path / "search_log_auto.md"
-        _run([
-            sys.executable, "scripts/research-external-evidence/search_log.py", "append",
-            "--search-log", str(search_log),
-            "--query", "example industry formal source",
-            "--stage", "formal_research_execution",
-            "--fs-id", "FS-001",
-            "--selected-source", "https://example.com/auto-source",
-            "--result-count", "3",
-            "--opened-reviewed", "yes",
-            "--locator-excerpt", "table 1 contains reviewed source context.",
-        ])
-        attempts = parse_search_attempts(search_log)
-        assert "S-001" in attempts, attempts
-        assert attempts["S-001"]["search instruction ids"] == "FS-001", attempts
-
-    def test_templated_search_log(self, tmp_path):
-        from validate_formal_research_execution import parse_search_attempts
-        search_log = tmp_path / "search_log_from_template.md"
-        template = SKILL_DIR / "references" / "search_log_template.md"
-        search_log.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
-        _run([
-            sys.executable, "scripts/research-external-evidence/search_log.py", "append",
-            "--search-log", str(search_log),
-            "--query", "example broad definition source",
-            "--stage", "broad_discovery",
-            "--selected-source", "https://example.com/definition-source",
-            "--result-count", "2",
-            "--opened-reviewed", "yes",
-            "--locator-excerpt", "section 1 contains reviewed definition context.",
-        ])
-        attempts = parse_search_attempts(search_log)
-        assert "S-001" in attempts, attempts
-
-    def test_edit_search_attempt_updates_known_field(self, tmp_path):
-        from validate_formal_research_execution import parse_search_attempts
-        search_log = tmp_path / "search_log_edit.md"
-        _run([
-            sys.executable, "scripts/research-external-evidence/search_log.py", "append",
-            "--search-log", str(search_log),
-            "--query", "example industry formal source",
-            "--stage", "formal_research_execution",
-            "--fs-id", "FS-001",
-            "--selected-source", "https://example.com/source",
-            "--result-count", "0",
-            "--opened-reviewed", "yes",
-            "--locator-excerpt", "section 1 contains reviewed source context.",
-        ])
-        result = _run([
-            sys.executable, "scripts/research-external-evidence/search_log.py", "edit",
-            "--search-log", str(search_log),
-            "--attempt-id", "S-001",
-            "--set-field", "Result Count=5",
-        ])
-        assert result.returncode == 0, result.stderr
-        attempts = parse_search_attempts(search_log)
-        assert attempts["S-001"]["result count"] == "5", attempts
-
-    def test_edit_search_attempt_deletes_accidental_row(self, tmp_path):
-        from validate_formal_research_execution import parse_search_attempts
-        search_log = tmp_path / "search_log_delete.md"
-        for query in ("first query", "accidental query"):
-            _run([
-                sys.executable, "scripts/research-external-evidence/search_log.py", "append",
-                "--search-log", str(search_log),
-                "--query", query,
-                "--stage", "formal_research_execution",
-                "--fs-id", "FS-001",
-                "--selected-source", "https://example.com/source",
-                "--result-count", "1",
-                "--opened-reviewed", "yes",
-                "--locator-excerpt", "section 1 contains reviewed source context.",
-            ])
-        result = _run([
-            sys.executable, "scripts/research-external-evidence/search_log.py", "edit",
-            "--search-log", str(search_log),
-            "--attempt-id", "S-002",
-            "--delete",
-        ])
-        assert result.returncode == 0, result.stderr
-        attempts = parse_search_attempts(search_log)
-        assert "S-001" in attempts, attempts
-        assert "S-002" not in attempts, attempts
+        assert any("legacy v1 memo field" in e for e in errors), errors
 
 
 # ---------------------------------------------------------------------------
@@ -174,9 +73,9 @@ class TestSearchLogAndAttempts:
 
 class TestFormalSearchPlan:
     def test_build_and_validate(self, tmp_path):
-        from build_formal_search_plan_skeleton import build_plan as build_formal_search_plan_skeleton
+        from ib_research_graph import build_formal_search_plan
         from validate_formal_search_plan import validate as validate_formal_search_plan
-        plan = build_formal_search_plan_skeleton(
+        plan = build_formal_search_plan(
             {"industry": "sample sector", "geography": "Samplestan"},
             {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
         )
@@ -188,10 +87,12 @@ class TestFormalSearchPlan:
         assert len(plan["issue_search_plan"]) >= 40, len(plan["issue_search_plan"])
         _write_json(tmp_path / "formal_search_plan.json", plan)
 
-    def test_cli_writes_coverage_map_and_executable_search_batch(self, tmp_path):
-        input_card = tmp_path / "input_card.json"
-        scope_pack = tmp_path / "industry_scope_pack.json"
-        output = tmp_path / "formal_search_plan.json"
+    def test_prepare_cli_writes_plan_batch_and_graph_state(self, tmp_path):
+        run_dir = tmp_path / "run"
+        artifacts = run_dir / "artifacts"
+        artifacts.mkdir(parents=True)
+        input_card = run_dir / "input_card.json"
+        scope_pack = artifacts / "industry_scope_pack.json"
         input_card.write_text(
             json.dumps({"industry": "sample sector", "geography": "Samplestan"}),
             encoding="utf-8",
@@ -203,27 +104,33 @@ class TestFormalSearchPlan:
 
         result = _run([
             sys.executable,
-            str(SCRIPT_DIR / "research-external-evidence" / "build_formal_search_plan_skeleton.py"),
-            "--input-card", str(input_card),
-            "--scope-pack", str(scope_pack),
-            "--output", str(output),
+            str(SCRIPT_DIR / "research-external-evidence" / "ib_research_graph.py"),
+            "prepare",
+            "--run-dir", str(run_dir),
         ])
 
         assert result.returncode == 0, result.stderr
+        output = artifacts / "formal_search_plan.json"
+        coverage_map = artifacts / "coverage_map.json"
+        executable_batch = artifacts / "executable_search_batch.json"
+        state_path = artifacts / "research_graph_state.json"
         assert output.exists()
-        coverage_map = tmp_path / "coverage_map.json"
-        executable_batch = tmp_path / "executable_search_batch.json"
         assert coverage_map.exists()
         assert executable_batch.exists()
+        assert state_path.exists()
         batch = json.loads(executable_batch.read_text(encoding="utf-8"))
         assert batch["schema_version"] == "search_batch_v1"
         assert batch["batches"], batch
         assert "LLM_REWRITE_REQUIRED" in batch["batches"][0]["english_query"]
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        assert state["graph_config"]["open_deep_research_compatible"] is True
+        assert state["graph_config"]["operator_surface"]["primary_write_fields"] == ["research_context", "metrics", "evidence"]
+        assert state["research_units"], state
 
     def test_duplicate_instruction_id_rejected(self, tmp_path):
-        from build_formal_search_plan_skeleton import build_plan as build_formal_search_plan_skeleton
+        from ib_research_graph import build_formal_search_plan
         from validate_formal_search_plan import validate as validate_formal_search_plan
-        plan = build_formal_search_plan_skeleton(
+        plan = build_formal_search_plan(
             {"industry": "sample sector", "geography": "Samplestan"},
             {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
         )
@@ -235,9 +142,9 @@ class TestFormalSearchPlan:
         assert any("placeholder" in e for e in errors), errors
 
     def test_invalid_taxonomy_rejected(self, tmp_path):
-        from build_formal_search_plan_skeleton import build_plan as build_formal_search_plan_skeleton
+        from ib_research_graph import build_formal_search_plan
         from validate_formal_search_plan import validate as validate_formal_search_plan
-        plan = build_formal_search_plan_skeleton(
+        plan = build_formal_search_plan(
             {"industry": "sample sector", "geography": "Samplestan"},
             {"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}},
         )
@@ -291,195 +198,6 @@ class TestSourceArchive:
         assert any("reviewed_excerpt" in error for error in result["errors"]), result
         assert any("Reviewed Excerpt" in error for error in result["errors"]), result
 
-    def test_source_archive_saves_raw_html_when_fetch_succeeds(self, tmp_path, monkeypatch):
-        import build_source_archive as archive_builder
-
-        run_dir = tmp_path / "run"
-        search_log = run_dir / "artifacts" / "search_log.md"
-        result = _run([
-            sys.executable,
-            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
-            "append",
-            "--search-log", str(search_log),
-            "--query", "sample sector market size official report",
-            "--stage", "formal_research_execution",
-            "--fs-id", "FS-001",
-            "--selected-source", "https://example.com/source",
-            "--opened-reviewed", "yes",
-            "--locator-excerpt", "Example report paragraph with enough locator context for archive review.",
-            "--result-count", "3",
-        ])
-        assert result.returncode == 0, result.stderr
-
-        def fake_fetch(url: str) -> dict[str, str]:
-            assert url == "https://example.com/source"
-            return {
-                "ok": "1",
-                "content_type": "text/html; charset=utf-8",
-                "raw_text": "<html><body><article><h1>Sample</h1><p>Archived source text with enough readable content for audit and source extraction. Market size scope and methodology are visible here.</p></article></body></html>",
-                "review_text": "Sample\nArchived source text with enough readable content for audit and source extraction. Market size scope and methodology are visible here.",
-            }
-
-        monkeypatch.setattr(archive_builder, "_fetch_url", fake_fetch)
-        archive_dir = run_dir / "artifacts" / "source_archive"
-        index_path = archive_dir / "source_archive_index.json"
-
-        build = archive_builder.build_archive(
-            search_log_path=search_log,
-            archive_dir=archive_dir,
-            source_archive_index_path=index_path,
-            run_dir=run_dir,
-            overwrite=True,
-        )
-
-        assert build["full_page_fetch_attempted"] is True, build
-        index = json.loads(index_path.read_text(encoding="utf-8"))
-        entry = index["entries"][0]
-        assert entry["archive_status"] == "saved_html", entry
-        assert entry["raw_archive_path"].endswith("SRC-001_raw.html"), entry
-        assert (run_dir / entry["raw_archive_path"]).exists()
-        markdown = (run_dir / entry["archive_path"]).read_text(encoding="utf-8")
-        assert "Archive Status: saved_html" in markdown
-        assert "Raw Archive Path:" in markdown
-
-    def test_source_archive_requires_research_verification_when_fetch_fails(self, tmp_path):
-        import build_source_archive as archive_builder
-        from validate_source_archive import validate as validate_source_archive
-
-        run_dir = tmp_path / "run"
-        search_log = run_dir / "artifacts" / "search_log.md"
-        reviewed_excerpt = (
-            "Opened page excerpt with source-like context, a visible method note, and enough detail for Research "
-            "to verify later, but the page was not captured as a full archive."
-        )
-        result = _run([
-            sys.executable,
-            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
-            "append",
-            "--search-log", str(search_log),
-            "--query", "sample sector report",
-            "--stage", "formal_research_execution",
-            "--fs-id", "FS-001",
-            "--selected-source", "https://example.com/report",
-            "--opened-reviewed", "yes",
-            "--locator-excerpt", reviewed_excerpt,
-            "--result-count", "2",
-        ])
-        assert result.returncode == 0, result.stderr
-        archive_dir = run_dir / "artifacts" / "source_archive"
-        index_path = archive_dir / "source_archive_index.json"
-
-        archive_builder.build_archive(
-            search_log_path=search_log,
-            archive_dir=archive_dir,
-            source_archive_index_path=index_path,
-            run_dir=run_dir,
-            overwrite=True,
-            fetch_web=False,
-        )
-
-        index = json.loads(index_path.read_text(encoding="utf-8"))
-        entry = index["entries"][0]
-        assert entry["archive_status"] == "needs_research_verification", entry
-        validation = validate_source_archive(source_archive_index_path=index_path, run_dir=run_dir)
-        assert validation["is_valid"] is True, validation
-        assert validation["needs_research_verification_count"] == 1, validation
-        assert validation["evidence_ready_archive_count"] == 0, validation
-
-    def test_source_archive_promotes_manual_verified_excerpt_after_research_check(self, tmp_path):
-        import build_source_archive as archive_builder
-        from validate_source_archive import validate as validate_source_archive
-
-        run_dir = tmp_path / "run"
-        search_log = run_dir / "artifacts" / "search_log.md"
-        reviewed_excerpt = (
-            "Research reopened the page and matched this report excerpt against the source title, paragraph, "
-            "and methodology note; it is long enough to preserve the fact context for later extraction."
-        )
-        verification_note = "Research reopened the URL and matched the quoted paragraph against the report page."
-        result = _run([
-            sys.executable,
-            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
-            "append",
-            "--search-log", str(search_log),
-            "--query", "sample sector report",
-            "--stage", "formal_research_execution",
-            "--fs-id", "FS-001",
-            "--selected-source", "https://example.com/report",
-            "--opened-reviewed", "yes",
-            "--locator-excerpt", reviewed_excerpt,
-            "--result-count", "2",
-            "--secondary-verification", "verified",
-            "--secondary-verification-notes", verification_note,
-            "--research-archive-status", "manual_verified_excerpt",
-        ])
-        assert result.returncode == 0, result.stderr
-        archive_dir = run_dir / "artifacts" / "source_archive"
-        index_path = archive_dir / "source_archive_index.json"
-
-        archive_builder.build_archive(
-            search_log_path=search_log,
-            archive_dir=archive_dir,
-            source_archive_index_path=index_path,
-            run_dir=run_dir,
-            overwrite=True,
-            fetch_web=False,
-        )
-
-        index = json.loads(index_path.read_text(encoding="utf-8"))
-        entry = index["entries"][0]
-        assert entry["archive_status"] == "manual_verified_excerpt", entry
-        assert entry["secondary_verification"] == "verified", entry
-        validation = validate_source_archive(source_archive_index_path=index_path, run_dir=run_dir)
-        assert validation["is_valid"] is True, validation
-        assert validation["evidence_ready_archive_count"] == 1, validation
-
-    def test_source_archive_does_not_infer_manual_verified_from_secondary_verification(self, tmp_path):
-        import build_source_archive as archive_builder
-        from validate_source_archive import validate as validate_source_archive
-
-        run_dir = tmp_path / "run"
-        search_log = run_dir / "artifacts" / "search_log.md"
-        reviewed_excerpt = (
-            "Research wrote a long opened-page excerpt and noted a verification action, but did not explicitly "
-            "declare that this source should be treated as a manual verified archive."
-        )
-        result = _run([
-            sys.executable,
-            str(SCRIPT_DIR / "research-external-evidence" / "search_log.py"),
-            "append",
-            "--search-log", str(search_log),
-            "--query", "sample sector report",
-            "--stage", "formal_research_execution",
-            "--fs-id", "FS-001",
-            "--selected-source", "https://example.com/report",
-            "--opened-reviewed", "yes",
-            "--locator-excerpt", reviewed_excerpt,
-            "--result-count", "2",
-            "--secondary-verification", "verified",
-            "--secondary-verification-notes", "Research reopened the URL and matched the paragraph.",
-        ])
-        assert result.returncode == 0, result.stderr
-        archive_dir = run_dir / "artifacts" / "source_archive"
-        index_path = archive_dir / "source_archive_index.json"
-
-        archive_builder.build_archive(
-            search_log_path=search_log,
-            archive_dir=archive_dir,
-            source_archive_index_path=index_path,
-            run_dir=run_dir,
-            overwrite=True,
-            fetch_web=False,
-        )
-
-        index = json.loads(index_path.read_text(encoding="utf-8"))
-        entry = index["entries"][0]
-        assert entry["archive_status"] == "needs_research_verification", entry
-        validation = validate_source_archive(source_archive_index_path=index_path, run_dir=run_dir)
-        assert validation["is_valid"] is True, validation
-        assert validation["evidence_ready_archive_count"] == 0, validation
-
-
 # ---------------------------------------------------------------------------
 # Formal execution report edge cases
 # ---------------------------------------------------------------------------
@@ -513,5 +231,5 @@ class TestFormalExecutionEdgeCases:
         plan = json.loads((artifacts / "formal_search_plan.json").read_text(encoding="utf-8"))
         bad_report = {"issue_results": [{}]}
         errors, _ = validate_formal_research_execution(bad_report, plan, artifacts / "search_log.md")
-        assert any("formal_research_execution_report.skeleton.json" in e for e in errors), errors
-        assert any("copy issue_area, subissue, and research_question" in e for e in errors), errors
+        assert any("ib_research_graph.py compile" in e for e in errors), errors
+        assert any("copies issue_area, subissue, and research_question" in e for e in errors), errors

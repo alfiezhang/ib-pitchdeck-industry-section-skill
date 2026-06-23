@@ -16,6 +16,7 @@ for path in (SCRIPT_DIR, QC_DIR):
 
 from gate_report import build_gate_report  # noqa: E402
 from state_report import next_payload  # noqa: E402
+from conftest import _minimal_scope_pack  # noqa: E402
 
 
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "minimal_research_db"
@@ -99,7 +100,7 @@ def _seed_research_pack_ready(run_dir: Path) -> None:
     artifacts.mkdir()
     _seed_material_intake(run_dir)
 
-    _write_json(artifacts / "industry_scope_pack.json", {"schema_version": "industry_scope_pack_v1", "scope_summary": {"working_market": "sample"}})
+    _write_json(artifacts / "industry_scope_pack.json", _minimal_scope_pack())
     _write_json(
         artifacts / "industry_scope_pack_validation.json",
         {"is_valid": True, "errors": [], "warnings": []},
@@ -178,10 +179,7 @@ def test_workflow_next_blocks_formal_research_before_boundary_qc(tmp_path: Path)
     _seed_material_intake(run_dir)
     _write_json(
         artifacts / "industry_scope_pack.json",
-        {
-            "schema_version": "industry_scope_pack_v1",
-            "scope_summary": {"working_market": "sample sector"},
-        },
+        _minimal_scope_pack(),
     )
 
     payload = next_payload(run_dir)

@@ -95,7 +95,11 @@
       "source_url": "https://example.com/report",
       "source_locator": "section 1",
       "reviewed_excerpt": "The sample market was RMB 100bn in 2026.",
-      "limitations": "Regression fixture only."
+      "limitations": "Regression fixture only.",
+      "archive_status": "manual_verified_excerpt",
+      "archive_path": "artifacts/source_archive/SRC-001.md",
+      "secondary_verification": "verified",
+      "secondary_verification_notes": "Fixture manually verifies the excerpt against the source."
     }
   ],
   "evidence_ledger": [
@@ -118,6 +122,7 @@
   ],
   "metric_reconciliation": [
     {
+      "audit_level": "audited_metric",
       "metric_group": "Market sizing",
       "metric_id": "MET-001",
       "metric_name": "Sample market size",
@@ -133,7 +138,14 @@
       "cagr_endpoint_ids": "",
       "conflict_status": "single-source",
       "resolution": "Use only as a regression fixture.",
-      "chart_ready": true
+      "chart_ready": true,
+      "source_review_id": "SRC-001",
+      "source_name": "Example Industry Report",
+      "source_url": "https://example.com/report",
+      "source_type": "industry_report",
+      "source_locator": "section 1",
+      "raw_excerpt": "The sample market was RMB 100bn in 2026.",
+      "audit_note": "Regression fixture metric; use only as a test datapoint."
     }
   ],
   "issue_fact_inventory": [

@@ -15,6 +15,8 @@ FIXTURES_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 
 sys.path.insert(0, str(SCRIPT_DIR))
 
+from conftest import _minimal_scope_pack  # noqa: E402
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,7 +134,7 @@ class TestUpstreamFailurePropagation:
             "template_registry_validation.json",
         ):
             _write_json(artifacts / name, {"is_valid": True, "error_count": 0})
-        _write_json(artifacts / "industry_scope_pack.json", {"schema_version": "industry_scope_pack_v1"})
+        _write_json(artifacts / "industry_scope_pack.json", _minimal_scope_pack())
         _write_json(artifacts / "research_evidence_db.json", {"schema_version": "research_evidence_db_v1", "source_of_truth": True})
         _write_json(artifacts / "source_archive_validation.json", {"is_valid": False, "error_count": 1})
         return run_dir

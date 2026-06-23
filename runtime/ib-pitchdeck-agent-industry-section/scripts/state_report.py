@@ -307,8 +307,13 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "INDUSTRY_SCOPE_PACK_MISSING": [
         {
-            "purpose": "create industry_scope_pack.json as a scoping artifact only; do not run Python format validation until QC LLM has reviewed boundary quality",
-            "command": "LLM task: industry-scoping writes {run_dir}/artifacts/industry_scope_pack.json from input_card and captured materials; no market-size/growth/share/valuation/page claims.",
+            "purpose": "create industry_scope_pack.json as a brief v2 boundary card; do not run Python format validation until QC LLM has reviewed boundary quality",
+            "command": (
+                "LLM task: industry-scoping writes a brief industry_scope_pack_v2 boundary card at "
+                "{run_dir}/artifacts/industry_scope_pack.json. Keep it short: working/parent/broader market, "
+                "core/broad/adjacent/excluded, must_reconcile, boundary_validation_needed, handoff_to_research. "
+                "Do not write market findings or a research memo."
+            ),
         },
     ],
     "INDUSTRY_BOUNDARY_QC_REQUIRED": [
@@ -333,8 +338,8 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "FORMAL_SEARCH_PLAN_MISSING": [
         {
-            "purpose": "export searchable coverage map and executable search batch for downstream planning and repair traceability",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_formal_search_plan_skeleton.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --output {{run_dir}}/artifacts/formal_search_plan.json --coverage-map {{run_dir}}/artifacts/coverage_map.json --search-batch {{run_dir}}/artifacts/executable_search_batch.json",
+            "purpose": "prepare the research graph: coverage plan, executable query batch, and editable graph state",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/ib_research_graph.py prepare --run-dir {{run_dir}}",
         },
         {
             "purpose": "validate formal search plan after editing executable queries",
@@ -343,8 +348,8 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
         {
-            "purpose": "rebuild planned-vs-actual execution accounting from plan/log/archive; include unexecuted FS rows explicitly",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --search-log {{run_dir}}/artifacts/search_log.md --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --include-unexecuted --output {{run_dir}}/artifacts/formal_research_execution_report.json --coverage-accounting {{run_dir}}/artifacts/coverage_accounting.json",
+            "purpose": "compile planned-vs-actual execution accounting from research_graph_state.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/ib_research_graph.py compile --state {{run_dir}}/artifacts/research_graph_state.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --run-dir {{run_dir}}",
         },
         {
             "purpose": "validate formal research execution accounting; planned FS rows without actual S-xxx attempts must be marked not_executed/not_material/accounting_only, not faked",
@@ -353,28 +358,16 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
         {
-            "purpose": "build source archive directly from actual search log selected/opened sources",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/build_source_archive.py --search-log {{run_dir}}/artifacts/search_log.md --run-dir {{run_dir}} --overwrite",
+            "purpose": "compile source archive snapshots from research_graph_state.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/ib_research_graph.py compile --state {{run_dir}}/artifacts/research_graph_state.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --run-dir {{run_dir}}",
         },
         {
             "purpose": "validate source archive integrity",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_source_archive.py --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --run-dir {{run_dir}} --output {{run_dir}}/artifacts/source_archive_validation.json",
         },
         {
-            "purpose": "append each real formal search attempt before archive; S-xxx IDs are only for actual searches, never for unexecuted FS rows",
-            "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/search_log.py append --search-log {{run_dir}}/artifacts/search_log.md "
-                "--query '<exact query searched>' --stage formal_research_execution --fs-id FS-001 --selected-source '<exact reviewed URL>' "
-                "--opened-reviewed yes --locator-excerpt '<page/section/table and short excerpt or limitation>'"
-            ),
-        },
-        {
-            "purpose": "if an accidental S-xxx row was appended, delete it mechanically instead of hand-editing markdown",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/search_log.py edit --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-023 --delete",
-        },
-        {
-            "purpose": "if a known search-log field is wrong or blank, update only that field mechanically",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/search_log.py edit --search-log {{run_dir}}/artifacts/search_log.md --attempt-id S-001 --set-field 'Result Count=5'",
+            "purpose": "repair research coverage by editing research_graph_state.json; do not hand-edit compiled search_log.md",
+            "command": "LLM task: update {run_dir}/artifacts/research_graph_state.json research_units[].attempts/sources/evidence/metrics, then rerun ib_research_graph.py compile.",
         },
     ],
     "PRE_RESEARCH_PACK_GATE_FAILED": [
@@ -385,11 +378,8 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": [
         {
-            "purpose": "build research evidence database skeleton from archived formal sources; source reviews are embedded in the DB for LLM/QC judgment",
-            "command": (
-                f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/repository.py retrieve --max-results 200 --output {{run_dir}}/artifacts/repository_retrieval.json "
-                f"&& {PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --material-manifest {{run_dir}}/artifacts/material_manifest.json --material-extracts {{run_dir}}/artifacts/material_extracts.json --repository-sources {{run_dir}}/artifacts/repository_retrieval.json --output {{run_dir}}/artifacts/research_evidence_db.json"
-            ),
+            "purpose": "compile research evidence database from the state-first research graph",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/ib_research_graph.py compile --state {{run_dir}}/artifacts/research_graph_state.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --run-dir {{run_dir}}",
         },
         {
             "purpose": "validate research evidence database after LLM fills extracts/EV/MET/inventory fields",
@@ -784,9 +774,9 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
         payload["repair_target"] = {
             "artifact": "artifacts/formal_research_execution_report.json",
             "required_steps": [
-                "Run build_formal_research_execution_report_skeleton --include-unexecuted to force every planned FS-xxx row into issue_results + fs_row_execution_status.",
-                "In each FR row, keep search_instruction_ids aligned to its FS owner, set search_attempt_ids only for real S-xxx attempts from search_log.md.",
-                "Mark each unexecuted or immaterial FS row explicitly (not_executed/not_material/accounting_only) and leave evidence IDs empty for those rows.",
+                "Edit artifacts/research_graph_state.json so each executed research unit has attempts/sources/evidence/metrics and unresolved units remain gap-only.",
+                "Run ib_research_graph.py compile to regenerate search_log.md, source archive, formal execution, coverage accounting, evidence DB, and research pack.",
+                "Do not hand-edit compiled search_log.md, formal_research_execution_report.json, or research_evidence_db.json to bypass the state graph.",
             ],
         }
     if state["current_stage"] == "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED":

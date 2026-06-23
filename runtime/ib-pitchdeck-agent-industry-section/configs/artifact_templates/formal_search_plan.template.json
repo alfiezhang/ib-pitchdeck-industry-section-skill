@@ -1,7 +1,7 @@
 {
   "schema_version": "formal_search_plan_v1",
   "_template_only": true,
-  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use build_formal_search_plan_skeleton.py then edit each row.",
+  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use ib_research_graph.py prepare, then edit the executable query batch/state as needed.",
   "meta": {
     "target_company": "",
     "transaction_type": "",
@@ -15,19 +15,16 @@
   "plan_mode": "coverage_audit",
   "industry_scope_pack": {
     "artifact_path": "artifacts/industry_scope_pack.json",
-    "purpose": "Use the scope pack as a research map: market definition, category boundaries, data hierarchy, required reconciliations, unvalidated leads, and seed questions. Do not convert scope-pack leads into findings here.",
+    "purpose": "Use the scope pack as a boundary card: working/parent/broader market, category classification, reconciliation rules, validation questions, and research handoff. It is not evidence and must not be converted into findings.",
     "scope_inputs_to_use": [
-      "llm_definition_draft",
       "scope_summary",
-      "market_definitions",
-      "ambiguous_boundaries",
-      "data_hierarchy",
-      "unvalidated_leads",
-      "required_reconciliations",
-      "formal_research_seed_questions"
+      "scope_classification",
+      "must_reconcile",
+      "boundary_validation_needed",
+      "handoff_to_research"
     ]
   },
-  "builder_instruction": "Do not copy this template as a final plan. First run scripts/research-external-evidence/build_formal_search_plan_skeleton.py to generate one issue_search_plan row for every canonical issue_area/subissue, then edit the generated research questions, queries, purposes, and source hints. The validator requires full taxonomy coverage.",
+  "builder_instruction": "Do not copy this template as a final plan. First run scripts/research-external-evidence/ib_research_graph.py prepare to generate formal_search_plan.json, coverage_map.json, executable_search_batch.json, and research_graph_state.json together. Then edit the generated research questions, executable queries, purposes, and source hints. The validator requires full taxonomy coverage.",
   "allowed_issue_taxonomy": {
     "instruction": "Use only these issue_area/subissue pairs. Do not invent new subissue names; if a topic does not fit, choose the closest valid subissue and note the limitation in research_question.",
     "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],
@@ -38,7 +35,7 @@
     "competitive_dynamics": ["basis_of_competition", "winners_losers", "new_entrants", "substitutes_or_adjacent_risk", "differentiation_durability", "consolidation_logic"],
     "pitch_relevance_target_context": ["why_sector_relevant", "target_context_fit", "evidence_limits", "discussion_implications"]
   },
-  "planning_instruction": "Cover every canonical issue_area/subissue after reading industry_scope_pack.json. For each entry, write clear executable search instructions: exact query strings the next step should actually run. Cover required reconciliations and important unvalidated leads. Do not write investment hypotheses, validated findings, slide conclusions, or page plans. Do not delete low-relevance subissues; execute them and later mark findings thin/insufficient/unavailable if evidence is weak.",
+  "planning_instruction": "Cover every canonical issue_area/subissue after reading industry_scope_pack.json. For each entry, write clear executable search instructions: exact query strings the next step should actually run. Cover must_reconcile items and any boundary_validation_needed questions. Do not write investment hypotheses, validated findings, slide conclusions, or page plans. Do not delete low-relevance subissues; execute them and later mark findings thin/insufficient/unavailable if evidence is weak.",
   "issue_search_plan": [
     {
       "issue_area": "market_size_growth",

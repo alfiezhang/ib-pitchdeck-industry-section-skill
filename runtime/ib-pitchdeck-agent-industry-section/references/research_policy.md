@@ -23,8 +23,8 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
   first, transaction relevance second, and selective target context only where
   supported.
 - Broad discovery is scoping, not research synthesis. It defines the industry,
-  vocabulary, category boundaries, data hierarchy, reconciliation risks, and
-  unvalidated source leads.
+  vocabulary, category boundaries, reconciliation risks, and boundary-
+  validation questions.
 - Formal research execution is the research gate. The search plan itself is not
   a hypothesis gate, but it must cover every canonical issue/subissue so
   downstream issue analysis is not starved of source material.
@@ -41,9 +41,8 @@ Use source channels in this order:
    opened, logged, reviewed, archived, and caveated.
 2. Agent-native Web Search for LLM-led industry boundary validation and formal
    research.
-3. Script fallback search with `scripts/research-external-evidence/web_search.py --provider auto`. Provider
-   order comes from `configs/source_registry.json` and currently is
-   `SearXNG -> DuckDuckGo -> Tavily`; configure `SEARXNG_BASE_URL` first.
+3. Configured graph/manual worker search, with provider order and source menus
+   governed by `configs/source_registry.json` when a non-native worker is used.
 4. Manual URL ingestion when search is rate-limited but exact source URLs are
    available.
 
@@ -58,10 +57,10 @@ Never remove official, regulator, filing, company disclosure, or other
 higher-authority domains merely to reduce a domain count. If research scope is
 too broad, trim lower-authority media or aggregators first.
 
-If the agent's native Web Search is rate-limited or unavailable, switch to
-SearXNG/script fallback or manual source mode and record the limitation in the
-search log / execution report. Do not convert planned queries or model memory
-into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
+If the agent's native Web Search is rate-limited or unavailable, switch to a
+configured graph worker or manual source mode and record the limitation in
+`artifacts/research_graph_state.json`. Do not convert planned queries or model
+memory into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
 
 ## Industry Scope Pack And Search Plan
 
@@ -73,17 +72,20 @@ Create these artifacts before formal research execution:
 - `artifacts/formal_search_plan.json`
 - `artifacts/coverage_map.json`
 - `artifacts/executable_search_batch.json`
+- `artifacts/research_graph_state.json`
 - `artifacts/formal_search_plan_validation.json`
-- `artifacts/search_log.md`
 
 Recommended sequence:
 
 1. Read `configs/source_registry.json` as a source menu only.
-2. Draft `llm_definition_draft` from the brief and model knowledge only. It is a definition hypothesis, not evidence.
-3. Draft 3-6 broad-discovery searches from `llm_definition_draft.scoping_search_queries`. Query strings should be definition/scope-oriented, not market-answer-oriented.
-4. Create `artifacts/search_log.md` from
-   `references/search_log_template.md` before the first search.
-5. Run broad discovery to verify/refine the definition draft and learn:
+2. Draft a short `industry_scope_pack_v2` boundary card from the brief and
+   model knowledge only. It is a scope hypothesis, not evidence.
+3. If needed, identify 1-5 boundary-validation questions in
+   `boundary_validation_needed`. These questions should be definition/scope-
+   oriented, not market-answer-oriented.
+4. Record broad-discovery notes in the boundary QC workstream; do
+   not hand-author compiled `search_log.md`.
+5. Run broad discovery to verify/refine the boundary card and learn:
    - what the industry is called;
    - how narrowly it should be scoped;
    - parent/adjacent markets to exclude;
@@ -91,13 +93,12 @@ Recommended sequence:
    - likely source leads and peer/player categories.
    Do not use market-size, growth, CAGR, share, ranking, valuation, M&A, thesis, or specific-year query terms at this stage. Those belong in formal `FS-xxx` searches after the scope pack.
 6. Write `artifacts/industry_scope_pack.json` with:
-   - the original `llm_definition_draft`;
-   - working market, parent market, broader market, and adjacent markets;
-   - narrow and broad definitions with included/excluded segments;
-   - ambiguous category boundaries and how formal research should treat them;
-   - data hierarchy and metric scopes that cannot be compared directly;
-   - unvalidated numerical/directional leads that require formal validation;
-   - required reconciliations and seed questions.
+   - working market, parent market, and broader market;
+   - `core`, `broad`, `adjacent`, and `excluded` category lists;
+   - `must_reconcile` items that affect source scope, metric comparability, or page claims;
+   - `boundary_validation_needed` only for material unresolved boundary questions;
+   - `handoff_to_research` labels and exclusions.
+   Keep it to a boundary card. Do not write a scoping memo, market findings, or a research plan.
 7. Run Industry Boundary QC before formal research planning. QC must decide
    `pass`, `needs_scope_repair`, or `needs_boundary_validation`. If the QC
    artifact is missing or not `pass`, do not create formal research artifacts.
@@ -109,14 +110,14 @@ Recommended sequence:
      --scope-pack artifacts/industry_scope_pack.json \
      --output artifacts/industry_scope_pack_validation.json
    ```
-9. Build `artifacts/formal_search_plan.json`, `artifacts/coverage_map.json`,
-   and `artifacts/executable_search_batch.json` from the full-taxonomy
-   skeleton, then edit executable queries using the scope pack:
+9. Prepare the research graph in one operator-facing step. This writes
+   `artifacts/formal_search_plan.json`, `artifacts/coverage_map.json`,
+   `artifacts/executable_search_batch.json`, and
+   `artifacts/research_graph_state.json`; then edit executable queries using
+   the scope pack:
    ```bash
-   "$PYTHON_CMD" scripts/research-external-evidence/build_formal_search_plan_skeleton.py \
-     --input-card "$RUN_DIR/input_card.json" \
-     --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
-     --output "$RUN_DIR/artifacts/formal_search_plan.json"
+   "$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py prepare \
+     --run-dir "$RUN_DIR"
    ```
    Use `configs/artifact_templates/formal_search_plan.template.json` for field meaning, not as a
    final copy/paste artifact.
@@ -164,75 +165,76 @@ taxonomy coverage to make the report look complete.
 ## Formal Research Execution
 
 After the lightweight plan, run formal/latest/peer searches against the chosen
-queries and sources. Record every attempt immediately in `search_log.md`.
-`FS-xxx` IDs are planned instructions only. Each formal/latest/peer tool call
-must create a real `S-xxx` search attempt in `search_log.md` before it can appear
-in the execution report. Do not write the execution report from the plan alone.
+queries and sources. Record every attempt, opened source, source locator,
+faithful excerpt, candidate evidence row, candidate metric row, and limitation
+inside `artifacts/research_graph_state.json`. `FS-xxx` IDs are planned
+instructions only. A real `S-xxx` attempt exists only when a research unit has
+an actual executed attempt in the state graph.
 
-Prefer the append helper instead of hand-editing search numbering:
+While executing research, write each useful output directly into one of two
+state fields:
+
+- `audited_metric`: required for every key number, ranking, growth rate,
+  market size, share, penetration rate, capacity, volume, price, regulatory
+  threshold, or chart datapoint. Each promoted `MET-xxx` row must carry
+  indicator, value, unit, period, geography, source, original locator, short
+  excerpt, and audit note.
+- `research_context`: open_deep_research-style background notes with source
+  URLs/titles/summaries. These notes can guide wording and context but cannot
+  support key numbers, chart data, hard claims, or client-facing source notes
+  unless promoted into `EV-xxx` / `MET-xxx`.
+
+Do not hand-author `search_log.md`, `source_archive_index.json`,
+`formal_research_execution_report.json`, or `research_evidence_db.json`; they
+are compiled artifacts.
+
+For `research_context`, do not force an audit-grade snapshot. Record the search
+attempt, source URL/title, short note/summary, and limitations in
+`research_graph_state.json`; the compiler will mark the source
+`archive_status=research_context` and keep it out of evidence promotion.
+
+Treat `FS-xxx`, `S-xxx`, and `SRC-xxx` as internal traceability IDs. The
+operator-facing write surface is `research_context`, `metrics`, and `evidence`.
+Do not make a researcher manage IDs as the main workflow; the compiler assigns
+or reconciles missing internal IDs.
+
+For `audited_metric` and promoted `EV-xxx` evidence, use full saved source text
+where available. If full-page archive fails but Research did open and read the
+page, the archive is only `needs_research_verification` until Research completes
+a second-pass check. Reopen the page, search a distinctive quote, find the
+original report or credible repost, then update the matching source entry in
+`research_graph_state.json` with `secondary_verification=verified`,
+`secondary_verification_notes`, and
+`research_archive_status=manual_verified_excerpt`.
+
+Only full saved sources and Research-declared `manual_verified_excerpt` rows can
+feed promoted EV/MET evidence. `secondary_verification=verified` alone is not
+enough; Research must also make the archive-status decision explicitly. Search
+snippets, `research_context`, and `needs_research_verification` rows stay as
+context/leads/gaps.
 
 ```bash
-"$PYTHON_CMD" scripts/research-external-evidence/search_log.py append \
-  --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --query "<exact query actually searched>" \
-  --stage formal_research_execution \
-  --fs-id FS-001 \
-  --selected-source "<exact opened/reviewed URL>" \
-  --opened-reviewed yes \
-  --locator-excerpt "<page/section/table plus short excerpt or limitation>" \
-  --excerpt-origin opened_page \
-  --secondary-verification not_done \
-  --research-archive-status needs_research_verification
-```
-
-After actual searches are logged, archive opened/reviewed sources before
-Knowledge extraction. `source_archive` is the main Research-to-Knowledge
-handoff. Source review status, use tier, limitations, and claim-use scope live
-inside `artifacts/research_evidence_db.json`.
-
-If full-page archive fails but Research did open and read the page, the archive
-is only `needs_research_verification`. Research, not QC, must do the second-pass
-check. Reopen the page, search a distinctive quote, find the original report or
-credible repost, then update the same `S-xxx` row:
-
-```bash
-"$PYTHON_CMD" scripts/research-external-evidence/search_log.py edit \
-  --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --attempt-id S-001 \
-  --set-field "Secondary Verification=verified" \
-  --set-field "Secondary Verification Notes=Research reopened the source or matched the excerpt against the original report/repost." \
-  --set-field "Research Archive Status=manual_verified_excerpt"
-```
-
-Then rerun `build_source_archive.py`. Only full saved sources and
-Research-declared `manual_verified_excerpt` rows can feed promoted EV/MET
-evidence. `secondary_verification=verified` alone is not enough; Research must
-also make the archive-status decision explicitly. Search snippets and
-`needs_research_verification` rows stay as leads/gaps.
-
-```bash
-"$PYTHON_CMD" scripts/research-external-evidence/build_source_archive.py \
-  --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --run-dir "$RUN_DIR" \
-  --overwrite
+"$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py compile \
+  --state "$RUN_DIR/artifacts/research_graph_state.json" \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --run-dir "$RUN_DIR"
 
 "$PYTHON_CMD" scripts/qc/validators/research/validate_source_archive.py \
   --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py \
+"$PYTHON_CMD" scripts/qc/validators/research/validate_formal_research_execution.py \
+  --report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
-  --include-unexecuted \
-  --output "$RUN_DIR/artifacts/formal_research_execution_report.json" \
-  --coverage-accounting "$RUN_DIR/artifacts/coverage_accounting.json"
+  --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
 ```
 
-The helper synchronizes `FS-xxx`, real `S-xxx`, and archived `SRC-xxx`
-references. The LLM must still review and edit status, findings, limitations,
-handling, and EV/MET IDs from actual source support.
+The compiler synchronizes `FS-xxx`, real `S-xxx`, archived `SRC-xxx`, promoted
+`EV-xxx`, and `MET-xxx` references from one state source. The LLM must still
+review state-level findings, limitations, handling, and EV/MET rows from actual
+source support before compiling.
 
 The generated/edited report should contain one `issue_results[]` entry per
 planned instruction. It is a planned-vs-actual coverage ledger, not a narrative
@@ -260,10 +262,10 @@ accounted for; do not remove them from the plan to avoid work:
 - `limitations`
 - `research_pack_handling`
 
-Start from `configs/artifact_templates/formal_research_execution_report.skeleton.json` only for
-the root structure if the helper cannot be used. Do not treat it as a fill-all
-template. If an issue was weak, perform the search and mark it weak; do not
-pretend unsearched issues were researched.
+Generate the execution report with `ib_research_graph.py compile`. Do not treat
+compiled JSON as a hand-fill template. If an issue was weak, perform the search
+and mark it weak in `research_graph_state.json`; do not pretend unsearched
+issues were researched.
 
 `selected_source_urls` means exact URLs actually opened/reviewed and archived in
 `source_archive`; it is not a list of all search-result URLs. Leave unreviewed
@@ -357,13 +359,17 @@ metrics:
 ## Source Archive And Embedded Source Review
 
 `search_log.md` records search execution. `source_archive/` records the opened
-source material that Knowledge can inspect. Source-review decisions live inside
-`artifacts/research_evidence_db.json` under embedded source review/source
-material fields.
+source material that Knowledge can inspect for promoted evidence. Ordinary
+open_deep_research-style background notes are recorded as `research_context`
+with URL/title/summary and do not require an audit-grade snapshot. Source-review
+decisions live inside `artifacts/research_evidence_db.json` under embedded
+source review/source material fields.
 
 Root domains, search result snippets, or unreviewed pages are not formal
-evidence. Archive only what was actually opened/reviewed, with a URL, title,
-locator, excerpt/paraphrase, search attempt ID, and limitations.
+evidence. For `audited_metric` / promoted EV rows, archive only what was
+actually opened/reviewed, with a URL, title, locator, excerpt/paraphrase, search
+attempt ID, and limitations. For `research_context`, keep the source URL/title
+and summary notes, but do not promote its numbers into Metric Reconciliation.
 
 Inside `research_evidence_db.json`, `usable_as_evidence` is a source-quality
 decision, not a formatting field. Set it to true only when the exact
@@ -389,12 +395,11 @@ definition only", "online GMV proxy, not all-channel market size", or
 "peer product ranking disclosure only". This prevents a weak but opened source
 from being overused downstream simply because `usable_as_evidence=true`.
 
-Prefer the archive helper for excerpt snapshots from actual search-log selected
-sources:
+Run graph compilation as an automatic build step after research state updates:
 
 ```bash
-"$PYTHON_CMD" scripts/research-external-evidence/build_source_archive.py \
-  --search-log "$RUN_DIR/artifacts/search_log.md" \
-  --run-dir "$RUN_DIR" \
-  --overwrite
+"$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py compile \
+  --state "$RUN_DIR/artifacts/research_graph_state.json" \
+  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+  --run-dir "$RUN_DIR"
 ```

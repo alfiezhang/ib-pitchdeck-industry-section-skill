@@ -249,7 +249,9 @@
     },
     "industry_scope_pack": {
       "path": "artifacts/industry_scope_pack.json",
-      "owner": "llm_scoping",
+      "owner": "industry-scoping",
+      "purpose": "brief boundary card",
+      "schema_version": "industry_scope_pack_v2",
       "validator": "scripts/qc/validators/scoping/validate_industry_scope_pack.py",
       "validation": "artifacts/industry_scope_pack_validation.json",
       "inputs": [
@@ -284,8 +286,8 @@
     },
     "formal_search_plan": {
       "path": "artifacts/formal_search_plan.json",
-      "owner": "script_skeleton_llm_query_planning",
-      "builder": "scripts/research-external-evidence/build_formal_search_plan_skeleton.py",
+      "owner": "state_first_research_graph",
+      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
       "validator": "scripts/qc/validators/research/validate_formal_search_plan.py",
       "validation": "artifacts/formal_search_plan_validation.json",
       "inputs": [
@@ -295,16 +297,16 @@
     },
     "coverage_map": {
       "path": "artifacts/coverage_map.json",
-      "owner": "script_skeleton_llm_query_planning",
-      "builder": "scripts/research-external-evidence/build_formal_search_plan_skeleton.py",
+      "owner": "state_first_research_graph",
+      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
       "inputs": [
         "formal_search_plan"
       ]
     },
     "search_batch": {
       "path": "artifacts/executable_search_batch.json",
-      "owner": "script_skeleton_llm_query_planning",
-      "builder": "scripts/research-external-evidence/build_formal_search_plan_skeleton.py",
+      "owner": "state_first_research_graph",
+      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
       "inputs": [
         "formal_search_plan"
       ]
@@ -318,8 +320,8 @@
     },
     "formal_research_execution_report": {
       "path": "artifacts/formal_research_execution_report.json",
-      "owner": "script_skeleton_llm_judgment",
-      "builder": "scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py",
+      "owner": "state_first_research_graph",
+      "builder": "scripts/research-external-evidence/ib_research_graph.py compile",
       "validator": "scripts/qc/validators/research/validate_formal_research_execution.py",
       "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": [
@@ -330,8 +332,8 @@
     },
     "coverage_accounting": {
       "path": "artifacts/coverage_accounting.json",
-      "owner": "script_execution_accounting",
-      "builder": "scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py",
+      "owner": "state_first_research_graph",
+      "builder": "scripts/research-external-evidence/ib_research_graph.py compile",
       "inputs": [
         "formal_research_execution_report"
       ]

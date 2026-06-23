@@ -82,14 +82,21 @@ class TestRunState:
 
 
 class TestWorkflowNextCommands:
+    def test_formal_search_plan_prepare_command(self, _pipeline_run_dir):
+        from state_report import recommended_commands
+        run_dir = str(_pipeline_run_dir["run_dir"])
+        commands = recommended_commands({"run_dir": run_dir, "current_stage": "FORMAL_SEARCH_PLAN_MISSING"})
+        assert commands and "ib_research_graph.py prepare" in commands[0]["command"], commands
+        assert "research_graph_state.json" not in commands[0]["command"], commands
+
     def test_source_archive_commands(self, _pipeline_run_dir):
         from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "SOURCE_ARCHIVE_MISSING_OR_FAILED"})
-        archive_cmds = [c["command"] for c in commands if "scripts/research-external-evidence/build_source_archive.py" in c["command"]]
+        archive_cmds = [c["command"] for c in commands if "scripts/research-external-evidence/ib_research_graph.py compile" in c["command"]]
         assert archive_cmds, commands
-        assert "--search-log" in archive_cmds[0], archive_cmds
-        assert "--source-reviews" not in archive_cmds[0], archive_cmds
+        assert "--state" in archive_cmds[0], archive_cmds
+        assert "research_graph_state.json" in archive_cmds[0], archive_cmds
 
     def test_execution_commands(self, _pipeline_run_dir):
         from state_report import recommended_commands
@@ -104,7 +111,8 @@ class TestWorkflowNextCommands:
         from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
-        assert commands and "scripts/knowledge-repository/build_research_evidence_db.py" in commands[0]["command"], commands
+        assert commands and "scripts/research-external-evidence/ib_research_graph.py compile" in commands[0]["command"], commands
+        assert "--state" in commands[0]["command"], commands
 
     def test_research_pack_commands(self, _pipeline_run_dir):
         from state_report import recommended_commands

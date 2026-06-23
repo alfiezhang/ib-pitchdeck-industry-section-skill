@@ -69,9 +69,32 @@ def test_artifact_manifest_layers_reference_known_artifacts() -> None:
     assert not sorted(set(unknown))
 
 
+def test_research_graph_prepare_is_operator_builder() -> None:
+    manifest = _manifest()
+    artifacts = manifest["artifacts"]
+
+    assert artifacts["formal_search_plan"]["builder"].endswith("ib_research_graph.py prepare")
+    assert artifacts["coverage_map"]["builder"].endswith("ib_research_graph.py prepare")
+    assert artifacts["search_batch"]["builder"].endswith("ib_research_graph.py prepare")
+
+
+def test_industry_scope_pack_is_v2_boundary_card() -> None:
+    manifest = _manifest()
+    scope_artifact = manifest["artifacts"]["industry_scope_pack"]
+    template = json.loads((RUNTIME / "configs" / "artifact_templates" / "industry_scope_pack.template.json").read_text(encoding="utf-8"))
+
+    assert scope_artifact["owner"] == "industry-scoping"
+    assert scope_artifact["purpose"] == "brief boundary card"
+    assert scope_artifact["schema_version"] == "industry_scope_pack_v2"
+    assert template["schema_version"] == "industry_scope_pack_v2"
+    assert "llm_definition_draft" not in template
+    assert "handoff_to_research" in template
+
+
 def test_state_report_commands_generate_incremental_and_template_fit_plan() -> None:
     workflow_text = (RUNTIME / "scripts" / "state_report.py").read_text(encoding="utf-8")
 
+    assert "ib_research_graph.py prepare --run-dir {{run_dir}}" in workflow_text
     assert "--incremental-search-plan {{run_dir}}/artifacts/incremental_search_plan.json" in workflow_text
     assert "--fit-plan-output {{run_dir}}/artifacts/template_fit_plan.json" in workflow_text
 

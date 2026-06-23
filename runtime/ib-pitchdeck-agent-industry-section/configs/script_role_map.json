@@ -1,15 +1,12 @@
 {
   "boundary_loop.py": "scripts/industry-scoping/boundary_loop.py",
   "build_boundary_research_requests.py": "scripts/industry-scoping/build_boundary_research_requests.py",
-  "build_formal_research_execution_report_skeleton.py": "scripts/research-external-evidence/build_formal_research_execution_report_skeleton.py",
-  "build_formal_search_plan_skeleton.py": "scripts/research-external-evidence/build_formal_search_plan_skeleton.py",
   "build_hypothesis_store_skeleton.py": "scripts/reasoning/build_hypothesis_store_skeleton.py",
   "build_issue_analysis_skeleton.py": "scripts/reasoning/build_issue_analysis_skeleton.py",
   "build_page_argument_pack.py": "scripts/reasoning/build_page_argument_pack.py",
   "build_page_evidence_contract.py": "scripts/generation/build_page_evidence_contract.py",
   "build_research_evidence_db.py": "scripts/knowledge-repository/build_research_evidence_db.py",
   "build_research_request_queue.py": "scripts/reasoning/build_research_request_queue.py",
-  "build_source_archive.py": "scripts/research-external-evidence/build_source_archive.py",
   "check_runtime_dependencies.py": "scripts/qc/check_runtime_dependencies.py",
   "check_template_tokens.py": "scripts/template/check_template_tokens.py",
   "clean_filled_ppt.py": "scripts/output/clean_filled_ppt.py",
@@ -19,6 +16,7 @@
   "fill_ppt_tokens.py": "scripts/output/fill_ppt_tokens.py",
   "generate_replacement_dict.py": "scripts/output/generate_replacement_dict.py",
   "generate_run_quality_summary.py": "scripts/qc/generate_run_quality_summary.py",
+  "ib_research_graph.py": "scripts/research-external-evidence/ib_research_graph.py",
   "ingest_materials.py": "scripts/material-intake/ingest_materials.py",
   "postprocess_ppt_visuals.py": "scripts/output/postprocess_ppt_visuals.py",
   "promote_research_requests.py": "scripts/reasoning/promote_research_requests.py",
@@ -27,7 +25,6 @@
   "qc_router.py": "scripts/qc/qc_router.py",
   "repository.py": "scripts/knowledge-repository/repository.py",
   "research_evidence_db.py": "scripts/knowledge-repository/research_evidence_db.py",
-  "search_log.py": "scripts/research-external-evidence/search_log.py",
   "start_case_from_brief.py": "scripts/start_case_from_brief.py",
   "select_template.py": "scripts/template/select_template.py",
   "template_analyzer.py": "scripts/template/template_analyzer.py",
@@ -56,6 +53,5 @@
   "validate_run_state.py": "scripts/qc/validators/system/validate_run_state.py",
   "validate_source_archive.py": "scripts/qc/validators/research/validate_source_archive.py",
   "validate_stage_gate.py": "scripts/qc/validators/final/validate_stage_gate.py",
-  "validate_template_registry.py": "scripts/qc/validators/template/validate_template_registry.py",
-  "web_search.py": "scripts/research-external-evidence/web_search.py"
+  "validate_template_registry.py": "scripts/qc/validators/template/validate_template_registry.py"
 }

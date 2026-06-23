@@ -45,6 +45,7 @@ VALID_ARCHIVE_STATUSES = {
     "excerpt_snapshot",
     "archive_unavailable",
     "user_provided",
+    "research_context",
 }
 
 
@@ -175,19 +176,23 @@ def validate(
     unavailable_count = 0
     needs_verification_count = 0
     snippet_only_count = 0
+    research_context_count = 0
 
     def validate_entry(
         *,
         review_id: str,
         entry: dict[str, Any],
     ) -> None:
-        nonlocal evidence_ready_count, saved_count, unavailable_count, needs_verification_count, snippet_only_count
+        nonlocal evidence_ready_count, saved_count, unavailable_count, needs_verification_count, snippet_only_count, research_context_count
         entry_url = _text(entry.get("url"))
         if not entry_url:
             errors.append(f"{review_id}: source_archive entry requires url")
         status = _text(entry.get("archive_status"))
         if status not in VALID_ARCHIVE_STATUSES:
             errors.append(f"{review_id}: archive_status must be one of {sorted(VALID_ARCHIVE_STATUSES)}")
+            return
+        if status == "research_context":
+            research_context_count += 1
             return
         if status == "user_provided":
             evidence_ready_count += 1
@@ -298,6 +303,7 @@ def validate(
         "archive_unavailable_count": unavailable_count,
         "needs_research_verification_count": needs_verification_count,
         "search_snippet_only_count": snippet_only_count,
+        "research_context_count": research_context_count,
     }
 
 

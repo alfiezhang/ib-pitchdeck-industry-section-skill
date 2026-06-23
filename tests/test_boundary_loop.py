@@ -22,22 +22,18 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _ready_scope_pack() -> dict:
     return {
-        "schema_version": "industry_scope_pack_v1",
-        "meta": {"industry": "example"},
-        "llm_definition_draft": {
-            "purpose": "Boundary-ready scope draft",
-            "working_market_draft": "example working market",
-            "parent_market_draft": "example parent market",
-            "broader_market_draft": "example broader market",
-            "included_segments_draft": ["core segment"],
-            "excluded_segments_draft": ["adjacent category"],
-            "scoping_search_queries": ["query 1", "query 2"],
+        "schema_version": "industry_scope_pack_v2",
+        "meta": {
+            "target_company": "example target",
+            "transaction_type": "pre-mandate pitch",
+            "geography": "Exampleland",
+            "language": "English",
+            "prepared_date": "2026-01-01",
         },
         "scope_summary": {
             "working_market": "example working market",
             "parent_market": "example parent market",
             "broader_market": "example broader market",
-            "adjacent_markets": ["adjacent category"],
         },
         "scope_classification": {
             "core": ["core segment"],
@@ -45,14 +41,19 @@ def _ready_scope_pack() -> dict:
             "adjacent": ["adjacent category"],
             "excluded": ["non-relevant category"],
         },
-        "formal_research_seed_questions": ["seed question 1", "seed question 2"],
-        "ambiguous_boundaries": [
+        "must_reconcile": [
             {
-                "item": "adjacent extension",
-                "why_ambiguous": "Some reports include adjacent categories by default.",
-                "research_treatment": "Keep scope-separated until explicit evidence appears.",
+                "topic": "working vs parent scope",
+                "why_it_matters": "prevents non-comparable metrics",
+                "research_instruction": "label every metric by source scope",
             }
         ],
+        "boundary_validation_needed": [],
+        "handoff_to_research": {
+            "research_scope": "Focus formal research on example working market.",
+            "do_not_use_as_market_scope": ["example parent market"],
+            "must_label_when_used": ["platform GMV"],
+        },
         "do_not_use_as_claims": True,
     }
 
@@ -73,10 +74,15 @@ def test_boundary_loop_reports_draft_missing(tmp_path: Path) -> None:
 def test_boundary_loop_reports_validation_needed_for_scope_overreach(tmp_path: Path) -> None:
     scope_pack = tmp_path / "artifacts" / "industry_scope_pack.json"
     pack = _ready_scope_pack()
-    pack["llm_definition_draft"]["working_market_draft"] = "example"
     pack["scope_summary"]["working_market"] = "example"
     pack["scope_summary"]["parent_market"] = "example"
-    pack["scope_summary"]["adjacent_markets"] = []
+    pack["boundary_validation_needed"] = [
+        {
+            "question": "does parent equal working market",
+            "why_needed": "scope may be too broad",
+            "suggested_validation_source": "industry taxonomy",
+        }
+    ]
     _write_json(scope_pack, pack)
 
     status = run_boundary_loop(scope_pack=scope_pack)

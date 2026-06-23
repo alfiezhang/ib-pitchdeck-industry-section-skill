@@ -52,17 +52,17 @@ Fixed 8-Slide Structure Preserved:
 ---
 
 ## Scope Pack And Formal Research Execution Summary
-> Summarize `artifacts/industry_scope_pack.json`, `artifacts/formal_search_plan.json`, and `artifacts/formal_research_execution_report.json`. Use the scope pack only for industry boundary, category-definition risk, data hierarchy, and reconciliation requirements. Do not treat scope-pack leads as validated facts. Do not invent a separate issue tree in the research pack. The research pack should reflect the issue/subissue research actually executed, archived, and extracted into `artifacts/research_evidence_db.json`.
+> Summarize `artifacts/industry_scope_pack.json`, `artifacts/formal_search_plan.json`, and `artifacts/formal_research_execution_report.json`. Use the scope pack only for working/parent/broader market, category classification, reconciliation requirements, and boundary-validation questions. Do not treat the scope pack as evidence. Do not invent a separate issue tree in the research pack. The research pack should reflect the issue/subissue research actually executed, archived, and extracted into `artifacts/research_evidence_db.json`.
 > The run must include passing `artifacts/formal_search_plan_validation.json`, `artifacts/formal_research_execution_validation.json`, `artifacts/source_archive/source_archive_index.json`, `artifacts/source_archive_validation.json`, and `artifacts/research_evidence_db_validation.json`, proving the search plan was executable, formal/latest searches were executed, and the underlying evidence sources were archived before research pack synthesis.
 
 Scope Boundary Check:
-- LLM definition draft:
-- Scoping search queries used to verify/refine draft:
-- Relevant market:
+- Working market:
 - Parent market:
-- Sub-markets:
+- Broader market:
+- Core / broad / adjacent categories:
 - Excluded scope:
-- Ambiguous definitions requiring validation:
+- Must reconcile:
+- Boundary validation needed:
 
 Project Classification:
 - Sector type:
@@ -263,10 +263,10 @@ Claim strength values:
 > Do not rename table headers. Use `Metric ID`, not `MET ID`; use `CAGR Endpoint IDs`
 > exactly for the ordered begin/end metric references.
 
-| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Parent Metric ID | CAGR Endpoint IDs | Conflict Status | Resolution | Chart Ready |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Market sizing | MET-001 | | | | | | | | | | | | | | false |
-| Market sizing | MET-002 | | | | | | | | | | | | | | false |
+| Metric Group | Metric ID | Metric Name | Metric Type | Market Definition | Channel Scope | Geography | Data Period | Value | Unit | Comparable With | Parent Metric ID | CAGR Endpoint IDs | Conflict Status | Resolution | Chart Ready | Audit Level | Source Name | Source URL | Source Type | Source Locator | Raw Excerpt | Audit Note |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Market sizing | MET-001 | | | | | | | | | | | | | | false | audited_metric | | | | | | |
+| Market sizing | MET-002 | | | | | | | | | | | | | | false | audited_metric | | | | | | |
 
 <!--
 Metric Type: retail_sales | GMV | transaction_value | revenue | share | CAGR | ranking | valuation_multiple
@@ -280,12 +280,13 @@ CAGR Endpoint IDs: MET-IDs of begin/end value metrics for CAGR validation
 Key rules:
 - Different metric_type values must not be auto-compared (e.g., GMV vs retail_sales)
 - Every MET-ID used in Key Data Points, Chart-ready Data, page evidence contract, or renderer spec must first be populated here.
+- Every MET-ID is an `audited_metric`: populate source name, source URL/path, source type, original locator, short raw excerpt, and audit note. Context-only numbers stay in Research Context, not Metric Reconciliation.
 - Use the `Chart Ready` column. Set it to `true` only when scope, unit, period, and source quality are clean enough for charting.
 - CAGR rows must include exactly two ordered `CAGR Endpoint IDs`: begin MET-ID, end MET-ID. Both endpoint rows must be existing numeric `MET-###` rows and must share the same Metric Type, Market Definition, Channel Scope, Geography, and Unit. Do not use `MET-BGN`, `MET-END`, `METBGN`, or `METEND`.
 - `Comparable With` is not a substitute for CAGR endpoint rows. Do not calculate or cite CAGR when the endpoints are missing, stale, or not comparable.
 - Different channel_scope values must not be auto-summed or subtracted
 - Different market_definition values must not be auto-nested as parent-child
-- Slide-bound metrics must populate Metric Type, Market Definition, Channel Scope, Geography, Data Period, Value, Unit, and Conflict Status
+- Slide-bound metrics must populate Metric Type, Market Definition, Channel Scope, Geography, Data Period, Value, Unit, Conflict Status, Audit Level, Source Name, Source URL, Source Type, Source Locator, Raw Excerpt, and Audit Note
 - Single-source metrics may be used only with clear source quality and scope caveats; unresolved/conflicting/not_comparable metrics must not anchor titles, chart data, or main takeaways
 - Different data_period values must not be plotted in the same time series without explicit labeling
 - Metrics with conflicting or not_comparable status must not appear in page headlines, chart data, main takeaway, or core transaction logic

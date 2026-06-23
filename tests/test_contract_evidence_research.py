@@ -82,6 +82,7 @@ class TestResearchEvidenceDB:
                 "value": "100", "unit": "RMB bn",
                 "conflict_status": "single-source",
                 "resolution": "Use as contract-test metric only.", "chart_ready": True,
+                "audit_note": "Contract fixture audit note; source locator and excerpt are inherited from SRC review.",
             })
         research_db["research_gap_audit"]["critical_gaps"] = []
         research_db["research_gap_audit"]["metric_consistency_check"] = {

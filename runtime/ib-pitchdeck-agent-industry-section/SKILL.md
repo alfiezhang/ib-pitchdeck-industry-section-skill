@@ -38,17 +38,19 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - Do not search from the knowledge layer. New public evidence enters through the research layer, then returns to knowledge.
 
 4. Define the target industry boundary before researching the industry.
-   - Specify broad industry, core target industry, adjacent themes, excluded scope, data hierarchy, and definition rationale.
+   - Specify working market, parent market, broader market, core/broad/adjacent/excluded categories, and reconciliation rules.
+   - The scope pack should be short. It defines the research boundary and reconciliation rules; it does not summarize the industry.
    - Use a small boundary-validation search when the category could be too broad, too narrow, or confused with an application, channel, parent market, or adjacent market.
    - Boundary validation is not full industry research.
    - Do not start formal research planning or formal search execution until Industry Boundary QC has passed or routed a repair.
 
 5. Collect public evidence.
    - Use the host's web search, SearXNG/manual URL ingestion, user-provided reports, or repository retrieval as available.
-   - Separate taxonomy coverage from executable search batches: `formal_search_plan.json` is the coverage map, while `executable_search_batch.json` is the actual query workbench.
+   - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage map, `executable_search_batch.json` is the query workbench, and `research_graph_state.json` is the editable execution state.
    - Treat search results as leads. A search snippet is not evidence.
-   - Open/archive/extract a source before using it in the evidence database. Prefer full-page archive; if that fails, mark the limitation instead of treating a note as extracted evidence.
-   - If a page was opened but full-page archive fails, Research must perform secondary verification and explicitly declare the Research Archive Status before Knowledge promotes the excerpt; QC only checks that the verification and status decision are clear and credible.
+   - Keep ordinary background as `research_context`; promote only hard facts and key numbers into EV/MET evidence.
+   - Open/archive or manually verify a source before using it for EV/MET evidence. Key numbers require audited metric fields.
+   - If a page supports EV/MET but full-page archive fails, Research must perform secondary verification and explicitly declare the Research Archive Status before Knowledge promotes the excerpt; QC only checks that the verification and status decision are clear and credible.
    - Separate coverage accounting from the evidence binder: unexecuted searches and research gaps belong in coverage/gap audit, not in the usable evidence body.
 
 6. Form banker judgment.
