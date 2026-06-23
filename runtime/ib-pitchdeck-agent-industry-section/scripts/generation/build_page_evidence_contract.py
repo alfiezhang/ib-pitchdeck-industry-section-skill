@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Build page_evidence_contract.json from an issue-like permission pool and page plan.
+"""Build page_evidence_contract.json from page_argument_pack and a page plan.
 
-In the main workflow compile_deck_blueprint.py creates that permission pool
-from page_argument_pack.json. This lower-level helper keeps the renderer-facing
-contract deterministic.
+The contract is authorized by selected page_argument_ids on each deck slide.
+Issue-analysis IDs remain lineage fields and are not the contract source.
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan
+from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack, selected_page_argument_ids
 from json_utils import load_json_file
 
 
@@ -51,6 +50,17 @@ def _analysis_index(pool: dict[str, Any]) -> dict[str, dict[str, Any]]:
         for item in pool.get("issue_analyses") or []
         if isinstance(item, dict) and item.get("analysis_id")
     }
+
+
+def _is_page_argument_pack(payload: dict[str, Any]) -> bool:
+    return isinstance(payload.get("page_arguments"), list)
+
+
+def _analyses_for_slide(source: dict[str, Any], strategy_slide: dict[str, Any], global_analyses: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    if not _is_page_argument_pack(source):
+        return global_analyses
+    selected_ids = selected_page_argument_ids(strategy_slide)
+    return _analysis_index(page_argument_pool_from_pack(source, selected_ids))
 
 
 def _usage(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -257,12 +267,13 @@ def _permitted_proof_ids(
     return _unique(values)
 
 
-def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict[str, Any]) -> dict[str, Any]:
-    analyses_by_id = _analysis_index(issue_analysis)
+def build_page_evidence_contract(source_permissions: dict[str, Any], page_plan: dict[str, Any]) -> dict[str, Any]:
+    global_analyses_by_id = _analysis_index(source_permissions)
     slides = []
     for strategy_slide in page_plan.get("slides") or []:
         if not isinstance(strategy_slide, dict):
             continue
+        analyses_by_id = _analyses_for_slide(source_permissions, strategy_slide, global_analyses_by_id)
         slide_no = strategy_slide.get("slide_no")
         primary_id = str(strategy_slide.get("primary_issue_analysis_id") or "").strip()
         primary = analyses_by_id.get(primary_id, {})
@@ -319,7 +330,7 @@ def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict
                 ],
                 "headline_claim": strategy_slide.get("page_answer", ""),
                 "proof_standard": (
-                    "Use only deck_blueprint proof_points and selected issue analysis EV/MET IDs permitted by downstream_permission; "
+                    "Use only deck_blueprint proof_points and selected page_argument_ids EV/MET IDs permitted by downstream_permission; "
                     "downgrade or caveat any claim outside this boundary."
                 ),
                 "headline_allowed": headline_allowed,
@@ -361,13 +372,14 @@ def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--issue-analysis", required=True)
+    parser.add_argument("--page-argument-pack", required=True)
+    parser.add_argument("--issue-analysis", help="Optional lineage cross-check artifact; page_argument_pack is the contract source.")
     parser.add_argument("--deck-blueprint", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
     contract = build_page_evidence_contract(
-        load_json_file(Path(args.issue_analysis)),
+        load_json_file(Path(args.page_argument_pack)),
         normalize_deck_blueprint_for_page_plan(load_json_file(Path(args.deck_blueprint))),
     )
     output_path = Path(args.output)

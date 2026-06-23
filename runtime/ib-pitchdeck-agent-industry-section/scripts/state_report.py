@@ -195,7 +195,7 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": {
         "checkpoint": "Compiled evidence contract",
         "qc_mode": "Python compiles and validates evidence bindings. QC routes unsupported claim issues back to Generation/Reasoning.",
-        "if_not_ok": "Repair deck_blueprint or issue_analysis, then recompile.",
+        "if_not_ok": "Repair deck_blueprint or page_argument_pack, then recompile. Repair issue_analysis only when the root reasoning lineage is wrong.",
     },
     "RENDERER_SPEC_MISSING_OR_FAILED": {
         "checkpoint": "Renderer spec determinism",

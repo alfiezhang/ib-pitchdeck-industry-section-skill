@@ -153,16 +153,22 @@ def _evidence_status_from_page_argument(argument: dict[str, Any]) -> str:
     return "thin"
 
 
-def page_argument_pool_from_pack(page_argument_pack: dict[str, Any]) -> dict[str, Any]:
+def page_argument_pool_from_pack(page_argument_pack: dict[str, Any], page_argument_ids: list[str] | None = None) -> dict[str, Any]:
     """Convert page_argument_pack into the internal issue-analysis-like pool.
 
     Generation is sourced from page arguments. The renderer contract still uses
-    issue-analysis-shaped permissions internally, so this mapping preserves
+    lineage-compatible internal rows, so this mapping preserves
     source_issue_analysis_id lineage while keeping page_argument_pack as the
-    upstream authority.
+    upstream authority. When page_argument_ids is provided, only those selected
+    page arguments are allowed into the pool.
     """
     by_issue: dict[str, dict[str, Any]] = {}
+    restrict_to_selected = page_argument_ids is not None
+    selected_ids = set(page_argument_ids or [])
     for argument in page_argument_index(page_argument_pack).values():
+        argument_id = str(argument.get("page_argument_id") or "").strip()
+        if restrict_to_selected and argument_id not in selected_ids:
+            continue
         source_id = str(argument.get("source_issue_analysis_id") or "").strip()
         if not source_id:
             continue
@@ -188,7 +194,7 @@ def page_argument_pool_from_pack(page_argument_pack: dict[str, Any]) -> dict[str
                 },
             },
         )
-        row["page_argument_ids"].append(str(argument.get("page_argument_id") or "").strip())
+        row["page_argument_ids"].append(argument_id)
         statement = str(argument.get("page_argument") or "").strip()
         if statement and not row.get("core_statement"):
             row["core_statement"] = statement

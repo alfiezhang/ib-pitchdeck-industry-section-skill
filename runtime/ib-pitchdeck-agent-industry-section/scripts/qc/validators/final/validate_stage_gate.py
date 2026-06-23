@@ -32,7 +32,7 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack
+from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan
 from json_utils import load_json_file
 from validate_content_quality import validate as validate_content_quality
 from validate_chart_metric_binding import validate as validate_chart_metric_binding
@@ -751,7 +751,7 @@ def validate_issue_analysis_gate(
     warnings.extend(str(item) for item in deck_warnings)
 
     page_contract_errors, page_contract_warnings = validate_page_evidence_contract(
-        page_argument_pool_from_pack(page_argument_pack),
+        page_argument_pack,
         normalize_deck_blueprint_for_page_plan(deck_blueprint),
         page_contract,
     )

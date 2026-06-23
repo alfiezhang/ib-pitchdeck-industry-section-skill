@@ -40,7 +40,6 @@ from deck_blueprint_utils import (
     as_list,
     metric_ids_from_visual,
     normalize_deck_blueprint_for_page_plan,
-    page_argument_pool_from_pack,
     proof_points_from_blueprint_slide,
     selected_page_argument_ids,
     selected_issue_analysis_ids,
@@ -631,8 +630,7 @@ def compile_deck_blueprint(
     template_registry: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     page_plan = normalize_deck_blueprint_for_page_plan(deck_blueprint)
-    page_argument_pool = page_argument_pool_from_pack(page_argument_pack)
-    page_contract = build_page_evidence_contract(page_argument_pool, page_plan)
+    page_contract = build_page_evidence_contract(page_argument_pack, page_plan)
     renderer_spec = build_renderer_spec_from_deck_blueprint(deck_blueprint, template_registry, page_contract)
     return page_contract, renderer_spec
 

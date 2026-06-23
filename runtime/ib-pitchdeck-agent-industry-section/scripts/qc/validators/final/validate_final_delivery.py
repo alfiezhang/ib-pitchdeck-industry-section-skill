@@ -38,7 +38,7 @@ from typing import Any, Optional
 from json_utils import check_file
 from json_utils import load_json_file
 from validate_content_quality import validate as validate_content_quality
-from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack
+from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan
 from validate_industry_scope_pack import validate as validate_industry_scope_pack_data
 from validate_issue_analysis import validate as validate_issue_analysis_data
 from validate_input_card import validate as validate_input_card_data
@@ -1323,7 +1323,6 @@ def validate_issue_artifacts(
         )
     warnings.extend(str(item) for item in template_registry_warnings)
 
-    page_argument_pool = page_argument_pool_from_pack(page_argument_pack)
     deck_errors, deck_warnings, _ = validate_deck_blueprint_data(
         deck_blueprint,
         page_argument_pack,
@@ -1356,7 +1355,7 @@ def validate_issue_artifacts(
     warnings.extend(str(item) for item in deck_warnings)
 
     page_contract_errors, page_contract_warnings = validate_page_evidence_contract_data(
-        page_argument_pool,
+        page_argument_pack,
         normalize_deck_blueprint_for_page_plan(deck_blueprint),
         page_contract,
     )

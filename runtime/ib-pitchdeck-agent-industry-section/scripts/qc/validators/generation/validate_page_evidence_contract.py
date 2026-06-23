@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack
+from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack, selected_page_argument_ids
 from json_utils import load_json_file
 from upstream_validation import COMPILE_UPSTREAM_VALIDATIONS, assert_formal_upstream_valid
 
@@ -79,6 +79,17 @@ def _analysis_index(pool: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if not isinstance(analyses, list):
         return {}
     return {str(item.get("analysis_id")): item for item in analyses if isinstance(item, dict) and item.get("analysis_id")}
+
+
+def _is_page_argument_pack(payload: dict[str, Any]) -> bool:
+    return isinstance(payload.get("page_arguments"), list)
+
+
+def _analyses_for_strategy(pool: dict[str, Any], strategy_entry: dict[str, Any], global_analyses: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    if not _is_page_argument_pack(pool):
+        return global_analyses
+    selected_ids = selected_page_argument_ids(strategy_entry)
+    return _analysis_index(page_argument_pool_from_pack(pool, selected_ids))
 
 
 def _analysis_evidence_status(analysis: dict[str, Any]) -> str:
@@ -350,7 +361,7 @@ def _strength_rank(value: str) -> int:
 def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dict[str, Any]) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    analyses_by_id = _analysis_index(pool)
+    global_analyses_by_id = _analysis_index(pool)
     strategy_by_no = _page_plan_index(page_plan)
 
     slides = page_contract.get("slides") if isinstance(page_contract, dict) else None
@@ -414,6 +425,7 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             contract_issue_status[analysis_id] = parsed["analysis_status"]
 
         strategy_entry = strategy_by_no.get(slide_no)
+        analyses_by_id = _analyses_for_strategy(pool, strategy_entry or {}, global_analyses_by_id)
         if not strategy_entry:
             errors.append(f"{prefix}: missing matching slide in page plan")
             mapped_ids: set[str] = set()
@@ -446,7 +458,7 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             errors.append(f"{prefix}: primary_issue_analysis_id must match page plan primary_issue_analysis_id")
         primary = analyses_by_id.get(primary_id)
         if not primary:
-            errors.append(f"{prefix}: primary_issue_analysis_id {primary_id or '<blank>'} not found in issue analysis")
+            errors.append(f"{prefix}: primary_issue_analysis_id {primary_id or '<blank>'} not found in selected page-argument lineage")
 
         supporting_ids = {str(item).strip() for item in _as_list(slide.get("supporting_issue_analysis_ids")) if str(item).strip()}
         invalid_supporting = sorted(supporting_ids - mapped_ids)
@@ -462,7 +474,7 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
                 errors.append(f"{prefix}: selected_issue_downstream_permissions has extra analysis ids: {', '.join(extra)}")
         if strategy_entry:
             if evidence_status != expected_evidence_status:
-                errors.append(f"{prefix}: evidence_status must equal aggregate evidence status of selected issue analyses")
+                errors.append(f"{prefix}: evidence_status must equal aggregate evidence status of selected page arguments")
             if isinstance(downstream_permission, dict):
                 contract_union = _union_permission(list(selected_issue_permissions.values()))
                 if contract_union != expected_downstream_permission:
@@ -475,13 +487,13 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
                 if expected_issue_status != contract_issue_status.get(analysis_id):
                     errors.append(
                         f"{prefix}: selected_issue_downstream_permissions[{analysis_id}].evidence_status "
-                        f"must match issue_analysis evidence_status '{expected_issue_status}'"
+                        f"must match selected page-argument evidence_status '{expected_issue_status}'"
                     )
                 expected_issue_perm = _analysis_downstream_permission(issue)
                 if expected_issue_perm != selected_issue_permissions[analysis_id]:
                     errors.append(
                         f"{prefix}: selected_issue_downstream_permissions[{analysis_id}].downstream_permission "
-                        f"must match issue_analysis allowed permissions"
+                        f"must match selected page-argument allowed permissions"
                     )
 
         claim_strength = str(slide.get("claim_strength") or "").strip()
@@ -664,7 +676,7 @@ def main() -> int:
     page_plan_path = Path(args.deck_blueprint)
     contract_path = Path(args.page_contract)
     try:
-        pool = page_argument_pool_from_pack(load_json_file(pool_path))
+        pool = load_json_file(pool_path)
         page_plan = normalize_deck_blueprint_for_page_plan(load_json_file(page_plan_path))
         page_contract = load_json_file(contract_path)
         errors, warnings = validate(pool, page_plan, page_contract)
