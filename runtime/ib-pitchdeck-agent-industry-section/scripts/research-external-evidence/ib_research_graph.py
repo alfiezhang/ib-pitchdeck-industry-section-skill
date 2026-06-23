@@ -76,6 +76,14 @@ EVIDENCE_READY_ARCHIVE_STATUSES = {
     "manual_verified_excerpt",
     "user_provided",
 }
+SAVED_SOURCE_ARCHIVE_STATUSES = {"saved_html", "saved_text", "saved_pdf"}
+VALID_CAPTURE_METHODS = {
+    "full_page_capture",
+    "downloaded_pdf",
+    "user_provided_file",
+    "archived_copy_reviewed",
+}
+NON_EVIDENCE_DOWNSTREAM_PERMISSIONS = {"contextual_only", "research_backlog_only", "not_allowed"}
 RESEARCH_CONTEXT_ARCHIVE_STATUS = "research_context"
 AUDITED_METRIC_LEVEL = "audited_metric"
 RESEARCH_CONTEXT_LEVEL = "research_context"
@@ -300,7 +308,7 @@ def build_coverage_map(plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_search_batch(plan: dict[str, Any]) -> dict[str, Any]:
+def build_executable_search_batch(plan: dict[str, Any]) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for row in _as_list(plan.get("issue_search_plan")):
         if not isinstance(row, dict):
@@ -657,6 +665,11 @@ def _normalize_source(
         research_archive_status = _first_text(source.get("research_archive_status"), archive_status if archive_status == "manual_verified_excerpt" else "")
     verification_method = _text(source.get("verification_method"))
     capture_method = _text(source.get("capture_method") or source.get("archive_capture_method"))
+    if archive_status in SAVED_SOURCE_ARCHIVE_STATUSES and capture_method not in VALID_CAPTURE_METHODS:
+        raise ValueError(
+            f"{source_id}: archive_status={archive_status} requires explicit capture_method one of "
+            f"{sorted(VALID_CAPTURE_METHODS)}; the compiler must not infer saved source status from raw text or excerpt length"
+        )
     review_status = _first_text(source.get("review_status"))
     if not review_status:
         review_status = (
@@ -1159,15 +1172,15 @@ def _terminal_status(unit: dict[str, Any], *, attempts: list[dict[str, Any]], ev
         permission = raw_permission
     elif terminal == "directional_only":
         status = raw_status if raw_status in VALID_RESULT_STATUS else "thin"
-        permission = _first_text(unit.get("downstream_permission"), "contextual_only")
+        permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "contextual_only"
     elif terminal == "executed_no_usable_source":
         status = raw_status if raw_status in VALID_RESULT_STATUS else "insufficient"
         if status in EVIDENCE_STATUSES and not source_ids:
             status = "insufficient"
-        permission = _first_text(unit.get("downstream_permission"), "research_backlog_only")
+        permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "research_backlog_only"
     else:
         status = raw_status if raw_status in {"insufficient", "unavailable_after_research"} else "insufficient"
-        permission = _first_text(unit.get("downstream_permission"), "research_backlog_only")
+        permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "research_backlog_only"
     return status, terminal, permission
 
 
@@ -1366,7 +1379,10 @@ def build_coverage_accounting(report: dict[str, Any]) -> dict[str, Any]:
                 "coverage_status": coverage_status,
                 "downstream_permission": _text(item.get("downstream_permission")),
                 "can_support_evidence": terminal_status == "executed_with_evidence",
-                "can_support_deck_claim": terminal_status == "executed_with_evidence",
+                "can_support_deck_claim": (
+                    terminal_status == "executed_with_evidence"
+                    and _text(item.get("downstream_permission")) == "may_support_claim"
+                ),
             }
         )
     return {
@@ -1487,7 +1503,7 @@ def prepare_research_graph(
     )
     plan = build_formal_search_plan(input_card, scope_pack)
     coverage_map = build_coverage_map(plan)
-    search_batch = build_search_batch(plan)
+    executable_search_batch = build_executable_search_batch(plan)
     state = init_graph_state(
         formal_search_plan=plan,
         input_card=input_card,
@@ -1500,7 +1516,7 @@ def prepare_research_graph(
     state_path = state_path or artifacts / "research_graph_state.json"
     _write_json(formal_search_plan_path, plan)
     _write_json(coverage_map_path, coverage_map)
-    _write_json(search_batch_path, search_batch)
+    _write_json(search_batch_path, executable_search_batch)
     _write_json(state_path, state)
     return {
         "is_valid": True,
@@ -1508,7 +1524,7 @@ def prepare_research_graph(
         "artifacts": {
             "formal_search_plan": str(formal_search_plan_path),
             "coverage_map": str(coverage_map_path),
-            "search_batch": str(search_batch_path),
+            "executable_search_batch": str(search_batch_path),
             "research_graph_state": str(state_path),
         },
         "issue_search_plan_count": len(plan["issue_search_plan"]),

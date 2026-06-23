@@ -175,6 +175,30 @@ def _union_permission(perms: list[dict[str, bool]]) -> dict[str, bool]:
     return union
 
 
+def _entry_ids(entries: list[dict[str, Any]], field: str) -> set[str]:
+    return {
+        str(item).strip()
+        for entry in entries
+        for item in _as_list(entry.get(field))
+        if str(item).strip()
+    }
+
+
+def _aggregate_entry_evidence_status(entries: list[dict[str, Any]]) -> str:
+    if not entries:
+        return "insufficient"
+    statuses = [str(entry.get("evidence_status") or "").strip() for entry in entries if str(entry.get("evidence_status") or "").strip()]
+    if not statuses:
+        return "insufficient"
+    unique = {status for status in statuses if status}
+    if unique == {"not_applicable"}:
+        return "not_applicable"
+    usable = [status for status in unique if status != "not_applicable"]
+    if not usable:
+        return "not_applicable"
+    return max(usable, key=lambda item: EVIDENCE_STATUS_RANK.get(item, -1))
+
+
 def _aggregate_evidence_status(analysis_ids: set[str], analyses_by_id: dict[str, dict[str, Any]]) -> str:
     if not analysis_ids:
         return "insufficient"
@@ -463,6 +487,15 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
 
         strategy_entry = strategy_by_no.get(slide_no)
         analyses_by_id = _analyses_for_strategy(pool, strategy_entry or {}, global_analyses_by_id)
+        expected_pa_downstream_permission = {
+            "headline_allowed": False,
+            "main_message_allowed": False,
+            "chart_allowed": False,
+            "body_copy_allowed": False,
+        }
+        pa_visual_permitted_metrics: set[str] = set()
+        pa_body_permitted_evidence: set[str] = set()
+        pa_body_permitted_metrics: set[str] = set()
         if not strategy_entry:
             errors.append(f"{prefix}: missing matching slide in page plan")
             mapped_ids: set[str] = set()
@@ -533,11 +566,13 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
                         f"must match selected page-argument allowed permissions"
                     )
             page_argument_permissions = slide.get("selected_page_argument_permissions")
+            pa_permission_entries: list[dict[str, Any]] = []
             if not isinstance(page_argument_permissions, list):
                 errors.append(f"{prefix}: selected_page_argument_permissions must be an array")
             elif _is_page_argument_pack(pool):
                 page_argument_index = _page_argument_index(pool)
                 expected_page_argument_ids = selected_page_argument_ids(strategy_entry)
+                pa_permission_entries = [entry for entry in page_argument_permissions if isinstance(entry, dict)]
                 entry_ids = [
                     str(entry.get("page_argument_id") or "").strip()
                     for entry in page_argument_permissions
@@ -567,11 +602,37 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
                     if _as_list(entry.get("metric_ids")) != expected_metric_ids:
                         errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].metric_ids must match the selected PA")
                     expected_body_ids = expected_evidence_ids if expected_permission.get("body_copy_allowed") else []
+                    expected_body_metric_ids = expected_metric_ids if expected_permission.get("body_copy_allowed") else []
                     expected_visual_ids = expected_metric_ids if expected_permission.get("chart_allowed") else []
                     if _as_list(entry.get("body_evidence_ids")) != expected_body_ids:
                         errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].body_evidence_ids must respect PA body_copy_allowed")
+                    if _as_list(entry.get("body_metric_ids")) != expected_body_metric_ids:
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].body_metric_ids must respect PA body_copy_allowed")
                     if _as_list(entry.get("visual_metric_ids")) != expected_visual_ids:
                         errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].visual_metric_ids must respect PA chart_allowed")
+            elif isinstance(page_argument_permissions, list):
+                pa_permission_entries = [entry for entry in page_argument_permissions if isinstance(entry, dict)]
+
+            if _is_page_argument_pack(pool):
+                expected_pa_downstream_permission = _union_permission(
+                    [
+                        entry.get("downstream_permission") or {}
+                        for entry in pa_permission_entries
+                        if isinstance(entry.get("downstream_permission"), dict)
+                    ]
+                )
+                expected_pa_evidence_status = _aggregate_entry_evidence_status(pa_permission_entries)
+                if evidence_status != expected_pa_evidence_status:
+                    errors.append(f"{prefix}: evidence_status must equal aggregate evidence status of selected page_argument_ids")
+                if isinstance(downstream_permission, dict) and downstream_permission != expected_pa_downstream_permission:
+                    errors.append(f"{prefix}: downstream_permission must equal union of selected page_argument permissions")
+                pa_visual_permitted_metrics = _entry_ids(pa_permission_entries, "visual_metric_ids")
+                pa_body_permitted_evidence = _entry_ids(pa_permission_entries, "body_evidence_ids")
+                pa_body_permitted_metrics = _entry_ids(pa_permission_entries, "body_metric_ids")
+            else:
+                pa_visual_permitted_metrics = set()
+                pa_body_permitted_evidence = set()
+                pa_body_permitted_metrics = set()
 
         claim_strength = str(slide.get("claim_strength") or "").strip()
         if claim_strength not in VALID_CLAIM_STRENGTHS:
@@ -586,8 +647,13 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
         chart_allowed = slide.get("chart_allowed") is True
         visual_metric_allowed = slide.get("visual_metric_allowed") is True
         if strategy_entry and isinstance(downstream_permission, dict):
+            permission_source = (
+                expected_pa_downstream_permission
+                if _is_page_argument_pack(pool)
+                else expected_downstream_permission
+            )
             expected_headline_allowed = (
-                bool(expected_downstream_permission.get("headline_allowed"))
+                bool(permission_source.get("headline_allowed"))
                 and claim_strength not in {"hypothesis", "open_question"}
             )
             if expected_headline_allowed is False:
@@ -595,7 +661,7 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             if headline_allowed != expected_headline_allowed:
                 errors.append(f"{prefix}: headline_allowed does not match generated headline permissions from page plan and issue analyses")
             expected_main_message_allowed = (
-                bool(expected_downstream_permission.get("main_message_allowed"))
+                bool(permission_source.get("main_message_allowed"))
                 and claim_strength not in {"hypothesis", "open_question"}
             )
             if expected_main_message_allowed is False:
@@ -606,14 +672,18 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             errors.append(f"{prefix}: headline_allowed=true but cannot validate against page plan")
         capability = str(strategy_visual_plan.get("required_capability") or "")
         visual_permitted_metrics = (
-            _proof_ids_with_permission(
-                strategy_entry or {},
-                analyses_by_id,
-                id_field="metric_ids",
-                permission_field="chart_allowed",
+            pa_visual_permitted_metrics
+            if _is_page_argument_pack(pool)
+            else (
+                _proof_ids_with_permission(
+                    strategy_entry or {},
+                    analyses_by_id,
+                    id_field="metric_ids",
+                    permission_field="chart_allowed",
+                )
+                if strategy_entry
+                else set()
             )
-            if strategy_entry
-            else set()
         )
         if not strategy_entry:
             strategy_visual_metric_ids = set()
@@ -624,14 +694,18 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             and not chart_permission_failures
         )
         body_permission_failures = (
-            _proof_ids_without_permission(
-                strategy_entry or {},
-                analyses_by_id,
-                id_field="evidence_ids",
-                permission_field="body_copy_allowed",
+            proof_evidence_ids - pa_body_permitted_evidence
+            if _is_page_argument_pack(pool)
+            else (
+                _proof_ids_without_permission(
+                    strategy_entry or {},
+                    analyses_by_id,
+                    id_field="evidence_ids",
+                    permission_field="body_copy_allowed",
+                )
+                if strategy_entry
+                else set()
             )
-            if strategy_entry
-            else set()
         )
         if capability in METRIC_VISUAL_CAPABILITIES and chart_permission_failures:
             errors.append(
@@ -657,7 +731,7 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             outside_visual_permission = sorted(allowed_visual_metric_ids - visual_permitted_metrics)
             if outside_visual_permission:
                 errors.append(
-                    f"{prefix}: allowed_visual_metric_ids not permitted by source issue analyses: "
+                    f"{prefix}: allowed_visual_metric_ids not permitted by selected page arguments: "
                     + ", ".join(outside_visual_permission)
                 )
             missing_visual_metrics = sorted(strategy_visual_metric_ids - allowed_visual_metric_ids)
@@ -672,16 +746,20 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             chart_metric_ids = {str(item).strip() for item in _as_list(slide.get("chart_metric_ids")) if str(item).strip()}
             if not chart_metric_ids:
                 errors.append(f"{prefix}: chart_allowed=true requires non-empty chart_metric_ids")
-            chart_permitted_metrics = _proof_ids_with_permission(
-                strategy_entry or {},
-                analyses_by_id,
-                id_field="metric_ids",
-                permission_field="chart_allowed",
+            chart_permitted_metrics = (
+                pa_visual_permitted_metrics
+                if _is_page_argument_pack(pool)
+                else _proof_ids_with_permission(
+                    strategy_entry or {},
+                    analyses_by_id,
+                    id_field="metric_ids",
+                    permission_field="chart_allowed",
+                )
             )
             outside_chart_permission = sorted(chart_metric_ids - chart_permitted_metrics)
             if outside_chart_permission:
                 errors.append(
-                    f"{prefix}: chart_metric_ids not permitted by source issue analyses: "
+                    f"{prefix}: chart_metric_ids not permitted by selected page arguments: "
                     + ", ".join(outside_chart_permission)
                 )
             mapped_metrics = _mapped_metric_ids(analyses_by_id, mapped_ids)
@@ -703,18 +781,30 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
             errors.append(f"{prefix}: proof_points must match page plan proof_points exactly")
 
         body_evidence_ids = {str(item).strip() for item in _as_list(slide.get("body_evidence_ids")) if str(item).strip()}
-        body_permitted_evidence = _proof_ids_with_permission(
-            strategy_entry or {},
-            analyses_by_id,
-            id_field="evidence_ids",
-            permission_field="body_copy_allowed",
+        body_permitted_evidence = (
+            pa_body_permitted_evidence
+            if _is_page_argument_pack(pool)
+            else _proof_ids_with_permission(
+                strategy_entry or {},
+                analyses_by_id,
+                id_field="evidence_ids",
+                permission_field="body_copy_allowed",
+            )
         )
         outside_body_permission = sorted(body_evidence_ids - body_permitted_evidence)
         if outside_body_permission:
             errors.append(
-                f"{prefix}: body_evidence_ids not permitted by source issue analyses: "
+                f"{prefix}: body_evidence_ids not permitted by selected page arguments: "
                 + ", ".join(outside_body_permission)
             )
+        body_metric_ids = {str(item).strip() for item in _as_list(slide.get("body_metric_ids")) if str(item).strip()}
+        if _is_page_argument_pack(pool):
+            outside_body_metric_permission = sorted(body_metric_ids - pa_body_permitted_metrics)
+            if outside_body_metric_permission:
+                errors.append(
+                    f"{prefix}: body_metric_ids not permitted by selected page arguments: "
+                    + ", ".join(outside_body_metric_permission)
+                )
         mapped_evidence = _mapped_evidence_ids(analyses_by_id, mapped_ids)
         missing_evidence = sorted(body_evidence_ids - mapped_evidence)
         if missing_evidence:

@@ -58,7 +58,7 @@ higher-authority domains merely to reduce a domain count. If research scope is
 too broad, trim lower-authority media or aggregators first.
 
 If the agent's native Web Search is rate-limited or unavailable, switch to a
-configured graph worker or manual source mode and record the limitation in
+configured graph worker or explicitly supplied source URLs/files and record the limitation in
 `artifacts/research_graph_state.json`. Do not convert planned queries or model
 memory into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
 
@@ -324,7 +324,11 @@ Validate formal execution and source archive before writing the research pack:
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" scripts/pipeline.py rebuild-stale --run-dir "$RUN_DIR"
+"$PYTHON_CMD" scripts/qc/validators/final/validate_stage_gate.py \
+  --stage pre_research_pack \
+  --run-dir "$RUN_DIR" \
+  --source-registry configs/source_registry.json \
+  --output "$RUN_DIR/artifacts/stage_gate_pre_research_pack_validation.json"
 ```
 
 Do not write `industry_research_pack.md` by hand. After QC accepts the research
@@ -338,6 +342,7 @@ first:
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
   --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+  --research-graph-state "$RUN_DIR/artifacts/research_graph_state.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db.json"
 
 "$PYTHON_CMD" scripts/qc/validators/knowledge/validate_research_evidence_db.py \

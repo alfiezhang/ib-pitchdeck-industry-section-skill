@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from conftest import _minimal_scope_pack, _rewrite_plan_queries_for_contract_test
 from ib_research_graph import build_formal_search_plan, compile_graph_state, init_graph_state
 from research_evidence_db import build_db as build_research_evidence_db
@@ -372,6 +374,88 @@ def test_research_graph_requires_explicit_evidence_authorization(tmp_path: Path)
     assert row["evidence_ids"] == []
     assert row["metric_ids"] == []
     assert "explicit Research authorization is missing" in row["findings_summary"]
+
+
+def test_non_evidence_terminal_cannot_keep_may_support_claim(tmp_path: Path) -> None:
+    input_card = {"industry": "sample sector", "geography": "Samplestan"}
+    scope_pack = _minimal_scope_pack()
+    plan = build_formal_search_plan(input_card, scope_pack)
+    state = init_graph_state(formal_search_plan=plan, input_card=input_card, scope_pack=scope_pack)
+    first_unit = state["research_units"][0]
+    first_unit.update(
+        {
+            "status": "thin",
+            "terminal_status": "directional_only",
+            "downstream_permission": "may_support_claim",
+            "attempts": [
+                {
+                    "query": "sample sector directional background",
+                    "provider": "contract_fixture",
+                    "selected_source_urls": ["https://example.com/background"],
+                    "opened_reviewed": "yes",
+                    "locator_excerpt": "Directional context only; no explicit evidence authorization is made.",
+                }
+            ],
+            "research_context": [
+                {
+                    "note": "Directional context should remain contextual only.",
+                    "source_url": "https://example.com/background",
+                }
+            ],
+        }
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "artifacts").mkdir()
+
+    compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
+
+    report = json.loads((run_dir / "artifacts" / "formal_research_execution_report.json").read_text(encoding="utf-8"))
+    row = report["issue_results"][0]
+    assert row["terminal_status"] == "directional_only"
+    assert row["downstream_permission"] == "contextual_only"
+
+
+def test_saved_text_requires_explicit_capture_method(tmp_path: Path) -> None:
+    input_card = {"industry": "sample sector", "geography": "Samplestan"}
+    scope_pack = _minimal_scope_pack()
+    plan = build_formal_search_plan(input_card, scope_pack)
+    state = init_graph_state(formal_search_plan=plan, input_card=input_card, scope_pack=scope_pack)
+    first_unit = state["research_units"][0]
+    first_unit.update(
+        {
+            "status": "supported",
+            "terminal_status": "executed_with_evidence",
+            "downstream_permission": "may_support_claim",
+            "attempts": [
+                {
+                    "query": "sample sector saved source",
+                    "provider": "contract_fixture",
+                    "selected_source_urls": ["https://example.com/saved"],
+                    "opened_reviewed": "yes",
+                    "locator_excerpt": "Source claims to be saved_text but omits capture_method.",
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://example.com/saved",
+                    "title": "Invalid saved source",
+                    "source_type": "industry_report",
+                    "archive_status": "saved_text",
+                    "locator": "section 1",
+                    "reviewed_excerpt": "This fixture should fail because saved_text needs an explicit capture_method.",
+                    "usable_as_evidence": True,
+                }
+            ],
+            "evidence": [{"claim_or_metric": "Invalid saved source should fail before compile."}],
+        }
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "artifacts").mkdir()
+
+    with pytest.raises(ValueError, match="capture_method"):
+        compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
 
 
 def test_raw_archive_text_does_not_upgrade_to_saved_text(tmp_path: Path) -> None:

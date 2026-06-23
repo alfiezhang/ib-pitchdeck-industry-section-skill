@@ -40,6 +40,10 @@ def runtime_diagnostic_payload() -> dict[str, object]:
     search_provider_details = provider_payload["search_provider_details"]
     search_providers = provider_payload["search_providers"]
     paid_search_available = provider_payload["paid_search_available"]
+    pdf_payload = check_runtime_dependencies.get_pdf_extraction_payload()
+    has_search_provider = any(search_providers.values())
+    is_ready_for_ppt_pipeline = not missing_required
+    is_ready_for_e2e_research = is_ready_for_ppt_pipeline and has_search_provider and bool(pdf_payload["has_pdf_extraction"])
 
     checks = {
         "python": sys.executable,
@@ -48,11 +52,15 @@ def runtime_diagnostic_payload() -> dict[str, object]:
         "required_imports": required_checks,
         "search_providers": search_providers,
         "search_provider_details": search_provider_details,
+        **pdf_payload,
         "manual_source_mode_supported": True,
+        "manual_source_mode_is_fallback": False,
         "paid_search_optional": True,
         "paid_search_available": paid_search_available,
-        "is_ready_for_ppt_pipeline": not missing_required,
-        "has_fallback_search": any(search_providers.values()),
+        "is_ready_for_ppt_pipeline": is_ready_for_ppt_pipeline,
+        "is_ready_for_e2e_research": is_ready_for_e2e_research,
+        "has_search_provider": has_search_provider,
+        "has_fallback_search": has_search_provider,
         "required_entrypoints": {
             "bootstrap_runtime": script_exists("scripts/bootstrap_runtime.py"),
             "python_pipeline": script_exists("scripts/pipeline.py"),
@@ -78,8 +86,7 @@ def runtime_diagnostic_payload() -> dict[str, object]:
     }
     checks["is_valid"] = (
         checks["python_version_ok"]
-        and checks["is_ready_for_ppt_pipeline"]
-        and checks["has_fallback_search"]
+        and checks["is_ready_for_e2e_research"]
         and all(checks["required_entrypoints"].values())
     )
     return checks

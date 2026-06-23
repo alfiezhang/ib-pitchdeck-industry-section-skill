@@ -18,6 +18,7 @@ You are the public evidence researcher. Your job is to find and archive public o
 - `artifacts/formal_search_plan.json`
 - `artifacts/coverage_map.json`
 - `artifacts/executable_search_batch.json`
+- `artifacts/research_graph_state.json`
 - `artifacts/search_log.md`
 - `artifacts/source_archive/` and archive index
 - `artifacts/formal_research_execution_report.json`

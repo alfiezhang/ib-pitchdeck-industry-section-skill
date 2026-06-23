@@ -246,7 +246,7 @@ Before using this research pack downstream, the run must already have passed:
 - `artifacts/formal_research_execution_validation.json` via `scripts/qc/validators/research/validate_formal_research_execution.py`
 - `artifacts/source_archive_validation.json` via `scripts/qc/validators/research/validate_source_archive.py`
 - `artifacts/research_evidence_db_validation.json` via `scripts/qc/validators/knowledge/validate_research_evidence_db.py`
-- `artifacts/stage_gate_pre_research_pack_validation.json` refreshed through `scripts/pipeline.py rebuild-stale` or the state dashboard
+- `artifacts/stage_gate_pre_research_pack_validation.json` refreshed after Research repairs `research_graph_state.json` and recompiles execution/archive artifacts
 - `artifacts/research_pack_validation.json` via `scripts/qc/validators/knowledge/validate_research_pack.py`
 
 Claim strength values:

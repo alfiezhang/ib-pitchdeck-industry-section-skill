@@ -123,6 +123,7 @@ class TestWorkflowNextCommands:
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
         assert commands and "scripts/knowledge-repository/build_research_evidence_db.py" in commands[0]["command"], commands
         assert "--formal-research-execution-report" in commands[0]["command"], commands
+        assert "--research-graph-state" in commands[0]["command"], commands
 
     def test_research_pack_commands(self, _pipeline_run_dir):
         from state_report import recommended_commands
@@ -151,8 +152,9 @@ class TestWorkflowNextCommands:
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "PRE_RESEARCH_PACK_GATE_FAILED"})
         command_text = "\n".join(item["command"] for item in commands)
-        assert "scripts/pipeline.py rebuild-stale" in command_text, commands
-        assert "validate_stage_gate.py" not in command_text, commands
+        assert "research_graph_state.json" in command_text, commands
+        assert "validate_stage_gate.py" in command_text, commands
+        assert "scripts/pipeline.py rebuild-stale" not in command_text, commands
 
     def test_content_quality_gate_uses_pipeline_facade(self, _pipeline_run_dir):
         from state_report import recommended_commands

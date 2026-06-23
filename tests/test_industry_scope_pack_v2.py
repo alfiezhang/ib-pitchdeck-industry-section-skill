@@ -62,6 +62,40 @@ def test_empty_boundary_validation_needed_allowed() -> None:
     assert not errors, errors
 
 
+def test_undisclosed_target_allowed_with_status() -> None:
+    scope = _scope()
+    scope["meta"]["target_company"] = ""
+    scope["meta"]["target_disclosure_status"] = "undisclosed"
+
+    errors, _ = validate_industry_scope_pack(scope)
+
+    assert not errors, errors
+
+
+def test_user_provided_unverified_ranking_can_be_reconciled() -> None:
+    scope = _scope()
+    scope["must_reconcile"] = [
+        {
+            "topic": "用户提供抖音榜单Top 1",
+            "why_it_matters": "未验证排名不能作为外部证据",
+            "research_instruction": "需验证原始平台或第三方来源；未验证前标注user-provided",
+        }
+    ]
+
+    errors, _ = validate_industry_scope_pack(scope)
+
+    assert not errors, errors
+
+
+def test_confirmed_ranking_claim_still_fails_outside_reconciliation_queue() -> None:
+    scope = _scope()
+    scope["scope_classification"]["core"] = ["Top 1 winning category"]
+
+    errors, _ = validate_industry_scope_pack(scope)
+
+    assert any("ranking claim" in error for error in errors), errors
+
+
 def test_max_list_lengths_enforced() -> None:
     scope = _scope()
     scope["scope_classification"]["core"] = [f"core {idx}" for idx in range(7)]

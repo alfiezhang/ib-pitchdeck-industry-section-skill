@@ -153,6 +153,24 @@ def _evidence_status_from_page_argument(argument: dict[str, Any]) -> str:
     return "thin"
 
 
+EVIDENCE_STATUS_RANK = {
+    "supported": 0,
+    "thin": 1,
+    "caveat_only": 2,
+    "insufficient": 3,
+    "unavailable_after_research": 4,
+    "not_researched": 5,
+}
+
+
+def _weaker_evidence_status(left: str, right: str) -> str:
+    if left == "not_applicable":
+        return right
+    if right == "not_applicable":
+        return left
+    return max([left, right], key=lambda item: EVIDENCE_STATUS_RANK.get(item, -1))
+
+
 def page_argument_pool_from_pack(page_argument_pack: dict[str, Any], page_argument_ids: list[str] | None = None) -> dict[str, Any]:
     """Convert page_argument_pack into the internal issue-analysis-like pool.
 
@@ -195,6 +213,11 @@ def page_argument_pool_from_pack(page_argument_pack: dict[str, Any], page_argume
             },
         )
         row["page_argument_ids"].append(argument_id)
+        row["evidence_status"] = _weaker_evidence_status(
+            str(row.get("evidence_status") or "insufficient"),
+            _evidence_status_from_page_argument(argument),
+        )
+        row["evidence_sufficiency"] = row["evidence_status"]
         statement = str(argument.get("page_argument") or "").strip()
         if statement and not row.get("core_statement"):
             row["core_statement"] = statement

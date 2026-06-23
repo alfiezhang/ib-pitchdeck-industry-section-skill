@@ -75,7 +75,7 @@ def test_research_graph_prepare_is_operator_builder() -> None:
 
     assert artifacts["formal_search_plan"]["builder"].endswith("ib_research_graph.py prepare")
     assert artifacts["coverage_map"]["builder"].endswith("ib_research_graph.py prepare")
-    assert artifacts["search_batch"]["builder"].endswith("ib_research_graph.py prepare")
+    assert artifacts["executable_search_batch"]["builder"].endswith("ib_research_graph.py prepare")
 
 
 def test_industry_scope_pack_is_v2_boundary_card() -> None:

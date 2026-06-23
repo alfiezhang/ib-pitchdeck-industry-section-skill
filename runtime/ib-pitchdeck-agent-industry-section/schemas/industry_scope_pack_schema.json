@@ -19,9 +19,10 @@
     "meta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["target_company", "transaction_type", "geography", "language", "prepared_date"],
+      "required": ["target_disclosure_status", "transaction_type", "geography", "language", "prepared_date"],
       "properties": {
         "target_company": { "type": "string" },
+        "target_disclosure_status": { "enum": ["disclosed", "undisclosed"] },
         "transaction_type": { "type": "string" },
         "geography": { "type": "string" },
         "language": { "type": "string" },

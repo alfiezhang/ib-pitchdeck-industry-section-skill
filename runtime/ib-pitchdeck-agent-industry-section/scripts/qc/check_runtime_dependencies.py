@@ -29,6 +29,7 @@ for _ib_path in reversed(_IB_IMPORT_PATHS):
 
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -48,6 +49,12 @@ OPTIONAL_SEARCH_MODULE_GROUPS = {
     "duckduckgo": ["ddgs", "duckduckgo_search"],
     "searxng": [],
 }
+
+PDF_EXTRACTION_MODULES = {
+    "pdfplumber": "pdfplumber",
+    "pypdf": "pypdf",
+}
+PDF_EXTRACTION_COMMANDS = ("pdftotext",)
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -118,6 +125,31 @@ def import_check(module_name: str) -> dict:
         }
 
 
+def get_pdf_extraction_payload() -> dict[str, object]:
+    module_checks = {
+        name: import_check(module_name)
+        for name, module_name in PDF_EXTRACTION_MODULES.items()
+    }
+    command_checks = {
+        name: {
+            "command": name,
+            "available": bool(shutil.which(name)),
+            "path": shutil.which(name) or "",
+        }
+        for name in PDF_EXTRACTION_COMMANDS
+    }
+    has_pdf_extraction = any(item["available"] for item in module_checks.values()) or any(
+        item["available"] for item in command_checks.values()
+    )
+    return {
+        "pdf_extraction": {
+            "modules": module_checks,
+            "commands": command_checks,
+        },
+        "has_pdf_extraction": has_pdf_extraction,
+    }
+
+
 def main() -> int:
     required_checks = {}
     missing_required = []
@@ -131,6 +163,10 @@ def main() -> int:
     search_providers = provider_payload["search_providers"]
     search_provider_details = provider_payload["search_provider_details"]
     paid_search_available = provider_payload["paid_search_available"]
+    pdf_payload = get_pdf_extraction_payload()
+    has_search_provider = any(search_providers.values())
+    is_ready_for_ppt_pipeline = not missing_required
+    is_ready_for_e2e_research = is_ready_for_ppt_pipeline and has_search_provider and bool(pdf_payload["has_pdf_extraction"])
 
     payload = {
         "python": sys.executable,
@@ -138,11 +174,15 @@ def main() -> int:
         "required": required_checks,
         "search_providers": search_providers,
         "search_provider_details": search_provider_details,
+        **pdf_payload,
         "manual_source_mode_supported": True,
+        "manual_source_mode_is_fallback": False,
         "paid_search_optional": True,
         "paid_search_available": paid_search_available,
-        "is_ready_for_ppt_pipeline": not missing_required,
-        "has_fallback_search": any(search_providers.values()),
+        "is_ready_for_ppt_pipeline": is_ready_for_ppt_pipeline,
+        "is_ready_for_e2e_research": is_ready_for_e2e_research,
+        "has_search_provider": has_search_provider,
+        "has_fallback_search": has_search_provider,
     }
 
     print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -162,18 +202,31 @@ def main() -> int:
             )
         return 1
 
-    if not payload["has_fallback_search"]:
+    e2e_blocked = False
+    if not payload["has_search_provider"]:
+        e2e_blocked = True
         print(
-            "WARN: No fallback web-search provider currently available. "
-            "If online search is unavailable, you can still proceed with manual source mode "
-            "(user-provided URLs, PDFs, and uploaded materials).",
+            "ERROR: No configured web-search provider is available for formal E2E research. "
+            "Manual source intake remains available for user-provided URLs/files, but it is not a fallback "
+            "for required public-search execution.",
             file=sys.stderr,
         )
         if not search_providers["searxng"]:
-            print("Set SEARXNG_BASE_URL or source_registry search_connectors.searxng.default_url to enable offline-friendly fallback.", file=sys.stderr)
-            return 1
-        print("SearXNG is configured; script fallback search can proceed when runtime can reach it.", file=sys.stderr)
-        print("Install tavily/duckduckgo packages only if paid/extra providers are required.", file=sys.stderr)
+            print("Set SEARXNG_BASE_URL or source_registry search_connectors.searxng.default_url to enable formal search execution.", file=sys.stderr)
+        else:
+            print("SearXNG is configured; script search can proceed when runtime can reach it.", file=sys.stderr)
+            print("Install tavily/duckduckgo packages only if paid/extra providers are required.", file=sys.stderr)
+
+    if not payload["has_pdf_extraction"]:
+        e2e_blocked = True
+        print(
+            "ERROR: No PDF extraction capability found. Install pdfplumber or pypdf, or provide pdftotext, "
+            "before relying on public filings/prospectuses/annual reports in formal E2E research.",
+            file=sys.stderr,
+        )
+
+    if e2e_blocked:
+        return 1
 
     return 0
 

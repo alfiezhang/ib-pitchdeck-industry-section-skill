@@ -388,7 +388,14 @@ def validate_formal_research_execution_gate(
         warnings.extend(current_warnings)
 
 
-_SEARCH_COVERAGE_MIN = 0.60
+OPEN_RESEARCH_TERMINAL_STATUSES = {"not_executed"}
+ACCOUNTED_GAP_TERMINAL_STATUSES = {
+    "not_material",
+    "accounting_only",
+    "executed_no_usable_source",
+    "directional_only",
+    "unavailable_after_research",
+}
 
 
 def check_search_coverage(
@@ -397,7 +404,7 @@ def check_search_coverage(
     warnings: list[str],
     repair_targets: Optional[list[dict[str, Any]]] = None,
 ) -> None:
-    """Check that at least 60% of planned formal searches were actually executed."""
+    """Check material planned searches are either executed or explicitly dispositioned."""
     artifacts = run_dir / "artifacts"
     report_path = artifacts / "formal_research_execution_report.json"
     if not report_path.exists():
@@ -408,37 +415,49 @@ def check_search_coverage(
     except Exception:
         return
 
-    results = report_data.get("issue_results", [])
+    results = report_data.get("fs_row_execution_status") or report_data.get("issue_results", [])
     if not results:
         return
 
-    total = len(results)
-    executed = sum(
-        1 for r in results
-        if r.get("terminal_status") not in {"not_executed", "accounting_only"}
+    material_open_rows = [
+        r
+        for r in results
+        if int(r.get("minimum_actual_searches") or 0) > 0
+        and str(r.get("terminal_status") or "").strip() in OPEN_RESEARCH_TERMINAL_STATUSES
+    ]
+    executed_or_dispositioned = sum(
+        1
+        for r in results
+        if str(r.get("terminal_status") or "").strip()
+        and str(r.get("terminal_status") or "").strip() not in OPEN_RESEARCH_TERMINAL_STATUSES
     )
-    ratio = executed / total if total else 0.0
-
-    if ratio < _SEARCH_COVERAGE_MIN:
-        skipped = total - executed
+    total = len(results)
+    if material_open_rows:
+        sample = "; ".join(
+            f"{r.get('fs_id') or r.get('result_id')} {r.get('issue_area')}/{r.get('subissue')}"
+            for r in material_open_rows[:8]
+        )
         errors.append(
-            f"search coverage too low: {executed}/{total} ({ratio:.0%}) formal searches executed; "
-            f"{skipped} rows skipped. minimum required: {_SEARCH_COVERAGE_MIN:.0%}"
+            f"material formal research rows lack execution or explicit disposition: "
+            f"{len(material_open_rows)}/{total} still not_executed"
+            + (f" ({sample})" if sample else "")
         )
         _append_validation_issue(
             repair_targets,
             artifact="artifacts/formal_research_execution_report.json",
             layer="research",
             errors=[
-                f"only {executed}/{total} planned formal searches were executed ({ratio:.0%}); "
-                f"minimum is {_SEARCH_COVERAGE_MIN:.0%}"
+                f"{len(material_open_rows)}/{total} material planned searches remain not_executed; "
+                "execute real searches or mark rows with a substantive non-material/unavailable disposition"
             ],
             recommended_action=(
-                "Execute the remaining formal searches from formal_search_plan.json, "
-                "or mark them as 'not_material' with justification in the execution report."
+                "Repair research_graph_state.json with real attempts/sources or explicit not_material/"
+                "unavailable_after_research disposition, then recompile research execution."
             ),
-            forbidden_action="Do not skip searches and proceed to evidence DB or issue analysis.",
+            forbidden_action="Do not add fake S-xxx rows or downgrade planned rows only to pass coverage checks.",
         )
+    elif executed_or_dispositioned == 0:
+        errors.append("no formal research rows have executed or explicit disposition status")
 
 
 def validate_source_archive_gate(

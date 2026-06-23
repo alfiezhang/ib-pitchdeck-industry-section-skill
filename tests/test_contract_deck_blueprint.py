@@ -251,6 +251,84 @@ class TestDeckBlueprintCompilation:
         assert slide["selected_page_argument_permissions"][0]["evidence_ids"] == ["EV-002"]
         assert slide["selected_page_argument_permissions"][0]["metric_ids"] == ["MET-002"]
 
+    def test_page_evidence_contract_does_not_union_pa_permissions_across_metrics(self):
+        from build_page_evidence_contract import build_page_evidence_contract
+
+        page_argument_pack = {
+            "schema_version": "page_argument_pack_v1",
+            "page_arguments": [
+                {
+                    "page_argument_id": "PA-001",
+                    "source_issue_analysis_id": "IA-001",
+                    "page_argument": "Headline-capable PA with its own chart metric.",
+                    "evidence_status": "supported",
+                    "allowed_deck_usage": "headline_allowed",
+                    "downstream_permission": {
+                        "headline_allowed": True,
+                        "main_message_allowed": True,
+                        "chart_allowed": True,
+                        "body_copy_allowed": True,
+                    },
+                    "evidence_ids": ["EV-001"],
+                    "metric_ids": ["MET-001"],
+                },
+                {
+                    "page_argument_id": "PA-002",
+                    "source_issue_analysis_id": "IA-001",
+                    "page_argument": "Body-only PA with a metric that must not become chart-authorized.",
+                    "evidence_status": "thin",
+                    "allowed_deck_usage": "body_only",
+                    "downstream_permission": {
+                        "headline_allowed": False,
+                        "main_message_allowed": False,
+                        "chart_allowed": False,
+                        "body_copy_allowed": True,
+                    },
+                    "evidence_ids": ["EV-002"],
+                    "metric_ids": ["MET-002"],
+                },
+            ],
+        }
+        page_plan = {
+            "slides": [
+                {
+                    "slide_no": 1,
+                    "fixed_page_role": "industry_overview",
+                    "investor_question": "Can the body-only metric be charted?",
+                    "page_answer": "The page may have a headline-capable PA, but MET-002 remains body-only.",
+                    "page_argument_ids": ["PA-001", "PA-002"],
+                    "primary_issue_analysis_id": "IA-001",
+                    "supporting_issue_analysis_ids": [],
+                    "visual_plan": {"required_capability": "chart", "visual_metric_ids": ["MET-002"]},
+                    "proof_points": [
+                        {
+                            "point": "Body-only PA supports this proof point.",
+                            "source_analysis_ids": ["IA-001"],
+                            "evidence_ids": ["EV-002"],
+                            "metric_ids": ["MET-002"],
+                            "claim_strength": "supported_inference",
+                        }
+                    ],
+                    "claim_strength": "supported_inference",
+                    "caveats": [],
+                    "open_questions": [],
+                }
+            ]
+        }
+
+        contract = build_page_evidence_contract(page_argument_pack, page_plan)
+        slide = contract["slides"][0]
+
+        assert slide["headline_allowed"] is True
+        assert slide["chart_allowed"] is False
+        assert slide["visual_metric_allowed"] is False
+        assert slide["chart_metric_ids"] == []
+        assert slide["allowed_visual_metric_ids"] == []
+        assert slide["body_evidence_ids"] == ["EV-002"]
+        assert slide["body_metric_ids"] == ["MET-002"]
+        assert slide["selected_page_argument_permissions"][0]["visual_metric_ids"] == ["MET-001"]
+        assert slide["selected_page_argument_permissions"][1]["visual_metric_ids"] == []
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

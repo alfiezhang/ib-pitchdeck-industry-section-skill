@@ -185,10 +185,15 @@ def test_template_layer_validation_detects_missing_and_invalid_artifacts(tmp_pat
 
 def test_runtime_dependency_payload_exposes_search_and_paid_flags() -> None:
     provider_payload = check_runtime_dependencies.get_search_provider_payload()
+    pdf_payload = check_runtime_dependencies.get_pdf_extraction_payload()
     doctor_payload = runtime_diagnostic_payload()
     assert provider_payload["search_providers"] == doctor_payload["search_providers"]
     assert provider_payload["search_provider_details"] == doctor_payload["search_provider_details"]
+    assert pdf_payload["has_pdf_extraction"] == doctor_payload["has_pdf_extraction"]
+    assert "is_ready_for_e2e_research" in doctor_payload
+    assert "has_search_provider" in doctor_payload
     assert doctor_payload["manual_source_mode_supported"] is True
+    assert doctor_payload["manual_source_mode_is_fallback"] is False
     assert doctor_payload["paid_search_optional"] is True
 
 

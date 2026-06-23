@@ -214,13 +214,45 @@ def merged_reviews(
     return [by_id[key] for key in sorted(by_id)]
 
 
+def graph_row_maps(research_graph_state: dict[str, Any] | None) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    if not isinstance(research_graph_state, dict):
+        return {}, {}
+    evidence_by_id: dict[str, dict[str, Any]] = {}
+    metric_by_id: dict[str, dict[str, Any]] = {}
+    for unit in as_list(research_graph_state.get("research_units")):
+        if not isinstance(unit, dict):
+            continue
+        for row in as_list(unit.get("evidence")):
+            if not isinstance(row, dict):
+                continue
+            row_id = text(row.get("evidence_id") or row.get("id"))
+            if row_id:
+                evidence_by_id[row_id] = row
+        for row in as_list(unit.get("metrics")):
+            if not isinstance(row, dict):
+                continue
+            row_id = text(row.get("metric_id") or row.get("id"))
+            if row_id:
+                metric_by_id[row_id] = row
+    return evidence_by_id, metric_by_id
+
+
 def meta_from_inputs(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[str, str]:
     input_meta = input_card.get("meta") if isinstance(input_card.get("meta"), dict) else {}
     scope_meta = scope_pack.get("meta") if isinstance(scope_pack.get("meta"), dict) else {}
+    scope_summary = scope_pack.get("scope_summary") if isinstance(scope_pack.get("scope_summary"), dict) else {}
+    target_company = text(input_card.get("target_company") or input_meta.get("target_company") or scope_meta.get("target_company"))
+    target_disclosure_status = text(
+        input_card.get("target_disclosure_status")
+        or input_meta.get("target_disclosure_status")
+        or scope_meta.get("target_disclosure_status")
+        or ("disclosed" if target_company else "undisclosed")
+    ).lower()
     return {
-        "target_company": text(input_card.get("target_company") or input_meta.get("target_company") or scope_meta.get("target_company")),
+        "target_company": target_company,
+        "target_disclosure_status": target_disclosure_status,
         "transaction_type": text(input_card.get("transaction_type") or input_meta.get("transaction_type") or scope_meta.get("transaction_type")),
-        "industry": text(input_card.get("industry") or input_meta.get("industry") or scope_meta.get("industry")),
+        "industry": text(input_card.get("industry") or input_meta.get("industry") or scope_meta.get("industry") or scope_summary.get("working_market")),
         "subsector": text(input_card.get("subsector") or input_meta.get("subsector") or scope_meta.get("subsector")),
         "geography": text(input_card.get("geography") or input_meta.get("geography") or scope_meta.get("geography")),
         "language": text(input_card.get("language") or input_meta.get("language") or scope_meta.get("language") or "English"),
@@ -266,6 +298,7 @@ def build_db(
     material_manifest: dict[str, Any] | None = None,
     material_extracts: dict[str, Any] | None = None,
     repository_sources: list[dict[str, Any]] | None = None,
+    research_graph_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     meta = meta_from_inputs(input_card, scope_pack)
     scope_summary = scope_pack.get("scope_summary") if isinstance(scope_pack.get("scope_summary"), dict) else {}
@@ -277,6 +310,7 @@ def build_db(
         "reviews": embedded_review_rows,
     }
     review_map = {review_id(item): item for item in embedded_review_rows if review_id(item)}
+    graph_evidence_by_id, graph_metric_by_id = graph_row_maps(research_graph_state)
 
     source_materials: list[dict[str, Any]] = []
     for item in material_manifest_items(material_manifest or {}):
@@ -307,6 +341,8 @@ def build_db(
                 "source_locator": source_access_path,
                 "reviewed_excerpt": reviewed_excerpt,
                 "limitations": "Material intake record; promote through extraction/review before claim use.",
+                "evidence_ids": [],
+                "metric_ids": [],
             }
         )
     for item in embedded_review_rows:
@@ -340,6 +376,7 @@ def build_db(
                 "secondary_verification_notes": text(item.get("secondary_verification_notes")),
                 "review_status": text(item.get("review_status")),
                 "metric_ids": [text(metric_id) for metric_id in as_list(item.get("metric_ids")) if text(metric_id)],
+                "evidence_ids": [text(evidence_id) for evidence_id in as_list(item.get("evidence_ids")) if text(evidence_id)],
             }
         )
 
@@ -368,6 +405,41 @@ def build_db(
 
     for item in _repository_sources_to_source_material_rows(repository_sources or [], source_ids={item["source_review_id"] for item in source_materials}):
         source_materials.append(item)
+    source_ids_by_evidence: dict[str, set[str]] = {}
+    source_ids_by_metric: dict[str, set[str]] = {}
+    for source in source_materials:
+        if not isinstance(source, dict):
+            continue
+        src_id = text(source.get("source_review_id"))
+        if not src_id:
+            continue
+        for ev_id in [text(item) for item in as_list(source.get("evidence_ids")) if text(item)]:
+            source_ids_by_evidence.setdefault(ev_id, set()).add(src_id)
+        for met_id in [text(item) for item in as_list(source.get("metric_ids")) if text(item)]:
+            source_ids_by_metric.setdefault(met_id, set()).add(src_id)
+
+    def source_for_evidence(ev_id: str, result_source_ids: list[str]) -> str:
+        explicit = text(graph_evidence_by_id.get(ev_id, {}).get("source_review_id"))
+        if explicit and explicit in result_source_ids:
+            return explicit
+        mapped = sorted(source_ids_by_evidence.get(ev_id, set()).intersection(result_source_ids))
+        if len(mapped) == 1:
+            return mapped[0]
+        if len(result_source_ids) == 1:
+            return result_source_ids[0]
+        return ""
+
+    def source_for_metric(met_id: str, result_source_ids: list[str]) -> str:
+        explicit = text(graph_metric_by_id.get(met_id, {}).get("source_review_id"))
+        if explicit and explicit in result_source_ids:
+            return explicit
+        mapped = sorted(source_ids_by_metric.get(met_id, set()).intersection(result_source_ids))
+        if len(mapped) == 1:
+            return mapped[0]
+        if len(result_source_ids) == 1:
+            return result_source_ids[0]
+        return ""
+
     evidence_seen: set[str] = set()
     metric_seen: set[str] = set()
     evidence_rows: list[dict[str, Any]] = []
@@ -443,6 +515,16 @@ def build_db(
             review = review_map.get(src_id, {})
             source_is_evidence_ready = evidence_ready_archive(review)
             archive_state = archive_status(review)
+            source_promoted_evidence_ids = [
+                ev_id
+                for ev_id in evidence_ids
+                if source_for_evidence(ev_id, source_review_ids) == src_id
+            ]
+            source_promoted_metric_ids = [
+                met_id
+                for met_id in metric_ids
+                if source_for_metric(met_id, source_review_ids) == src_id
+            ]
             formal_extracts.append(
                 {
                     "extract_id": f"FX-{len(formal_extracts) + 1:03d}",
@@ -459,76 +541,100 @@ def build_db(
                     "terminal_status": terminal_status,
                     "archive_status": archive_state,
                     "archive_eligibility": "evidence_ready" if source_is_evidence_ready else "research_verification_required",
-                    "promoted_evidence_ids": evidence_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
-                    "promoted_metric_ids": metric_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
+                    "promoted_evidence_ids": source_promoted_evidence_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
+                    "promoted_metric_ids": source_promoted_metric_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
                     "limitations": [text(item) for item in as_list(result.get("limitations")) if text(item)],
                 }
             )
-        primary_review = review_map.get(source_review_ids[0], {}) if source_review_ids else {}
         if terminal_status != EVIDENCE_TERMINAL_STATUS or not source_review_ids:
-            continue
-        if not evidence_ready_archive(primary_review):
-            critical_gap_rows.append(
-                f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
-                f"source {source_review_ids[0]} archive_status={archive_status(primary_review) or 'missing'}; "
-                "Research must complete full-page archive or secondary verification before Knowledge can promote EV/MET rows."
-            )
             continue
         for ev_id in evidence_ids:
             if ev_id in evidence_seen:
                 continue
+            src_id = source_for_evidence(ev_id, source_review_ids)
+            if not src_id:
+                critical_gap_rows.append(
+                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                    f"{ev_id} has no unambiguous source_review_id mapping; Knowledge cannot promote it."
+                )
+                continue
+            primary_review = review_map.get(src_id, {})
+            if not evidence_ready_archive(primary_review):
+                critical_gap_rows.append(
+                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                    f"source {src_id} archive_status={archive_status(primary_review) or 'missing'}; "
+                    "Research must complete full-page archive or secondary verification before Knowledge can promote EV/MET rows."
+                )
+                continue
             evidence_seen.add(ev_id)
+            graph_ev = graph_evidence_by_id.get(ev_id, {})
             evidence_rows.append(
                 {
                     "evidence_id": ev_id,
-                    "claim_or_metric": "TODO_REPLACE_WITH_PROMOTED_CLAIM",
-                    "claim_scope": "industry-level",
-                    "source_review_id": source_review_ids[0] if source_review_ids else "",
-                    "source_name": review_title(primary_review),
-                    "source_url": review_url(primary_review),
-                    "source_type": text(primary_review.get("source_type")),
-                    "evidence_status": "primary-reviewed" if text(result.get("status")) == "supported" else "secondary-reviewed",
-                    "source_date": text(primary_review.get("source_date")),
-                    "data_period": "",
-                    "source_locator": review_locator(primary_review),
-                    "raw_excerpt": review_excerpt(primary_review),
-                    "reliability": text(primary_review.get("reliability") or primary_review.get("source_reliability")),
-                    "confidence": "medium",
+                    "claim_or_metric": text(graph_ev.get("claim_or_metric") or graph_ev.get("claim") or graph_ev.get("metric")) or "TODO_REPLACE_WITH_PROMOTED_CLAIM",
+                    "claim_scope": text(graph_ev.get("claim_scope") or "industry-level"),
+                    "source_review_id": src_id,
+                    "source_name": text(graph_ev.get("source_name")) or review_title(primary_review),
+                    "source_url": text(graph_ev.get("source_url")) or review_url(primary_review),
+                    "source_type": text(graph_ev.get("source_type")) or text(primary_review.get("source_type")),
+                    "evidence_status": text(graph_ev.get("evidence_status")) or ("primary-reviewed" if text(result.get("status")) == "supported" else "secondary-reviewed"),
+                    "source_date": text(graph_ev.get("source_date")) or text(primary_review.get("source_date")),
+                    "data_period": text(graph_ev.get("data_period")),
+                    "source_locator": text(graph_ev.get("source_locator") or graph_ev.get("locator")) or review_locator(primary_review),
+                    "raw_excerpt": text(graph_ev.get("raw_excerpt") or graph_ev.get("reviewed_excerpt")) or review_excerpt(primary_review),
+                    "reliability": text(graph_ev.get("reliability")) or text(primary_review.get("reliability") or primary_review.get("source_reliability")),
+                    "confidence": text(graph_ev.get("confidence")) or "medium",
                 }
             )
         for met_id in metric_ids:
             if met_id in metric_seen:
                 continue
+            src_id = source_for_metric(met_id, source_review_ids)
+            if not src_id:
+                critical_gap_rows.append(
+                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                    f"{met_id} has no unambiguous source_review_id mapping; Knowledge cannot promote it."
+                )
+                continue
+            primary_review = review_map.get(src_id, {})
+            if not evidence_ready_archive(primary_review):
+                critical_gap_rows.append(
+                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                    f"source {src_id} archive_status={archive_status(primary_review) or 'missing'}; "
+                    "Research must complete full-page archive or secondary verification before Knowledge can promote EV/MET rows."
+                )
+                continue
             metric_seen.add(met_id)
+            graph_met = graph_metric_by_id.get(met_id, {})
             source_access_path = text(primary_review.get("source_access_path") or primary_review.get("archive_path"))
             metric_rows.append(
                 {
                     "audit_level": AUDITED_METRIC_LEVEL,
-                    "metric_group": text(result.get("issue_area")),
+                    "metric_group": text(graph_met.get("metric_group")) or text(result.get("issue_area")),
                     "metric_id": met_id,
-                    "metric_name": "TODO_REPLACE_WITH_METRIC_NAME",
-                    "metric_type": "TODO_REPLACE_WITH_METRIC_TYPE",
-                    "market_definition": "TODO_REPLACE_WITH_MARKET_DEFINITION",
-                    "channel_scope": "TODO_REPLACE_WITH_CHANNEL_SCOPE",
-                    "geography": meta.get("geography", ""),
-                    "data_period": "TODO_REPLACE_WITH_DATA_PERIOD",
-                    "value": "TODO_REPLACE_WITH_VALUE",
-                    "unit": "TODO_REPLACE_WITH_UNIT",
-                    "comparable_with": "",
-                    "parent_metric_id": "",
-                    "cagr_endpoint_ids": "",
-                    "conflict_status": "single-source",
-                    "resolution": "TODO_REPLACE_WITH_RESOLUTION",
-                    "chart_ready": False,
-                    "source_review_id": source_review_ids[0] if source_review_ids else "",
-                    "source_name": review_title(primary_review),
-                    "source_url": review_url(primary_review),
-                    "source_access_path": source_access_path,
-                    "source_type": text(primary_review.get("source_type")),
-                    "source_date": text(primary_review.get("source_date")),
-                    "source_locator": review_locator(primary_review),
-                    "raw_excerpt": review_excerpt(primary_review),
-                    "audit_note": "TODO_REPLACE_WITH_AUDIT_NOTE",
+                    "metric_name": text(graph_met.get("metric_name") or graph_met.get("name") or graph_met.get("claim_or_metric")) or "TODO_REPLACE_WITH_METRIC_NAME",
+                    "metric_type": text(graph_met.get("metric_type")) or "TODO_REPLACE_WITH_METRIC_TYPE",
+                    "market_definition": text(graph_met.get("market_definition")) or "TODO_REPLACE_WITH_MARKET_DEFINITION",
+                    "channel_scope": text(graph_met.get("channel_scope")) or "TODO_REPLACE_WITH_CHANNEL_SCOPE",
+                    "geography": text(graph_met.get("geography")) or meta.get("geography", ""),
+                    "data_period": text(graph_met.get("data_period") or graph_met.get("period")) or "TODO_REPLACE_WITH_DATA_PERIOD",
+                    "value": graph_met.get("value") if graph_met.get("value") is not None else "TODO_REPLACE_WITH_VALUE",
+                    "unit": text(graph_met.get("unit")) or "TODO_REPLACE_WITH_UNIT",
+                    "comparable_with": text(graph_met.get("comparable_with")),
+                    "parent_metric_id": text(graph_met.get("parent_metric_id")),
+                    "cagr_endpoint_ids": text(graph_met.get("cagr_endpoint_ids")),
+                    "conflict_status": text(graph_met.get("conflict_status")) or "single-source",
+                    "resolution": text(graph_met.get("resolution")) or "TODO_REPLACE_WITH_RESOLUTION",
+                    "chart_ready": graph_met.get("chart_ready") if isinstance(graph_met.get("chart_ready"), bool) else False,
+                    "source_review_id": src_id,
+                    "source_name": text(graph_met.get("source_name")) or review_title(primary_review),
+                    "source_url": text(graph_met.get("source_url")) or review_url(primary_review),
+                    "source_access_path": text(graph_met.get("source_access_path")) or source_access_path,
+                    "source_type": text(graph_met.get("source_type")) or text(primary_review.get("source_type")),
+                    "source_date": text(graph_met.get("source_date")) or text(primary_review.get("source_date")),
+                    "source_locator": text(graph_met.get("source_locator") or graph_met.get("locator")) or review_locator(primary_review),
+                    "raw_excerpt": text(graph_met.get("raw_excerpt") or graph_met.get("reviewed_excerpt")) or review_excerpt(primary_review),
+                    "audit_note": text(graph_met.get("audit_note") or graph_met.get("remarks") or graph_met.get("notes") or graph_met.get("resolution")) or "TODO_REPLACE_WITH_AUDIT_NOTE",
                 }
             )
 
@@ -672,7 +778,14 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         errors.append("source_of_truth must be true")
 
     meta = db.get("meta") if isinstance(db.get("meta"), dict) else {}
-    for field in ("target_company", "industry", "geography", "research_as_of_date"):
+    target_disclosure_status = text(meta.get("target_disclosure_status")).lower() or (
+        "disclosed" if text(meta.get("target_company")) else "undisclosed"
+    )
+    if target_disclosure_status not in {"disclosed", "undisclosed"}:
+        errors.append("meta.target_disclosure_status must be disclosed or undisclosed")
+    if target_disclosure_status == "disclosed" and not text(meta.get("target_company")):
+        errors.append("meta.target_company is required when target_disclosure_status=disclosed")
+    for field in ("industry", "geography", "research_as_of_date"):
         if not text(meta.get(field)):
             errors.append(f"meta.{field} is required")
 
@@ -750,6 +863,8 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             met_to_result[met_id] = result
 
     extract_count = 0
+    extract_promoted_ev_refs: list[tuple[str, str, str]] = []
+    extract_promoted_met_refs: list[tuple[str, str, str]] = []
     for idx, extract in enumerate(as_list(db.get("formal_research_extracts")), start=1):
         if not isinstance(extract, dict):
             errors.append(f"formal_research_extracts[{idx}] must be an object")
@@ -774,8 +889,13 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             errors.append(f"{extract_id}: source_review_id {src_id} not found in source_materials")
         if contains_placeholder(extract.get("extracted_fact_or_metric_candidate")):
             errors.append(f"{extract_id}: replace extracted_fact_or_metric_candidate placeholder")
+        for ev_id in [text(item) for item in as_list(extract.get("promoted_evidence_ids")) if text(item)]:
+            extract_promoted_ev_refs.append((extract_id, src_id, ev_id))
+        for met_id in [text(item) for item in as_list(extract.get("promoted_metric_ids")) if text(item)]:
+            extract_promoted_met_refs.append((extract_id, src_id, met_id))
 
     ev_ids: set[str] = set()
+    ev_source_by_id: dict[str, str] = {}
     for idx, row in enumerate(as_list(db.get("evidence_ledger")), start=1):
         if not isinstance(row, dict):
             errors.append(f"evidence_ledger[{idx}] must be an object")
@@ -815,7 +935,12 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         elif src_id not in source_ids:
             errors.append(f"{ev_id}: source_review_id {src_id} not found in source_materials")
         else:
+            ev_source_by_id[ev_id] = src_id
             source = source_by_id.get(src_id, {})
+            source_url = text(source.get("source_url"))
+            row_url = text(row.get("source_url"))
+            if source_url and row_url and source_url != row_url:
+                errors.append(f"{ev_id}: source_url does not match source_materials[{src_id}]")
             if source_requires_evidence_ready_archive(source):
                 if not text(source.get("archive_path")):
                     errors.append(
@@ -858,6 +983,7 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             )
 
     met_ids: set[str] = set()
+    met_source_by_id: dict[str, str] = {}
     for idx, row in enumerate(as_list(db.get("metric_reconciliation")), start=1):
         if not isinstance(row, dict):
             errors.append(f"metric_reconciliation[{idx}] must be an object")
@@ -889,7 +1015,12 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             if src_id not in source_ids:
                 errors.append(f"{met_id}: source_review_id {src_id} not found in source_materials")
             else:
+                met_source_by_id[met_id] = src_id
                 source = source_by_id.get(src_id, {})
+                source_url = text(source.get("source_url"))
+                row_url = text(row.get("source_url"))
+                if source_url and row_url and source_url != row_url:
+                    errors.append(f"{met_id}: source_url does not match source_materials[{src_id}]")
                 if source_requires_evidence_ready_archive(source):
                     if not text(source.get("archive_path")):
                         errors.append(
@@ -908,6 +1039,26 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             errors.append(
                 f"{met_id}: linked formal result {text(source_result.get('result_id'))} is "
                 f"terminal_status={text(source_result.get('terminal_status'))}; only executed_with_evidence may promote MET rows"
+            )
+
+    for extract_id, src_id, ev_id in extract_promoted_ev_refs:
+        if ev_id not in ev_ids:
+            errors.append(f"{extract_id}: promoted_evidence_id {ev_id} not found in evidence_ledger")
+            continue
+        ev_src = ev_source_by_id.get(ev_id, "")
+        if ev_src and src_id and ev_src != src_id:
+            errors.append(
+                f"{extract_id}: promoted_evidence_id {ev_id} belongs to source_review_id {ev_src}, not {src_id}"
+            )
+
+    for extract_id, src_id, met_id in extract_promoted_met_refs:
+        if met_id not in met_ids:
+            errors.append(f"{extract_id}: promoted_metric_id {met_id} not found in metric_reconciliation")
+            continue
+        met_src = met_source_by_id.get(met_id, "")
+        if met_src and src_id and met_src != src_id:
+            errors.append(
+                f"{extract_id}: promoted_metric_id {met_id} belongs to source_review_id {met_src}, not {src_id}"
             )
 
     inventory_rows = [row for row in as_list(db.get("issue_fact_inventory")) if isinstance(row, dict)]

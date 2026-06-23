@@ -42,6 +42,7 @@ def main() -> int:
     parser.add_argument("--formal-search-plan", required=True)
     parser.add_argument("--formal-research-execution-report", required=True)
     parser.add_argument("--source-archive-index", required=True)
+    parser.add_argument("--research-graph-state", required=True)
     parser.add_argument("--material-manifest")
     parser.add_argument("--material-extracts")
     parser.add_argument(
@@ -58,6 +59,7 @@ def main() -> int:
         execution_report=load_optional_json(args.formal_research_execution_report),
         source_reviews={},
         source_archive_index=load_optional_json(args.source_archive_index),
+        research_graph_state=load_optional_json(args.research_graph_state),
         material_manifest=load_optional_json(args.material_manifest),
         material_extracts=load_optional_json(args.material_extracts),
         repository_sources=_load_repository_sources(args.repository_sources),

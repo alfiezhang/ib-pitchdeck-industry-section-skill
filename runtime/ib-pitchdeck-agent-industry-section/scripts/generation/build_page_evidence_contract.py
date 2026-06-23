@@ -178,6 +178,7 @@ def _selected_page_argument_permission_entries(source: dict[str, Any], strategy_
                 "evidence_ids": evidence_ids,
                 "metric_ids": metric_ids,
                 "body_evidence_ids": evidence_ids if permission["body_copy_allowed"] else [],
+                "body_metric_ids": metric_ids if permission["body_copy_allowed"] else [],
                 "visual_metric_ids": metric_ids if permission["chart_allowed"] else [],
             }
         )
@@ -223,6 +224,32 @@ def _union_permission(perms: list[dict[str, bool]]) -> dict[str, bool]:
             if perm.get(key) is True:
                 union[key] = True
     return union
+
+
+def _entry_ids(entries: list[dict[str, Any]], field: str) -> list[str]:
+    return _unique(
+        [
+            str(item).strip()
+            for entry in entries
+            for item in _as_list(entry.get(field))
+            if str(item).strip()
+        ]
+    )
+
+
+def _aggregate_entry_evidence_status(entries: list[dict[str, Any]]) -> str:
+    if not entries:
+        return "insufficient"
+    statuses = [str(entry.get("evidence_status") or "").strip() for entry in entries if str(entry.get("evidence_status") or "").strip()]
+    if not statuses:
+        return "insufficient"
+    unique = {status for status in statuses if status}
+    if unique == {"not_applicable"}:
+        return "not_applicable"
+    usable = [status for status in unique if status != "not_applicable"]
+    if not usable:
+        return "not_applicable"
+    return max(usable, key=lambda item: EVIDENCE_STATUS_RANK.get(item, -1))
 
 
 def _unique(items: list[str]) -> list[str]:
@@ -336,22 +363,54 @@ def build_page_evidence_contract(source_permissions: dict[str, Any], page_plan: 
         capability = str(visual_plan.get("required_capability") or "").strip()
         issue_ids = _selected_analysis_ids(strategy_slide)
         issue_permissions = [_analysis_downstream_permission(analyses_by_id.get(analysis_id) or {}) for analysis_id in issue_ids]
-        evidence_status = _aggregate_evidence_status(issue_ids, analyses_by_id)
-        permission_union = _union_permission(issue_permissions)
+        evidence_status = (
+            _aggregate_entry_evidence_status(page_argument_permissions)
+            if _is_page_argument_pack(source_permissions)
+            else _aggregate_evidence_status(issue_ids, analyses_by_id)
+        )
+        permission_union = (
+            _union_permission(
+                [
+                    entry.get("downstream_permission") or {}
+                    for entry in page_argument_permissions
+                    if isinstance(entry.get("downstream_permission"), dict)
+                ]
+            )
+            if _is_page_argument_pack(source_permissions)
+            else _union_permission(issue_permissions)
+        )
         metric_ids = _proof_metric_ids(strategy_slide)
         requested_visual_metric_ids = _visual_metric_ids(strategy_slide, metric_ids)
-        visual_metric_ids = _permitted_proof_ids(
-            strategy_slide,
-            analyses_by_id,
-            id_field="metric_ids",
-            permission_field="chart_allowed",
+        visual_metric_ids = (
+            _entry_ids(page_argument_permissions, "visual_metric_ids")
+            if _is_page_argument_pack(source_permissions)
+            else _permitted_proof_ids(
+                strategy_slide,
+                analyses_by_id,
+                id_field="metric_ids",
+                permission_field="chart_allowed",
+            )
         )
         visual_metric_ids = [met_id for met_id in requested_visual_metric_ids if met_id in set(visual_metric_ids)]
-        body_evidence_ids = _permitted_proof_ids(
-            strategy_slide,
-            analyses_by_id,
-            id_field="evidence_ids",
-            permission_field="body_copy_allowed",
+        body_evidence_ids = (
+            [ev_id for ev_id in _proof_evidence_ids(strategy_slide) if ev_id in set(_entry_ids(page_argument_permissions, "body_evidence_ids"))]
+            if _is_page_argument_pack(source_permissions)
+            else _permitted_proof_ids(
+                strategy_slide,
+                analyses_by_id,
+                id_field="evidence_ids",
+                permission_field="body_copy_allowed",
+            )
+        )
+        body_metric_ids = (
+            [met_id for met_id in metric_ids if met_id in set(_entry_ids(page_argument_permissions, "body_metric_ids"))]
+            if _is_page_argument_pack(source_permissions)
+            else _permitted_proof_ids(
+                strategy_slide,
+                analyses_by_id,
+                id_field="metric_ids",
+                permission_field="body_copy_allowed",
+            )
         )
         chart_allowed = (
             capability == "chart"
@@ -407,6 +466,7 @@ def build_page_evidence_contract(source_permissions: dict[str, Any], page_plan: 
                 "chart_metric_ids": requested_visual_metric_ids if chart_allowed else [],
                 "allowed_visual_metric_ids": visual_metric_ids if visual_metric_allowed else [],
                 "body_evidence_ids": body_evidence_ids,
+                "body_metric_ids": body_metric_ids,
                 "proof_points": proof_points,
                 "claim_strength": claim_strength,
                 "evidence_gap_handling": visual_plan.get("fallback_if_data_insufficient", ""),

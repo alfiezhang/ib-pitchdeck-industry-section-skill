@@ -440,6 +440,7 @@ def _minimal_scope_pack() -> dict:
         "schema_version": "industry_scope_pack_v2",
         "meta": {
             "target_company": "example target",
+            "target_disclosure_status": "disclosed",
             "transaction_type": "pre-mandate pitch",
             "geography": "Exampleland",
             "language": "English",
@@ -529,7 +530,7 @@ def _seed_boundary_loop_status(
 @pytest.fixture(scope="session")
 def _pipeline_run_dir(tmp_path_factory):
     """Build a full pipeline run directory with search log, source reviews, execution report, etc."""
-    from ib_research_graph import build_coverage_map, build_formal_search_plan, build_search_batch
+    from ib_research_graph import build_coverage_map, build_executable_search_batch, build_formal_search_plan
     from ib_research_graph import compile_graph_state, init_graph_state
     from pipeline import _write_run_flags
     from validate_formal_research_execution import validate as validate_formal_research_execution
@@ -650,7 +651,7 @@ def _pipeline_run_dir(tmp_path_factory):
     value_fs = fs_for("industry_structure", "value_chain")
     _write_json(artifacts / "formal_search_plan.json", plan)
     _write_json(artifacts / "coverage_map.json", build_coverage_map(plan))
-    _write_json(artifacts / "executable_search_batch.json", build_search_batch(plan))
+    _write_json(artifacts / "executable_search_batch.json", build_executable_search_batch(plan))
     _write_json(artifacts / "executable_search_batch_validation.json", {"is_valid": True, "errors": [], "warnings": []})
     plan_errors, plan_warnings = validate_formal_search_plan(plan)
     assert not plan_errors, plan_errors

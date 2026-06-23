@@ -136,11 +136,11 @@ class TestFormalSearchPlan:
         assert state["research_units"], state
 
     def test_executable_search_batch_requires_query_authoring(self, tmp_path):
-        from ib_research_graph import build_formal_search_plan, build_search_batch
+        from ib_research_graph import build_executable_search_batch, build_formal_search_plan
 
         plan = build_formal_search_plan({"industry": "sample sector", "geography": "Samplestan"}, _minimal_scope_pack())
         batch_path = tmp_path / "executable_search_batch.json"
-        _write_json(batch_path, build_search_batch(plan))
+        _write_json(batch_path, build_executable_search_batch(plan))
 
         result = _run([
             sys.executable,

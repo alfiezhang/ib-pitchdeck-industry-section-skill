@@ -138,6 +138,9 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
             "Dimension",
             "Opened / Reviewed",
             "Source Locator / Raw Excerpt",
+            "Excerpt Origin",
+            "Research Archive Status",
+            "Notes",
         ):
             value = lines_by_field.get(field.lower(), "")
             fields[field] = "" if not value or value.startswith("#") else value
@@ -150,7 +153,9 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
 
     stages = " ".join(attempt.get("Search Stage", "") for attempt in filled_attempts).lower()
     if "broad_discovery" not in stages and "broad discovery" not in stages:
-        errors.append("search_log.md has no completed broad_discovery search attempt")
+        warnings.append(
+            "search_log.md has no broad_discovery entry; boundary validation searches should be logged explicitly when they materially affected scope"
+        )
     has_explicit_validation = any(token in stages for token in ("formal_research_execution", "latest_check", "formal research execution", "latest"))
     validation_quality_attempts = []
     for attempt in filled_attempts:
@@ -188,6 +193,28 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
         )
 
     for idx, attempt in enumerate(filled_attempts, start=1):
+        archive_status = attempt.get("Research Archive Status", "").lower()
+        notes = attempt.get("Notes", "").lower()
+        opened = attempt.get("Opened / Reviewed", "").lower()
+        locator_excerpt = attempt.get("Source Locator / Raw Excerpt", "").lower()
+        excerpt_origin = attempt.get("Excerpt Origin", "").lower()
+        failed_attempt = any(
+            token in " ".join((archive_status, notes, opened, locator_excerpt, excerpt_origin))
+            for token in (
+                "failed",
+                "unavailable",
+                "blocked",
+                "no usable",
+                "not evidence ready",
+                "not_evidence_ready",
+                "archive_unavailable",
+                "not accessible",
+                "anti-bot",
+                "失败",
+                "不可访问",
+                "无可用",
+            )
+        )
         if not attempt.get("Result Count"):
             errors.append(f"search_log.md completed search {idx} is missing Result Count")
         if not attempt.get("Selected Sources"):
@@ -200,11 +227,16 @@ def validate_search_log(path: Path) -> tuple[list[str], list[str]]:
             )
         if selected_sources and TEMPLATE_PLACEHOLDER_RE.match(selected_sources):
             errors.append(f"search_log.md completed search {idx} appears to have placeholder Selected Sources")
-        opened = attempt.get("Opened / Reviewed", "").lower()
         if not any(token in opened for token in ("yes", "y", "true", "opened", "reviewed", "是", "已")):
-            errors.append(
-                f"search_log.md completed search {idx} is missing positive Opened / Reviewed confirmation"
-            )
+            if failed_attempt:
+                if len(attempt.get("Notes", "").strip()) < 20:
+                    errors.append(
+                        f"search_log.md failed search {idx} must explain the failed/opening-blocked attempt in Notes"
+                    )
+            else:
+                errors.append(
+                    f"search_log.md completed search {idx} is missing positive Opened / Reviewed confirmation"
+                )
         locator_excerpt = attempt.get("Source Locator / Raw Excerpt", "")
         if not locator_excerpt or TEMPLATE_PLACEHOLDER_RE.match(locator_excerpt):
             errors.append(

@@ -60,7 +60,7 @@ LEGACY_V1_FIELDS = {
     "reconciliation_policy",
     "scope_stage_instruction",
 }
-META_FIELDS = ("target_company", "transaction_type", "geography", "language", "prepared_date")
+META_FIELDS = ("target_disclosure_status", "transaction_type", "geography", "language", "prepared_date")
 SCOPE_SUMMARY_FIELDS = ("working_market", "parent_market", "broader_market")
 CLASSIFICATION_LIMITS = {"core": 6, "broad": 6, "adjacent": 6, "excluded": 8}
 
@@ -109,6 +109,10 @@ FORBIDDEN_CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "page-ready claim",
         re.compile(r"(?:page-ready|slide\s+headline|deck\s+headline|可直接上页|页面结论|标题可用|核心结论)", re.IGNORECASE),
     ),
+)
+UNVERIFIED_RECONCILE_RE = re.compile(
+    r"(?:user[-\s]?provided|management[-\s]?provided|用户提供|管理层|未验证|待核验|需验证|需要验证|核验|验证|verify|unverified|not\s+verified|external\s+verification)",
+    re.IGNORECASE,
 )
 
 
@@ -193,6 +197,13 @@ def _validate_required(data: dict[str, Any]) -> list[str]:
     meta = _validate_object(data.get("meta"), "meta", errors)
     for field in META_FIELDS:
         _validate_string_field(meta, field, "meta", errors)
+    target_disclosure_status = _text(meta.get("target_disclosure_status")).lower()
+    if target_disclosure_status not in {"disclosed", "undisclosed"}:
+        errors.append("meta.target_disclosure_status must be disclosed or undisclosed")
+    if target_disclosure_status == "disclosed":
+        _validate_string_field(meta, "target_company", "meta", errors)
+    elif "target_company" in meta and not isinstance(meta.get("target_company"), str):
+        errors.append("meta.target_company must be a string when provided")
 
     scope_summary = _validate_object(data.get("scope_summary"), "scope_summary", errors)
     for field in SCOPE_SUMMARY_FIELDS:
@@ -285,12 +296,28 @@ def _validate_length(data: dict[str, Any]) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+def _is_allowed_unverified_reconcile(data: dict[str, Any], path: str) -> bool:
+    match = re.match(r"must_reconcile\[(\d+)\]", path)
+    if not match:
+        return False
+    rows = data.get("must_reconcile")
+    if not isinstance(rows, list):
+        return False
+    index = int(match.group(1))
+    if index >= len(rows) or not isinstance(rows[index], dict):
+        return False
+    combined = " ".join(_text(value) for value in rows[index].values())
+    return bool(UNVERIFIED_RECONCILE_RE.search(combined))
+
+
 def _validate_no_claim_pollution(data: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     for path, value in _walk(data):
         if not isinstance(value, str) or not value.strip() or path.startswith("meta."):
             continue
         if path == "schema_version":
+            continue
+        if _is_allowed_unverified_reconcile(data, path):
             continue
         text = value.strip()
         for label, pattern in FORBIDDEN_CLAIM_PATTERNS:

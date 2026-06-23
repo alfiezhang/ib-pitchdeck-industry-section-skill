@@ -58,9 +58,7 @@ def _load_script_entrypoint_map() -> dict[str, str]:
 SCRIPT_ENTRYPOINT_BY_NAME = _load_script_entrypoint_map()
 
 DETERMINISTIC_REBUILD_STAGES = {
-    "SOURCE_ARCHIVE_MISSING_OR_FAILED",
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED",
-    "PRE_RESEARCH_PACK_GATE_FAILED",
     "RESEARCH_PACK_MISSING_OR_FAILED",
     "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED",
     "RENDERER_SPEC_MISSING_OR_FAILED",
@@ -155,7 +153,7 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": {
         "checkpoint": "Source archive integrity",
         "qc_mode": "Research compile generates source archive and formal execution artifacts together from research_graph_state. Source usability is reviewed inside research_evidence_db.",
-        "if_not_ok": "Research repairs search_log selected URLs or archive inputs and reruns archive validation.",
+        "if_not_ok": "Research records real attempts/sources in research_graph_state first; compile only after graph state has executed attempts and reviewed source rows.",
     },
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": {
         "checkpoint": "Planned-vs-actual research accounting",
@@ -164,8 +162,8 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     },
     "PRE_RESEARCH_PACK_GATE_FAILED": {
         "checkpoint": "Pre evidence-pack gate",
-        "qc_mode": "QC groups upstream research/source/archive failures and routes to the smallest owner repair.",
-        "if_not_ok": "Repair the upstream research artifact; do not build evidence DB or issue analysis.",
+        "qc_mode": "QC groups upstream research/source/archive failures and routes to Research for real execution or explicit non-material disposition.",
+        "if_not_ok": "Repair research_graph_state/search execution coverage first, then rerun the pre-research gate; do not rebuild downstream artifacts.",
     },
     "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": {
         "checkpoint": "Knowledge/evidence extraction",
@@ -380,28 +378,36 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
         {
-            "purpose": "compile source archive snapshots from research_graph_state.json",
+            "purpose": "LLM Research records real executed attempts, reviewed sources, source-specific evidence_ids/metric_ids, and archive/verification status in research_graph_state.json",
+            "command": "LLM task: update {run_dir}/artifacts/research_graph_state.json research_units[].attempts/sources/evidence/metrics from real opened URLs/files, then run ib_research_graph.py compile.",
+        },
+        {
+            "purpose": "compile source archive snapshots only after research_graph_state has real attempts/sources",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/ib_research_graph.py compile --state {{run_dir}}/artifacts/research_graph_state.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --run-dir {{run_dir}}",
         },
         {
             "purpose": "validate source archive integrity",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_source_archive.py --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --run-dir {{run_dir}} --output {{run_dir}}/artifacts/source_archive_validation.json",
         },
-        {
-            "purpose": "repair research coverage by editing research_graph_state.json; do not hand-edit compiled search_log.md",
-            "command": "LLM task: update {run_dir}/artifacts/research_graph_state.json research_units[].attempts/sources/evidence/metrics, then rerun ib_research_graph.py compile.",
-        },
     ],
     "PRE_RESEARCH_PACK_GATE_FAILED": [
         {
-            "purpose": "refresh the pre-research deterministic gate through the pipeline facade instead of calling raw gate scripts",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py rebuild-stale --run-dir {{run_dir}}",
+            "purpose": "QC/Research repairs actual search execution coverage or records explicit non-material dispositions before rerunning the gate",
+            "command": (
+                "LLM task: inspect {run_dir}/artifacts/stage_gate_pre_research_pack_validation.json and "
+                "{run_dir}/artifacts/formal_research_execution_report.json; repair {run_dir}/artifacts/research_graph_state.json "
+                "with real attempts/sources or explicit not_material dispositions, then rerun compile and pre-research gate."
+            ),
+        },
+        {
+            "purpose": "rerun pre-research gate after Research repair",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/final/validate_stage_gate.py --stage pre_research_pack --run-dir {{run_dir}} --source-registry {ROOT_DIR}/configs/source_registry.json --output {{run_dir}}/artifacts/stage_gate_pre_research_pack_validation.json",
         },
     ],
     "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": [
         {
             "purpose": "build Knowledge evidence DB skeleton from validated research execution and source archive artifacts",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --output {{run_dir}}/artifacts/research_evidence_db.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --research-graph-state {{run_dir}}/artifacts/research_graph_state.json --output {{run_dir}}/artifacts/research_evidence_db.json",
         },
         {
             "purpose": "LLM author final research_evidence_db source usability, EV/MET rows, metric audit, conflicts, and no-evidence status if applicable",
@@ -634,7 +640,7 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
     next_commands = dedupe_commands(recommended_commands(state))
     run_dir_str = str(state["run_dir"])
     deterministic_rebuild_available = (
-        state.get("status") in {"failed", "stale"}
+        state.get("status") == "stale"
         and state.get("current_stage") in DETERMINISTIC_REBUILD_STAGES
     )
     deterministic_rebuild_command = _pipeline_rebuild_command(run_dir_str)
@@ -719,8 +725,6 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
             "available": bool(deterministic_rebuild_available),
             "why": (
                 "current blocker is a stale deterministic artifact chain"
-                if deterministic_rebuild_available and state.get("status") == "stale"
-                else "current blocker is a deterministic aggregate check that can be refreshed from upstream artifacts"
                 if deterministic_rebuild_available
                 else "current blocker needs owner-role judgment/authoring or is not stale"
             ),

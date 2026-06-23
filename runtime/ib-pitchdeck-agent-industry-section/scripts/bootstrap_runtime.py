@@ -90,7 +90,8 @@ def runtime_check(python: str, require_search_provider: bool = True) -> tuple[bo
     payload: dict = {
         "python": python,
         "is_ready_for_ppt_pipeline": False,
-        "has_fallback_search": False,
+        "is_ready_for_e2e_research": False,
+        "has_search_provider": False,
         "error": "",
     }
     if proc.stdout.strip():
@@ -100,14 +101,10 @@ def runtime_check(python: str, require_search_provider: bool = True) -> tuple[bo
             payload["raw_stdout"] = proc.stdout
     if proc.stderr.strip():
         payload["stderr"] = proc.stderr.strip()
-    if proc.returncode == 0:
-        ok = bool(payload.get("is_ready_for_ppt_pipeline"))
+    if require_search_provider:
+        ok = bool(payload.get("is_ready_for_e2e_research"))
     else:
-        ok = bool(payload.get("is_ready_for_ppt_pipeline")) and (
-            not require_search_provider or bool(payload.get("has_fallback_search"))
-        )
-    if require_search_provider and not payload.get("has_fallback_search"):
-        ok = False
+        ok = bool(payload.get("is_ready_for_ppt_pipeline"))
     return bool(ok), payload
 
 

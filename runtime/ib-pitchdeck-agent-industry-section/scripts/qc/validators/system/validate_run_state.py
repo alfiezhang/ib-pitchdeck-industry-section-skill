@@ -340,6 +340,7 @@ def _merge_evidence_readiness(
     mission_state["research_first_required"] = bool(readiness.get("research_first_required", False))
     mission_state["critical_gap_count"] = _coerce_int(readiness.get("critical_gap_count"), default=0)
     mission_state["research_pack_exists"] = bool(readiness.get("research_pack_exists", False))
+    mission_state["research_pack_wrong_path"] = str(readiness.get("research_pack_wrong_path") or "")
     mission_state["evidence_row_count"] = _coerce_int(readiness.get("evidence_row_count"), default=0)
     mission_state["metric_row_count"] = _coerce_int(readiness.get("metric_row_count"), default=0)
     mission_state["evidence_readiness_decision_status"] = str(readiness.get("decision_status") or "needs_llm_decision")
@@ -354,6 +355,7 @@ def _merge_evidence_readiness(
 def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, Any]:
     db_path = run_dir / "artifacts" / "research_evidence_db.json"
     pack_path = run_dir / "industry_research_pack.md"
+    wrong_pack_path = run_dir / "artifacts" / "industry_research_pack.md"
     issue_analysis_path = run_dir / "industry_issue_analysis.json"
     gap_count = 0
     evidence_rows = 0
@@ -366,6 +368,7 @@ def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, 
         gap_count = len(_as_list(gap_audit.get("critical_gaps")))
 
     pack_exists = pack_path.exists()
+    pack_wrong_path = (not pack_exists) and wrong_pack_path.exists()
     decision_status = "needs_llm_decision"
     decision_owner = "reasoning"
     decision_note = "Evidence counts are telemetry only; Reasoning/QC has not recorded a readiness decision."
@@ -397,6 +400,7 @@ def _evidence_readiness_metrics(run_dir: Path, current_stage: str) -> dict[str, 
         "metric_row_count": metric_rows,
         "critical_gap_count": gap_count,
         "research_pack_exists": pack_exists,
+        "research_pack_wrong_path": str(wrong_pack_path.relative_to(run_dir)) if pack_wrong_path else "",
     }
 
 

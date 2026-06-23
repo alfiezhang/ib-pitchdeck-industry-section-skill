@@ -10,7 +10,8 @@
         "industry_scope_pack",
         "industry_boundary_qc",
         "formal_search_plan",
-        "search_batch",
+        "executable_search_batch",
+        "research_graph_state",
         "research_evidence_db",
         "issue_analysis",
         "hypothesis_store",
@@ -31,7 +32,8 @@
         "boundary_research_requests",
         "formal_search_plan",
         "coverage_map",
-        "search_batch",
+        "executable_search_batch",
+        "research_graph_state",
         "search_log",
         "formal_research_execution_report",
         "coverage_accounting",
@@ -109,7 +111,8 @@
       "artifacts": [
         "formal_search_plan",
         "coverage_map",
-        "search_batch",
+        "executable_search_batch",
+        "research_graph_state",
         "search_log",
         "source_archive",
         "formal_research_execution_report",
@@ -305,16 +308,26 @@
         "formal_search_plan"
       ]
     },
-    "search_batch": {
+    "executable_search_batch": {
       "path": "artifacts/executable_search_batch.json",
       "owner": "script_skeleton_llm_query_author",
       "display_name": "executable_search_batch",
-      "purpose": "Executable query workbench. The legacy artifact key is search_batch for compatibility only.",
+      "purpose": "Executable query workbench and the only editable query-authoring artifact.",
       "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
       "validator": "scripts/qc/validators/research/validate_executable_search_batch.py",
       "validation": "artifacts/executable_search_batch_validation.json",
       "inputs": [
         "formal_search_plan"
+      ]
+    },
+    "research_graph_state": {
+      "path": "artifacts/research_graph_state.json",
+      "owner": "research_execution_workbench",
+      "purpose": "Editable execution state for actual attempts, reviewed sources, and source-specific EV/MET capture.",
+      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
+      "inputs": [
+        "formal_search_plan",
+        "executable_search_batch"
       ]
     },
     "search_log": {
@@ -402,7 +415,8 @@
         "search_log",
         "formal_research_execution_report",
         "coverage_accounting",
-        "source_archive"
+        "source_archive",
+        "research_graph_state"
       ]
     },
     "hypothesis_store": {
@@ -707,7 +721,7 @@
     },
     {
       "gate": "executable_search_batch",
-      "artifact": "search_batch"
+      "artifact": "executable_search_batch"
     },
     {
       "gate": "source_archive",

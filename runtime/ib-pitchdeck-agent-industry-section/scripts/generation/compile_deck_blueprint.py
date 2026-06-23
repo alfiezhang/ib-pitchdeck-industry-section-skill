@@ -235,10 +235,33 @@ def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], pa
     return body
 
 
-def _visible_metric_claims_from_blueprint(slide: dict[str, Any], body_copy: dict[str, str]) -> list[dict[str, Any]]:
+def _visible_metric_claims_from_blueprint(
+    slide: dict[str, Any],
+    body_copy: dict[str, str],
+    allowed_metric_ids: list[str] | None = None,
+) -> list[dict[str, Any]]:
     explicit = slide.get("visible_metric_claims")
+    restrict_metrics = allowed_metric_ids is not None
+    allowed = set(allowed_metric_ids or [])
     if isinstance(explicit, list) and explicit:
-        return [item for item in explicit if isinstance(item, dict)]
+        if restrict_metrics and not allowed:
+            return []
+        filtered: list[dict[str, Any]] = []
+        for item in explicit:
+            if not isinstance(item, dict):
+                continue
+            metric_ids = unique(
+                [
+                    str(metric_id).strip()
+                    for metric_id in as_list(item.get("metric_ids"))
+                    if str(metric_id).strip() and (not restrict_metrics or str(metric_id).strip() in allowed)
+                ]
+            )
+            if metric_ids:
+                row = dict(item)
+                row["metric_ids"] = metric_ids
+                filtered.append(row)
+        return filtered
 
     claims: list[dict[str, Any]] = []
     proof_points = proof_points_from_blueprint_slide(slide)
@@ -247,7 +270,7 @@ def _visible_metric_claims_from_blueprint(slide: dict[str, Any], body_copy: dict
             str(item).strip()
             for point in proof_points
             for item in as_list(point.get("metric_ids"))
-            if str(item).strip()
+            if str(item).strip() and (not restrict_metrics or str(item).strip() in allowed)
         ]
     )
     headline = str(slide.get("headline") or "").strip()
@@ -265,7 +288,13 @@ def _visible_metric_claims_from_blueprint(slide: dict[str, Any], body_copy: dict
     for field, text in body_copy.items():
         for point in proof_points:
             point_text = str(point.get("point") or "").strip()
-            metrics = unique([str(item).strip() for item in as_list(point.get("metric_ids")) if str(item).strip()])
+            metrics = unique(
+                [
+                    str(item).strip()
+                    for item in as_list(point.get("metric_ids"))
+                    if str(item).strip() and (not restrict_metrics or str(item).strip() in allowed)
+                ]
+            )
             if metrics and point_text and point_text == text and any(ch.isdigit() for ch in text):
                 claims.append(
                     {
@@ -574,6 +603,14 @@ def build_renderer_spec_from_deck_blueprint(
         visual_plan = visual_plan_from_blueprint_slide(slide)
         chart_data = _normalize_chart_data(_visual_payload(slide, "chart_data"))
         compare_table_data = _normalize_compare_table_data(_visual_payload(slide, "compare_table_data"))
+        allowed_visible_metric_ids = unique(
+            [
+                str(item).strip()
+                for key in ("chart_metric_ids", "allowed_visual_metric_ids", "body_metric_ids")
+                for item in as_list(contract.get(key))
+                if str(item).strip()
+            ]
+        )
         payload = {
             "slide_no": slide_no,
             "fixed_page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
@@ -588,7 +625,11 @@ def build_renderer_spec_from_deck_blueprint(
             "body_copy": body_copy,
             "chart_data": chart_data,
             "compare_table_data": compare_table_data,
-            "visible_metric_claims": _visible_metric_claims_from_blueprint(slide, body_copy),
+            "visible_metric_claims": _visible_metric_claims_from_blueprint(
+                slide,
+                body_copy,
+                allowed_visible_metric_ids,
+            ),
             "evidence_ids": evidence_ids,
             "source_note": _source_note(slide, evidence_ids),
             "pitch_relevance": str(slide.get("pitch_relevance") or slide.get("why_this_page_matters") or slide.get("investor_question") or "").strip(),

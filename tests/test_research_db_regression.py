@@ -194,6 +194,138 @@ def test_research_db_export_validates_without_chart_ready_warning(tmp_path: Path
     assert not any("chart_ready flags" in warning for warning in result["warnings"])
 
 
+def test_research_db_rejects_extract_promoted_evidence_source_mismatch() -> None:
+    db = minimal_research_db()
+    db["source_materials"].append(
+        {
+            **db["source_materials"][0],
+            "source_review_id": "SRC-002",
+            "source_name": "Second Source",
+            "source_url": "https://example.com/second",
+        }
+    )
+    db["formal_research_extracts"].append(
+        {
+            **db["formal_research_extracts"][0],
+            "extract_id": "FX-002",
+            "source_review_id": "SRC-002",
+            "source_url": "https://example.com/second",
+            "promoted_evidence_ids": ["EV-001"],
+            "promoted_metric_ids": [],
+        }
+    )
+
+    errors, _, _ = validate_db(db)
+
+    assert any("promoted_evidence_id EV-001 belongs to source_review_id SRC-001, not SRC-002" in error for error in errors), errors
+
+
+def test_build_db_keeps_multi_source_evidence_source_specific() -> None:
+    execution_report = {
+        "issue_results": [
+            {
+                "result_id": "FR-001",
+                "issue_area": "market_size_growth",
+                "subissue": "market_segmentation",
+                "research_question": "Which categories are in scope?",
+                "status": "supported",
+                "terminal_status": "executed_with_evidence",
+                "downstream_permission": "may_support_claim",
+                "minimum_actual_searches": 1,
+                "actual_search_attempt_count": 1,
+                "search_instruction_ids": ["FS-001"],
+                "search_attempt_ids": ["S-001"],
+                "source_review_ids": ["SRC-A", "SRC-B"],
+                "evidence_ids": ["EV-001", "EV-002"],
+                "metric_ids": [],
+                "findings_summary": "Two source-specific category facts were reviewed.",
+                "limitations": ["Fixture only."],
+                "research_pack_handling": "Use source-specific evidence only.",
+            }
+        ]
+    }
+    archive_index = {
+        "entries": [
+            {
+                "source_review_id": "SRC-A",
+                "url": "https://example.com/a",
+                "title": "Source A",
+                "source_type": "company_material",
+                "archive_status": "manual_verified_excerpt",
+                "archive_path": "artifacts/source_archive/SRC-A.md",
+                "locator": "nav A",
+                "reviewed_excerpt": "Source A supports category A.",
+                "evidence_ids": ["EV-001"],
+                "secondary_verification": "verified",
+                "verification_method": "manual_source_reviewed",
+                "secondary_verification_notes": "Fixture verifies source A.",
+            },
+            {
+                "source_review_id": "SRC-B",
+                "url": "https://example.com/b",
+                "title": "Source B",
+                "source_type": "company_material",
+                "archive_status": "manual_verified_excerpt",
+                "archive_path": "artifacts/source_archive/SRC-B.md",
+                "locator": "nav B",
+                "reviewed_excerpt": "Source B supports category B.",
+                "evidence_ids": ["EV-002"],
+                "secondary_verification": "verified",
+                "verification_method": "manual_source_reviewed",
+                "secondary_verification_notes": "Fixture verifies source B.",
+            },
+        ]
+    }
+    graph_state = {
+        "research_units": [
+            {
+                "evidence": [
+                    {
+                        "evidence_id": "EV-001",
+                        "source_review_id": "SRC-A",
+                        "claim_or_metric": "Source A supports category A.",
+                        "claim_scope": "industry-level",
+                        "source_type": "company_material",
+                        "evidence_status": "primary-reviewed",
+                        "source_locator": "nav A",
+                        "raw_excerpt": "Source A supports category A.",
+                        "reliability": "official_source",
+                        "confidence": "high",
+                    },
+                    {
+                        "evidence_id": "EV-002",
+                        "source_review_id": "SRC-B",
+                        "claim_or_metric": "Source B supports category B.",
+                        "claim_scope": "industry-level",
+                        "source_type": "company_material",
+                        "evidence_status": "primary-reviewed",
+                        "source_locator": "nav B",
+                        "raw_excerpt": "Source B supports category B.",
+                        "reliability": "official_source",
+                        "confidence": "high",
+                    },
+                ]
+            }
+        ]
+    }
+
+    db = build_db(
+        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "CN"},
+        scope_pack={},
+        formal_search_plan={"issue_search_plan": []},
+        execution_report=execution_report,
+        source_reviews={},
+        source_archive_index=archive_index,
+        research_graph_state=graph_state,
+    )
+
+    extracts = {row["source_review_id"]: row for row in db["formal_research_extracts"]}
+    assert extracts["SRC-A"]["promoted_evidence_ids"] == ["EV-001"], extracts
+    assert extracts["SRC-B"]["promoted_evidence_ids"] == ["EV-002"], extracts
+    evidence_sources = {row["evidence_id"]: row["source_review_id"] for row in db["evidence_ledger"]}
+    assert evidence_sources == {"EV-001": "SRC-A", "EV-002": "SRC-B"}
+
+
 def test_final_delivery_provenance_detects_stale_research_db_validation(tmp_path: Path) -> None:
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifacts = tmp_path / "artifacts"

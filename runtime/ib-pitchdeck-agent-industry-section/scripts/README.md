@@ -12,7 +12,7 @@ Normal agent work should use only:
 - `start_case_from_brief.py` for one-shot text brief intake;
 - `state_report.py next` for observed state and owner routing;
 - `qc/gate_report.py` for one aggregated root-cause / owner / next-action report;
-- `pipeline.py rebuild-stale` for deterministic stale/failed aggregate chains;
+- `pipeline.py rebuild-stale` for deterministic stale derived chains;
 - `pipeline.py validate-pre-ppt`, `pipeline.py render`, and
   `pipeline.py finalize` for output readiness and delivery;
 - `scripts/qc/qc_router.py` for repair grouping.
