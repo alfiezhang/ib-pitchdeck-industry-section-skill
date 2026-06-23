@@ -635,6 +635,7 @@ def _pipeline_run_dir(tmp_path_factory):
         "geography": "Samplestan",
         "transaction_type": "control sale",
         "language": "English",
+        "research_as_of_date": "2026-01-01",
     }
     plan = build_formal_search_plan(input_card_payload, scope_pack)
     _rewrite_plan_queries_for_contract_test(plan)
@@ -876,15 +877,69 @@ def _pipeline_run_dir(tmp_path_factory):
     assert archive_result["is_valid"], archive_result
     _write_json(artifacts / "source_archive_validation.json", archive_result)
 
-    # Research evidence DB
+    # Research evidence DB: build skeleton, then simulate Knowledge LLM authoring for fixtures.
+    from research_evidence_db import build_db as build_research_evidence_db
     from research_evidence_db import validate_db as validate_research_evidence_db
     from research_evidence_db import export_markdown as export_research_pack_from_db
 
-    research_db = json.loads((artifacts / "research_evidence_db.json").read_text(encoding="utf-8"))
+    research_db = build_research_evidence_db(
+        input_card=input_card_payload,
+        scope_pack=scope_pack,
+        formal_search_plan=plan,
+        execution_report=report,
+        source_reviews={},
+        source_archive_index=json.loads((archive_dir / "source_archive_index.json").read_text(encoding="utf-8")),
+    )
+    state_evidence = {
+        item["evidence_id"]: item
+        for unit in state["research_units"]
+        for item in unit.get("evidence", [])
+        if isinstance(item, dict) and item.get("evidence_id")
+    }
+    state_metrics = {
+        item["metric_id"]: item
+        for unit in state["research_units"]
+        for item in unit.get("metrics", [])
+        if isinstance(item, dict) and item.get("metric_id")
+    }
+    for row in research_db.get("evidence_ledger", []):
+        authored = state_evidence.get(row.get("evidence_id"), {})
+        row.update({key: value for key, value in authored.items() if value not in (None, "")})
+        row["claim_or_metric"] = authored.get("claim_or_metric", row.get("claim_or_metric"))
+        row["source_name"] = row.get("source_name") or "Contract fixture source"
+    for row in research_db.get("metric_reconciliation", []):
+        authored = state_metrics.get(row.get("metric_id"), {})
+        row.update({key: value for key, value in authored.items() if value not in (None, "")})
+        row["source_name"] = row.get("source_name") or "Contract fixture source"
+        row["source_access_path"] = row.get("source_access_path") or "artifacts/source_archive/SRC-001.md"
+        row["source_type"] = row.get("source_type") or "industry_report"
+        row["source_date"] = row.get("source_date") or "2026-01-01"
+        row["source_locator"] = row.get("source_locator") or "table 2, current market-size row"
+        row["raw_excerpt"] = row.get("raw_excerpt") or "The report gives a current market-size datapoint with geography and source scope."
+        row["audit_note"] = "Contract fixture audited metric row."
+    for extract in research_db.get("formal_research_extracts", []):
+        promoted_ev = extract.get("promoted_evidence_ids") or []
+        promoted_met = extract.get("promoted_metric_ids") or []
+        if promoted_ev:
+            extract["extracted_fact_or_metric_candidate"] = state_evidence[promoted_ev[0]]["claim_or_metric"]
+        elif promoted_met:
+            extract["extracted_fact_or_metric_candidate"] = state_metrics[promoted_met[0]]["metric_name"]
+    research_db["additional_sector_specific_notes"] = "Contract fixture authored evidence DB."
+    research_db["research_gap_audit"]["critical_gaps"] = [
+        item for item in research_db["research_gap_audit"].get("critical_gaps", []) if "TODO" not in item
+    ]
+    research_db["research_gap_audit"]["metric_consistency_check"] = {
+        "GMV vs revenue": "Not applicable in contract fixture.",
+        "Cross-slide repeated metric consistency": "MET-001 is reused consistently in fixture slides.",
+        "Target financials consistency": "No target financials are promoted in this fixture.",
+        "User-provided vs external-source discrepancy": "No user-provided conflicting metric in this fixture.",
+        "Chart number consistency": "Chart-ready metrics preserve original fixture values.",
+    }
+    _write_json(artifacts / "research_evidence_db.json", research_db)
     db_errors, db_warnings, _ = validate_research_evidence_db(research_db)
     assert not db_errors, db_errors
     _write_json(artifacts / "research_evidence_db_validation.json", {"is_valid": True, "errors": [], "warnings": db_warnings})
-    embedded_reviews = json.loads((artifacts / "source_reviews.json").read_text(encoding="utf-8"))
+    embedded_reviews = json.loads((artifacts / "archive_capture_reviews.json").read_text(encoding="utf-8"))
 
     boundary_status = _seed_boundary_loop_status(
         run_dir,

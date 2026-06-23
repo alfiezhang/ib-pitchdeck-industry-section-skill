@@ -152,7 +152,7 @@ def build_summary_payload(run_dir: Path) -> dict[str, Any]:
             "search_attempt_count": count_search_attempts(artifacts / "search_log.md"),
             "formal_research_execution_warning_count": formal_execution.get("warning_count", 0),
             "formal_research_execution_error_count": formal_execution.get("error_count", 0),
-            "embedded_source_review_note": "Source-review decisions live in research_evidence_db.source_reviews.",
+            "embedded_source_review_note": "Archive/capture records live in research outputs; final source usability decisions live in research_evidence_db.source_reviews.",
             "source_review_warning_count": 0,
             "source_review_error_count": 0,
             "source_archive_valid": source_archive.get("is_valid") is True,

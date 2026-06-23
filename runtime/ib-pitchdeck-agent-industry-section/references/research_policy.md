@@ -186,9 +186,12 @@ state fields:
   support key numbers, chart data, hard claims, or client-facing source notes
   unless promoted into `EV-xxx` / `MET-xxx`.
 
-Do not hand-author `search_log.md`, `source_archive_index.json`,
-`formal_research_execution_report.json`, or `research_evidence_db.json`; they
-are compiled artifacts.
+Do not hand-author `search_log.md`, `source_archive_index.json`, or
+`formal_research_execution_report.json`; they are compiled from
+`research_graph_state.json`. `research_evidence_db.json` is different: build a
+Knowledge skeleton from validated execution/archive artifacts, then have
+Knowledge LLM author source usability, EV/MET rows, metric audit, conflicts,
+and claim-use limits.
 
 For `research_context`, do not force an audit-grade snapshot. Record the search
 attempt, source URL/title, short note/summary, and limitations in
@@ -218,6 +221,12 @@ enough; Research must also make the archive-status decision explicitly. Search
 snippets, `research_context`, and `needs_research_verification` rows stay as
 context/leads/gaps.
 
+`saved_text`, `saved_html`, and `saved_pdf` mean a full source capture or
+equivalent archived source with an explicit `capture_method` such as
+`full_page_capture`, `downloaded_pdf`, `user_provided_file`, or
+`archived_copy_reviewed`. A long raw excerpt, scraped snippet, or copied search
+result is not a saved source.
+
 ```bash
 "$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py compile \
   --state "$RUN_DIR/artifacts/research_graph_state.json" \
@@ -236,10 +245,11 @@ context/leads/gaps.
   --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
 ```
 
-The compiler synchronizes `FS-xxx`, real `S-xxx`, archived `SRC-xxx`, promoted
-`EV-xxx`, and `MET-xxx` references from one state source. The LLM must still
-review state-level findings, limitations, handling, and EV/MET rows from actual
-source support before compiling.
+The compiler synchronizes `FS-xxx`, real `S-xxx`, archived/captured `SRC-xxx`,
+execution status, and coverage accounting from one state source. It does not
+author the Knowledge evidence DB. Candidate EV/MET rows in research state are
+only candidates until Knowledge LLM promotes them in
+`research_evidence_db.json`.
 
 The generated/edited report should contain one `issue_results[]` entry per
 planned instruction. It is a planned-vs-actual coverage ledger, not a narrative

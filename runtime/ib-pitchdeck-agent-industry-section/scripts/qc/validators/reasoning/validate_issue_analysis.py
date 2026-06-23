@@ -625,9 +625,9 @@ REPAIR_PROFILES: dict[str, dict[str, Any]] = {
         "repair_fields": ["issue_analyses[]", "research_backlog[]"],
     },
     "research_pack_inventory_mismatch": {
-        "repair_target": "industry_research_pack.md",
-        "repair_hint": "Align issue_area/subissue with the IB Issue Fact Inventory, or update the research pack inventory if the analysis is genuinely supported by formal evidence.",
-        "repair_fields": ["IB Issue Fact Inventory", "issue_analyses[].issue_area", "issue_analyses[].subissue"],
+        "repair_target": "artifacts/research_evidence_db.json",
+        "repair_hint": "Repair the research_evidence_db issue_fact_inventory or the issue_analysis lineage; industry_research_pack.md is a generated export and must only be regenerated from the DB.",
+        "repair_fields": ["research_evidence_db.issue_fact_inventory", "issue_analyses[].issue_area", "issue_analyses[].subissue"],
     },
     "page_logic_in_issue_analysis": {
         "repair_target": "industry_issue_analysis.json",

@@ -123,7 +123,7 @@ def _permission_from_page_argument(argument: dict[str, Any]) -> dict[str, bool]:
     if isinstance(explicit, dict):
         return {
             "headline_allowed": explicit.get("headline_allowed") is True,
-            "main_message_allowed": explicit.get("main_message_allowed") is True,
+            "main_message_allowed": explicit.get("main_message_allowed") is True or explicit.get("headline_allowed") is True,
             "chart_allowed": explicit.get("chart_allowed") is True,
             "body_copy_allowed": explicit.get("body_copy_allowed") is True,
         }

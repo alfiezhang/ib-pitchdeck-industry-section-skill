@@ -154,7 +154,7 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     },
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": {
         "checkpoint": "Source archive integrity",
-        "qc_mode": "Research archives actual searched/manual sources before evidence extraction. Source usability is reviewed inside research_evidence_db.",
+        "qc_mode": "Research compile generates source archive and formal execution artifacts together from research_graph_state. Source usability is reviewed inside research_evidence_db.",
         "if_not_ok": "Research repairs search_log selected URLs or archive inputs and reruns archive validation.",
     },
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": {
@@ -400,8 +400,16 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED": [
         {
-            "purpose": "compile research evidence database from the state-first research graph",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/research-external-evidence/ib_research_graph.py compile --state {{run_dir}}/artifacts/research_graph_state.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --run-dir {{run_dir}}",
+            "purpose": "build Knowledge evidence DB skeleton from validated research execution and source archive artifacts",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/knowledge-repository/build_research_evidence_db.py --input-card {{run_dir}}/input_card.json --scope-pack {{run_dir}}/artifacts/industry_scope_pack.json --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --formal-research-execution-report {{run_dir}}/artifacts/formal_research_execution_report.json --source-archive-index {{run_dir}}/artifacts/source_archive/source_archive_index.json --output {{run_dir}}/artifacts/research_evidence_db.json",
+        },
+        {
+            "purpose": "LLM author final research_evidence_db source usability, EV/MET rows, metric audit, conflicts, and no-evidence status if applicable",
+            "command": (
+                "LLM task: Knowledge edits {run_dir}/artifacts/research_evidence_db.json. "
+                "Do not let TODO fields stand; do not promote search snippets; if no EV row is client-ready, set "
+                "research_gap_audit.no_client_ready_evidence=true with rationale and deliverable_constraint."
+            ),
         },
         {
             "purpose": "validate research evidence database after LLM fills extracts/EV/MET/inventory fields",
@@ -478,7 +486,7 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
         },
         {
             "purpose": "validate page argument pack before deck blueprint writing",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_page_argument_pack.py --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --output {{run_dir}}/artifacts/page_argument_pack_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_page_argument_pack.py --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --output {{run_dir}}/artifacts/page_argument_pack_validation.json",
         },
     ],
     "TEMPLATE_REGISTRY_MISSING_OR_FAILED": [
@@ -822,8 +830,9 @@ def next_payload(run_dir: Path, *, write_state: bool = False) -> dict[str, Any]:
             "artifact": "artifacts/formal_research_execution_report.json",
             "required_steps": [
                 "Edit artifacts/research_graph_state.json so each executed research unit has attempts/sources/evidence/metrics and unresolved units remain gap-only.",
-                "Run ib_research_graph.py compile to regenerate search_log.md, source archive, formal execution, coverage accounting, evidence DB, and research pack.",
-                "Do not hand-edit compiled search_log.md, formal_research_execution_report.json, or research_evidence_db.json to bypass the state graph.",
+                "Run ib_research_graph.py compile to regenerate search_log.md, source archive, formal execution, and coverage accounting.",
+                "After execution/archive validation passes, build and author research_evidence_db.json through the Knowledge step; do not let research compile overwrite it.",
+                "Do not hand-edit compiled search_log.md or formal_research_execution_report.json to bypass the state graph.",
             ],
         }
     if state["current_stage"] == "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED":

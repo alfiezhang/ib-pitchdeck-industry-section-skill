@@ -70,6 +70,17 @@ def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+def _unique(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    values: list[str] = []
+    for item in items:
+        text = str(item or "").strip()
+        if text and text not in seen:
+            seen.add(text)
+            values.append(text)
+    return values
+
+
 def _non_empty_text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
@@ -83,6 +94,14 @@ def _analysis_index(pool: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def _is_page_argument_pack(payload: dict[str, Any]) -> bool:
     return isinstance(payload.get("page_arguments"), list)
+
+
+def _page_argument_index(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        str(item.get("page_argument_id") or "").strip(): item
+        for item in _as_list(payload.get("page_arguments"))
+        if isinstance(item, dict) and str(item.get("page_argument_id") or "").strip()
+    }
 
 
 def _analyses_for_strategy(pool: dict[str, Any], strategy_entry: dict[str, Any], global_analyses: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -121,6 +140,24 @@ def _analysis_downstream_permission(analysis: dict[str, Any]) -> dict[str, bool]
         "main_message_allowed": bool(usage.get("headline_allowed") is True),
         "chart_allowed": bool(usage.get("chart_allowed") is True),
         "body_copy_allowed": bool(usage.get("body_copy_allowed") is True),
+    }
+
+
+def _page_argument_downstream_permission(argument: dict[str, Any]) -> dict[str, bool]:
+    permission = argument.get("downstream_permission")
+    if isinstance(permission, dict):
+        return {
+            "headline_allowed": permission.get("headline_allowed") is True,
+            "main_message_allowed": permission.get("main_message_allowed") is True or permission.get("headline_allowed") is True,
+            "chart_allowed": permission.get("chart_allowed") is True,
+            "body_copy_allowed": permission.get("body_copy_allowed") is True,
+        }
+    usage = str(argument.get("allowed_deck_usage") or "").strip()
+    return {
+        "headline_allowed": usage == "headline_allowed",
+        "main_message_allowed": usage == "headline_allowed",
+        "chart_allowed": usage in {"headline_allowed", "body_only"},
+        "body_copy_allowed": usage in {"headline_allowed", "body_only", "supporting_context", "context_only", "caveat_only"},
     }
 
 
@@ -495,6 +532,46 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
                         f"{prefix}: selected_issue_downstream_permissions[{analysis_id}].downstream_permission "
                         f"must match selected page-argument allowed permissions"
                     )
+            page_argument_permissions = slide.get("selected_page_argument_permissions")
+            if not isinstance(page_argument_permissions, list):
+                errors.append(f"{prefix}: selected_page_argument_permissions must be an array")
+            elif _is_page_argument_pack(pool):
+                page_argument_index = _page_argument_index(pool)
+                expected_page_argument_ids = selected_page_argument_ids(strategy_entry)
+                entry_ids = [
+                    str(entry.get("page_argument_id") or "").strip()
+                    for entry in page_argument_permissions
+                    if isinstance(entry, dict)
+                ]
+                if entry_ids != expected_page_argument_ids:
+                    errors.append(
+                        f"{prefix}: selected_page_argument_permissions must preserve selected page_argument_ids order "
+                        f"{expected_page_argument_ids}"
+                    )
+                for entry_idx, entry in enumerate(page_argument_permissions, start=1):
+                    if not isinstance(entry, dict):
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{entry_idx}] must be object")
+                        continue
+                    argument_id = str(entry.get("page_argument_id") or "").strip()
+                    argument = page_argument_index.get(argument_id)
+                    if not argument:
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{entry_idx}] page_argument_id {argument_id or '<blank>'} not found in page_argument_pack")
+                        continue
+                    expected_permission = _page_argument_downstream_permission(argument)
+                    if entry.get("downstream_permission") != expected_permission:
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].downstream_permission must match the selected PA")
+                    expected_evidence_ids = _unique([str(item).strip() for item in _as_list(argument.get("evidence_ids")) if str(item).strip()])
+                    expected_metric_ids = _unique([str(item).strip() for item in _as_list(argument.get("metric_ids")) if str(item).strip()])
+                    if _as_list(entry.get("evidence_ids")) != expected_evidence_ids:
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].evidence_ids must match the selected PA")
+                    if _as_list(entry.get("metric_ids")) != expected_metric_ids:
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].metric_ids must match the selected PA")
+                    expected_body_ids = expected_evidence_ids if expected_permission.get("body_copy_allowed") else []
+                    expected_visual_ids = expected_metric_ids if expected_permission.get("chart_allowed") else []
+                    if _as_list(entry.get("body_evidence_ids")) != expected_body_ids:
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].body_evidence_ids must respect PA body_copy_allowed")
+                    if _as_list(entry.get("visual_metric_ids")) != expected_visual_ids:
+                        errors.append(f"{prefix}: selected_page_argument_permissions[{argument_id}].visual_metric_ids must respect PA chart_allowed")
 
         claim_strength = str(slide.get("claim_strength") or "").strip()
         if claim_strength not in VALID_CLAIM_STRENGTHS:

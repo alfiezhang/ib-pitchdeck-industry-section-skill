@@ -20,16 +20,17 @@
       "archive_unavailable_reason": "",
       "audit_level": "audited_metric",
       "excerpt_origin": "opened_page",
-      "verification_method": "opened_original_url",
-      "secondary_verification": "verified",
-      "secondary_verification_notes": "Research reopened the URL or found matching source text/report context after full-page download failed.",
-      "research_archive_status": "manual_verified_excerpt"
+      "capture_method": "full_page_capture",
+      "verification_method": "",
+      "secondary_verification": "",
+      "secondary_verification_notes": "",
+      "research_archive_status": ""
     }
   ],
   "status_values": {
-    "saved_html": "Full HTML source was downloaded and a reviewable markdown/text snapshot was saved at archive_path.",
-    "saved_text": "Clean markdown/text/html snapshot saved at archive_path.",
-    "saved_pdf": "PDF source saved at archive_path.",
+    "saved_html": "Full HTML source was downloaded with explicit capture_method=full_page_capture or archived_copy_reviewed and a reviewable snapshot was saved at archive_path.",
+    "saved_text": "Full text/markdown source capture saved at archive_path with explicit capture_method. Long excerpts or snippets alone are not saved_text.",
+    "saved_pdf": "PDF source saved at archive_path with explicit capture_method=downloaded_pdf or user_provided_file.",
     "manual_verified_excerpt": "Full download failed, but Research completed secondary verification, explicitly declared research_archive_status=manual_verified_excerpt, verification_method, and saved a source-faithful excerpt with locator and verification notes.",
     "needs_research_verification": "Full download failed and Research has not yet completed secondary verification. Keep as a lead/gap, not evidence.",
     "search_snippet_only": "Only a search-result snippet is available. Keep as a lead only.",

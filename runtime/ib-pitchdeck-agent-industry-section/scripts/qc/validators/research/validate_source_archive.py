@@ -54,6 +54,12 @@ VALID_VERIFICATION_METHODS = {
     "official_filing_reviewed",
     "manual_source_reviewed",
 }
+VALID_CAPTURE_METHODS = {
+    "full_page_capture",
+    "downloaded_pdf",
+    "user_provided_file",
+    "archived_copy_reviewed",
+}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -102,6 +108,7 @@ def _canonical_archive_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "archive_path": ("archive_path", "snapshot_path", "path"),
         "reviewed_excerpt": ("reviewed_excerpt", "excerpt", "raw_excerpt"),
         "archive_unavailable_reason": ("archive_unavailable_reason", "unavailable_reason", "reason"),
+        "capture_method": ("capture_method", "archive_capture_method", "snapshot_capture_method"),
     }
     for target, keys in aliases.items():
         if target not in canonical or not _text(canonical.get(target)):
@@ -277,6 +284,12 @@ def validate(
                     f"{review_id}: archive_status=excerpt_snapshot is legacy/ambiguous; Research should rebuild as manual_verified_excerpt or needs_research_verification"
                 )
             elif status in {"saved_html", "saved_text", "saved_pdf"}:
+                capture_method = _text(entry.get("capture_method"))
+                if capture_method not in VALID_CAPTURE_METHODS:
+                    errors.append(
+                        f"{review_id}: archive_status={status} requires capture_method one of {sorted(VALID_CAPTURE_METHODS)}; "
+                        "long raw text alone cannot upgrade a source to saved_text/saved_html"
+                    )
                 evidence_ready_count += 1
             saved_count += 1
         elif status == "archive_unavailable":

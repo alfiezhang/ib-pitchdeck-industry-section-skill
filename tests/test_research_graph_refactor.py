@@ -5,6 +5,8 @@ from pathlib import Path
 
 from conftest import _minimal_scope_pack, _rewrite_plan_queries_for_contract_test
 from ib_research_graph import build_formal_search_plan, compile_graph_state, init_graph_state
+from research_evidence_db import build_db as build_research_evidence_db
+from research_evidence_db import export_markdown as export_research_pack_from_db
 from unit_normalizer import normalize_metric_row
 from validate_formal_research_execution import validate as validate_formal_research_execution
 from validate_research_evidence_db import validate_db as validate_research_evidence_db
@@ -43,6 +45,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
         "subsector": "sample subsector",
         "geography": "Samplestan",
         "language": "English",
+        "research_as_of_date": "2026-01-01",
     }
     scope_pack = _minimal_scope_pack()
     plan = build_formal_search_plan(input_card, scope_pack)
@@ -215,13 +218,43 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     archive_index = json.loads((artifacts / "source_archive" / "source_archive_index.json").read_text(encoding="utf-8"))
     archive_entry = archive_index["entries"][0]
     context_archive_entry = archive_index["entries"][1]
-    assert archive_entry["archive_status"] == "saved_text"
+    assert archive_entry["archive_status"] == "manual_verified_excerpt"
     assert archive_entry["raw_archive_path"].startswith("artifacts/source_archive/raw/")
     assert (run_dir / archive_entry["raw_archive_path"]).exists()
     assert context_archive_entry["archive_status"] == "research_context"
     assert context_archive_entry["archive_path"] == ""
 
-    research_db = json.loads((artifacts / "research_evidence_db.json").read_text(encoding="utf-8"))
+    research_db = build_research_evidence_db(
+        input_card=input_card,
+        scope_pack=scope_pack,
+        formal_search_plan=plan,
+        execution_report=report,
+        source_reviews={},
+        source_archive_index=archive_index,
+    )
+    state_evidence = first_unit["evidence"][0]
+    state_metric, _ = normalize_metric_row(first_unit["metrics"][0])
+    research_db["evidence_ledger"][0].update(state_evidence)
+    research_db["metric_reconciliation"][0].update(state_metric)
+    research_db["metric_reconciliation"][0]["audit_note"] = "Fixture metric normalized and source-scoped."
+    for extract in research_db["formal_research_extracts"]:
+        if extract.get("promoted_evidence_ids"):
+            extract["extracted_fact_or_metric_candidate"] = state_evidence["claim_or_metric"]
+        elif extract.get("promoted_metric_ids"):
+            extract["extracted_fact_or_metric_candidate"] = state_metric["metric_name"]
+        else:
+            extract["extracted_fact_or_metric_candidate"] = "Context-only source reviewed; no promoted EV/MET row."
+    research_db["research_gap_audit"]["critical_gaps"] = [
+        item for item in research_db["research_gap_audit"].get("critical_gaps", []) if "TODO" not in item
+    ]
+    research_db["research_gap_audit"]["metric_consistency_check"] = {
+        "GMV vs revenue": "Not applicable in graph refactor fixture.",
+        "Cross-slide repeated metric consistency": "MET-001 is unique and source scoped.",
+        "Target financials consistency": "No target financials promoted.",
+        "User-provided vs external-source discrepancy": "No user-provided conflicting metric.",
+        "Chart number consistency": "Metric row preserves normalized and original values.",
+    }
+    (artifacts / "research_evidence_db.json").write_text(json.dumps(research_db, ensure_ascii=False, indent=2), encoding="utf-8")
     db_errors, _db_warnings, db_metrics = validate_research_evidence_db(research_db)
     assert not db_errors, db_errors
     assert db_metrics["evidence_ledger_row_count"] == 1
@@ -235,6 +268,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     assert metric["source_locator"] == "Section 2, market-size table and methodology paragraph"
     assert research_db["research_context"][0]["audit_level"] == "research_context"
 
+    (run_dir / "industry_research_pack.md").write_text(export_research_pack_from_db(research_db), encoding="utf-8")
     pack = (run_dir / "industry_research_pack.md").read_text(encoding="utf-8")
     assert "EV-001" in pack
     assert "MET-001" in pack
@@ -287,3 +321,100 @@ def test_research_graph_does_not_synthesize_attempts_for_untraced_evidence(tmp_p
     assert report["issue_results"][0]["terminal_status"] == "not_executed"
     assert report["issue_results"][0]["search_attempt_ids"] == []
     assert "attempt" in report["issue_results"][0]["limitations"][0].lower()
+
+
+def test_research_graph_requires_explicit_evidence_authorization(tmp_path: Path) -> None:
+    input_card = {"industry": "sample sector", "geography": "Samplestan"}
+    scope_pack = _minimal_scope_pack()
+    plan = build_formal_search_plan(input_card, scope_pack)
+    state = init_graph_state(formal_search_plan=plan, input_card=input_card, scope_pack=scope_pack)
+    first_unit = state["research_units"][0]
+    first_unit.update(
+        {
+            "attempts": [
+                {
+                    "query": "sample sector market size report",
+                    "provider": "contract_fixture",
+                    "selected_source_urls": ["https://example.com/candidate"],
+                    "opened_reviewed": "yes",
+                    "locator_excerpt": "Candidate source was opened, but Research did not authorize downstream evidence use.",
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://example.com/candidate",
+                    "title": "Candidate source",
+                    "source_type": "industry_report",
+                    "archive_status": "manual_verified_excerpt",
+                    "locator": "section 1 candidate metric",
+                    "reviewed_excerpt": "Candidate excerpt mentions a metric, but this fixture omits explicit evidence authorization.",
+                    "usable_as_evidence": True,
+                    "secondary_verification": "verified",
+                    "verification_method": "manual_source_reviewed",
+                    "secondary_verification_notes": "Fixture intentionally verifies capture but not downstream evidence permission.",
+                    "research_archive_status": "manual_verified_excerpt",
+                }
+            ],
+            "evidence": [{"claim_or_metric": "Candidate claim should not be promoted."}],
+            "metrics": [{"metric_name": "Candidate metric", "value": "1", "unit": "RMB bn"}],
+        }
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "artifacts").mkdir()
+
+    compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
+
+    report = json.loads((run_dir / "artifacts" / "formal_research_execution_report.json").read_text(encoding="utf-8"))
+    row = report["issue_results"][0]
+    assert row["terminal_status"] == "executed_no_usable_source"
+    assert row["status"] == "insufficient"
+    assert row["evidence_ids"] == []
+    assert row["metric_ids"] == []
+    assert "explicit Research authorization is missing" in row["findings_summary"]
+
+
+def test_raw_archive_text_does_not_upgrade_to_saved_text(tmp_path: Path) -> None:
+    input_card = {"industry": "sample sector", "geography": "Samplestan"}
+    scope_pack = _minimal_scope_pack()
+    plan = build_formal_search_plan(input_card, scope_pack)
+    state = init_graph_state(formal_search_plan=plan, input_card=input_card, scope_pack=scope_pack)
+    first_unit = state["research_units"][0]
+    first_unit.update(
+        {
+            "status": "thin",
+            "terminal_status": "directional_only",
+            "downstream_permission": "contextual_only",
+            "attempts": [
+                {
+                    "query": "sample sector source with raw text",
+                    "provider": "contract_fixture",
+                    "selected_source_urls": ["https://example.com/raw"],
+                    "opened_reviewed": "yes",
+                    "locator_excerpt": "Raw text was captured but not declared as a full saved source.",
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://example.com/raw",
+                    "title": "Raw captured source",
+                    "source_type": "industry_report",
+                    "locator": "section 1 raw capture",
+                    "reviewed_excerpt": "Raw capture text is long enough to create a raw file, but it is not a full-page saved source.",
+                    "raw_archive_content_type": "text/plain",
+                    "raw_archive_text": " ".join(["raw source text"] * 40),
+                }
+            ],
+        }
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "artifacts").mkdir()
+
+    compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
+
+    archive = json.loads((run_dir / "artifacts" / "source_archive" / "source_archive_index.json").read_text(encoding="utf-8"))
+    entry = archive["entries"][0]
+    assert entry["raw_archive_path"].startswith("artifacts/source_archive/raw/")
+    assert entry["archive_status"] != "saved_text"
+    assert entry["archive_status"] in {"research_context", "needs_research_verification"}

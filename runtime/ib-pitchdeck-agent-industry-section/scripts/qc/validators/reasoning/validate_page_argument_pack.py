@@ -29,10 +29,18 @@ for _ib_path in reversed(_IB_IMPORT_PATHS):
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from json_utils import load_json_file
+
+
+PA_RE = re.compile(r"^PA-\d{3}$")
+IA_RE = re.compile(r"^IA-\d{3}$")
+EV_RE = re.compile(r"^EV-\d{3}$")
+MET_RE = re.compile(r"^MET-\d{3}$")
+PERMISSION_FIELDS = ("headline_allowed", "main_message_allowed", "chart_allowed", "body_copy_allowed")
 
 
 def text(value: Any) -> str:
@@ -43,7 +51,34 @@ def as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
+def _issue_analysis_ids(payload: dict[str, Any] | None) -> set[str]:
+    if not isinstance(payload, dict):
+        return set()
+    return {
+        text(item.get("analysis_id") or item.get("issue_analysis_id") or item.get("id"))
+        for item in as_list(payload.get("issue_analyses"))
+        if isinstance(item, dict) and text(item.get("analysis_id") or item.get("issue_analysis_id") or item.get("id"))
+    }
+
+
+def _permission_from_usage(usage: str) -> dict[str, bool]:
+    return {
+        "headline_allowed": usage == "headline_allowed",
+        "main_message_allowed": usage == "headline_allowed",
+        "chart_allowed": usage in {"headline_allowed", "body_only"},
+        "body_copy_allowed": usage in {"headline_allowed", "body_only", "supporting_context", "context_only", "caveat_only"},
+    }
+
+
+def _permission_shape(value: Any) -> dict[str, bool] | None:
+    if not isinstance(value, dict):
+        return None
+    if any(not isinstance(value.get(field), bool) for field in PERMISSION_FIELDS):
+        return None
+    return {field: bool(value.get(field) is True) for field in PERMISSION_FIELDS}
+
+
+def validate(payload: dict[str, Any], issue_analysis: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     if payload.get("schema_version") != "page_argument_pack_v1":
@@ -56,6 +91,8 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
         return errors, warnings
     if not rows:
         errors.append("page_arguments must contain at least one candidate page argument")
+    seen_ids: set[str] = set()
+    valid_issue_ids = _issue_analysis_ids(issue_analysis)
     allowed_usage = {
         "headline_allowed",
         "body_only",
@@ -72,18 +109,52 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
             errors.append(f"page_arguments[{idx}] must be an object")
             continue
         arg_id = text(row.get("page_argument_id")) or f"page_arguments[{idx}]"
+        if not PA_RE.fullmatch(arg_id):
+            errors.append(f"{arg_id}: page_argument_id must follow PA-001 format")
+        elif arg_id in seen_ids:
+            errors.append(f"{arg_id}: duplicate page_argument_id")
+        else:
+            seen_ids.add(arg_id)
         for field in ("source_issue_analysis_id", "page_argument", "evidence_status", "allowed_deck_usage"):
             if not text(row.get(field)):
                 errors.append(f"{arg_id}: {field} is required")
+        source_ia = text(row.get("source_issue_analysis_id"))
+        if source_ia and not IA_RE.fullmatch(source_ia):
+            errors.append(f"{arg_id}: source_issue_analysis_id must follow IA-001 format")
+        if valid_issue_ids and source_ia and source_ia not in valid_issue_ids:
+            errors.append(f"{arg_id}: source_issue_analysis_id {source_ia} not found in issue_analysis")
         usage = text(row.get("allowed_deck_usage"))
         if usage not in allowed_usage:
             errors.append(f"{arg_id}: allowed_deck_usage must be one of {sorted(allowed_usage)}")
+        permission = _permission_shape(row.get("downstream_permission"))
+        if permission is None:
+            errors.append(f"{arg_id}: downstream_permission must contain boolean fields {list(PERMISSION_FIELDS)}")
+            permission = _permission_from_usage(usage)
+        expected_floor = _permission_from_usage(usage)
+        if usage == "headline_allowed" and not permission["headline_allowed"]:
+            errors.append(f"{arg_id}: headline_allowed usage requires downstream_permission.headline_allowed=true")
+        if usage in {"body_only", "supporting_context", "context_only", "caveat_only"} and permission["headline_allowed"]:
+            errors.append(f"{arg_id}: {usage} cannot set downstream_permission.headline_allowed=true")
+        if expected_floor["body_copy_allowed"] and not permission["body_copy_allowed"]:
+            errors.append(f"{arg_id}: {usage} requires downstream_permission.body_copy_allowed=true")
         if usage == "headline_allowed" and not (as_list(row.get("evidence_ids")) or as_list(row.get("metric_ids"))):
             errors.append(f"{arg_id}: headline_allowed requires evidence_ids or metric_ids")
+        for ev_id in as_list(row.get("evidence_ids")):
+            if not EV_RE.fullmatch(text(ev_id)):
+                errors.append(f"{arg_id}: invalid evidence_id '{text(ev_id)}'")
+        for met_id in as_list(row.get("metric_ids")):
+            if not MET_RE.fullmatch(text(met_id)):
+                errors.append(f"{arg_id}: invalid metric_id '{text(met_id)}'")
+        evidence_status = text(row.get("evidence_status"))
+        if usage == "headline_allowed" and evidence_status != "supported":
+            errors.append(f"{arg_id}: headline_allowed requires evidence_status=supported")
         if text(row.get("evidence_status")) in {"not_researched", "rejected"} and usage != "not_allowed":
             errors.append(f"{arg_id}: not_researched/rejected evidence cannot be used in deck")
         if not text(row.get("hypothesis_resolution_status")):
-            warnings.append(f"{arg_id}: hypothesis_resolution_status is missing; link page arguments back to hypothesis resolution when available")
+            if usage in {"headline_allowed", "body_only", "supporting_context", "context_only"}:
+                errors.append(f"{arg_id}: usable page arguments require hypothesis_resolution_status")
+            else:
+                warnings.append(f"{arg_id}: hypothesis_resolution_status is missing; link page arguments back to hypothesis resolution when available")
         if usage in {"caveat_only", "diligence_only", "caveat_or_diligence_question_only", "not_allowed_in_headline"}:
             warnings.append(f"{arg_id}: cannot be used as headline; keep as caveat/body/open question")
     return errors, warnings
@@ -92,11 +163,13 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--page-argument-pack", required=True)
+    parser.add_argument("--issue-analysis", help="Optional lineage cross-check artifact.")
     parser.add_argument("--output")
     args = parser.parse_args()
     try:
         payload = load_json_file(Path(args.page_argument_pack))
-        errors, warnings = validate(payload)
+        issue_analysis = load_json_file(Path(args.issue_analysis)) if args.issue_analysis else None
+        errors, warnings = validate(payload, issue_analysis)
     except Exception as exc:
         errors, warnings = [f"cannot read page argument pack: {exc}"], []
     result = {

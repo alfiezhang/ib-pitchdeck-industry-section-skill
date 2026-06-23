@@ -29,6 +29,7 @@
           "chart_metric_ids",
           "allowed_visual_metric_ids",
           "selected_issue_downstream_permissions",
+          "selected_page_argument_permissions",
           "body_evidence_ids",
           "proof_points",
           "claim_strength",
@@ -107,6 +108,39 @@
                   },
                   "additionalProperties": false
                 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "selected_page_argument_permissions": {
+            "type": "array",
+            "description": "Per-selected-PA authorization. This is the page contract's permission source of truth; issue_analysis IDs are lineage only.",
+            "items": {
+              "type": "object",
+              "required": ["page_argument_id", "source_issue_analysis_id", "evidence_status", "allowed_deck_usage", "downstream_permission", "evidence_ids", "metric_ids", "body_evidence_ids", "visual_metric_ids"],
+              "properties": {
+                "page_argument_id": { "type": "string", "pattern": "^PA-\\d{3}$" },
+                "source_issue_analysis_id": { "type": "string", "pattern": "^IA-\\d{3}$" },
+                "evidence_status": {
+                  "type": "string",
+                  "enum": ["supported", "thin", "insufficient", "not_applicable", "unavailable_after_research", "not_researched", "caveat_only"]
+                },
+                "allowed_deck_usage": { "type": "string" },
+                "downstream_permission": {
+                  "type": "object",
+                  "required": ["headline_allowed", "main_message_allowed", "chart_allowed", "body_copy_allowed"],
+                  "properties": {
+                    "headline_allowed": { "type": "boolean" },
+                    "main_message_allowed": { "type": "boolean" },
+                    "chart_allowed": { "type": "boolean" },
+                    "body_copy_allowed": { "type": "boolean" }
+                  },
+                  "additionalProperties": false
+                },
+                "evidence_ids": { "type": "array", "items": { "type": "string", "pattern": "^EV-\\d{3}$" } },
+                "metric_ids": { "type": "array", "items": { "type": "string", "pattern": "^MET-\\d{3}$" } },
+                "body_evidence_ids": { "type": "array", "items": { "type": "string", "pattern": "^EV-\\d{3}$" } },
+                "visual_metric_ids": { "type": "array", "items": { "type": "string", "pattern": "^MET-\\d{3}$" } }
               },
               "additionalProperties": false
             }

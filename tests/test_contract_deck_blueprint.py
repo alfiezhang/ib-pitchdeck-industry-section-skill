@@ -174,6 +174,83 @@ class TestDeckBlueprintCompilation:
         assert slide6["compare_table_data"]["headers"] == ["Dimension", "Evidence", "Implication"], slide6["compare_table_data"]
         assert slide6["compare_table_data"]["rows"][0]["label"] == "Scale", slide6["compare_table_data"]
 
+    def test_page_evidence_contract_keeps_selected_page_argument_permission_boundary(self):
+        from build_page_evidence_contract import build_page_evidence_contract
+
+        page_argument_pack = {
+            "schema_version": "page_argument_pack_v1",
+            "page_arguments": [
+                {
+                    "page_argument_id": "PA-001",
+                    "source_issue_analysis_id": "IA-001",
+                    "page_argument": "Headline-capable argument should not leak into PA-002.",
+                    "evidence_status": "supported",
+                    "allowed_deck_usage": "headline_allowed",
+                    "downstream_permission": {
+                        "headline_allowed": True,
+                        "main_message_allowed": True,
+                        "chart_allowed": True,
+                        "body_copy_allowed": True,
+                    },
+                    "evidence_ids": ["EV-001"],
+                    "metric_ids": ["MET-001"],
+                },
+                {
+                    "page_argument_id": "PA-002",
+                    "source_issue_analysis_id": "IA-001",
+                    "page_argument": "Body-only argument selected for this slide.",
+                    "evidence_status": "thin",
+                    "allowed_deck_usage": "body_only",
+                    "downstream_permission": {
+                        "headline_allowed": False,
+                        "main_message_allowed": False,
+                        "chart_allowed": False,
+                        "body_copy_allowed": True,
+                    },
+                    "evidence_ids": ["EV-002"],
+                    "metric_ids": ["MET-002"],
+                },
+            ],
+        }
+        page_plan = {
+            "slides": [
+                {
+                    "slide_no": 1,
+                    "fixed_page_role": "industry_overview",
+                    "investor_question": "What should the reader know?",
+                    "page_answer": "Use only the selected body-only page argument.",
+                    "page_argument_ids": ["PA-002"],
+                    "primary_issue_analysis_id": "IA-001",
+                    "supporting_issue_analysis_ids": [],
+                    "visual_plan": {"required_capability": "chart", "visual_metric_ids": ["MET-002"]},
+                    "proof_points": [
+                        {
+                            "point": "Selected PA-002 supports body copy only.",
+                            "source_analysis_ids": ["IA-001"],
+                            "evidence_ids": ["EV-002"],
+                            "metric_ids": ["MET-002"],
+                            "claim_strength": "supported_inference",
+                        }
+                    ],
+                    "claim_strength": "supported_inference",
+                    "caveats": [],
+                    "open_questions": [],
+                }
+            ]
+        }
+
+        contract = build_page_evidence_contract(page_argument_pack, page_plan)
+        slide = contract["slides"][0]
+
+        assert slide["page_argument_ids"] == ["PA-002"]
+        assert slide["headline_allowed"] is False
+        assert slide["chart_allowed"] is False
+        assert slide["chart_metric_ids"] == []
+        assert slide["body_evidence_ids"] == ["EV-002"]
+        assert slide["selected_page_argument_permissions"][0]["page_argument_id"] == "PA-002"
+        assert slide["selected_page_argument_permissions"][0]["evidence_ids"] == ["EV-002"]
+        assert slide["selected_page_argument_permissions"][0]["metric_ids"] == ["MET-002"]
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

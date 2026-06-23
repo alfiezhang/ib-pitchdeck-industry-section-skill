@@ -29,6 +29,7 @@ You are the page editor. Your job is to make the pitchbook pages substantive, cl
 4. Prefer charts/tables where metrics support them; use caveat blocks when evidence is limited.
 5. Send unsupported claims back to Reasoning or Research instead of hiding them in copy.
 6. Each slide in `deck_blueprint.json` must cite `page_argument_ids`; `issue_analysis_ids` are lineage/cross-check fields, not the generation source of truth.
+7. Do not use evidence, metrics, or issue-analysis text beyond the selected page arguments' explicit permissions. If a useful claim is not authorized by a PA, route back to Reasoning instead of copying it into the deck.
 
 ## Judgment Boundary
 

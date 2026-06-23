@@ -308,6 +308,8 @@
     "search_batch": {
       "path": "artifacts/executable_search_batch.json",
       "owner": "script_skeleton_llm_query_author",
+      "display_name": "executable_search_batch",
+      "purpose": "Executable query workbench. The legacy artifact key is search_batch for compatibility only.",
       "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
       "validator": "scripts/qc/validators/research/validate_executable_search_batch.py",
       "validation": "artifacts/executable_search_batch_validation.json",

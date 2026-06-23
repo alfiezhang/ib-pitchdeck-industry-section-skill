@@ -372,6 +372,7 @@ def build_db(
     metric_seen: set[str] = set()
     evidence_rows: list[dict[str, Any]] = []
     metric_rows: list[dict[str, Any]] = []
+    context_rows: list[dict[str, Any]] = []
     critical_gap_rows: list[str] = []
     optional_gap_rows: list[str] = []
 
@@ -406,6 +407,27 @@ def build_db(
                 "research_pack_handling": text(result.get("research_pack_handling")),
             }
         )
+        if source_review_ids and (
+            terminal_status != EVIDENCE_TERMINAL_STATUS
+            or downstream_permission in {"contextual_only", "research_context"}
+        ):
+            context_rows.append(
+                {
+                    "context_id": f"RC-{len(context_rows) + 1:03d}",
+                    "result_id": result_id,
+                    "issue_area": text(result.get("issue_area")),
+                    "subissue": text(result.get("subissue")),
+                    "topic": text(result.get("research_question")) or f"{text(result.get('issue_area'))}/{text(result.get('subissue'))}",
+                    "summary": text(result.get("findings_summary"))
+                    or "Source reviewed for context only; not promoted into EV/MET evidence.",
+                    "source_review_ids": source_review_ids,
+                    "search_attempt_ids": search_attempt_ids,
+                    "confidence": "medium" if terminal_status == "directional_only" else "low",
+                    "audit_level": RESEARCH_CONTEXT_LEVEL,
+                    "limitations": "; ".join(text(item) for item in as_list(result.get("limitations")) if text(item))
+                    or "Research context only; cannot support key numbers, charts, or hard slide claims unless promoted to EV/MET.",
+                }
+            )
         if terminal_status in NO_EVIDENCE_TERMINAL_STATUSES:
             critical_gap_rows.append(
                 f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
@@ -563,7 +585,7 @@ def build_db(
         "source_reviews": embedded_source_reviews,
         "material_extractions": material_extraction_rows,
         "formal_research_extracts": formal_extracts,
-        "research_context": [],
+        "research_context": context_rows,
         "source_materials": source_materials,
         "evidence_ledger": evidence_rows,
         "metric_reconciliation": metric_rows,
@@ -574,6 +596,9 @@ def build_db(
         "peer_set": [],
         "additional_sector_specific_notes": "Insufficient data",
         "research_gap_audit": {
+            "no_client_ready_evidence": False,
+            "no_client_ready_evidence_rationale": "",
+            "deliverable_constraint": "",
             "critical_gaps": [
                 "Resolve before validation: replace TODO extracts, populate promoted evidence/metric fields, and update issue fact inventory from source-faithful evidence."
             ]
@@ -814,7 +839,23 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
                 f"terminal_status={text(source_result.get('terminal_status'))}; only executed_with_evidence may promote EV rows"
             )
     if not ev_ids:
-        errors.append("evidence_ledger must contain at least one promoted EV row")
+        no_evidence_audit = db.get("research_gap_audit") if isinstance(db.get("research_gap_audit"), dict) else {}
+        if no_evidence_audit.get("no_client_ready_evidence") is True:
+            rationale = text(no_evidence_audit.get("no_client_ready_evidence_rationale"))
+            deliverable_constraint = text(no_evidence_audit.get("deliverable_constraint"))
+            if len(rationale) < 30:
+                errors.append("research_gap_audit.no_client_ready_evidence_rationale must explain why no EV row is client-ready")
+            if deliverable_constraint not in {"evidence_limited_outline_only", "block_client_ready_deck", "research_required_before_deck"}:
+                errors.append(
+                    "research_gap_audit.deliverable_constraint must be evidence_limited_outline_only, "
+                    "block_client_ready_deck, or research_required_before_deck when no_client_ready_evidence=true"
+                )
+            warnings.append("research_evidence_db declares no client-ready EV rows; final client-ready deck delivery must be blocked or downgraded")
+        else:
+            errors.append(
+                "evidence_ledger must contain at least one promoted EV row, or research_gap_audit.no_client_ready_evidence=true "
+                "with rationale and deliverable_constraint"
+            )
 
     met_ids: set[str] = set()
     for idx, row in enumerate(as_list(db.get("metric_reconciliation")), start=1):

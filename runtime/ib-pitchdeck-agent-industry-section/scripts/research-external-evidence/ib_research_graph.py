@@ -45,7 +45,6 @@ from typing import Any
 from issue_taxonomy import ISSUE_TOPICS_BY_AREA
 from json_utils import load_json_file
 from material_intake_common import classify_access, normalize_source_type
-from research_evidence_db import export_markdown
 from unit_normalizer import normalize_metric_row
 
 
@@ -69,6 +68,7 @@ VALID_TERMINAL_STATUSES = {
     "not_material",
     "accounting_only",
 }
+EVIDENCE_DOWNSTREAM_PERMISSIONS = {"may_support_claim", "contextual_only", "not_allowed"}
 EVIDENCE_READY_ARCHIVE_STATUSES = {
     "saved_html",
     "saved_text",
@@ -384,6 +384,50 @@ def _priority_for_expectation(expectation: str) -> str:
     return "medium"
 
 
+def _industry_specific_research_threads(scope_pack: dict[str, Any]) -> list[dict[str, Any]]:
+    threads: list[dict[str, Any]] = []
+    raw_items: list[tuple[str, str, str]] = []
+    for item in _as_list(scope_pack.get("must_reconcile")):
+        if not isinstance(item, dict):
+            continue
+        raw_items.append(
+            (
+                _first_text(item.get("topic"), "Scope reconciliation"),
+                _first_text(item.get("research_instruction"), item.get("why_it_matters"), "Validate this source-scope difference before using related metrics."),
+                _first_text(item.get("why_it_matters"), "Can affect metric comparability or page-claim scope."),
+            )
+        )
+    for item in _as_list(scope_pack.get("boundary_validation_needed")):
+        if not isinstance(item, dict):
+            continue
+        raw_items.append(
+            (
+                _first_text(item.get("question"), "Boundary validation question"),
+                _first_text(item.get("suggested_validation_source"), item.get("why_needed"), "Find authoritative category or market-definition evidence."),
+                _first_text(item.get("why_needed"), "Can affect formal research scope."),
+            )
+        )
+    for idx, (topic, research_need, why_it_matters) in enumerate(raw_items[:8], start=1):
+        topic_text = topic.lower()
+        if any(token in topic_text for token in ("market", "size", "规模", "份额", "口径", "gmv", "revenue")):
+            mapped_area = "market_size_growth"
+        elif any(token in topic_text for token in ("channel", "platform", "渠道", "平台", "gmv")):
+            mapped_area = "demand_customer_logic"
+        else:
+            mapped_area = "pitch_relevance_target_context"
+        threads.append(
+            {
+                "thread_id": f"IST-{idx:03d}",
+                "mapped_issue_area": mapped_area,
+                "topic": topic,
+                "research_need": research_need,
+                "why_it_matters": why_it_matters,
+                "query_authoring_artifact": "artifacts/executable_search_batch.json",
+            }
+        )
+    return threads
+
+
 def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[str, Any]:
     meta = _meta_from_inputs(input_card=input_card, scope_pack=scope_pack, formal_search_plan={})
     market_terms = _market_terms(meta, scope_pack)
@@ -453,10 +497,12 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
         "planning_instruction": (
             "This plan intentionally covers every canonical issue/subissue to thicken upstream research. "
             "For each row, define the evidence need, source hint, and execution expectation only. "
-            "Executable queries belong in artifacts/executable_search_batch.json. Do not write investment "
-            "hypotheses, validated findings, slide conclusions, or page plans. A planned FS row is not evidence."
+            "Use industry_specific_research_threads for material scope-specific evidence needs that do not fit cleanly "
+            "inside one canonical row. Executable queries belong in artifacts/executable_search_batch.json. Do not write "
+            "investment hypotheses, validated findings, slide conclusions, or page plans. A planned FS row is not evidence."
         ),
         "issue_search_plan": issue_search_plan,
+        "industry_specific_research_threads": _industry_specific_research_threads(scope_pack),
         "research_discipline": {
             "do_not_generate_hypotheses": True,
             "formal_validation_lives_in": "artifacts/formal_research_execution_report.json",
@@ -583,7 +629,7 @@ def _normalize_source(
     )
     locator = _first_text(source.get("locator"), source.get("source_locator"), source.get("methodology_locator"), "source section")
     usable = source.get("usable_as_evidence")
-    usable_as_evidence = usable if isinstance(usable, bool) else bool(_as_list(unit.get("evidence")) or _as_list(unit.get("metrics")))
+    usable_as_evidence = usable if isinstance(usable, bool) else False
     audit_level = _first_text(
         source.get("audit_level"),
         AUDITED_METRIC_LEVEL if usable_as_evidence else RESEARCH_CONTEXT_LEVEL,
@@ -610,6 +656,7 @@ def _normalize_source(
         verification_notes = _first_text(source.get("secondary_verification_notes"), "Source requires additional verification before evidence promotion.")
         research_archive_status = _first_text(source.get("research_archive_status"), archive_status if archive_status == "manual_verified_excerpt" else "")
     verification_method = _text(source.get("verification_method"))
+    capture_method = _text(source.get("capture_method") or source.get("archive_capture_method"))
     review_status = _first_text(source.get("review_status"))
     if not review_status:
         review_status = (
@@ -637,7 +684,7 @@ def _normalize_source(
         "fact_type": _first_text(source.get("fact_type"), unit.get("issue_area")),
         "scope": _first_text(source.get("scope"), unit.get("research_question")),
         "audit_level": audit_level,
-        "evidence_use_tier": _first_text(source.get("evidence_use_tier"), "core_evidence" if usable_as_evidence else RESEARCH_CONTEXT_LEVEL),
+        "evidence_use_tier": _first_text(source.get("evidence_use_tier"), "core_evidence" if usable_as_evidence else "candidate"),
         "claim_use_scope": _first_text(
             source.get("claim_use_scope"),
             "Use only for source-scoped claims captured in the graph state."
@@ -659,6 +706,7 @@ def _normalize_source(
         "archive_unavailable_reason": _text(source.get("archive_unavailable_reason")),
         "excerpt_origin": _first_text(source.get("excerpt_origin"), "opened_page"),
         "verification_method": verification_method,
+        "capture_method": capture_method,
         "secondary_verification": secondary_verification,
         "secondary_verification_notes": verification_notes,
         "research_archive_status": research_archive_status,
@@ -977,6 +1025,7 @@ def _archive_snapshot(source: dict[str, Any], *, captured_at: str, archive_statu
     lines.extend(
         [
             f"- Excerpt Origin: {_text(source.get('excerpt_origin'))}",
+            f"- Capture Method: {_text(source.get('capture_method'))}",
             f"- Verification Method: {_text(source.get('verification_method'))}",
             f"- Secondary Verification: {_text(source.get('secondary_verification'))}",
             f"- Secondary Verification Notes: {_text(source.get('secondary_verification_notes'))}",
@@ -1017,9 +1066,6 @@ def _write_archive_index(
                 raw_file.write_text(raw_archive_text, encoding="utf-8")
             raw_archive_path = _relative_path(run_dir, raw_file)
             source["raw_archive_path"] = raw_archive_path
-            if archive_status in {"needs_research_verification", "manual_verified_excerpt"} and len(raw_archive_text) >= 160:
-                archive_status = "saved_html" if raw_file.suffix == ".html" else "saved_text"
-                source["archive_status"] = archive_status
         if archive_status in ARCHIVE_STATUSES_REQUIRING_SNAPSHOT:
             if not archive_path:
                 archive_file = archive_dir / f"{_safe_file_stem(source['source_review_id'])}.md"
@@ -1060,6 +1106,7 @@ def _write_archive_index(
                 "reviewed_excerpt": _text(source.get("reviewed_excerpt"))[:4000],
                 "archive_unavailable_reason": _text(source.get("archive_unavailable_reason")),
                 "excerpt_origin": _text(source.get("excerpt_origin")),
+                "capture_method": _text(source.get("capture_method")),
                 "verification_method": _text(source.get("verification_method")),
                 "secondary_verification": _text(source.get("secondary_verification")),
                 "secondary_verification_notes": _text(source.get("secondary_verification_notes")),
@@ -1081,14 +1128,23 @@ def _write_archive_index(
 def _terminal_status(unit: dict[str, Any], *, attempts: list[dict[str, Any]], evidence_ids: list[str], metric_ids: list[str], source_ids: list[str], plan_row: dict[str, Any]) -> tuple[str, str, str]:
     raw_terminal = _text(unit.get("terminal_status"))
     raw_status = _text(unit.get("status"))
-    if raw_terminal == "executed_with_evidence" and source_ids and attempts and (evidence_ids or metric_ids):
+    raw_permission = _text(unit.get("downstream_permission"))
+    explicit_evidence_authorization = (
+        raw_terminal == "executed_with_evidence"
+        and raw_status in EVIDENCE_STATUSES
+        and raw_permission in EVIDENCE_DOWNSTREAM_PERMISSIONS
+        and source_ids
+        and attempts
+        and (evidence_ids or metric_ids)
+    )
+    if explicit_evidence_authorization:
         terminal = raw_terminal
     elif raw_terminal in {"executed_no_usable_source", "directional_only"} and attempts:
         terminal = raw_terminal
     elif raw_terminal in {"not_material", "accounting_only"}:
         terminal = raw_terminal
     elif source_ids and attempts and (evidence_ids or metric_ids):
-        terminal = "executed_with_evidence"
+        terminal = "executed_no_usable_source"
     elif attempts and _as_list(unit.get("research_context")):
         terminal = "directional_only"
     elif attempts:
@@ -1099,8 +1155,8 @@ def _terminal_status(unit: dict[str, Any], *, attempts: list[dict[str, Any]], ev
         terminal = "not_executed"
 
     if terminal == "executed_with_evidence":
-        status = raw_status if raw_status in EVIDENCE_STATUSES else "supported"
-        permission = _first_text(unit.get("downstream_permission"), "may_support_claim")
+        status = raw_status
+        permission = raw_permission
     elif terminal == "directional_only":
         status = raw_status if raw_status in VALID_RESULT_STATUS else "thin"
         permission = _first_text(unit.get("downstream_permission"), "contextual_only")
@@ -1151,13 +1207,26 @@ def _compile_execution_report(
             source_ids=source_ids,
             plan_row=row,
         )
+        missing_explicit_evidence_authorization = (
+            bool(source_ids)
+            and bool(attempts)
+            and bool(evidence_ids or metric_ids)
+            and terminal != "executed_with_evidence"
+        )
         selected_urls = _http_urls(
             [url for attempt in attempts for url in _as_list(attempt.get("selected_source_urls"))]
             + [source.get("url", "") for source in _as_list(unit.get("sources")) if isinstance(source, dict)]
         )
         limitations = [_text(item) for item in _as_list(unit.get("limitations")) if _text(item)]
         if not limitations:
-            limitations = ["Use only within source-defined scope, period, geography, and methodology."] if terminal == "executed_with_evidence" else ["No usable formal evidence has been compiled for this planned FS row."]
+            if terminal == "executed_with_evidence":
+                limitations = ["Use only within source-defined scope, period, geography, and methodology."]
+            elif missing_explicit_evidence_authorization:
+                limitations = [
+                    "Candidate EV/MET rows exist in research_graph_state, but Research did not explicitly authorize terminal_status/status/downstream_permission for evidence use."
+                ]
+            else:
+                limitations = ["No usable formal evidence has been compiled for this planned FS row."]
         if terminal == "executed_with_evidence":
             findings = _first_text(unit.get("findings_summary"), f"Research graph compiled reviewed evidence for {row['issue_area']}/{row['subissue']}.")
             handling = _first_text(unit.get("research_pack_handling"), "Promote the linked EV/MET rows with their source scope and limitations.")
@@ -1165,8 +1234,22 @@ def _compile_execution_report(
             if status != "supported":
                 thin_or_unresolved.append(f"{row['issue_area']}/{row['subissue']}")
         else:
-            findings = _first_text(unit.get("findings_summary"), f"No usable promoted evidence has been compiled for {row['issue_area']}/{row['subissue']}.")
-            handling = _first_text(unit.get("research_pack_handling"), "Keep as a research gap/backlog; do not use as deck evidence until a reviewed source is compiled.")
+            findings = _first_text(
+                unit.get("findings_summary"),
+                (
+                    f"Candidate evidence exists for {row['issue_area']}/{row['subissue']}, but explicit Research authorization is missing."
+                    if missing_explicit_evidence_authorization
+                    else f"No usable promoted evidence has been compiled for {row['issue_area']}/{row['subissue']}."
+                ),
+            )
+            handling = _first_text(
+                unit.get("research_pack_handling"),
+                (
+                    "Keep candidate EV/MET rows out of Knowledge promotion until Research explicitly sets terminal_status, status, and downstream_permission."
+                    if missing_explicit_evidence_authorization
+                    else "Keep as a research gap/backlog; do not use as deck evidence until a reviewed source is compiled."
+                ),
+            )
             unavailable.append(f"{row['issue_area']}/{row['subissue']}")
         result_id = f"FR-{idx:03d}"
         if terminal in NO_ATTEMPT_TERMINAL_STATUSES:
@@ -1175,6 +1258,9 @@ def _compile_execution_report(
             evidence_ids = []
             metric_ids = []
             selected_urls = []
+        elif terminal != "executed_with_evidence":
+            evidence_ids = []
+            metric_ids = []
         result = {
             "result_id": result_id,
             "issue_area": row["issue_area"],
@@ -1292,217 +1378,17 @@ def build_coverage_accounting(report: dict[str, Any]) -> dict[str, Any]:
             "planned_rows_are_not_evidence": True,
             "not_executed_rows_cannot_support_research_pack": True,
             "not_material_rows_are_accounting_only": True,
-            "research_evidence_db_uses_only_executed_with_evidence_rows": True,
+            "knowledge_db_must_be_built_after_execution_compile": True,
         },
     }
 
 
-def _source_reviews_artifact(sources: list[dict[str, Any]]) -> dict[str, Any]:
+def _archive_capture_reviews_artifact(sources: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        "schema_version": "embedded_source_reviews_v1",
+        "schema_version": "archive_capture_reviews_v1",
         "source_of_truth": "artifacts/research_evidence_db.json",
-        "policy": "Compatibility export from research_graph_state; research_evidence_db.json remains the authoritative evidence store.",
+        "policy": "Archive/capture review export from research_graph_state. Knowledge LLM records final source usability and claim-use limits inside research_evidence_db.json.",
         "reviews": sources,
-    }
-
-
-def _compile_research_db(
-    *,
-    state: dict[str, Any],
-    plan: dict[str, Any],
-    execution_report: dict[str, Any],
-    source_reviews: dict[str, Any],
-    sources: list[dict[str, Any]],
-    units: list[dict[str, Any]],
-) -> dict[str, Any]:
-    meta = state.get("meta") if isinstance(state.get("meta"), dict) else {}
-    scope_summary = state.get("scope_summary") if isinstance(state.get("scope_summary"), dict) else {}
-    source_by_id = {source["source_review_id"]: source for source in sources}
-    result_by_fs = {
-        _as_list(result.get("search_instruction_ids"))[0]: result
-        for result in _as_list(execution_report.get("issue_results"))
-        if isinstance(result, dict) and _as_list(result.get("search_instruction_ids"))
-    }
-    unit_by_fs = {
-        _as_list(unit.get("fs_ids"))[0]: unit
-        for unit in units
-        if isinstance(unit, dict) and _as_list(unit.get("fs_ids"))
-    }
-
-    source_materials: list[dict[str, Any]] = []
-    for source in sources:
-        source_materials.append(
-            {
-                "source_review_id": source["source_review_id"],
-                "source_name": _text(source.get("title")),
-                "source_type": normalize_source_type(source.get("source_type")),
-                "source_access": _text(source.get("source_access")),
-                "source_access_path": _first_text(source.get("source_access_path"), source.get("archive_path")),
-                "source_date": _text(source.get("source_date")),
-                "geography": _text(source.get("geography")),
-                "fact_type": _text(source.get("fact_type")),
-                "confidence": _text(source.get("confidence")),
-                "scope": _text(source.get("scope")),
-                "source_reliability": _text(source.get("source_reliability")),
-                "evidence_use_tier": _text(source.get("evidence_use_tier")),
-                "audit_level": _text(source.get("audit_level")),
-                "claim_use_scope": _text(source.get("claim_use_scope")),
-                "usable_as_evidence": source.get("usable_as_evidence") is True,
-                "source_url": _text(source.get("url")),
-                "source_locator": _text(source.get("source_locator")),
-                "reviewed_excerpt": _text(source.get("reviewed_excerpt")),
-                "limitations": _text(source.get("limitations")),
-                "archive_status": _text(source.get("archive_status")),
-                "archive_path": _text(source.get("archive_path")),
-                "raw_archive_path": _text(source.get("raw_archive_path")),
-                "excerpt_origin": _text(source.get("excerpt_origin")),
-                "verification_method": _text(source.get("verification_method")),
-                "secondary_verification": _text(source.get("secondary_verification")),
-                "secondary_verification_notes": _text(source.get("secondary_verification_notes")),
-                "review_status": _text(source.get("review_status")),
-                "metric_ids": _as_list(source.get("metric_ids")),
-            }
-        )
-
-    evidence_rows: list[dict[str, Any]] = []
-    metric_rows: list[dict[str, Any]] = []
-    formal_extracts: list[dict[str, Any]] = []
-    extract_counter = 0
-    for result in _as_list(execution_report.get("issue_results")):
-        if not isinstance(result, dict) or _text(result.get("terminal_status")) != "executed_with_evidence":
-            continue
-        fs_id = _as_list(result.get("search_instruction_ids"))[0]
-        unit = unit_by_fs.get(fs_id, {})
-        for source_id in _as_list(result.get("source_review_ids")):
-            source = source_by_id.get(_text(source_id), {})
-            extract_counter += 1
-            promoted_evidence = [ev["evidence_id"] for ev in _as_list(unit.get("evidence")) if isinstance(ev, dict) and _text(ev.get("source_review_id")) == _text(source_id)]
-            if not promoted_evidence:
-                promoted_evidence = _as_list(result.get("evidence_ids"))
-            promoted_metrics = [met["metric_id"] for met in _as_list(unit.get("metrics")) if isinstance(met, dict) and _text(met.get("source_review_id")) == _text(source_id)]
-            if not promoted_metrics:
-                promoted_metrics = _as_list(result.get("metric_ids"))
-            formal_extracts.append(
-                {
-                    "extract_id": f"FX-{extract_counter:03d}",
-                    "result_id": _text(result.get("result_id")),
-                    "issue_area": _text(result.get("issue_area")),
-                    "subissue": _text(result.get("subissue")),
-                    "source_review_id": _text(source_id),
-                    "search_attempt_ids": _as_list(result.get("search_attempt_ids")),
-                    "source_url": _text(source.get("url")),
-                    "source_locator": _text(source.get("source_locator")),
-                    "reviewed_excerpt_or_paraphrase": _text(source.get("reviewed_excerpt")),
-                    "extracted_fact_or_metric_candidate": _first_text(
-                        _as_list(unit.get("evidence"))[0].get("claim_or_metric") if _as_list(unit.get("evidence")) and isinstance(_as_list(unit.get("evidence"))[0], dict) else "",
-                        _as_list(unit.get("metrics"))[0].get("metric_name") if _as_list(unit.get("metrics")) and isinstance(_as_list(unit.get("metrics"))[0], dict) else "",
-                        _text(source.get("reviewed_excerpt"))[:240],
-                    ),
-                    "status": _text(result.get("status")),
-                    "terminal_status": _text(result.get("terminal_status")),
-                    "archive_status": _text(source.get("archive_status")),
-                    "archive_eligibility": (
-                        "evidence_ready"
-                        if _text(source.get("archive_status")) in EVIDENCE_READY_ARCHIVE_STATUSES
-                        else "context_only"
-                        if _text(source.get("archive_status")) == RESEARCH_CONTEXT_ARCHIVE_STATUS
-                        else "research_verification_required"
-                    ),
-                    "audit_level": AUDITED_METRIC_LEVEL if promoted_metrics else _text(source.get("audit_level")) or RESEARCH_CONTEXT_LEVEL,
-                    "promoted_evidence_ids": promoted_evidence,
-                    "promoted_metric_ids": promoted_metrics,
-                    "limitations": _as_list(result.get("limitations")),
-                }
-            )
-        for ev in _as_list(unit.get("evidence")):
-            if isinstance(ev, dict):
-                evidence_rows.append(ev)
-        for met in _as_list(unit.get("metrics")):
-            if isinstance(met, dict):
-                metric_rows.append(met)
-
-    inventory: list[dict[str, Any]] = []
-    for area, subissues in ISSUE_TOPICS_BY_AREA.items():
-        for subissue in sorted(subissues):
-            plan_fs_ids = [
-                row["fs_id"]
-                for row in _plan_rows(plan)
-                if row["issue_area"] == area and row["subissue"] == subissue
-            ]
-            result = result_by_fs.get(plan_fs_ids[0], {}) if plan_fs_ids else {}
-            status = _text(result.get("status"))
-            terminal = _text(result.get("terminal_status"))
-            ev_ids = _as_list(result.get("evidence_ids")) if terminal == "executed_with_evidence" else []
-            met_ids = _as_list(result.get("metric_ids")) if terminal == "executed_with_evidence" else []
-            if terminal == "executed_with_evidence" and (ev_ids or met_ids):
-                fact_status = "sufficient" if status == "supported" else "thin"
-            elif status == "unavailable_after_research":
-                fact_status = "unavailable_after_research"
-            else:
-                fact_status = "insufficient"
-            inventory.append(
-                {
-                    "issue_area": area,
-                    "subissue": subissue,
-                    "evidence_ids": ev_ids,
-                    "metric_ids": met_ids,
-                    "fact_status": fact_status,
-                    "notes": _first_text(result.get("findings_summary"), "No formal result found; keep as research gap until searched."),
-                }
-            )
-
-    optional_gaps = [
-        f"{result.get('result_id')} {result.get('issue_area')}/{result.get('subissue')}: {result.get('terminal_status')}"
-        for result in _as_list(execution_report.get("issue_results"))
-        if isinstance(result, dict) and _text(result.get("terminal_status")) != "executed_with_evidence"
-    ]
-    research_context = [
-        ctx
-        for unit in units
-        for ctx in _as_list(unit.get("research_context"))
-        if isinstance(ctx, dict)
-    ]
-    return {
-        "schema_version": "research_evidence_db_v1",
-        "source_of_truth": True,
-        "authoring_policy": "research_evidence_db.json is compiled from research_graph_state.json; industry_research_pack.md is generated from this database.",
-        "evidence_policy": {
-            "tiers": ["audited_metric", "research_context"],
-            "audited_metric_rule": "Every promoted MET row must carry indicator, value, unit, period, geography, source, source locator, short source excerpt, and audit note.",
-            "research_context_rule": "ODR-style context keeps source URLs, summaries, and notes, but cannot support key numbers, charts, or hard slide claims unless promoted to EV/MET.",
-        },
-        "meta": meta,
-        "scope_summary": scope_summary,
-        "formal_search_plan_summary": {
-            "artifact_path": "artifacts/formal_search_plan.json",
-            "issue_search_plan_count": len(_as_list(plan.get("issue_search_plan"))),
-        },
-        "formal_research_results": _as_list(execution_report.get("issue_results")),
-        "source_reviews": source_reviews,
-        "material_extractions": [],
-        "formal_research_extracts": formal_extracts,
-        "research_context": research_context,
-        "source_materials": source_materials,
-        "evidence_ledger": evidence_rows,
-        "metric_reconciliation": metric_rows,
-        "issue_fact_inventory": inventory,
-        "known_pitch_relevant_observations": [],
-        "known_risks_or_open_questions": [],
-        "management_provided_claims_to_verify": [],
-        "peer_set": [],
-        "additional_sector_specific_notes": "Compiled state-first research graph; use limitations and source scope before drafting claims.",
-        "research_gap_audit": {
-            "critical_gaps": [],
-            "optional_gaps": optional_gaps,
-            "intentionally_excluded_topics": [],
-            "metric_consistency_check": {
-                "GMV vs revenue": "Metric rows preserve source-defined metric type and unit normalization notes; no GMV/revenue reconciliation conflict is asserted by the compiler.",
-                "Cross-slide repeated metric consistency": "Compiled metric IDs are unique and should be reused consistently downstream.",
-                "Target financials consistency": "No target financials are promoted by the research graph compiler unless present as explicit EV/MET rows.",
-                "User-provided vs external-source discrepancy": "No discrepancy is asserted by the compiler; review source_review_id and limitations when comparing source classes.",
-                "Chart number consistency": "Chart-ready metrics use normalized units and retain original_value/original_unit for audit.",
-            },
-        },
     }
 
 
@@ -1543,34 +1429,22 @@ def compile_graph_state(
         captured_at=captured_at,
     )
     coverage_accounting = build_coverage_accounting(execution_report)
-    source_reviews = _source_reviews_artifact(sources)
-    research_db = _compile_research_db(
-        state=state,
-        plan=formal_search_plan,
-        execution_report=execution_report,
-        source_reviews=source_reviews,
-        sources=sources,
-        units=units,
-    )
+    archive_capture_reviews = _archive_capture_reviews_artifact(sources)
     artifacts.mkdir(parents=True, exist_ok=True)
     (artifacts / "search_log.md").write_text(search_log_text, encoding="utf-8")
     _write_json(archive_dir / "source_archive_index.json", archive_index)
-    _write_json(artifacts / "source_reviews.json", source_reviews)
+    _write_json(artifacts / "archive_capture_reviews.json", archive_capture_reviews)
     _write_json(artifacts / "formal_research_execution_report.json", execution_report)
     _write_json(artifacts / "coverage_accounting.json", coverage_accounting)
-    _write_json(artifacts / "research_evidence_db.json", research_db)
-    (run_dir / "industry_research_pack.md").write_text(export_markdown(research_db), encoding="utf-8")
     return {
         "is_valid": True,
         "run_dir": str(run_dir),
         "artifacts": {
             "search_log": str(artifacts / "search_log.md"),
             "source_archive_index": str(archive_dir / "source_archive_index.json"),
-            "source_reviews": str(artifacts / "source_reviews.json"),
+            "archive_capture_reviews": str(artifacts / "archive_capture_reviews.json"),
             "formal_research_execution_report": str(artifacts / "formal_research_execution_report.json"),
             "coverage_accounting": str(artifacts / "coverage_accounting.json"),
-            "research_evidence_db": str(artifacts / "research_evidence_db.json"),
-            "industry_research_pack": str(run_dir / "industry_research_pack.md"),
         },
         "compiled_counts": {
             "research_units": len(units),
@@ -1580,6 +1454,7 @@ def compile_graph_state(
             "metric_rows": sum(len(_as_list(unit.get("metrics"))) for unit in units),
             "research_context_rows": sum(len(_as_list(unit.get("research_context"))) for unit in units),
         },
+        "next_step": "Run build_research_evidence_db.py to create the Knowledge skeleton, then have Knowledge LLM author research_evidence_db.json and export industry_research_pack.md.",
         "normalization_meta": normalization_meta,
     }
 

@@ -56,6 +56,14 @@ def _is_page_argument_pack(payload: dict[str, Any]) -> bool:
     return isinstance(payload.get("page_arguments"), list)
 
 
+def _page_argument_index(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        str(item.get("page_argument_id") or "").strip(): item
+        for item in _as_list(payload.get("page_arguments"))
+        if isinstance(item, dict) and str(item.get("page_argument_id") or "").strip()
+    }
+
+
 def _analyses_for_slide(source: dict[str, Any], strategy_slide: dict[str, Any], global_analyses: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     if not _is_page_argument_pack(source):
         return global_analyses
@@ -128,6 +136,52 @@ def _analysis_downstream_permission(analysis: dict[str, Any]) -> dict[str, bool]
         "chart_allowed": bool(usage.get("chart_allowed") is True),
         "body_copy_allowed": bool(usage.get("body_copy_allowed") is True),
     }
+
+
+def _page_argument_downstream_permission(argument: dict[str, Any]) -> dict[str, bool]:
+    permission = argument.get("downstream_permission")
+    if isinstance(permission, dict):
+        return {
+            "headline_allowed": permission.get("headline_allowed") is True,
+            "main_message_allowed": permission.get("main_message_allowed") is True or permission.get("headline_allowed") is True,
+            "chart_allowed": permission.get("chart_allowed") is True,
+            "body_copy_allowed": permission.get("body_copy_allowed") is True,
+        }
+    usage = str(argument.get("allowed_deck_usage") or "").strip()
+    return {
+        "headline_allowed": usage == "headline_allowed",
+        "main_message_allowed": usage == "headline_allowed",
+        "chart_allowed": usage in {"headline_allowed", "body_only"},
+        "body_copy_allowed": usage in {"headline_allowed", "body_only", "supporting_context", "context_only", "caveat_only"},
+    }
+
+
+def _selected_page_argument_permission_entries(source: dict[str, Any], strategy_slide: dict[str, Any]) -> list[dict[str, Any]]:
+    if not _is_page_argument_pack(source):
+        return []
+    index = _page_argument_index(source)
+    entries: list[dict[str, Any]] = []
+    for argument_id in selected_page_argument_ids(strategy_slide):
+        argument = index.get(argument_id)
+        if not argument:
+            continue
+        permission = _page_argument_downstream_permission(argument)
+        evidence_ids = _unique([str(item).strip() for item in _as_list(argument.get("evidence_ids")) if str(item).strip()])
+        metric_ids = _unique([str(item).strip() for item in _as_list(argument.get("metric_ids")) if str(item).strip()])
+        entries.append(
+            {
+                "page_argument_id": argument_id,
+                "source_issue_analysis_id": str(argument.get("source_issue_analysis_id") or "").strip(),
+                "evidence_status": _analysis_evidence_status(argument),
+                "allowed_deck_usage": str(argument.get("allowed_deck_usage") or "").strip(),
+                "downstream_permission": permission,
+                "evidence_ids": evidence_ids,
+                "metric_ids": metric_ids,
+                "body_evidence_ids": evidence_ids if permission["body_copy_allowed"] else [],
+                "visual_metric_ids": metric_ids if permission["chart_allowed"] else [],
+            }
+        )
+    return entries
 
 
 EVIDENCE_STATUS_RANK = {
@@ -274,6 +328,7 @@ def build_page_evidence_contract(source_permissions: dict[str, Any], page_plan: 
         if not isinstance(strategy_slide, dict):
             continue
         analyses_by_id = _analyses_for_slide(source_permissions, strategy_slide, global_analyses_by_id)
+        page_argument_permissions = _selected_page_argument_permission_entries(source_permissions, strategy_slide)
         slide_no = strategy_slide.get("slide_no")
         primary_id = str(strategy_slide.get("primary_issue_analysis_id") or "").strip()
         primary = analyses_by_id.get(primary_id, {})
@@ -346,6 +401,7 @@ def build_page_evidence_contract(source_permissions: dict[str, Any], page_plan: 
                     for analysis_id in issue_ids
                     if str(analysis_id).strip()
                 ],
+                "selected_page_argument_permissions": page_argument_permissions,
                 "chart_allowed": chart_allowed,
                 "visual_metric_allowed": visual_metric_allowed,
                 "chart_metric_ids": requested_visual_metric_ids if chart_allowed else [],

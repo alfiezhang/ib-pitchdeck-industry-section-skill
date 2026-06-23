@@ -691,6 +691,7 @@ _STALE_RERUN_COMMANDS: dict[str, list[str]] = {
     "artifacts/page_argument_pack_validation.json": [
         "{python}", "scripts/qc/validators/reasoning/validate_page_argument_pack.py",
         "--page-argument-pack", "{run_dir}/artifacts/page_argument_pack.json",
+        "--issue-analysis", "{run_dir}/industry_issue_analysis.json",
         "--output", "{run_dir}/artifacts/page_argument_pack_validation.json",
     ],
     "artifacts/deck_blueprint_validation.json": [
@@ -847,6 +848,7 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str], l
         ],
         "artifacts/page_argument_pack_validation.json": [
             run_dir / "artifacts" / "page_argument_pack.json",
+            run_dir / "industry_issue_analysis.json",
         ],
         "artifacts/template_registry_validation.json": [
             run_dir / "template_registry.json",
@@ -1625,7 +1627,8 @@ def validate_research_pack_artifact(
         )
     else:
         try:
-            db_errors, db_warnings, _ = validate_research_evidence_db_data(load_json_file(db_path))
+            research_db_data = load_json_file(db_path)
+            db_errors, db_warnings, _ = validate_research_evidence_db_data(research_db_data)
         except Exception as exc:
             errors.append(f"cannot validate research_evidence_db.json: {exc}")
             _append_validation_issue(
@@ -1657,6 +1660,17 @@ def validate_research_pack_artifact(
                     errors=[str(item) for item in db_errors],
                     recommended_action="Repair DB rows to include full evidence and metric context.",
                     forbidden_action="Do not promote unreviewed evidence into research pack or later layers.",
+                )
+            gap_audit = research_db_data.get("research_gap_audit") if isinstance(research_db_data.get("research_gap_audit"), dict) else {}
+            if gap_audit.get("no_client_ready_evidence") is True:
+                errors.append("research_evidence_db declares no_client_ready_evidence=true; final client-ready deck delivery is blocked")
+                _append_validation_issue(
+                    repair_targets,
+                    artifact="artifacts/research_evidence_db.json",
+                    layer="knowledge",
+                    errors=["no_client_ready_evidence=true blocks final delivery"],
+                    recommended_action="Route to Research/Knowledge for additional evidence or explicitly deliver only an evidence-limited outline.",
+                    forbidden_action="Do not render a client-ready PPT from a no-evidence DB.",
                 )
             warnings.extend(str(item) for item in db_warnings)
     if db_validation_path.exists():

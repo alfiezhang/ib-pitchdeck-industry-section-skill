@@ -121,8 +121,8 @@ class TestWorkflowNextCommands:
         from state_report import recommended_commands
         run_dir = str(_pipeline_run_dir["run_dir"])
         commands = recommended_commands({"run_dir": run_dir, "current_stage": "RESEARCH_EVIDENCE_DB_MISSING_OR_FAILED"})
-        assert commands and "scripts/research-external-evidence/ib_research_graph.py compile" in commands[0]["command"], commands
-        assert "--state" in commands[0]["command"], commands
+        assert commands and "scripts/knowledge-repository/build_research_evidence_db.py" in commands[0]["command"], commands
+        assert "--formal-research-execution-report" in commands[0]["command"], commands
 
     def test_research_pack_commands(self, _pipeline_run_dir):
         from state_report import recommended_commands

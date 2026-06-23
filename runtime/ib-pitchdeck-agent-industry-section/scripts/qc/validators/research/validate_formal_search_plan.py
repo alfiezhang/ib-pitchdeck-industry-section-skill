@@ -44,6 +44,7 @@ from json_utils import load_json_file
 
 SCHEMA_VERSION = "formal_search_plan_v1"
 FS_RE = re.compile(r"^FS-\d{3}$")
+IST_RE = re.compile(r"^IST-\d{3}$")
 PLACEHOLDER_RE = re.compile(
     r"(<[^>]+>|TODO|TBD|N/A|xxxx|yyyy|placeholder|LLM_REWRITE_REQUIRED|待补|待搜索|示例|example)",
     flags=re.IGNORECASE,
@@ -77,6 +78,7 @@ VALID_PRIORITIES = {"high", "medium", "low"}
 VALID_EXECUTION_EXPECTATIONS = {"deep_search", "light_search", "accounting_only"}
 PLANNED_SEARCH_STAGE = "formal_research_execution"
 VALID_PLAN_TERMINAL_STATUSES = {"pending"}
+FORBIDDEN_EXECUTABLE_QUERY_FIELDS = {"query", "query_variants", "english_query", "chinese_query", "source_specific_query"}
 REQUIRED_PAIRS = {
     (issue_area, subissue)
     for issue_area, subissues in ISSUE_TOPICS_BY_AREA.items()
@@ -103,6 +105,16 @@ def _walk_text(value: Any) -> list[str]:
     elif isinstance(value, str):
         texts.append(value)
     return texts
+
+
+def _contains_forbidden_query_field(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(key in FORBIDDEN_EXECUTABLE_QUERY_FIELDS for key in value) or any(
+            _contains_forbidden_query_field(child) for child in value.values()
+        )
+    if isinstance(value, list):
+        return any(_contains_forbidden_query_field(child) for child in value)
+    return False
 
 
 def _contains_marker(text: str, markers: tuple[str, ...]) -> str:
@@ -231,6 +243,42 @@ def validate(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
             warnings.append(
                 f"{prefix}: high-priority deep_search issue has no planned instruction. "
                 "Use executable_search_batch.json for multiple concrete query attempts."
+            )
+
+    custom_threads = plan.get("industry_specific_research_threads", [])
+    if custom_threads in (None, ""):
+        custom_threads = []
+    if not isinstance(custom_threads, list):
+        errors.append("industry_specific_research_threads must be an array when present")
+        custom_threads = []
+    seen_threads: set[str] = set()
+    for thread_idx, thread in enumerate(custom_threads, start=1):
+        prefix = f"industry_specific_research_threads[{thread_idx}]"
+        if not isinstance(thread, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        thread_id = _text(thread.get("thread_id"))
+        if not IST_RE.fullmatch(thread_id):
+            errors.append(f"{prefix}: thread_id must follow IST-001 format")
+        elif thread_id in seen_threads:
+            errors.append(f"{prefix}: duplicate thread_id {thread_id}")
+        else:
+            seen_threads.add(thread_id)
+        mapped_area = _text(thread.get("mapped_issue_area"))
+        if mapped_area not in ISSUE_TOPICS_BY_AREA:
+            errors.append(f"{prefix}: mapped_issue_area must be one of {sorted(ISSUE_TOPICS_BY_AREA)}")
+        for field, min_len in (("topic", 4), ("research_need", 8), ("why_it_matters", 8)):
+            value = _text(thread.get(field))
+            if len(value) < min_len:
+                errors.append(f"{prefix}: {field} is too short")
+            if _contains_marker(value, PAGE_PLAN_MARKERS):
+                errors.append(f"{prefix}: {field} contains page/deck planning language")
+            if _contains_marker(value, PREMATURE_FINDING_MARKERS):
+                errors.append(f"{prefix}: {field} contains premature conclusion language")
+        if _contains_forbidden_query_field(thread):
+            errors.append(
+                f"{prefix}: executable query fields belong only in artifacts/executable_search_batch.json; "
+                "industry_specific_research_threads may contain evidence needs, not queries"
             )
 
     for text in _walk_text(plan.get("research_discipline", {})):

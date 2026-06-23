@@ -57,7 +57,7 @@ scripts/qc/validators/<layer>/validate_*.py
 2. Group symptoms into root causes.
 3. Identify the smallest upstream repair.
 4. Assign a repair owner: Material, Knowledge, Scoping, Research, Reasoning, Generation, Template, or Output.
-5. For source issues, review `source_archive` plus embedded `research_evidence_db.source_reviews`.
+5. For source issues, review `source_archive` / archive-capture records plus embedded `research_evidence_db.source_reviews`; final source usability decisions live in the DB, not the capture export.
 6. State whether warnings are advisory, accepted with limits, or repair-before-downstream.
 7. Run deterministic validators only after the owning role has made the substantive repair.
 8. Record repeated failure patterns so future runs do not repeat them.

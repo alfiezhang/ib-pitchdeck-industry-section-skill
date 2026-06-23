@@ -50,6 +50,23 @@
         "additionalProperties": true
       }
     },
+    "industry_specific_research_threads": {
+      "type": "array",
+      "description": "Optional industry-specific evidence needs mapped back to a canonical issue area. This is not a query workbench.",
+      "items": {
+        "type": "object",
+        "required": ["thread_id", "mapped_issue_area", "topic", "research_need", "why_it_matters"],
+        "properties": {
+          "thread_id": { "type": "string", "pattern": "^IST-\\d{3}$" },
+          "mapped_issue_area": { "type": "string" },
+          "topic": { "type": "string", "minLength": 4 },
+          "research_need": { "type": "string", "minLength": 8 },
+          "why_it_matters": { "type": "string", "minLength": 8 },
+          "query_authoring_artifact": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
     "research_discipline": { "type": "object", "additionalProperties": true }
   },
   "additionalProperties": true
