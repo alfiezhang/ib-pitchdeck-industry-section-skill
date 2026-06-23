@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Industry Scope Pack v2",
+  "title": "Industry Scope Pack Boundary Card",
   "description": "Brief industry boundary card. It defines research scope and reconciliation rules; it is not a research memo and must not contain market findings.",
   "type": "object",
   "additionalProperties": false,

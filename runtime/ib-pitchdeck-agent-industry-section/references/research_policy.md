@@ -78,8 +78,8 @@ Create these artifacts before formal research execution:
 Recommended sequence:
 
 1. Read `configs/source_registry.json` as a source menu only.
-2. Draft a short `industry_scope_pack_v2` boundary card from the brief and
-   model knowledge only. It is a scope hypothesis, not evidence.
+2. Draft a short industry boundary card from the brief and model knowledge
+   only. It is a scope hypothesis, not evidence.
 3. If needed, identify 1-5 boundary-validation questions in
    `boundary_validation_needed`. These questions should be definition/scope-
    oriented, not market-answer-oriented.

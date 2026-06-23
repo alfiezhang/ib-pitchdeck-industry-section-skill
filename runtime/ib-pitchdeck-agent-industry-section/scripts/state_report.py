@@ -307,9 +307,9 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "INDUSTRY_SCOPE_PACK_MISSING": [
         {
-            "purpose": "create industry_scope_pack.json as a brief v2 boundary card; do not run Python format validation until QC LLM has reviewed boundary quality",
+            "purpose": "create industry_scope_pack.json as a brief boundary card; do not run Python format validation until QC LLM has reviewed boundary quality",
             "command": (
-                "LLM task: industry-scoping writes a brief industry_scope_pack_v2 boundary card at "
+                "LLM task: industry-scoping writes a brief industry_scope_pack boundary card at "
                 "{run_dir}/artifacts/industry_scope_pack.json. Keep it short: working/parent/broader market, "
                 "core/broad/adjacent/excluded, must_reconcile, boundary_validation_needed, handoff_to_research. "
                 "Do not write market findings or a research memo."

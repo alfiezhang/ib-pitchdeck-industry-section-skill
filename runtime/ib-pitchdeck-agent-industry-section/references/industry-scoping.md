@@ -16,7 +16,7 @@ The scope pack is a boundary card, not a research memo. Target length is 1-2 scr
 
 ## Outputs
 
-- `artifacts/industry_scope_pack.json` using `industry_scope_pack_v2`
+- `artifacts/industry_scope_pack.json` using the current boundary-card schema
 - boundary validation requests only when the boundary is genuinely uncertain
 - updated boundary rationale after validation evidence arrives, if QC asks for repair
 
