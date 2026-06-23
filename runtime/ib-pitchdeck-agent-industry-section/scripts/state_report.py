@@ -144,8 +144,13 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     },
     "FORMAL_SEARCH_PLAN_MISSING": {
         "checkpoint": "Research planning quality",
-        "qc_mode": "Research owns executable query quality; Python validates taxonomy coverage and non-empty executable searches.",
-        "if_not_ok": "Research rewrites coverage/search batch. QC may route poor query quality but should not accept generic unusable queries.",
+        "qc_mode": "Research owns coverage/evidence-need design; Python validates taxonomy coverage and keeps executable queries out of formal_search_plan.",
+        "if_not_ok": "Research repairs formal_search_plan coverage. Do not execute searches until executable_search_batch is authored and validated.",
+    },
+    "EXECUTABLE_SEARCH_BATCH_MISSING_OR_FAILED": {
+        "checkpoint": "Executable query workbench",
+        "qc_mode": "Query Author LLM designs concrete searches; Python only rejects placeholders, missing query_status, and malformed rows.",
+        "if_not_ok": "Research Query Author repairs executable_search_batch.json before any search execution or graph compilation.",
     },
     "SOURCE_ARCHIVE_MISSING_OR_FAILED": {
         "checkpoint": "Source archive integrity",
@@ -348,6 +353,21 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_formal_search_plan.py --formal-search-plan {{run_dir}}/artifacts/formal_search_plan.json --output {{run_dir}}/artifacts/formal_search_plan_validation.json",
         },
     ],
+    "EXECUTABLE_SEARCH_BATCH_MISSING_OR_FAILED": [
+        {
+            "purpose": "LLM author executable query workbench before research execution",
+            "command": (
+                "LLM task: Query Author reads {run_dir}/artifacts/formal_search_plan.json, "
+                "{run_dir}/artifacts/industry_scope_pack.json, and {run_dir}/artifacts/executable_search_batch.json; "
+                "replace every LLM_REWRITE_REQUIRED query, set query_status=authored, add fallback_queries/source priority, "
+                "and keep one executable batch row per search_instruction_id."
+            ),
+        },
+        {
+            "purpose": "validate executable search batch after LLM query authoring",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/research/validate_executable_search_batch.py --executable-search-batch {{run_dir}}/artifacts/executable_search_batch.json --output {{run_dir}}/artifacts/executable_search_batch_validation.json",
+        },
+    ],
     "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
         {
             "purpose": "compile planned-vs-actual execution accounting from research_graph_state.json",
@@ -407,9 +427,23 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
             "purpose": "validate issue analysis after replacing skeleton placeholders with substantive analysis",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_issue_analysis.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --research-pack {{run_dir}}/industry_research_pack.md --output {{run_dir}}/artifacts/issue_analysis_validation.json",
         },
+    ],
+    "HYPOTHESIS_STORE_MISSING_OR_FAILED": [
         {
-            "purpose": "optional: build hypothesis store for unresolved/directional reasoning",
+            "purpose": "required: build hypothesis store skeleton for unresolved/directional reasoning",
             "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_hypothesis_store_skeleton.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --research-evidence-db {{run_dir}}/artifacts/research_evidence_db.json --output {{run_dir}}/artifacts/hypothesis_store.json",
+        },
+        {
+            "purpose": "LLM resolves hypotheses or confirms that none require resolution",
+            "command": (
+                "LLM task: Reasoning reviews {run_dir}/artifacts/hypothesis_store.json, "
+                "{run_dir}/industry_issue_analysis.json, and {run_dir}/artifacts/research_evidence_db.json; "
+                "set each hypothesis resolution_status and allowed downstream use, or keep hypotheses: [] with a resolution_summary when no unresolved claims exist."
+            ),
+        },
+        {
+            "purpose": "validate hypothesis store before page argument authoring",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/reasoning/validate_hypothesis_store.py --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/hypothesis_store_validation.json",
         },
         {
             "purpose": "optional: build public research request queue from unresolved hypotheses",
@@ -430,8 +464,17 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     ],
     "PAGE_ARGUMENT_PACK_MISSING_OR_FAILED": [
         {
-            "purpose": "required: build page argument pack as the bridge from Reasoning to Generation",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_page_argument_pack.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/page_argument_pack.json",
+            "purpose": "required: build page argument skeleton/crosswalk for Reasoning LLM",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/reasoning/build_page_argument_pack_skeleton.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --hypothesis-store {{run_dir}}/artifacts/hypothesis_store.json --output {{run_dir}}/artifacts/page_argument_pack.json",
+        },
+        {
+            "purpose": "LLM author final page argument pack before Generation",
+            "command": (
+                "LLM task: Reasoning reviews {run_dir}/artifacts/page_argument_pack.json skeleton, "
+                "{run_dir}/industry_issue_analysis.json, and {run_dir}/artifacts/hypothesis_store.json; "
+                "merge/drop/rewrite candidate arguments, set page_argument_id/source_issue_analysis_id/evidence_ids/metric_ids, "
+                "and set allowed_deck_usage. Do not let Python-generated skeleton text stand in for banker judgment."
+            ),
         },
         {
             "purpose": "validate page argument pack before deck blueprint writing",
@@ -455,19 +498,19 @@ COMMAND_TEMPLATES_BY_STAGE: dict[str, list[dict[str, str]]] = {
     "DECK_BLUEPRINT_MISSING_OR_FAILED": [
         {
             "purpose": "validate deck blueprint after page-editor repair",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/generation/validate_deck_blueprint.py --deck-blueprint {{run_dir}}/deck_blueprint.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --template-registry {{run_dir}}/template_registry.json --layout-budget configs/layout_budget.json --output {{run_dir}}/artifacts/deck_blueprint_validation.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validators/generation/validate_deck_blueprint.py --deck-blueprint {{run_dir}}/deck_blueprint.json --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --template-registry {{run_dir}}/template_registry.json --layout-budget configs/layout_budget.json --output {{run_dir}}/artifacts/deck_blueprint_validation.json",
         },
     ],
     "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": [
         {
             "purpose": "compile blueprint into deterministic downstream artifacts",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/generation/compile_deck_blueprint.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/generation/compile_deck_blueprint.py --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
         },
     ],
     "RENDERER_SPEC_MISSING_OR_FAILED": [
         {
             "purpose": "recompile renderer spec from repaired deck blueprint",
-            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/generation/compile_deck_blueprint.py --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
+            "command": f"{PYTHON_COMMAND_TEMPLATE} scripts/generation/compile_deck_blueprint.py --page-argument-pack {{run_dir}}/artifacts/page_argument_pack.json --issue-analysis {{run_dir}}/industry_issue_analysis.json --deck-blueprint {{run_dir}}/deck_blueprint.json --template-registry {{run_dir}}/template_registry.json --page-contract-output {{run_dir}}/page_evidence_contract.json --renderer-spec-output {{run_dir}}/renderer_spec.json",
         },
     ],
     "TEMPLATE_PROFILE_MISSING_OR_FAILED": [

@@ -653,6 +653,8 @@ def _rebuild_compiled_deck(run_dir: Path, python_cmd: str) -> None:
         [
             python_cmd,
             ROLE_SCRIPT_DIRS["compile_deck_blueprint.py"],
+            "--page-argument-pack",
+            run_dir / "artifacts/page_argument_pack.json",
             "--issue-analysis",
             run_dir / "industry_issue_analysis.json",
             "--deck-blueprint",
@@ -671,6 +673,8 @@ def _rebuild_compiled_deck(run_dir: Path, python_cmd: str) -> None:
             ROLE_SCRIPT_DIRS["validate_page_evidence_contract.py"],
             "--page-contract",
             run_dir / "page_evidence_contract.json",
+            "--page-argument-pack",
+            run_dir / "artifacts/page_argument_pack.json",
             "--issue-analysis",
             run_dir / "industry_issue_analysis.json",
             "--deck-blueprint",

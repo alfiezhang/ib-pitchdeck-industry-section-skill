@@ -38,7 +38,7 @@ from typing import Any, Optional
 from json_utils import check_file
 from json_utils import load_json_file
 from validate_content_quality import validate as validate_content_quality
-from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan
+from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack
 from validate_industry_scope_pack import validate as validate_industry_scope_pack_data
 from validate_issue_analysis import validate as validate_issue_analysis_data
 from validate_input_card import validate as validate_input_card_data
@@ -688,9 +688,15 @@ def is_within_run(path_text: str, run_dir: Path) -> bool:
 # Mapping from stale validation artifact to the command that regenerates it.
 # Commands use {run_dir} and {python} placeholders.
 _STALE_RERUN_COMMANDS: dict[str, list[str]] = {
+    "artifacts/page_argument_pack_validation.json": [
+        "{python}", "scripts/qc/validators/reasoning/validate_page_argument_pack.py",
+        "--page-argument-pack", "{run_dir}/artifacts/page_argument_pack.json",
+        "--output", "{run_dir}/artifacts/page_argument_pack_validation.json",
+    ],
     "artifacts/deck_blueprint_validation.json": [
         "{python}", "scripts/qc/validators/generation/validate_deck_blueprint.py",
         "--deck-blueprint", "{run_dir}/deck_blueprint.json",
+        "--page-argument-pack", "{run_dir}/artifacts/page_argument_pack.json",
         "--issue-analysis", "{run_dir}/industry_issue_analysis.json",
         "--template-registry", "{run_dir}/template_registry.json",
         "--layout-budget", "configs/layout_budget.json",
@@ -708,6 +714,7 @@ _STALE_RERUN_COMMANDS: dict[str, list[str]] = {
         "{python}", "scripts/qc/validators/generation/validate_page_evidence_contract.py",
         "--page-contract", "{run_dir}/page_evidence_contract.json",
         "--deck-blueprint", "{run_dir}/deck_blueprint.json",
+        "--page-argument-pack", "{run_dir}/artifacts/page_argument_pack.json",
         "--issue-analysis", "{run_dir}/industry_issue_analysis.json",
         "--output", "{run_dir}/artifacts/page_evidence_contract_validation.json",
     ],
@@ -773,9 +780,10 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str], l
         "artifacts/formal_research_execution_validation.json": ["formal_research_execution_report", "formal_search_plan", "search_log"],
         "artifacts/stage_gate_pre_research_pack_validation.json": ["run_dir"],
         "artifacts/issue_analysis_validation.json": ["issue_analysis"],
+        "artifacts/page_argument_pack_validation.json": ["page_argument_pack"],
         "artifacts/template_registry_validation.json": ["template_registry"],
-        "artifacts/deck_blueprint_validation.json": ["issue_analysis", "template_registry", "deck_blueprint"],
-        "artifacts/page_evidence_contract_validation.json": ["issue_analysis", "deck_blueprint", "page_contract"],
+        "artifacts/deck_blueprint_validation.json": ["page_argument_pack", "issue_analysis", "template_registry", "deck_blueprint"],
+        "artifacts/page_evidence_contract_validation.json": ["page_argument_pack", "deck_blueprint", "page_contract"],
         "artifacts/replacement_dict_validation.json": ["replacement_dict", "renderer_spec"],
         "filled_ppt_validation.json": ["summary.filled_ppt", "summary.clean_ppt", "summary.control_file", "summary.replacement_dict"],
     }
@@ -837,16 +845,20 @@ def validate_artifact_provenance(run_dir: Path) -> tuple[list[str], list[str], l
             run_dir / "industry_issue_analysis.json",
             run_dir / "industry_research_pack.md",
         ],
+        "artifacts/page_argument_pack_validation.json": [
+            run_dir / "artifacts" / "page_argument_pack.json",
+        ],
         "artifacts/template_registry_validation.json": [
             run_dir / "template_registry.json",
         ],
         "artifacts/deck_blueprint_validation.json": [
+            run_dir / "artifacts" / "page_argument_pack.json",
             run_dir / "industry_issue_analysis.json",
             run_dir / "template_registry.json",
             run_dir / "deck_blueprint.json",
         ],
         "artifacts/page_evidence_contract_validation.json": [
-            run_dir / "industry_issue_analysis.json",
+            run_dir / "artifacts" / "page_argument_pack.json",
             run_dir / "deck_blueprint.json",
             run_dir / "page_evidence_contract.json",
         ],
@@ -1211,6 +1223,7 @@ def validate_issue_artifacts(
     errors: list[str] = []
     warnings: list[str] = []
     issue_analysis_path = run_dir / "industry_issue_analysis.json"
+    page_argument_pack_path = run_dir / "artifacts" / "page_argument_pack.json"
     template_registry_path = run_dir / "template_registry.json"
     deck_blueprint_path = run_dir / "deck_blueprint.json"
     page_contract_path = run_dir / "page_evidence_contract.json"
@@ -1218,6 +1231,7 @@ def validate_issue_artifacts(
 
     required_files = {
         "industry_issue_analysis.json": issue_analysis_path,
+        "artifacts/page_argument_pack.json": page_argument_pack_path,
         "template_registry.json": template_registry_path,
         "deck_blueprint.json": deck_blueprint_path,
         "page_evidence_contract.json": page_contract_path,
@@ -1239,6 +1253,7 @@ def validate_issue_artifacts(
 
     try:
         issue_analysis = load_json_file(issue_analysis_path)
+        page_argument_pack = load_json_file(page_argument_pack_path)
         template_registry = load_json_file(template_registry_path)
         deck_blueprint = load_json_file(deck_blueprint_path)
         page_contract = load_json_file(page_contract_path)
@@ -1308,7 +1323,13 @@ def validate_issue_artifacts(
         )
     warnings.extend(str(item) for item in template_registry_warnings)
 
-    deck_errors, deck_warnings, _ = validate_deck_blueprint_data(deck_blueprint, issue_analysis, template_registry)
+    page_argument_pool = page_argument_pool_from_pack(page_argument_pack)
+    deck_errors, deck_warnings, _ = validate_deck_blueprint_data(
+        deck_blueprint,
+        page_argument_pack,
+        template_registry,
+        issue_analysis,
+    )
     _append_repair_targets(
         repair_targets,
         {
@@ -1335,7 +1356,7 @@ def validate_issue_artifacts(
     warnings.extend(str(item) for item in deck_warnings)
 
     page_contract_errors, page_contract_warnings = validate_page_evidence_contract_data(
-        issue_analysis,
+        page_argument_pool,
         normalize_deck_blueprint_for_page_plan(deck_blueprint),
         page_contract,
     )
@@ -1365,6 +1386,7 @@ def validate_issue_artifacts(
 
     for artifact_name in (
         "issue_analysis_validation.json",
+        "page_argument_pack_validation.json",
         "template_registry_validation.json",
         "deck_blueprint_validation.json",
         "page_evidence_contract_validation.json",

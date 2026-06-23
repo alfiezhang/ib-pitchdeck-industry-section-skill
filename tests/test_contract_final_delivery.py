@@ -29,7 +29,7 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
 
 
 class TestFinalDeliveryIssueArtifacts:
-    def test_catches_is_valid_false(self, deck_blueprint_path, template_registry_path, compiled_artifacts, tmp_path):
+    def test_catches_is_valid_false(self, deck_blueprint_path, template_registry_path, page_argument_pack_path, compiled_artifacts, tmp_path):
         """validate_issue_artifacts must catch is_valid=false on any downstream validation."""
         from validate_final_delivery import validate_issue_artifacts
 
@@ -49,8 +49,12 @@ class TestFinalDeliveryIssueArtifacts:
         (run_dir / "page_evidence_contract.json").write_text(
             compiled_artifacts["page_evidence_contract"].read_text(encoding="utf-8"), encoding="utf-8"
         )
+        (artifacts / "page_argument_pack.json").write_text(
+            page_argument_pack_path.read_text(encoding="utf-8"), encoding="utf-8"
+        )
         for name in (
             "issue_analysis_validation.json",
+            "page_argument_pack_validation.json",
             "template_registry_validation.json",
             "deck_blueprint_validation.json",
             "page_evidence_contract_validation.json",
@@ -110,7 +114,7 @@ class TestFinalDeliveryIssueArtifacts:
 
 class TestUpstreamFailurePropagation:
     @pytest.fixture
-    def bad_upstream_run(self, deck_blueprint_path, template_registry_path, tmp_path):
+    def bad_upstream_run(self, deck_blueprint_path, template_registry_path, page_argument_pack_path, tmp_path):
         """Create a run directory with failed source_archive_validation."""
         run_dir = tmp_path / "bad_upstream_run"
         artifacts = run_dir / "artifacts"
@@ -122,14 +126,18 @@ class TestUpstreamFailurePropagation:
             (deck_blueprint_path, "deck_blueprint.json"),
         ):
             (run_dir / name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        (artifacts / "page_argument_pack.json").write_text(page_argument_pack_path.read_text(encoding="utf-8"), encoding="utf-8")
         (run_dir / "industry_research_pack.md").write_text("# Too Short\n", encoding="utf-8")
         for name in (
             "industry_scope_pack_validation.json",
+            "formal_search_plan_validation.json",
             "formal_research_execution_validation.json",
             "stage_gate_pre_research_pack_validation.json",
             "research_evidence_db_validation.json",
             "research_pack_validation.json",
             "issue_analysis_validation.json",
+            "hypothesis_store_validation.json",
+            "page_argument_pack_validation.json",
             "deck_blueprint_validation.json",
             "template_registry_validation.json",
         ):
@@ -156,6 +164,7 @@ class TestUpstreamFailurePropagation:
     def test_deck_blueprint_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
             sys.executable, "scripts/qc/validators/generation/validate_deck_blueprint.py",
+            "--page-argument-pack", str(bad_upstream_run / "artifacts/page_argument_pack.json"),
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--deck-blueprint", str(bad_upstream_run / "deck_blueprint.json"),
             "--template-registry", str(bad_upstream_run / "template_registry.json"),
@@ -166,6 +175,7 @@ class TestUpstreamFailurePropagation:
     def test_compile_rejects_failed_source_archive(self, bad_upstream_run):
         result = _run([
             sys.executable, "scripts/generation/compile_deck_blueprint.py",
+            "--page-argument-pack", str(bad_upstream_run / "artifacts/page_argument_pack.json"),
             "--issue-analysis", str(bad_upstream_run / "industry_issue_analysis.json"),
             "--deck-blueprint", str(bad_upstream_run / "deck_blueprint.json"),
             "--template-registry", str(bad_upstream_run / "template_registry.json"),

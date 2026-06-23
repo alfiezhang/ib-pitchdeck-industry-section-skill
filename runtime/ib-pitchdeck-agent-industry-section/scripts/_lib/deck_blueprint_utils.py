@@ -98,6 +98,128 @@ def selected_issue_analysis_ids(slide: dict[str, Any]) -> list[str]:
     return unique(([primary] if primary else []) + supporting)
 
 
+def selected_page_argument_ids(slide: dict[str, Any]) -> list[str]:
+    values = slide.get("page_argument_ids")
+    if isinstance(values, list):
+        return unique([str(item).strip() for item in values if str(item).strip()])
+    primary = str(slide.get("page_argument_id") or "").strip()
+    supporting = [str(item).strip() for item in as_list(slide.get("supporting_page_argument_ids")) if str(item).strip()]
+    return unique(([primary] if primary else []) + supporting)
+
+
+def page_argument_index(page_argument_pack: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rows = page_argument_pack.get("page_arguments") if isinstance(page_argument_pack, dict) else []
+    if not isinstance(rows, list):
+        return {}
+    return {
+        str(item.get("page_argument_id")): item
+        for item in rows
+        if isinstance(item, dict) and item.get("page_argument_id")
+    }
+
+
+def _permission_from_page_argument(argument: dict[str, Any]) -> dict[str, bool]:
+    explicit = argument.get("downstream_permission")
+    if isinstance(explicit, dict):
+        return {
+            "headline_allowed": explicit.get("headline_allowed") is True,
+            "main_message_allowed": explicit.get("main_message_allowed") is True,
+            "chart_allowed": explicit.get("chart_allowed") is True,
+            "body_copy_allowed": explicit.get("body_copy_allowed") is True,
+        }
+    usage = str(argument.get("allowed_deck_usage") or "").strip()
+    headline_allowed = usage == "headline_allowed"
+    body_copy_allowed = usage in {"headline_allowed", "body_only", "supporting_context", "context_only", "caveat_only"}
+    chart_allowed = usage in {"headline_allowed", "body_only"}
+    return {
+        "headline_allowed": headline_allowed,
+        "main_message_allowed": headline_allowed,
+        "chart_allowed": chart_allowed,
+        "body_copy_allowed": body_copy_allowed,
+    }
+
+
+def _evidence_status_from_page_argument(argument: dict[str, Any]) -> str:
+    status = str(argument.get("evidence_status") or "").strip()
+    if status in {"supported", "thin", "insufficient", "not_applicable", "unavailable_after_research", "not_researched", "caveat_only"}:
+        return status
+    usage = str(argument.get("allowed_deck_usage") or "").strip()
+    if usage == "headline_allowed":
+        return "supported"
+    if usage in {"caveat_only", "diligence_only"}:
+        return "caveat_only"
+    if usage in {"not_allowed", "research_required"}:
+        return "not_researched"
+    return "thin"
+
+
+def page_argument_pool_from_pack(page_argument_pack: dict[str, Any]) -> dict[str, Any]:
+    """Convert page_argument_pack into the internal issue-analysis-like pool.
+
+    Generation is sourced from page arguments. The renderer contract still uses
+    issue-analysis-shaped permissions internally, so this mapping preserves
+    source_issue_analysis_id lineage while keeping page_argument_pack as the
+    upstream authority.
+    """
+    by_issue: dict[str, dict[str, Any]] = {}
+    for argument in page_argument_index(page_argument_pack).values():
+        source_id = str(argument.get("source_issue_analysis_id") or "").strip()
+        if not source_id:
+            continue
+        row = by_issue.setdefault(
+            source_id,
+            {
+                "analysis_id": source_id,
+                "page_argument_ids": [],
+                "issue_area": str(argument.get("issue_area") or "").strip(),
+                "subissue": str(argument.get("subissue") or "").strip(),
+                "analysis_text": "",
+                "core_statement": "",
+                "evidence_status": _evidence_status_from_page_argument(argument),
+                "evidence_sufficiency": _evidence_status_from_page_argument(argument),
+                "evidence_ids": [],
+                "metric_ids": [],
+                "supporting_points": [],
+                "downstream_permission": {
+                    "headline_allowed": False,
+                    "main_message_allowed": False,
+                    "chart_allowed": False,
+                    "body_copy_allowed": False,
+                },
+            },
+        )
+        row["page_argument_ids"].append(str(argument.get("page_argument_id") or "").strip())
+        statement = str(argument.get("page_argument") or "").strip()
+        if statement and not row.get("core_statement"):
+            row["core_statement"] = statement
+        if statement:
+            row["analysis_text"] = (str(row.get("analysis_text") or "") + "\n" + statement).strip()
+        evidence_ids = unique([*as_list(row.get("evidence_ids")), *as_list(argument.get("evidence_ids"))])
+        metric_ids = unique([*as_list(row.get("metric_ids")), *as_list(argument.get("metric_ids"))])
+        row["evidence_ids"] = evidence_ids
+        row["metric_ids"] = metric_ids
+        point = {
+            "point": statement or str(argument.get("client_question") or "").strip() or str(argument.get("page_argument_id") or "").strip(),
+            "evidence_ids": unique([str(item).strip() for item in as_list(argument.get("evidence_ids")) if str(item).strip()]),
+            "metric_ids": unique([str(item).strip() for item in as_list(argument.get("metric_ids")) if str(item).strip()]),
+            "role": "page_argument_support",
+            "evidence_sufficiency": _evidence_status_from_page_argument(argument),
+        }
+        row["supporting_points"].append(point)
+        perm = _permission_from_page_argument(argument)
+        for key, value in perm.items():
+            if value is True:
+                row["downstream_permission"][key] = True
+        allowed_usage = {
+            "headline": row["downstream_permission"]["headline_allowed"],
+            "main_message": row["downstream_permission"]["main_message_allowed"],
+            "chart": row["downstream_permission"]["chart_allowed"],
+            "body_copy": row["downstream_permission"]["body_copy_allowed"],
+        }
+        row["allowed_deck_usage"] = allowed_usage
+    return {"issue_analyses": list(by_issue.values())}
+
+
 def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
     visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
     if not visual and isinstance(slide.get("visual_plan"), dict):
@@ -269,6 +391,7 @@ def normalize_deck_blueprint_for_page_plan(deck_blueprint: dict[str, Any]) -> di
             continue
         slide_no = slide.get("slide_no")
         issue_ids = selected_issue_analysis_ids(slide)
+        page_argument_ids = selected_page_argument_ids(slide)
         primary = issue_ids[0] if issue_ids else ""
         supporting = issue_ids[1:]
         slides.append(
@@ -279,6 +402,7 @@ def normalize_deck_blueprint_for_page_plan(deck_blueprint: dict[str, Any]) -> di
                 "page_answer": slide.get("page_thesis") or slide.get("page_answer") or slide.get("headline") or "",
                 "primary_issue_analysis_id": primary,
                 "supporting_issue_analysis_ids": supporting,
+                "page_argument_ids": page_argument_ids,
                 "analysis_use": [
                     {"analysis_id": analysis_id, "use_as": "selected_page_support"}
                     for analysis_id in issue_ids

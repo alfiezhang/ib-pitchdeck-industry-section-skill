@@ -98,6 +98,11 @@ def main() -> int:
         "schema_version": "hypothesis_store_v1",
         "policy_context": "pre_mandate_client_pitch",
         "hypotheses": hypotheses,
+        "resolution_summary": (
+            "No unresolved, directional, thinly supported, insufficient, or not-researched judgments identified."
+            if not hypotheses
+            else "Skeleton generated from issue_analysis and research gaps; Reasoning LLM must resolve each hypothesis before page argument authoring."
+        ),
         "resolution_policy": {
             "supported": "May become supported judgment and page argument.",
             "directional": "Body/context only; not headline.",

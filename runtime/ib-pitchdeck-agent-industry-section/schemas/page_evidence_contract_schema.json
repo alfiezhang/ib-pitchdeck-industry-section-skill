@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Page Evidence Contract",
-  "description": "Page-level permissions and evidence boundaries deterministically derived from issue analysis and deck_blueprint. It records what the page answer is allowed to claim before renderer_spec compilation; agents should build it with scripts/generation/compile_deck_blueprint.py rather than hand-writing it.",
+  "description": "Page-level permissions and evidence boundaries deterministically derived from page_argument_pack and deck_blueprint. It records what the page answer is allowed to claim before renderer_spec compilation; agents should build it with scripts/generation/compile_deck_blueprint.py rather than hand-writing it.",
   "type": "object",
   "required": ["slides"],
   "properties": {
@@ -15,6 +15,7 @@
           "slide_no",
           "page_role",
           "page_question",
+          "page_argument_ids",
           "primary_issue_analysis_id",
           "supporting_issue_analysis_ids",
           "headline_claim",
@@ -41,6 +42,10 @@
           "page_question": {
             "type": "string",
             "description": "The single page-level question this slide must answer. This is proof responsibility, not visual design."
+          },
+          "page_argument_ids": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^PA-\\d{3}$" }
           },
           "primary_issue_analysis_id": { "type": "string", "pattern": "^IA-\\d{3}$" },
           "supporting_issue_analysis_ids": { "type": "array", "items": { "type": "string", "pattern": "^IA-\\d{3}$" } },

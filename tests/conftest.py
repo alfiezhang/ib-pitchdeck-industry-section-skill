@@ -120,6 +120,58 @@ def _build_template_registry(tmp_path: Path) -> Path:
     return out
 
 
+def _page_argument_pack_from_issue_analysis(issue_analysis: dict) -> dict:
+    page_arguments = []
+    for idx, item in enumerate(issue_analysis.get("issue_analyses", []), start=1):
+        analysis_id = item.get("analysis_id")
+        if not analysis_id:
+            continue
+        allowed = item.get("allowed_deck_usage") if isinstance(item.get("allowed_deck_usage"), dict) else {}
+        if allowed.get("headline") is True:
+            usage = "headline_allowed"
+        elif allowed.get("body_copy") is True or allowed.get("chart") is True:
+            usage = "body_only"
+        elif item.get("evidence_status") == "caveat_only":
+            usage = "caveat_only"
+        else:
+            usage = "not_allowed"
+        downstream = item.get("downstream_permission") if isinstance(item.get("downstream_permission"), dict) else {}
+        page_arguments.append(
+            {
+                "page_argument_id": f"PA-{idx:03d}",
+                "source_issue_analysis_id": analysis_id,
+                "issue_area": item.get("issue_area", ""),
+                "subissue": item.get("subissue", ""),
+                "client_question": f"What does {analysis_id} imply for the page?",
+                "page_argument": item.get("core_statement") or item.get("analysis_text", ""),
+                "evidence_status": item.get("evidence_status", "thin"),
+                "allowed_deck_usage": usage,
+                "downstream_permission": {
+                    "headline_allowed": downstream.get("headline_allowed") is True,
+                    "main_message_allowed": downstream.get("main_message_allowed") is True or downstream.get("headline_allowed") is True,
+                    "chart_allowed": downstream.get("chart_allowed") is True,
+                    "body_copy_allowed": downstream.get("body_copy_allowed") is True,
+                },
+                "hypothesis_resolution_status": item.get("hypothesis_resolution", "resolved"),
+                "evidence_ids": item.get("evidence_ids", []),
+                "metric_ids": item.get("metric_ids", []),
+                "caveat_or_diligence_question": "; ".join(item.get("limitations", [])),
+            }
+        )
+    return {
+        "schema_version": "page_argument_pack_v1",
+        "policy_context": "pre_mandate_client_pitch",
+        "page_arguments": page_arguments,
+    }
+
+
+def _build_page_argument_pack(tmp_path: Path, issue_path: Path | None = None) -> Path:
+    issue = json.loads((issue_path or FIXTURES_DIR / "valid_issue_analysis.json").read_text(encoding="utf-8"))
+    out = tmp_path / "page_argument_pack.json"
+    _write_json(out, _page_argument_pack_from_issue_analysis(issue))
+    return out
+
+
 def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None) -> dict:
     """Build a minimal 8-slide deck blueprint for testing."""
     copy_themes = [
@@ -195,6 +247,10 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
     issue_ids = {
         1: ["IA-001"], 2: ["IA-001", "IA-002"], 3: ["IA-003"], 4: ["IA-003"],
         5: ["IA-003"], 6: ["IA-003"], 7: ["IA-003"], 8: ["IA-003", "IA-004"],
+    }
+    page_argument_ids = {
+        no: [f"PA-{int(issue_id[3:]):03d}" for issue_id in ids]
+        for no, ids in issue_ids.items()
     }
 
     slides = slides_override if slides_override is not None else []
@@ -280,6 +336,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 "page_argument": page_arguments[no], "visual_intent": visual_intents[no],
                 "evidence_role": evidence_roles[no],
                 "why_this_page_matters": f"Slide {no} matters because it converts research into a pitch-relevant page argument.",
+                "page_argument_ids": page_argument_ids[no],
                 "issue_analysis_ids": ids, "selected_page_type": page_types[no],
                 "claim_strength": "supported_inference",
                 "headline": f"Slide {no}: conclusion-led industry view with distinct implication",
@@ -301,16 +358,23 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
     return blueprint
 
 
-def _compile_blueprint(tmp_path: Path, blueprint_path: Path | None = None, issue_path: Path | None = None, registry_path: Path | None = None) -> tuple[Path, Path]:
+def _compile_blueprint(
+    tmp_path: Path,
+    blueprint_path: Path | None = None,
+    issue_path: Path | None = None,
+    registry_path: Path | None = None,
+    page_argument_pack_path: Path | None = None,
+) -> tuple[Path, Path]:
     """Compile deck blueprint → page_evidence_contract + renderer_spec."""
     bp = blueprint_path or tmp_path / "deck_blueprint.json"
     ia = issue_path or FIXTURES_DIR / "valid_issue_analysis.json"
+    pa = page_argument_pack_path or _build_page_argument_pack(tmp_path, ia)
     tr = registry_path or tmp_path / "template_registry.json"
     pc_out = tmp_path / "page_evidence_contract.json"
     rs_out = tmp_path / "renderer_spec.json"
     result = subprocess.run(
         [sys.executable, str(ROLE_SCRIPT_DIRS["compile_deck_blueprint.py"]),
-         "--issue-analysis", str(ia), "--deck-blueprint", str(bp),
+         "--page-argument-pack", str(pa), "--issue-analysis", str(ia), "--deck-blueprint", str(bp),
          "--template-registry", str(tr),
          "--page-contract-output", str(pc_out),
          "--renderer-spec-output", str(rs_out)],
@@ -349,9 +413,20 @@ def deck_blueprint_data(_session_tmp):
 
 
 @pytest.fixture(scope="session")
-def compiled_artifacts(_session_tmp, deck_blueprint_path, template_registry_path):
+def page_argument_pack_path(_session_tmp):
+    """Build page_argument_pack.json once per session."""
+    return _build_page_argument_pack(_session_tmp)
+
+
+@pytest.fixture(scope="session")
+def compiled_artifacts(_session_tmp, deck_blueprint_path, template_registry_path, page_argument_pack_path):
     """Compile deck blueprint → page_evidence_contract + renderer_spec."""
-    pc, rs = _compile_blueprint(_session_tmp, deck_blueprint_path, registry_path=template_registry_path)
+    pc, rs = _compile_blueprint(
+        _session_tmp,
+        deck_blueprint_path,
+        registry_path=template_registry_path,
+        page_argument_pack_path=page_argument_pack_path,
+    )
     return {"page_evidence_contract": pc, "renderer_spec": rs}
 
 
@@ -575,6 +650,7 @@ def _pipeline_run_dir(tmp_path_factory):
     _write_json(artifacts / "formal_search_plan.json", plan)
     _write_json(artifacts / "coverage_map.json", build_coverage_map(plan))
     _write_json(artifacts / "executable_search_batch.json", build_search_batch(plan))
+    _write_json(artifacts / "executable_search_batch_validation.json", {"is_valid": True, "errors": [], "warnings": []})
     plan_errors, plan_warnings = validate_formal_search_plan(plan)
     assert not plan_errors, plan_errors
     _write_json(artifacts / "formal_search_plan_validation.json", {"is_valid": True, "errors": [], "warnings": plan_warnings})
@@ -854,6 +930,15 @@ def _pipeline_run_dir(tmp_path_factory):
     # Issue analysis (minimal, so run state advances past ISSUE_ANALYSIS)
     _write_json(run_dir / "industry_issue_analysis.json", {"schema_version": "industry_issue_analysis_v1", "issue_analyses": []})
     _write_json(artifacts / "issue_analysis_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(
+        artifacts / "hypothesis_store.json",
+        {
+            "schema_version": "hypothesis_store_v1",
+            "hypotheses": [],
+            "resolution_summary": "No unresolved, directional, or thinly supported judgments identified.",
+        },
+    )
+    _write_json(artifacts / "hypothesis_store_validation.json", {"is_valid": True, "errors": [], "warnings": []})
     _write_json(
         artifacts / "page_argument_pack.json",
         {

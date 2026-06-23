@@ -157,6 +157,30 @@ def _load_optional_json(path: str | Path | None) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def _assert_scope_ready_for_prepare(run_dir: Path, scope_pack: dict[str, Any], *, allow_missing_scope_bootstrap: bool) -> None:
+    if allow_missing_scope_bootstrap:
+        return
+    if not scope_pack:
+        raise ValueError(
+            "research prepare requires artifacts/industry_scope_pack.json. "
+            "Use --allow-missing-scope-bootstrap only for diagnostic/bootstrap runs."
+        )
+    if scope_pack.get("schema_version") != "industry_scope_pack_v2":
+        raise ValueError(
+            "research prepare requires industry_scope_pack_v2 before formal planning. "
+            "Run industry scoping and boundary QC first."
+        )
+    qc_path = run_dir / "artifacts" / "industry_boundary_qc.json"
+    if not qc_path.exists():
+        raise ValueError(
+            "research prepare requires artifacts/industry_boundary_qc.json with decision=pass. "
+            "Run Boundary QC before formal research planning."
+        )
+    qc_payload = load_json_file(qc_path)
+    if str((qc_payload if isinstance(qc_payload, dict) else {}).get("decision") or "").strip() != "pass":
+        raise ValueError("research prepare requires industry_boundary_qc decision=pass before formal research planning.")
+
+
 def _first_text(*values: Any) -> str:
     for value in values:
         text = _text(value)
@@ -1570,6 +1594,7 @@ def prepare_research_graph(
     coverage_map_path: Path | None = None,
     search_batch_path: Path | None = None,
     state_path: Path | None = None,
+    allow_missing_scope_bootstrap: bool = False,
 ) -> dict[str, Any]:
     """Build the coverage plan, executable query workbench, and graph state.
 
@@ -1580,6 +1605,11 @@ def prepare_research_graph(
 
     run_dir = Path(run_dir)
     artifacts = run_dir / "artifacts"
+    _assert_scope_ready_for_prepare(
+        run_dir,
+        scope_pack,
+        allow_missing_scope_bootstrap=allow_missing_scope_bootstrap,
+    )
     plan = build_formal_search_plan(input_card, scope_pack)
     coverage_map = build_coverage_map(plan)
     search_batch = build_search_batch(plan)
@@ -1625,6 +1655,11 @@ def main() -> int:
     prepare_parser.add_argument("--coverage-map")
     prepare_parser.add_argument("--search-batch")
     prepare_parser.add_argument("--state")
+    prepare_parser.add_argument(
+        "--allow-missing-scope-bootstrap",
+        action="store_true",
+        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_v2 and boundary QC pass.",
+    )
 
     compile_parser = subparsers.add_parser("compile", help="Compile research_graph_state.json into canonical research artifacts.")
     compile_parser.add_argument("--state", required=True)
@@ -1645,6 +1680,7 @@ def main() -> int:
             coverage_map_path=Path(args.coverage_map) if args.coverage_map else None,
             search_batch_path=Path(args.search_batch) if args.search_batch else None,
             state_path=Path(args.state) if args.state else None,
+            allow_missing_scope_bootstrap=args.allow_missing_scope_bootstrap,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0

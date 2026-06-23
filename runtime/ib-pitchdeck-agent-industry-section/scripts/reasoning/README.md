@@ -7,6 +7,6 @@ Use these only when the reasoning role or a QC repair brief names the exact tool
 Scripts:
 - `build_hypothesis_store_skeleton.py`
 - `build_issue_analysis_skeleton.py`
-- `build_page_argument_pack.py`
+- `build_page_argument_pack_skeleton.py`
 - `build_research_request_queue.py`
 - `promote_research_requests.py`

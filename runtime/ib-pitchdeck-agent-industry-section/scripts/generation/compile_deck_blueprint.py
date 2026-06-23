@@ -40,7 +40,9 @@ from deck_blueprint_utils import (
     as_list,
     metric_ids_from_visual,
     normalize_deck_blueprint_for_page_plan,
+    page_argument_pool_from_pack,
     proof_points_from_blueprint_slide,
+    selected_page_argument_ids,
     selected_issue_analysis_ids,
     template_variants_by_slide,
     unique,
@@ -81,13 +83,23 @@ UPSTREAM_VALIDATION_ARTIFACTS = (
     "artifacts/stage_gate_pre_research_pack_validation.json",
     "artifacts/research_pack_validation.json",
     "artifacts/issue_analysis_validation.json",
+    "artifacts/hypothesis_store_validation.json",
+    "artifacts/page_argument_pack_validation.json",
     "artifacts/deck_blueprint_validation.json",
     "artifacts/template_registry_validation.json",
 )
 
 
 def _maybe_run_dir_from_inputs(paths: list[Path]) -> Path | None:
-    parents = [path.resolve().parent for path in paths if path.name in {"industry_issue_analysis.json", "deck_blueprint.json", "template_registry.json"}]
+    def run_parent(path: Path) -> Path:
+        parent = path.resolve().parent
+        return parent.parent if parent.name == "artifacts" else parent
+
+    parents = [
+        run_parent(path)
+        for path in paths
+        if path.name in {"page_argument_pack.json", "deck_blueprint.json", "template_registry.json"}
+    ]
     if len(parents) < 3:
         return None
     first = parents[0]
@@ -550,6 +562,7 @@ def build_renderer_spec_from_deck_blueprint(
         body_copy = _body_copy_from_blocks(slide, required_fields, page_type)
         issue_ids = selected_issue_analysis_ids(slide)
         primary = issue_ids[0] if issue_ids else ""
+        page_argument_ids = selected_page_argument_ids(slide)
         evidence_ids = unique(
             [str(item).strip() for item in as_list(contract.get("body_evidence_ids")) if str(item).strip()]
             + [
@@ -569,6 +582,7 @@ def build_renderer_spec_from_deck_blueprint(
             "selected_page_type": page_type,
             "primary_issue_analysis_id": primary,
             "issue_analysis_ids": issue_ids,
+            "page_argument_ids": page_argument_ids,
             "claim_strength": str(contract.get("claim_strength") or slide.get("claim_strength") or "").strip(),
             "headline": str(slide.get("headline") or "").strip(),
             "main_message": str(slide.get("main_message") or "").strip(),
@@ -612,26 +626,28 @@ def build_renderer_spec_from_deck_blueprint(
 
 
 def compile_deck_blueprint(
-    issue_analysis: dict[str, Any],
+    page_argument_pack: dict[str, Any],
     deck_blueprint: dict[str, Any],
     template_registry: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     page_plan = normalize_deck_blueprint_for_page_plan(deck_blueprint)
-    page_contract = build_page_evidence_contract(issue_analysis, page_plan)
+    page_argument_pool = page_argument_pool_from_pack(page_argument_pack)
+    page_contract = build_page_evidence_contract(page_argument_pool, page_plan)
     renderer_spec = build_renderer_spec_from_deck_blueprint(deck_blueprint, template_registry, page_contract)
     return page_contract, renderer_spec
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--issue-analysis", required=True)
+    parser.add_argument("--page-argument-pack", required=True)
+    parser.add_argument("--issue-analysis", help="Optional lineage cross-check artifact; not used as the compiler source of truth.")
     parser.add_argument("--deck-blueprint", required=True)
     parser.add_argument("--template-registry", required=True)
     parser.add_argument("--page-contract-output", required=True)
     parser.add_argument("--renderer-spec-output", required=True)
     args = parser.parse_args()
 
-    input_paths = [Path(args.issue_analysis), Path(args.deck_blueprint), Path(args.template_registry)]
+    input_paths = [Path(args.page_argument_pack), Path(args.deck_blueprint), Path(args.template_registry)]
     run_dir = _maybe_run_dir_from_inputs(input_paths)
     if run_dir is not None:
         try:

@@ -98,8 +98,16 @@ class TestFormalSearchPlan:
             encoding="utf-8",
         )
         scope_pack.write_text(
-            json.dumps({"scope_summary": {"working_market": "sample sector", "geography": "Samplestan"}}),
+            json.dumps(_minimal_scope_pack(), ensure_ascii=False, indent=2),
             encoding="utf-8",
+        )
+        _write_json(
+            artifacts / "industry_boundary_qc.json",
+            {
+                "schema_version": "industry_boundary_qc_v1",
+                "decision": "pass",
+                "boundary_quality_rationale": "Synthetic boundary QC pass for prepare CLI fixture.",
+            },
         )
 
         result = _run([
@@ -126,6 +134,22 @@ class TestFormalSearchPlan:
         assert state["graph_config"]["open_deep_research_compatible"] is True
         assert state["graph_config"]["operator_surface"]["primary_write_fields"] == ["research_context", "metrics", "evidence"]
         assert state["research_units"], state
+
+    def test_executable_search_batch_requires_query_authoring(self, tmp_path):
+        from ib_research_graph import build_formal_search_plan, build_search_batch
+
+        plan = build_formal_search_plan({"industry": "sample sector", "geography": "Samplestan"}, _minimal_scope_pack())
+        batch_path = tmp_path / "executable_search_batch.json"
+        _write_json(batch_path, build_search_batch(plan))
+
+        result = _run([
+            sys.executable,
+            "scripts/qc/validators/research/validate_executable_search_batch.py",
+            "--executable-search-batch", str(batch_path),
+        ])
+
+        assert result.returncode != 0
+        assert "LLM_REWRITE_REQUIRED" in result.stdout
 
     def test_duplicate_instruction_id_rejected(self, tmp_path):
         from ib_research_graph import build_formal_search_plan

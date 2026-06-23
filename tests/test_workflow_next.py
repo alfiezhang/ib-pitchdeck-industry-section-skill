@@ -111,6 +111,11 @@ def _seed_research_pack_ready(run_dir: Path) -> None:
         artifacts / "formal_search_plan_validation.json",
         {"is_valid": True, "errors": [], "warnings": []},
     )
+    _write_json(artifacts / "executable_search_batch.json", {"schema_version": "search_batch_v1", "batches": []})
+    _write_json(
+        artifacts / "executable_search_batch_validation.json",
+        {"is_valid": True, "errors": [], "warnings": []},
+    )
 
     _write_json(artifacts / "source_archive" / "source_archive_index.json", {"schema_version": "source_archive_index_v1", "entries": []})
     _write_json(
@@ -183,6 +188,15 @@ def _seed_boundary_loop_ready(run_dir: Path) -> None:
 
 def _seed_page_argument_pack_ready(run_dir: Path) -> None:
     artifacts = run_dir / "artifacts"
+    _write_json(
+        artifacts / "hypothesis_store.json",
+        {
+            "schema_version": "hypothesis_store_v1",
+            "hypotheses": [],
+            "resolution_summary": "No unresolved, directional, or thinly supported judgments identified.",
+        },
+    )
+    _write_json(artifacts / "hypothesis_store_validation.json", {"is_valid": True, "errors": [], "warnings": []})
     _write_json(
         artifacts / "page_argument_pack.json",
         {

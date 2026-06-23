@@ -291,6 +291,8 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     (artifacts / "industry_scope_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "formal_search_plan.json").write_text("{}", encoding="utf-8")
     (artifacts / "formal_search_plan_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    (artifacts / "executable_search_batch.json").write_text('{"schema_version": "search_batch_v1", "batches": []}', encoding="utf-8")
+    (artifacts / "executable_search_batch_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (artifacts / "source_archive").mkdir(parents=True, exist_ok=True)
     (artifacts / "source_archive" / "source_archive_index.json").write_text("{}", encoding="utf-8")
     (artifacts / "source_archive_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
@@ -303,6 +305,15 @@ def test_template_profile_fires_after_renderer_spec(tmp_path: Path) -> None:
     (artifacts / "research_pack_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
     (run_dir / "industry_issue_analysis.json").write_text("{}", encoding="utf-8")
     (artifacts / "issue_analysis_validation.json").write_text('{"is_valid": true}', encoding="utf-8")
+    _write_json(
+        artifacts / "hypothesis_store.json",
+        {
+            "schema_version": "hypothesis_store_v1",
+            "hypotheses": [],
+            "resolution_summary": "No unresolved, directional, or thinly supported judgments identified.",
+        },
+    )
+    _write_json(artifacts / "hypothesis_store_validation.json", {"is_valid": True, "errors": [], "warnings": []})
     _write_json(
         artifacts / "page_argument_pack.json",
         {

@@ -20,9 +20,10 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
 
 
 class TestPageEvidenceContractValidation:
-    def test_valid_contract_passes(self, deck_blueprint_path, template_registry_path, compiled_artifacts):
+    def test_valid_contract_passes(self, deck_blueprint_path, template_registry_path, page_argument_pack_path, compiled_artifacts):
         result = _run([
             sys.executable, "scripts/qc/validators/generation/validate_page_evidence_contract.py",
+            "--page-argument-pack", str(page_argument_pack_path),
             "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
             "--deck-blueprint", str(deck_blueprint_path),
             "--page-contract", str(compiled_artifacts["page_evidence_contract"]),
@@ -30,19 +31,20 @@ class TestPageEvidenceContractValidation:
         ])
         assert result.returncode == 0, result.stdout + result.stderr
 
-    def test_chart_forbidden_permission_blocks_contract(self, deck_blueprint_path, template_registry_path, tmp_path):
-        """When issue analysis forbids charts, page evidence contract must fail."""
-        issue = json.loads((FIXTURES_DIR / "valid_issue_analysis.json").read_text(encoding="utf-8"))
-        for item in issue["issue_analyses"]:
-            if item.get("analysis_id") == "IA-001":
+    def test_chart_forbidden_permission_blocks_contract(self, deck_blueprint_path, template_registry_path, page_argument_pack_path, tmp_path):
+        """When page argument permissions forbid charts, page evidence contract must fail."""
+        pack = json.loads(page_argument_pack_path.read_text(encoding="utf-8"))
+        for item in pack["page_arguments"]:
+            if item.get("source_issue_analysis_id") == "IA-001":
                 item["downstream_permission"]["chart_allowed"] = False
-        bad_issue = tmp_path / "issue_analysis_chart_forbidden.json"
-        bad_issue.write_text(json.dumps(issue, ensure_ascii=False, indent=2), encoding="utf-8")
+        bad_pack = tmp_path / "page_argument_pack_chart_forbidden.json"
+        bad_pack.write_text(json.dumps(pack, ensure_ascii=False, indent=2), encoding="utf-8")
         bad_contract = tmp_path / "page_evidence_contract_chart_forbidden.json"
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         subprocess.run(
             [sys.executable, "scripts/generation/compile_deck_blueprint.py",
-             "--issue-analysis", str(bad_issue),
+             "--page-argument-pack", str(bad_pack),
+             "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
              "--deck-blueprint", str(deck_blueprint_path),
              "--template-registry", str(template_registry_path),
              "--page-contract-output", str(bad_contract),
@@ -51,7 +53,8 @@ class TestPageEvidenceContractValidation:
         )
         result = _run([
             sys.executable, "scripts/qc/validators/generation/validate_page_evidence_contract.py",
-            "--issue-analysis", str(bad_issue),
+            "--page-argument-pack", str(bad_pack),
+            "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
             "--deck-blueprint", str(deck_blueprint_path),
             "--page-contract", str(bad_contract),
         ])

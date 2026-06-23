@@ -10,9 +10,10 @@
         "industry_scope_pack",
         "industry_boundary_qc",
         "formal_search_plan",
+        "search_batch",
         "research_evidence_db",
-        "hypothesis_store",
         "issue_analysis",
+        "hypothesis_store",
         "page_argument_pack",
         "deck_blueprint"
       ],
@@ -35,10 +36,10 @@
         "formal_research_execution_report",
         "coverage_accounting",
         "research_evidence_db",
+        "issue_analysis",
         "hypothesis_store",
         "research_request_queue",
         "page_argument_pack",
-        "issue_analysis",
         "deck_blueprint"
       ]
     },
@@ -306,8 +307,10 @@
     },
     "search_batch": {
       "path": "artifacts/executable_search_batch.json",
-      "owner": "state_first_research_graph",
+      "owner": "script_skeleton_llm_query_author",
       "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
+      "validator": "scripts/qc/validators/research/validate_executable_search_batch.py",
+      "validation": "artifacts/executable_search_batch_validation.json",
       "inputs": [
         "formal_search_plan"
       ]
@@ -433,7 +436,7 @@
     "page_argument_pack": {
       "path": "artifacts/page_argument_pack.json",
       "owner": "script_skeleton_llm_page_argument_editor",
-      "builder": "scripts/reasoning/build_page_argument_pack.py",
+      "builder": "scripts/reasoning/build_page_argument_pack_skeleton.py",
       "validator": "scripts/qc/validators/reasoning/validate_page_argument_pack.py",
       "validation": "artifacts/page_argument_pack_validation.json",
       "inputs": [
@@ -492,7 +495,7 @@
       "validator": "scripts/qc/validators/generation/validate_deck_blueprint.py",
       "validation": "artifacts/deck_blueprint_validation.json",
       "inputs": [
-        "issue_analysis",
+        "page_argument_pack",
         "template_registry"
       ]
     },
@@ -503,7 +506,7 @@
       "validator": "scripts/qc/validators/generation/validate_page_evidence_contract.py",
       "validation": "artifacts/page_evidence_contract_validation.json",
       "inputs": [
-        "issue_analysis",
+        "page_argument_pack",
         "deck_blueprint"
       ]
     },
@@ -701,6 +704,10 @@
       "artifact": "formal_search_plan"
     },
     {
+      "gate": "executable_search_batch",
+      "artifact": "search_batch"
+    },
+    {
       "gate": "source_archive",
       "artifact": "source_archive"
     },
@@ -723,6 +730,10 @@
     {
       "gate": "issue_analysis",
       "artifact": "issue_analysis"
+    },
+    {
+      "gate": "hypothesis_store",
+      "artifact": "hypothesis_store"
     },
     {
       "gate": "page_argument_pack",

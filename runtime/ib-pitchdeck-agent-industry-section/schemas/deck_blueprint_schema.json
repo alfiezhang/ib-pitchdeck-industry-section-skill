@@ -28,6 +28,7 @@
           "page_argument",
           "visual_intent",
           "evidence_role",
+          "page_argument_ids",
           "issue_analysis_ids",
           "selected_page_type",
           "claim_strength",
@@ -58,6 +59,11 @@
             "type": "array",
             "minItems": 1,
             "items": { "type": "string", "pattern": "^IA-\\d{3}$" }
+          },
+          "page_argument_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^PA-\\d{3}$" }
           },
           "selected_page_type": { "type": "string" },
           "claim_strength": {

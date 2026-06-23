@@ -45,7 +45,9 @@ from deck_blueprint_utils import (
     non_empty_text,
     normalize_deck_blueprint_for_page_plan,
     normalize_text,
+    page_argument_index,
     proof_points_from_blueprint_slide,
+    selected_page_argument_ids,
     selected_issue_analysis_ids,
     template_variants_by_slide,
     unique,
@@ -241,6 +243,68 @@ def _collect_selected_evidence_ids(analyses_by_id: dict[str, dict[str, Any]], is
     return values
 
 
+def _selected_page_arguments(
+    page_arguments_by_id: dict[str, dict[str, Any]],
+    page_argument_ids: list[str],
+) -> list[dict[str, Any]]:
+    return [page_arguments_by_id.get(pa_id) or {} for pa_id in page_argument_ids]
+
+
+def _page_argument_evidence_ids(arguments: list[dict[str, Any]]) -> set[str]:
+    values: set[str] = set()
+    for argument in arguments:
+        values.update(str(item).strip() for item in as_list(argument.get("evidence_ids")) if str(item).strip())
+    return values
+
+
+def _page_argument_metric_ids(arguments: list[dict[str, Any]]) -> set[str]:
+    values: set[str] = set()
+    for argument in arguments:
+        values.update(str(item).strip() for item in as_list(argument.get("metric_ids")) if str(item).strip())
+    return values
+
+
+def _page_argument_usage(argument: dict[str, Any]) -> str:
+    return str(argument.get("allowed_deck_usage") or "").strip()
+
+
+def _argument_allows_body(argument: dict[str, Any]) -> bool:
+    explicit = argument.get("downstream_permission")
+    if isinstance(explicit, dict):
+        return explicit.get("body_copy_allowed") is True
+    return _page_argument_usage(argument) in {"headline_allowed", "body_only", "supporting_context", "context_only", "caveat_only"}
+
+
+def _argument_allows_chart(argument: dict[str, Any]) -> bool:
+    explicit = argument.get("downstream_permission")
+    if isinstance(explicit, dict):
+        return explicit.get("chart_allowed") is True
+    return _page_argument_usage(argument) in {"headline_allowed", "body_only"}
+
+
+def _argument_allows_headline(argument: dict[str, Any]) -> bool:
+    explicit = argument.get("downstream_permission")
+    if isinstance(explicit, dict):
+        return explicit.get("headline_allowed") is True
+    return _page_argument_usage(argument) == "headline_allowed"
+
+
+def _body_permitted_evidence(arguments: list[dict[str, Any]]) -> set[str]:
+    values: set[str] = set()
+    for argument in arguments:
+        if _argument_allows_body(argument):
+            values.update(str(item).strip() for item in as_list(argument.get("evidence_ids")) if str(item).strip())
+    return values
+
+
+def _chart_permitted_metrics(arguments: list[dict[str, Any]]) -> set[str]:
+    values: set[str] = set()
+    for argument in arguments:
+        if _argument_allows_chart(argument):
+            values.update(str(item).strip() for item in as_list(argument.get("metric_ids")) if str(item).strip())
+    return values
+
+
 def _ids_permitted_by_source_analyses(
     analyses_by_id: dict[str, dict[str, Any]],
     *,
@@ -354,8 +418,9 @@ def build_warning_repair_plan(warnings: list[str]) -> dict[str, Any]:
 
 def validate(
     deck_blueprint: dict[str, Any],
-    issue_analysis: dict[str, Any],
+    page_argument_pack: dict[str, Any],
     template_registry: dict[str, Any],
+    issue_analysis: dict[str, Any] | None = None,
 ) -> tuple[list[str], list[str], list[dict[str, Any]]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -367,7 +432,8 @@ def validate(
     if _contains_marker(deck_blueprint):
         errors.append("deck_blueprint contains draft/TODO/placeholder markers")
 
-    analyses_by_id = analysis_index(issue_analysis)
+    analyses_by_id = analysis_index(issue_analysis or {})
+    page_arguments_by_id = page_argument_index(page_argument_pack)
     variants_by_slide = template_variants_by_slide(template_registry)
     slides = deck_blueprint.get("slides") if isinstance(deck_blueprint, dict) else None
     if not isinstance(slides, list):
@@ -437,12 +503,33 @@ def validate(
         issue_ids = selected_issue_analysis_ids(slide)
         if not issue_ids:
             errors.append(f"{prefix}: issue_analysis_ids must select at least one issue analysis")
-        missing_issue_ids = [analysis_id for analysis_id in issue_ids if analysis_id not in analyses_by_id]
+        missing_issue_ids = [analysis_id for analysis_id in issue_ids if analyses_by_id and analysis_id not in analyses_by_id]
         if missing_issue_ids:
             errors.append(f"{prefix}: issue_analysis_ids not found: {', '.join(missing_issue_ids)}")
 
-        selected_metric_ids = _collect_selected_metric_ids(analyses_by_id, issue_ids)
-        selected_evidence_ids = _collect_selected_evidence_ids(analyses_by_id, issue_ids)
+        page_argument_ids = selected_page_argument_ids(slide)
+        if not page_argument_ids:
+            errors.append(f"{prefix}: page_argument_ids must select at least one page argument")
+        missing_page_argument_ids = [pa_id for pa_id in page_argument_ids if pa_id not in page_arguments_by_id]
+        if missing_page_argument_ids:
+            errors.append(f"{prefix}: page_argument_ids not found: {', '.join(missing_page_argument_ids)}")
+        selected_arguments = _selected_page_arguments(page_arguments_by_id, page_argument_ids)
+        selected_argument_issue_ids = unique(
+            [
+                str(argument.get("source_issue_analysis_id") or "").strip()
+                for argument in selected_arguments
+                if str(argument.get("source_issue_analysis_id") or "").strip()
+            ]
+        )
+        missing_lineage = [analysis_id for analysis_id in selected_argument_issue_ids if analysis_id not in issue_ids]
+        if missing_lineage:
+            errors.append(
+                f"{prefix}: selected page arguments source issue_analysis_ids outside slide issue_analysis_ids: "
+                + ", ".join(missing_lineage)
+            )
+
+        selected_metric_ids = _page_argument_metric_ids(selected_arguments)
+        selected_evidence_ids = _page_argument_evidence_ids(selected_arguments)
         visual_plan = visual_plan_from_blueprint_slide(slide)
         page_type = str(slide.get("selected_page_type") or "").strip()
         slide_variants = variants_by_slide.get(slide_no, {})
@@ -550,42 +637,24 @@ def validate(
             evidence_outside = [ev_id for ev_id in evidence_ids if ev_id not in selected_evidence_ids]
             metric_outside = [met_id for met_id in metric_ids if met_id not in selected_metric_ids]
             if evidence_outside:
-                errors.append(f"{prefix}: proof point {point_idx} evidence_ids outside selected issue analyses: {', '.join(evidence_outside)}")
+                errors.append(f"{prefix}: proof point {point_idx} evidence_ids outside selected page arguments: {', '.join(evidence_outside)}")
             if metric_outside:
-                errors.append(f"{prefix}: proof point {point_idx} metric_ids outside selected issue analyses: {', '.join(metric_outside)}")
-            body_permitted = _ids_permitted_by_source_analyses(
-                analyses_by_id,
-                ids=evidence_ids,
-                source_analysis_ids=source_analysis_ids,
-                id_kind="evidence",
-                permission_field="body_copy_allowed",
-            )
+                errors.append(f"{prefix}: proof point {point_idx} metric_ids outside selected page arguments: {', '.join(metric_outside)}")
+            body_permitted = _body_permitted_evidence(selected_arguments)
             body_forbidden = sorted(set(evidence_ids) - body_permitted)
             if evidence_ids and body_forbidden:
-                errors.append(f"{prefix}: proof point {point_idx} evidence lacks body_copy_allowed permission: {', '.join(body_forbidden)}")
+                errors.append(f"{prefix}: proof point {point_idx} evidence lacks page_argument body permission: {', '.join(body_forbidden)}")
 
         visual_metric_ids = visual_plan.get("visual_metric_ids") or metric_ids_from_visual(slide)
         if visual_plan.get("required_capability") in METRIC_VISUAL_CAPABILITIES and visual_metric_ids:
-            visual_permitted: set[str] = set()
-            for point in proof_points:
-                source_ids = unique([str(item).strip() for item in as_list(point.get("source_analysis_ids")) if str(item).strip()])
-                point_metric_ids = unique([str(item).strip() for item in as_list(point.get("metric_ids")) if str(item).strip()])
-                visual_permitted.update(
-                    _ids_permitted_by_source_analyses(
-                        analyses_by_id,
-                        ids=point_metric_ids,
-                        source_analysis_ids=source_ids,
-                        id_kind="metric",
-                        permission_field="chart_allowed",
-                    )
-                )
+            visual_permitted = _chart_permitted_metrics(selected_arguments)
             visual_forbidden = sorted(set(visual_metric_ids) - visual_permitted)
             if visual_forbidden:
-                errors.append(f"{prefix}: visual metrics lack downstream_permission.chart_allowed: {', '.join(visual_forbidden)}")
+                errors.append(f"{prefix}: visual metrics lack selected page_argument chart permission: {', '.join(visual_forbidden)}")
 
-        headline_permitted = any(_usage(analyses_by_id.get(analysis_id) or {}).get("headline_allowed") is True for analysis_id in issue_ids)
+        headline_permitted = any(_argument_allows_headline(argument) for argument in selected_arguments)
         if not headline_permitted and claim_strength not in {"hypothesis", "open_question"}:
-            errors.append(f"{prefix}: no selected issue analysis permits headline usage")
+            errors.append(f"{prefix}: no selected page argument permits headline usage")
         if not unique(body_evidence_ids) and not unique(body_metric_ids) and not as_list(slide.get("open_questions")):
             errors.append(f"{prefix}: page has no evidence, metrics, or open_questions")
 
@@ -669,7 +738,8 @@ def check_layout_budget(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--deck-blueprint", required=True)
-    parser.add_argument("--issue-analysis", required=True)
+    parser.add_argument("--page-argument-pack", required=True)
+    parser.add_argument("--issue-analysis", help="Optional lineage cross-check artifact; page_argument_pack is the generation source.")
     parser.add_argument("--template-registry", required=True)
     parser.add_argument("--layout-budget", help="Optional layout_budget.json for early content-size checks.")
     parser.add_argument("--output")
@@ -677,18 +747,20 @@ def main() -> int:
 
     try:
         deck_blueprint_path = Path(args.deck_blueprint)
-        issue_analysis_path = Path(args.issue_analysis)
+        page_argument_pack_path = Path(args.page_argument_pack)
         template_registry_path = Path(args.template_registry)
         deck_data = load_json_file(deck_blueprint_path)
+        issue_payload = load_json_file(Path(args.issue_analysis)) if args.issue_analysis else {}
         errors, warnings, repair_targets = validate(
             deck_data,
-            load_json_file(issue_analysis_path),
+            load_json_file(page_argument_pack_path),
             load_json_file(template_registry_path),
+            issue_payload,
         )
         errors.extend(
             assert_formal_upstream_valid(
-                [deck_blueprint_path, issue_analysis_path, template_registry_path],
-                expected_names={"deck_blueprint.json", "industry_issue_analysis.json", "template_registry.json"},
+                [deck_blueprint_path, page_argument_pack_path, template_registry_path],
+                expected_names={"deck_blueprint.json", "page_argument_pack.json", "template_registry.json"},
                 validation_rels=DECK_BLUEPRINT_UPSTREAM_VALIDATIONS,
                 stage_name="deck_blueprint",
             )
@@ -705,6 +777,7 @@ def main() -> int:
     result = {
         "is_valid": not errors,
         "deck_blueprint": args.deck_blueprint,
+        "page_argument_pack": args.page_argument_pack,
         "issue_analysis": args.issue_analysis,
         "template_registry": args.template_registry,
         "error_count": len(errors),

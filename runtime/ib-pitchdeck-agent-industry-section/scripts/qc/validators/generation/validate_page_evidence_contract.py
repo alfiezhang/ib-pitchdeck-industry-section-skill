@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate page_evidence_contract.json against issue analysis and page-plan artifacts."""
+"""Validate page_evidence_contract.json against page arguments and page-plan artifacts."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan
+from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack
 from json_utils import load_json_file
 from upstream_validation import COMPILE_UPSTREAM_VALIDATIONS, assert_formal_upstream_valid
 
@@ -653,24 +653,25 @@ def validate(pool: dict[str, Any], page_plan: dict[str, Any], page_contract: dic
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--issue-analysis", required=True)
+    parser.add_argument("--page-argument-pack", required=True)
+    parser.add_argument("--issue-analysis", help="Deprecated optional lineage artifact; page_argument_pack is the validation source.")
     parser.add_argument("--deck-blueprint", required=True)
     parser.add_argument("--page-contract", required=True)
     parser.add_argument("--output", help="Optional path to write validation report JSON")
     args = parser.parse_args()
 
-    pool_path = Path(args.issue_analysis)
+    pool_path = Path(args.page_argument_pack)
     page_plan_path = Path(args.deck_blueprint)
     contract_path = Path(args.page_contract)
     try:
-        pool = load_json_file(pool_path)
+        pool = page_argument_pool_from_pack(load_json_file(pool_path))
         page_plan = normalize_deck_blueprint_for_page_plan(load_json_file(page_plan_path))
         page_contract = load_json_file(contract_path)
         errors, warnings = validate(pool, page_plan, page_contract)
         errors.extend(
             assert_formal_upstream_valid(
                 [pool_path, page_plan_path, contract_path],
-                expected_names={"industry_issue_analysis.json", "deck_blueprint.json", "page_evidence_contract.json"},
+                expected_names={"page_argument_pack.json", "deck_blueprint.json", "page_evidence_contract.json"},
                 validation_rels=COMPILE_UPSTREAM_VALIDATIONS,
                 stage_name="page_evidence_contract",
             )
@@ -680,7 +681,8 @@ def main() -> int:
 
     result = {
         "is_valid": not errors,
-        "issue_analysis": str(pool_path),
+        "page_argument_pack": str(pool_path),
+        "issue_analysis": str(args.issue_analysis or ""),
         "page_plan": str(page_plan_path),
         "page_plan_kind": "deck_blueprint",
         "page_contract": str(contract_path),

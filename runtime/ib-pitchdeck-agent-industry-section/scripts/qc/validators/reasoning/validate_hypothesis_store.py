@@ -48,6 +48,8 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
     if not isinstance(hypotheses, list):
         errors.append("hypotheses must be an array")
         return errors, warnings
+    if not hypotheses and len(text(payload.get("resolution_summary"))) < 20:
+        errors.append("empty hypothesis_store requires resolution_summary explaining that no unresolved hypotheses were identified")
     seen: set[str] = set()
     allowed_resolution = {"pending_resolution", "research_required", "supported", "directional", "caveat_only", "rejected"}
     allowed_usage = {"headline_allowed", "body_only", "context_only", "caveat_or_diligence_question_only", "not_allowed_in_headline", "not_allowed"}

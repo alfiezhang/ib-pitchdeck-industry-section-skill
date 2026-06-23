@@ -21,6 +21,8 @@ ISSUE_ANALYSIS_UPSTREAM_VALIDATIONS = BASE_RESEARCH_VALIDATIONS
 
 DECK_BLUEPRINT_UPSTREAM_VALIDATIONS = BASE_RESEARCH_VALIDATIONS + (
     "artifacts/issue_analysis_validation.json",
+    "artifacts/hypothesis_store_validation.json",
+    "artifacts/page_argument_pack_validation.json",
     "artifacts/template_registry_validation.json",
 )
 
@@ -34,7 +36,11 @@ RENDERER_SPEC_UPSTREAM_VALIDATIONS = COMPILE_UPSTREAM_VALIDATIONS + (
 
 
 def maybe_run_dir_from_inputs(paths: list[Path], expected_names: set[str]) -> Path | None:
-    parents = [path.resolve().parent for path in paths if path.name in expected_names]
+    def run_parent(path: Path) -> Path:
+        parent = path.resolve().parent
+        return parent.parent if parent.name == "artifacts" else parent
+
+    parents = [run_parent(path) for path in paths if path.name in expected_names]
     if len(parents) < len(expected_names):
         return None
     first = parents[0]

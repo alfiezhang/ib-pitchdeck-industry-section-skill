@@ -6,12 +6,14 @@ INDUSTRY_SCOPE_PACK = "industry_scope_pack"
 INDUSTRY_BOUNDARY_QC = "industry_boundary_qc"
 BOUNDARY_LOOP = "boundary_loop"
 FORMAL_SEARCH_PLAN = "formal_search_plan"
+EXECUTABLE_SEARCH_BATCH = "executable_search_batch"
 FORMAL_RESEARCH_EXECUTION = "formal_research_execution"
 SOURCE_ARCHIVE = "source_archive"
 PRE_RESEARCH_PACK = "pre_research_pack"
 RESEARCH_EVIDENCE_DB = "research_evidence_db"
 RESEARCH_PACK = "research_pack"
 ISSUE_ANALYSIS = "issue_analysis"
+HYPOTHESIS_STORE = "hypothesis_store"
 PAGE_ARGUMENT_PACK = "page_argument_pack"
 TEMPLATE_PROFILE = "template_profile"
 TEMPLATE_FIT_VALIDATION = "template_fit_validation"
@@ -32,12 +34,14 @@ CANONICAL_GATES = [
     INDUSTRY_BOUNDARY_QC,
     BOUNDARY_LOOP,
     FORMAL_SEARCH_PLAN,
+    EXECUTABLE_SEARCH_BATCH,
     FORMAL_RESEARCH_EXECUTION,
     SOURCE_ARCHIVE,
     PRE_RESEARCH_PACK,
     RESEARCH_EVIDENCE_DB,
     RESEARCH_PACK,
     ISSUE_ANALYSIS,
+    HYPOTHESIS_STORE,
     PAGE_ARGUMENT_PACK,
     TEMPLATE_PROFILE,
     TEMPLATE_FIT_VALIDATION,

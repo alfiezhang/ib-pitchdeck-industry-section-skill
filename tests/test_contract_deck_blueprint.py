@@ -16,21 +16,22 @@ FIXTURES_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 
-def _validate_blueprint(blueprint: dict, issue_path: Path, registry_path: Path) -> tuple[list[str], list[str], list]:
+def _validate_blueprint(blueprint: dict, page_argument_pack_path: Path, issue_path: Path, registry_path: Path) -> tuple[list[str], list[str], list]:
     from validate_deck_blueprint import validate
     issue = json.loads(issue_path.read_text(encoding="utf-8"))
+    page_argument_pack = json.loads(page_argument_pack_path.read_text(encoding="utf-8"))
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
-    return validate(blueprint, issue, registry)
+    return validate(blueprint, page_argument_pack, registry, issue)
 
 
 class TestDeckBlueprintValidation:
-    def test_full_blueprint_passes(self, deck_blueprint_data, template_registry_path, issue_analysis):
+    def test_full_blueprint_passes(self, deck_blueprint_data, template_registry_path, page_argument_pack_path, issue_analysis):
         errors, warnings, _ = _validate_blueprint(
-            deck_blueprint_data, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
+            deck_blueprint_data, page_argument_pack_path, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
         )
         assert errors == [], errors
 
-    def test_thin_slide_warns_not_fails(self, deck_blueprint_data, template_registry_path):
+    def test_thin_slide_warns_not_fails(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
         """A slide with fewer body_blocks than expected should warn, not error."""
         blueprint = json.loads(json.dumps(deck_blueprint_data))
         for slide in blueprint["slides"]:
@@ -39,27 +40,27 @@ class TestDeckBlueprintValidation:
                 slide["page_rationale"] = "Extra editorial field should be accepted and ignored by compiler."
                 slide["body_blocks"][0]["editor_note"] = "Extra body-block helper field should not make blueprint invalid."
         errors, warnings, _ = _validate_blueprint(
-            blueprint, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
+            blueprint, page_argument_pack_path, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
         )
         assert errors == [], f"thin blueprint should warn, not fail: {errors}"
         assert any("body_blocks has" in w for w in warnings), "should produce template-capacity warning"
 
-    def test_chinese_conclusion_headline_accepted(self, deck_blueprint_data, template_registry_path):
+    def test_chinese_conclusion_headline_accepted(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
         """Natural conclusion-led Chinese headlines should not trigger label warnings."""
         blueprint = json.loads(json.dumps(deck_blueprint_data))
         blueprint["slides"][7]["headline"] = "控股权出售应聚焦可验证增长质量"
         errors, warnings, _ = _validate_blueprint(
-            blueprint, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
+            blueprint, page_argument_pack_path, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
         )
         assert errors == [], f"natural Chinese headline should remain valid: {errors}"
         assert not any("headline may be a label" in w for w in warnings), warnings
 
-    def test_invalid_target_field_lists_allowed_fields(self, deck_blueprint_data, template_registry_path):
+    def test_invalid_target_field_lists_allowed_fields(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
         """Invalid target_field should list allowed active fields in error message."""
         blueprint = json.loads(json.dumps(deck_blueprint_data))
         blueprint["slides"][0]["body_blocks"][0]["target_field"] = "left_key_1"
         errors, _, _ = _validate_blueprint(
-            blueprint, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
+            blueprint, page_argument_pack_path, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
         )
         joined = "\n".join(errors)
         assert "Allowed active body fields: bullet_1, bullet_2, bullet_3" in joined, joined
@@ -78,10 +79,11 @@ class TestDeckBlueprintValidation:
 
 
 class TestDeckBlueprintCompilation:
-    def test_compile_produces_valid_output(self, deck_blueprint_path, template_registry_path, tmp_path):
+    def test_compile_produces_valid_output(self, deck_blueprint_path, template_registry_path, page_argument_pack_path, tmp_path):
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         result = subprocess.run(
             [sys.executable, "scripts/generation/compile_deck_blueprint.py",
+             "--page-argument-pack", str(page_argument_pack_path),
              "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
              "--deck-blueprint", str(deck_blueprint_path),
              "--template-registry", str(template_registry_path),
@@ -91,11 +93,12 @@ class TestDeckBlueprintCompilation:
         )
         assert result.returncode == 0, result.stdout + result.stderr
 
-    def test_value_chain_slide_body_copy_mapping(self, deck_blueprint_path, template_registry_path, tmp_path):
+    def test_value_chain_slide_body_copy_mapping(self, deck_blueprint_path, template_registry_path, page_argument_pack_path, tmp_path):
         """Slide 4 (value_chain_page) body_blocks with target_field should map to body_copy."""
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         subprocess.run(
             [sys.executable, "scripts/generation/compile_deck_blueprint.py",
+             "--page-argument-pack", str(page_argument_pack_path),
              "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
              "--deck-blueprint", str(deck_blueprint_path),
              "--template-registry", str(template_registry_path),
@@ -113,7 +116,7 @@ class TestDeckBlueprintCompilation:
         assert body["bottom_center"].startswith("Profit-pool evidence"), body
         assert body["bottom_right"].startswith("Transaction relevance"), body
 
-    def test_natural_visuals_compile(self, deck_blueprint_data, template_registry_path, tmp_path):
+    def test_natural_visuals_compile(self, deck_blueprint_data, template_registry_path, page_argument_pack_path, tmp_path):
         """Chart data with natural series input and markdown table input should compile."""
         blueprint = json.loads(json.dumps(deck_blueprint_data))
         # Slide 1: natural year/value series
@@ -150,6 +153,7 @@ class TestDeckBlueprintCompilation:
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         subprocess.run(
             [sys.executable, "scripts/generation/compile_deck_blueprint.py",
+             "--page-argument-pack", str(page_argument_pack_path),
              "--issue-analysis", str(FIXTURES_DIR / "valid_issue_analysis.json"),
              "--deck-blueprint", str(bp_path),
              "--template-registry", str(template_registry_path),

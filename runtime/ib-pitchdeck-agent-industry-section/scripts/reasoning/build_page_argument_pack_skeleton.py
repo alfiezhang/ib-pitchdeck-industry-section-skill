@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Build page_argument_pack.json from issue analysis and hypothesis handling."""
+"""Build a page_argument_pack skeleton/crosswalk from issue analysis.
+
+This script prepares candidate rows for LLM authoring. It does not replace
+Reasoning's banker judgment about which arguments are page-worthy, mergeable,
+headline-safe, caveat-only, or unsuitable for deck use.
+"""
 
 from __future__ import annotations
 
@@ -54,6 +59,48 @@ def _analysis_id(item: dict[str, Any], idx: int) -> str:
     return text(item.get("analysis_id") or item.get("issue_analysis_id") or item.get("id") or f"IA-{idx:03d}")
 
 
+def _usage_from_issue(item: dict[str, Any], hypothesis: dict[str, Any]) -> str:
+    explicit = text(item.get("allowed_deck_usage") or hypothesis.get("allowed_downstream_use") or hypothesis.get("allowed_use_before_resolution"))
+    if explicit and not explicit.startswith("{"):
+        return explicit
+    allowed = item.get("allowed_deck_usage")
+    if isinstance(allowed, dict):
+        if allowed.get("headline") is True:
+            return "headline_allowed"
+        if allowed.get("body_copy") is True or allowed.get("chart") is True:
+            return "body_only"
+    if text(item.get("evidence_status")) == "caveat_only":
+        return "caveat_only"
+    if text(item.get("evidence_status")) in {"not_researched", "rejected"}:
+        return "not_allowed"
+    return "body_only"
+
+
+def _downstream_permission_from_issue(item: dict[str, Any], allowed_usage: str) -> dict[str, bool]:
+    permission = item.get("downstream_permission")
+    if isinstance(permission, dict):
+        return {
+            "headline_allowed": permission.get("headline_allowed") is True,
+            "main_message_allowed": permission.get("main_message_allowed") is True or permission.get("headline_allowed") is True,
+            "chart_allowed": permission.get("chart_allowed") is True,
+            "body_copy_allowed": permission.get("body_copy_allowed") is True,
+        }
+    allowed = item.get("allowed_deck_usage")
+    if isinstance(allowed, dict):
+        return {
+            "headline_allowed": allowed.get("headline") is True,
+            "main_message_allowed": allowed.get("main_message") is True or allowed.get("headline") is True,
+            "chart_allowed": allowed.get("chart") is True,
+            "body_copy_allowed": allowed.get("body_copy") is True,
+        }
+    return {
+        "headline_allowed": allowed_usage == "headline_allowed",
+        "main_message_allowed": allowed_usage == "headline_allowed",
+        "chart_allowed": allowed_usage in {"headline_allowed", "body_only"},
+        "body_copy_allowed": allowed_usage in {"headline_allowed", "body_only", "supporting_context", "context_only", "caveat_only"},
+    }
+
+
 def build_pack(issue_analysis: dict[str, Any], hypothesis_store: dict[str, Any]) -> dict[str, Any]:
     hypotheses = {
         text(item.get("issue_analysis_id")): item
@@ -69,7 +116,7 @@ def build_pack(issue_analysis: dict[str, Any], hypothesis_store: dict[str, Any])
             continue
         hypothesis = hypotheses.get(analysis_id, {})
         resolution = text(hypothesis.get("resolution_status"))
-        allowed_usage = text(item.get("allowed_deck_usage") or hypothesis.get("allowed_use_before_resolution") or "body_only")
+        allowed_usage = _usage_from_issue(item, hypothesis)
         page_arguments.append(
             {
                 "page_argument_id": f"PA-{len(page_arguments) + 1:03d}",
@@ -80,6 +127,7 @@ def build_pack(issue_analysis: dict[str, Any], hypothesis_store: dict[str, Any])
                 "page_argument": text(item.get("page_argument") or item.get("judgment") or item.get("finding") or item.get("summary")),
                 "evidence_status": evidence_status or "directional",
                 "allowed_deck_usage": allowed_usage,
+                "downstream_permission": _downstream_permission_from_issue(item, allowed_usage),
                 "hypothesis_resolution_status": resolution,
                 "evidence_ids": as_list(item.get("evidence_ids")),
                 "metric_ids": as_list(item.get("metric_ids")),
@@ -90,6 +138,11 @@ def build_pack(issue_analysis: dict[str, Any], hypothesis_store: dict[str, Any])
     return {
         "schema_version": "page_argument_pack_v1",
         "policy_context": "pre_mandate_client_pitch",
+        "authoring_status": "skeleton_for_llm_reasoning_authoring",
+        "authoring_instruction": (
+            "Reasoning LLM must review these candidates, merge/drop/rewrite as needed, "
+            "set final allowed_deck_usage, and preserve evidence/hypothesis limits before Generation."
+        ),
         "page_arguments": page_arguments,
     }
 
@@ -97,11 +150,11 @@ def build_pack(issue_analysis: dict[str, Any], hypothesis_store: dict[str, Any])
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--issue-analysis", required=True)
-    parser.add_argument("--hypothesis-store")
+    parser.add_argument("--hypothesis-store", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
     issue_analysis = load_json_file(Path(args.issue_analysis))
-    hypothesis_store = load_json_file(Path(args.hypothesis_store)) if args.hypothesis_store and Path(args.hypothesis_store).exists() else {}
+    hypothesis_store = load_json_file(Path(args.hypothesis_store))
     payload = build_pack(issue_analysis, hypothesis_store)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

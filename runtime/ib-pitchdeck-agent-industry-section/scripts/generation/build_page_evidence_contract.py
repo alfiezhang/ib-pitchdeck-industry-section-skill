@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Build page_evidence_contract.json from issue_analysis and a normalized page plan.
+"""Build page_evidence_contract.json from an issue-like permission pool and page plan.
 
-This compiler removes one LLM-authored artifact from the workflow. The LLM
-plans the page argument in deck_blueprint; this script deterministically derives
-the evidence boundary the renderer must obey.
+In the main workflow compile_deck_blueprint.py creates that permission pool
+from page_argument_pack.json. This lower-level helper keeps the renderer-facing
+contract deterministic.
 """
 
 from __future__ import annotations
@@ -306,6 +306,11 @@ def build_page_evidence_contract(issue_analysis: dict[str, Any], page_plan: dict
                 "slide_no": slide_no,
                 "page_role": strategy_slide.get("fixed_page_role", ""),
                 "page_question": strategy_slide.get("investor_question", ""),
+                "page_argument_ids": [
+                    str(item).strip()
+                    for item in _as_list(strategy_slide.get("page_argument_ids"))
+                    if str(item).strip()
+                ],
                 "primary_issue_analysis_id": primary_id,
                 "supporting_issue_analysis_ids": [
                     str(item).strip()

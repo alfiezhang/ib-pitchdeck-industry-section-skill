@@ -48,13 +48,25 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
     warnings: list[str] = []
     if payload.get("schema_version") != "page_argument_pack_v1":
         errors.append("schema_version must be page_argument_pack_v1")
+    if text(payload.get("authoring_status")) == "skeleton_for_llm_reasoning_authoring":
+        errors.append("page_argument_pack is still a Python-generated skeleton; Reasoning LLM must author the final pack before validation")
     rows = payload.get("page_arguments")
     if not isinstance(rows, list):
         errors.append("page_arguments must be an array")
         return errors, warnings
     if not rows:
         errors.append("page_arguments must contain at least one candidate page argument")
-    allowed_usage = {"headline_allowed", "body_only", "context_only", "caveat_or_diligence_question_only", "not_allowed_in_headline", "not_allowed"}
+    allowed_usage = {
+        "headline_allowed",
+        "body_only",
+        "supporting_context",
+        "context_only",
+        "caveat_only",
+        "diligence_only",
+        "caveat_or_diligence_question_only",
+        "not_allowed_in_headline",
+        "not_allowed",
+    }
     for idx, row in enumerate(rows, start=1):
         if not isinstance(row, dict):
             errors.append(f"page_arguments[{idx}] must be an object")
@@ -72,7 +84,7 @@ def validate(payload: dict[str, Any]) -> tuple[list[str], list[str]]:
             errors.append(f"{arg_id}: not_researched/rejected evidence cannot be used in deck")
         if not text(row.get("hypothesis_resolution_status")):
             warnings.append(f"{arg_id}: hypothesis_resolution_status is missing; link page arguments back to hypothesis resolution when available")
-        if usage in {"caveat_or_diligence_question_only", "not_allowed_in_headline"}:
+        if usage in {"caveat_only", "diligence_only", "caveat_or_diligence_question_only", "not_allowed_in_headline"}:
             warnings.append(f"{arg_id}: cannot be used as headline; keep as caveat/body/open question")
     return errors, warnings
 

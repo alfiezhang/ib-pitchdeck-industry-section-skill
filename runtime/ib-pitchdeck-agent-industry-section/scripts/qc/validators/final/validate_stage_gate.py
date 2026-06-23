@@ -32,7 +32,7 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan
+from deck_blueprint_utils import normalize_deck_blueprint_for_page_plan, page_argument_pool_from_pack
 from json_utils import load_json_file
 from validate_content_quality import validate as validate_content_quality
 from validate_chart_metric_binding import validate as validate_chart_metric_binding
@@ -640,6 +640,7 @@ def validate_issue_analysis_gate(
     repair_targets: Optional[list[dict[str, Any]]] = None,
 ) -> None:
     issue_analysis_path = run_dir / "industry_issue_analysis.json"
+    page_argument_pack_path = run_dir / "artifacts" / "page_argument_pack.json"
     template_registry_path = run_dir / "template_registry.json"
     deck_blueprint_path = run_dir / "deck_blueprint.json"
     page_contract_path = run_dir / "page_evidence_contract.json"
@@ -647,7 +648,7 @@ def validate_issue_analysis_gate(
 
     missing = [
         str(path)
-        for path in (issue_analysis_path, template_registry_path, deck_blueprint_path, page_contract_path)
+        for path in (issue_analysis_path, page_argument_pack_path, template_registry_path, deck_blueprint_path, page_contract_path)
         if not path.exists()
     ]
     if missing:
@@ -655,10 +656,11 @@ def validate_issue_analysis_gate(
         return
 
     issue_analysis = load_json_if_exists(issue_analysis_path, errors)
+    page_argument_pack = load_json_if_exists(page_argument_pack_path, errors)
     template_registry = load_json_if_exists(template_registry_path, errors)
     deck_blueprint = load_json_if_exists(deck_blueprint_path, errors)
     page_contract = load_json_if_exists(page_contract_path, errors)
-    if not issue_analysis or not template_registry or not deck_blueprint or not page_contract:
+    if not issue_analysis or not page_argument_pack or not template_registry or not deck_blueprint or not page_contract:
         return
 
     issue_result_errors, issue_result_warnings = validate_issue_analysis(
@@ -718,9 +720,10 @@ def validate_issue_analysis_gate(
     warnings.extend(str(item) for item in template_registry_warnings)
 
     deck_errors, deck_warnings, _ = validate_deck_blueprint(
-        issue_analysis=issue_analysis,
+        page_argument_pack=page_argument_pack,
         template_registry=template_registry,
         deck_blueprint=deck_blueprint,
+        issue_analysis=issue_analysis,
     )
     _append_repair_targets(
         repair_targets,
@@ -748,7 +751,7 @@ def validate_issue_analysis_gate(
     warnings.extend(str(item) for item in deck_warnings)
 
     page_contract_errors, page_contract_warnings = validate_page_evidence_contract(
-        issue_analysis,
+        page_argument_pool_from_pack(page_argument_pack),
         normalize_deck_blueprint_for_page_plan(deck_blueprint),
         page_contract,
     )
