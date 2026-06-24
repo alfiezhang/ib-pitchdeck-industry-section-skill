@@ -26,6 +26,7 @@
           "investor_question",
           "page_thesis",
           "page_argument",
+          "exhibit",
           "visual_intent",
           "evidence_role",
           "page_argument_ids",
@@ -44,6 +45,50 @@
           "page_argument": {
             "type": "string",
             "description": "The one-line evidence-backed page argument for this slide before execution into headline/body/copy."
+          },
+          "exhibit": {
+            "type": "object",
+            "description": "Exhibit-first page contract. Every formal slide must define the structured visual/table/framework that carries the page argument before copy is written.",
+            "required": [
+              "exhibit_type",
+              "why_this_exhibit",
+              "data_or_evidence_inputs",
+              "visual_structure",
+              "density_target",
+              "fallback_if_data_limited"
+            ],
+            "properties": {
+              "exhibit_type": {
+                "type": "string",
+                "enum": [
+                  "chart",
+                  "table",
+                  "matrix",
+                  "flow",
+                  "bridge",
+                  "value_chain",
+                  "kpi_cards",
+                  "driver_cards",
+                  "trend_cards",
+                  "diligence_grid",
+                  "peer_comparison",
+                  "channel_flow",
+                  "unit_economics_bridge",
+                  "sku_traction_table",
+                  "evidence_gap_matrix"
+                ]
+              },
+              "why_this_exhibit": { "type": "string" },
+              "data_or_evidence_inputs": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" }
+              },
+              "visual_structure": { "type": "string" },
+              "density_target": { "type": "string" },
+              "fallback_if_data_limited": { "type": "string" }
+            },
+            "additionalProperties": true
           },
           "visual_intent": {
             "type": "string",

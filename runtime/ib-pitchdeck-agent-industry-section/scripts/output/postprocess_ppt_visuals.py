@@ -1266,16 +1266,17 @@ def render_slide2_chart_plus_table(slide, slide_data: dict, layout: dict) -> dic
 def render_slide6_compare_table(slide, slide_data: dict, layout: dict) -> dict:
     header_cells, rows = normalize_compare_table_payload(slide_data)
     col_count = len(header_cells)
+    slide_no = slide_data.get("slide_no")
     if col_count < 3 or col_count > 6:
         return {
             "rendered": False,
-            "reason": f"slide 6 compare table requires 3-6 explicit header columns; found {col_count}",
+            "reason": f"slide {slide_no} compare table requires 3-6 explicit header columns; found {col_count}",
         }
 
     if not header_cells and not rows:
-        return {"rendered": False, "reason": "missing slide 6 compare_table_data payload"}
+        return {"rendered": False, "reason": f"missing slide {slide_no} compare_table_data payload"}
     if len(rows) < 3:
-        return {"rendered": False, "reason": "slide 6 compare table needs at least 3 populated peer rows"}
+        return {"rendered": False, "reason": f"slide {slide_no} compare table needs at least 3 populated rows"}
 
     normalized_rows = []
     for row_idx, cells in enumerate(rows, start=1):
@@ -1329,7 +1330,7 @@ def render_quant_slide(prs: Presentation, renderer_spec: dict, slide_no: int, re
             result = render_matrix_slide(slide, slide_data, layout)
         elif slide_no == 2 and page_type == "chart_plus_mini_table_page":
             result = render_slide2_chart_plus_table(slide, slide_data, layout)
-        elif slide_no == 6 and page_type == "compare_table_page":
+        elif slide_data.get("compare_table_data") and "table_box" in layout:
             result = render_slide6_compare_table(slide, slide_data, layout)
         elif slide_no == 1:
             result = render_slide1_visual(slide, slide_data, layout)
@@ -1504,7 +1505,7 @@ def postprocess(
     page_number_updates = rewrite_page_numbers(prs)
     chart_results = []
     for slide_data in renderer_spec.get("slides", []):
-        if slide_data.get("chart_data") or (
+        if slide_data.get("chart_data") or slide_data.get("compare_table_data") or (
             int(slide_data.get("slide_no", 0)) in {2, 6}
             and has_postprocess_renderer(slide_data, render_layouts)
         ):

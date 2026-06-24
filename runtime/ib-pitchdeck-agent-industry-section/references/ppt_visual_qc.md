@@ -36,6 +36,9 @@ This checklist complements deterministic validation. `validate_filled_ppt.py` co
 
 - If the slide describes a chart, is the chart logic actually traceable from `chart_data` or page notes?
 - If the slide is chart-led, does it contain an actual chart / visual object rather than prose describing the intended chart?
+- Does the slide's `exhibit` match what is visible on the page?
+- Does a chart have at least two comparable datapoints? A single large bar is not a finished exhibit.
+- If evidence is limited, did the page use a structured fallback such as KPI cards, a diligence grid, an evidence-gap matrix, or caveated table?
 - Are the key datapoints visible, or buried in prose?
 - Does the slide still feel complete if the visual were presented to a client?
 
@@ -49,6 +52,9 @@ This checklist complements deterministic validation. `validate_filled_ppt.py` co
 Flag the slide for revision if any of the following are true:
 
 - No obvious focal point
+- Missing, invisible, or token-only exhibit
+- Chart area contains only one datapoint
+- Fewer than three substantive cards/rows/modules on a structured page
 - More than two long sentences in one placeholder area
 - Important numbers appear without emphasis
 - The slide reads like research notes, not a presentation

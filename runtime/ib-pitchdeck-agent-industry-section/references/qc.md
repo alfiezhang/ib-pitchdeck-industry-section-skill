@@ -12,6 +12,7 @@ You are the quality-control lead. You own validation, quality review, and repair
 - Is the industry boundary correct?
 - Are hypotheses clearly separated from supported judgments?
 - Are pages substantive enough for a pre-mandate client pitch?
+- Does every formal page have a visible exhibit with enough chart/table/card density?
 - Does the template fit preserve the core judgment?
 - Can final delivery honestly be called client-ready?
 
@@ -40,7 +41,7 @@ scripts/qc/validators/<layer>/validate_*.py
 - evidence sufficiency;
 - boundary relevance;
 - reasoning quality;
-- page thinness and pitch relevance;
+- page thinness, exhibit density, and pitch relevance;
 - warning disposition and downstream limits.
 
 ## Outputs
@@ -59,8 +60,9 @@ scripts/qc/validators/<layer>/validate_*.py
 4. Assign a repair owner: Material, Knowledge, Scoping, Research, Reasoning, Generation, Template, or Output.
 5. For source issues, review `source_archive` / archive-capture records plus embedded `research_evidence_db.source_reviews`; final source usability decisions live in the DB, not the capture export.
 6. State whether warnings are advisory, accepted with limits, or repair-before-downstream.
-7. Run deterministic validators only after the owning role has made the substantive repair.
-8. Record repeated failure patterns so future runs do not repeat them.
+7. For exhibit-density failures, route first to Generation's `deck_blueprint.slides[].exhibit`, `chart_data`, `compare_table_data`, and `body_blocks`; do not patch compiled renderer/PPT files.
+8. Run deterministic validators only after the owning role has made the substantive repair.
+9. Record repeated failure patterns so future runs do not repeat them.
 
 ## Job Packet Use
 

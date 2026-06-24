@@ -61,6 +61,8 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 7. Generate page arguments and slide drafts.
    - Start from page/section arguments, not from raw research notes.
    - Each page should have a clear investor/client question, a supported point of view, the evidence it relies on, and any caveat.
+   - Each formal slide must be exhibit-led: define a chart, table, matrix, flow, card grid, value-chain map, or evidence-gap exhibit before compiling.
+   - Do not use single-point charts as formal exhibits. If evidence is limited, use structured KPI cards, caveat grids, or diligence questions rather than leaving a sparse page.
    - Use the template to fit the content, not to weaken the story. If a layout makes the page thin or misleading, revise the page argument or choose a better layout.
 
 8. Use the right template.
@@ -141,6 +143,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - User-provided facts, public evidence, assumptions, and hypotheses are clearly separated.
 - Evidence used in page arguments is traceable to archived/opened sources, not search snippets.
 - The deck contains real banker page arguments, not a thin list of caveats.
+- The deck has visible exhibits with adequate data/table/card density; chart-led pages are not single datapoint placeholders.
 - Buyer perspective and transaction relevance are visible where appropriate.
 - A user-provided PPT template is honored; otherwise the bundled template is used.
 - Final output status is honest: client-ready or blocked/not client-ready.
@@ -154,6 +157,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - Moving unexecuted or not-material research coverage into the evidence binder.
 - Turning hypotheses into headlines.
 - Rendering a PPT directly from raw research without page arguments.
+- Rendering sparse token-only pages when a slide needs a visual exhibit.
 - Writing draft-only or off-schema formal artifacts to bypass the formal workflow.
 - Hand-editing `template_profile.json`, `renderer_spec.json`, `replacement_dict.json`, or final flags to hide upstream issues.
 - Claiming a formal delivery when the run is only a draft or when QC has identified unresolved client-readiness problems.

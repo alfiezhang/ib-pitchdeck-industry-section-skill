@@ -58,6 +58,55 @@ FIXED_PAGE_ROLES = {
     8: "transaction_implications",
 }
 
+VALID_EXHIBIT_TYPES = {
+    "chart",
+    "table",
+    "matrix",
+    "flow",
+    "bridge",
+    "value_chain",
+    "kpi_cards",
+    "driver_cards",
+    "trend_cards",
+    "diligence_grid",
+    "peer_comparison",
+    "channel_flow",
+    "unit_economics_bridge",
+    "sku_traction_table",
+    "evidence_gap_matrix",
+}
+
+CHART_TYPES = {
+    "bar",
+    "column",
+    "clustered_bar",
+    "clustered_column",
+    "stacked_bar",
+    "stacked_column",
+    "line",
+    "line_chart",
+}
+
+TABLE_EXHIBIT_TYPES = {
+    "table",
+    "matrix",
+    "diligence_grid",
+    "peer_comparison",
+    "sku_traction_table",
+    "evidence_gap_matrix",
+}
+
+BODY_STRUCTURED_EXHIBIT_TYPES = {
+    "flow",
+    "bridge",
+    "value_chain",
+    "channel_flow",
+    "unit_economics_bridge",
+    "driver_cards",
+    "trend_cards",
+    "kpi_cards",
+}
+
 
 def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
@@ -105,6 +154,41 @@ def _metric_ids_in_value(value: Any) -> set[str]:
     return found
 
 
+def _exhibit(slide: dict[str, Any]) -> dict[str, Any]:
+    return slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
+
+
+def _exhibit_type(slide: dict[str, Any]) -> str:
+    return str(_exhibit(slide).get("exhibit_type") or "").strip()
+
+
+def _chart_datapoint_count(chart_data: dict[str, Any]) -> int:
+    series = chart_data.get("series") if isinstance(chart_data.get("series"), list) else []
+    count = 0
+    for item in series:
+        if isinstance(item, dict) and isinstance(item.get("values"), list):
+            count += len(item.get("values") or [])
+    if count:
+        return count
+    source_rows = chart_data.get("source_rows") if isinstance(chart_data.get("source_rows"), list) else []
+    return len([row for row in source_rows if isinstance(row, dict)])
+
+
+def _compare_table_row_count(table_data: dict[str, Any]) -> int:
+    rows = table_data.get("rows") if isinstance(table_data.get("rows"), list) else []
+    count = len([row for row in rows if isinstance(row, (dict, list, str)) and str(row).strip()])
+    if count:
+        return count
+    for idx in range(1, 8):
+        if str(table_data.get(f"table_row_{idx}") or "").strip():
+            count += 1
+    return count
+
+
+def _filled_body_copy_count(body_copy: dict[str, Any]) -> int:
+    return len([value for value in body_copy.values() if str(value or "").strip()])
+
+
 def _contains_draft_marker(value: Any) -> bool:
     if isinstance(value, dict):
         return any(_contains_draft_marker(item) for item in value.values())
@@ -138,6 +222,7 @@ def validate(
     strategy_by_no = _page_plan_index(page_plan)
     contract_by_no = _contract_index(page_contract)
     variants_by_slide = _template_variants(template_registry)
+    structured_exhibit_count = 0
 
     slides = renderer_spec.get("slides") if isinstance(renderer_spec, dict) else None
     if not isinstance(slides, list):
@@ -209,8 +294,25 @@ def validate(
             or _contains_draft_marker(body_copy)
             or _contains_draft_marker(slide.get("chart_data"))
             or _contains_draft_marker(slide.get("compare_table_data"))
+            or _contains_draft_marker(slide.get("exhibit"))
         ):
             errors.append(f"{prefix}: renderer_spec still contains draft/TODO markers; complete the slide-copy pass before validation")
+
+        exhibit = _exhibit(slide)
+        exhibit_type = _exhibit_type(slide)
+        if not exhibit:
+            errors.append(f"{prefix}: exhibit is required; renderer_spec must preserve the blueprint's exhibit-first contract")
+        else:
+            structured_exhibit_count += 1
+            if exhibit_type not in VALID_EXHIBIT_TYPES:
+                errors.append(f"{prefix}: exhibit.exhibit_type '{exhibit_type or '(missing)'}' is invalid")
+            for field in ("why_this_exhibit", "visual_structure", "density_target", "fallback_if_data_limited"):
+                if not str(exhibit.get(field) or "").strip():
+                    errors.append(f"{prefix}: exhibit.{field} is required")
+            inputs = [str(item).strip() for item in _as_list(exhibit.get("data_or_evidence_inputs")) if str(item).strip()]
+            if not inputs:
+                errors.append(f"{prefix}: exhibit.data_or_evidence_inputs must not be empty")
+
         template_required_fields = [str(item) for item in (variant.get("required_body_fields") or [])]
         required_fields = active_body_fields(template_required_fields, page_type, slide)
         missing_fields = [field for field in required_fields if not str(body_copy.get(field, "")).strip()]
@@ -237,11 +339,33 @@ def validate(
         chart_metric_ids = _metric_ids_in_value(chart_data)
         contract_chart_ids = {str(item).strip() for item in _as_list(contract.get("chart_metric_ids")) if str(item).strip()}
         has_chart = isinstance(chart_data, dict) and str(chart_data.get("chart_type") or "").lower() not in {"", "none", "no_chart", "text"}
+        chart_type = str(chart_data.get("chart_type") or "").lower() if isinstance(chart_data, dict) else ""
+        chart_datapoints = _chart_datapoint_count(chart_data) if isinstance(chart_data, dict) else 0
         if has_chart and contract.get("chart_allowed") is not True:
             errors.append(f"{prefix}: chart_data present but page_evidence_contract.chart_allowed=false")
         invalid_chart_ids = sorted(chart_metric_ids - contract_chart_ids)
         if invalid_chart_ids:
             errors.append(f"{prefix}: chart metric IDs outside page_evidence_contract.chart_metric_ids: {', '.join(invalid_chart_ids)}")
+        if exhibit_type == "chart":
+            if not has_chart:
+                errors.append(f"{prefix}: chart exhibit requires chart_data")
+            elif chart_type not in CHART_TYPES:
+                errors.append(f"{prefix}: chart exhibit uses unsupported chart_data.chart_type '{chart_type or '(missing)'}'")
+            elif chart_datapoints < 2:
+                errors.append(
+                    f"{prefix}: chart exhibit has only {chart_datapoints} datapoint(s); "
+                    "single-point charts are not valid formal exhibits"
+                )
+        elif has_chart and chart_type in CHART_TYPES and chart_datapoints < 2:
+            errors.append(f"{prefix}: chart_data has only {chart_datapoints} datapoint(s); use a table/KPI-card exhibit instead of a single-point chart")
+
+        compare_table_data = slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {}
+        if exhibit_type in TABLE_EXHIBIT_TYPES and _compare_table_row_count(compare_table_data) < 3 and chart_datapoints < 2:
+            errors.append(f"{prefix}: {exhibit_type} exhibit needs at least 3 compare_table_data rows or at least 2 matrix/chart datapoints")
+        if exhibit_type in BODY_STRUCTURED_EXHIBIT_TYPES:
+            min_fields = 6 if exhibit_type == "value_chain" else 3
+            if _filled_body_copy_count(body_copy) < min_fields:
+                errors.append(f"{prefix}: {exhibit_type} exhibit needs at least {min_fields} filled body_copy fields")
 
         evidence_ids = {str(item).strip() for item in _as_list(slide.get("evidence_ids")) if str(item).strip()}
         contract_evidence_ids = {str(item).strip() for item in _as_list(contract.get("body_evidence_ids")) if str(item).strip()}
@@ -252,6 +376,11 @@ def validate(
     missing = set(FIXED_PAGE_ROLES) - seen
     if missing:
         errors.append("missing slide_no entries: " + ", ".join(str(num) for num in sorted(missing)))
+    if structured_exhibit_count < 6:
+        errors.append(
+            f"renderer_spec has only {structured_exhibit_count} structured exhibit slide(s); "
+            "formal output needs at least 6 exhibit-led pages"
+        )
 
     try:
         token_result = build_token_source(renderer_spec)

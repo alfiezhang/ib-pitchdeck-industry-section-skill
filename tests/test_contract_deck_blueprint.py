@@ -31,8 +31,8 @@ class TestDeckBlueprintValidation:
         )
         assert errors == [], errors
 
-    def test_thin_slide_warns_not_fails(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
-        """A slide with fewer body_blocks than expected should warn, not error."""
+    def test_thin_slide_fails(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
+        """A slide with fewer body_blocks than the selected layout should fail before rendering."""
         blueprint = json.loads(json.dumps(deck_blueprint_data))
         for slide in blueprint["slides"]:
             if slide["slide_no"] == 4:
@@ -42,8 +42,33 @@ class TestDeckBlueprintValidation:
         errors, warnings, _ = _validate_blueprint(
             blueprint, page_argument_pack_path, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
         )
-        assert errors == [], f"thin blueprint should warn, not fail: {errors}"
-        assert any("body_blocks has" in w for w in warnings), "should produce template-capacity warning"
+        assert any("body_blocks has" in e for e in errors), errors
+        assert warnings == [] or all("body_blocks has" not in w for w in warnings)
+
+    def test_missing_exhibit_fails(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
+        """Formal deck blueprints must be exhibit-first, not text-only."""
+        blueprint = json.loads(json.dumps(deck_blueprint_data))
+        del blueprint["slides"][0]["exhibit"]
+        errors, _, _ = _validate_blueprint(
+            blueprint, page_argument_pack_path, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
+        )
+        assert any("exhibit is required" in e for e in errors), errors
+
+    def test_single_point_chart_fails(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
+        """A single large datapoint is not a formal chart exhibit."""
+        blueprint = json.loads(json.dumps(deck_blueprint_data))
+        blueprint["slides"][0]["chart_data"] = {
+            "chart_type": "bar",
+            "title": "Single point",
+            "categories": ["Current"],
+            "series": [{"name": "Market size", "values": [100.0]}],
+            "unit": "RMB bn",
+            "source_rows": [{"label": "Current", "value": 100.0, "metric_id": "MET-001"}],
+        }
+        errors, _, _ = _validate_blueprint(
+            blueprint, page_argument_pack_path, FIXTURES_DIR / "valid_issue_analysis.json", template_registry_path
+        )
+        assert any("only 1 datapoint" in e for e in errors), errors
 
     def test_chinese_conclusion_headline_accepted(self, deck_blueprint_data, template_registry_path, page_argument_pack_path):
         """Natural conclusion-led Chinese headlines should not trigger label warnings."""

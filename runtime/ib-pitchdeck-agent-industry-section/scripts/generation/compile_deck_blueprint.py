@@ -620,6 +620,7 @@ def build_renderer_spec_from_deck_blueprint(
             "issue_analysis_ids": issue_ids,
             "page_argument_ids": page_argument_ids,
             "claim_strength": str(contract.get("claim_strength") or slide.get("claim_strength") or "").strip(),
+            "exhibit": slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {},
             "headline": str(slide.get("headline") or "").strip(),
             "main_message": str(slide.get("main_message") or "").strip(),
             "body_copy": body_copy,

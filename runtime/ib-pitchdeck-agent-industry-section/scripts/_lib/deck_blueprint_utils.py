@@ -253,8 +253,9 @@ def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
     visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
     if not visual and isinstance(slide.get("visual_plan"), dict):
         visual = slide["visual_plan"]
+    exhibit = slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
     selected_page_type = str(slide.get("selected_page_type") or "").strip()
-    capability = str(visual.get("required_capability") or visual.get("type") or "").strip()
+    capability = str(visual.get("required_capability") or visual.get("type") or exhibit.get("exhibit_type") or "").strip()
     capability_map = {
         "bar_chart": "chart",
         "line_chart": "chart",
@@ -265,6 +266,17 @@ def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
         "comparison_table": "table",
         "fact_cards": "cards",
         "driver_cards": "cards",
+        "trend_cards": "cards",
+        "kpi_cards": "cards",
+        "diligence_grid": "table",
+        "peer_comparison": "table",
+        "sku_traction_table": "table",
+        "evidence_gap_matrix": "table",
+        "flow": "table",
+        "bridge": "table",
+        "channel_flow": "table",
+        "unit_economics_bridge": "table",
+        "value_chain": "table",
     }
     capability = capability_map.get(capability, capability)
     if not capability:
@@ -310,6 +322,7 @@ def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
         "visual_metric_ids": unique(metric_ids),
         "fallback_if_data_insufficient": str(
             visual.get("fallback_if_data_insufficient")
+            or exhibit.get("fallback_if_data_limited")
             or slide.get("evidence_gap_handling")
             or "Downgrade to a caveated text/table page if evidence is insufficient."
         ).strip(),

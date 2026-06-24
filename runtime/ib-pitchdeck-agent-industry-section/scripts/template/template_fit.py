@@ -268,11 +268,12 @@ def _check_render_layout_presence(
         _has_payload(slide.get("chart_data"))
         or _has_payload(slide.get("compare_table_data"))
         or _has_payload(slide.get("matrix_data"))
+        or _has_payload(slide.get("exhibit"))
     )
     if variant_missing and needs_render_layout:
         _append(blocking, f"slide {slide_no}: render layout for '{page_type}' not found in template profile; PPT rendering will produce broken output")
     elif variant_missing:
-        _append(warnings, f"slide {slide_no}: render layout for '{page_type}' not found in template profile; token-only/text rendering will be used")
+        _append(blocking, f"slide {slide_no}: render layout for '{page_type}' not found in template profile; formal delivery requires explicit layout support")
 
 
 def _check_visual_style(

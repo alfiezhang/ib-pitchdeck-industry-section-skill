@@ -215,6 +215,55 @@ ARGUMENT_MECHANISM_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+VALID_EXHIBIT_TYPES = {
+    "chart",
+    "table",
+    "matrix",
+    "flow",
+    "bridge",
+    "value_chain",
+    "kpi_cards",
+    "driver_cards",
+    "trend_cards",
+    "diligence_grid",
+    "peer_comparison",
+    "channel_flow",
+    "unit_economics_bridge",
+    "sku_traction_table",
+    "evidence_gap_matrix",
+}
+
+CHART_TYPES = {
+    "bar",
+    "column",
+    "clustered_bar",
+    "clustered_column",
+    "stacked_bar",
+    "stacked_column",
+    "line",
+    "line_chart",
+}
+
+TABLE_EXHIBIT_TYPES = {
+    "table",
+    "matrix",
+    "diligence_grid",
+    "peer_comparison",
+    "sku_traction_table",
+    "evidence_gap_matrix",
+}
+
+BODY_STRUCTURED_EXHIBIT_TYPES = {
+    "flow",
+    "bridge",
+    "value_chain",
+    "channel_flow",
+    "unit_economics_bridge",
+    "driver_cards",
+    "trend_cards",
+    "kpi_cards",
+}
+
 
 def check_inline_source_references(
     text: str,
@@ -857,6 +906,35 @@ CONTENT_REPAIR_PROFILES: dict[str, dict[str, Any]] = {
         ],
         "repair_hint": "Fix hard title/subtitle fit issues in headline/main_message. Body-copy length findings are advisory scanability prompts; do not delete evidence, mechanism, or implication depth solely to shorten body text.",
     },
+    "EXHIBIT_DENSITY": {
+        "category": "exhibit_density",
+        "owner_stage": "deck_blueprint",
+        "repair_target": "deck_blueprint.json",
+        "repair_fields": [
+            "slides[].exhibit",
+            "slides[].chart_data",
+            "slides[].compare_table_data",
+            "slides[].body_blocks",
+            "slides[].selected_page_type",
+        ],
+        "fallback_repair_targets": [
+            "artifacts/page_argument_pack.json",
+            "artifacts/research_evidence_db.json",
+        ],
+        "do_not_edit": [
+            "renderer_spec.json",
+            "replacement_dict.json",
+            "*.pptx",
+        ],
+        "rerun_steps": [
+            "scripts/qc/validators/generation/validate_deck_blueprint.py",
+            "scripts/generation/compile_deck_blueprint.py",
+            "scripts/qc/validators/generation/validate_renderer_spec.py",
+            "scripts/qc/validators/final/validate_content_quality.py",
+        ],
+        "recommended_action": "Repair deck_blueprint exhibit design, chart/table data, and body block density; regenerate renderer_spec through compile_deck_blueprint.py.",
+        "repair_hint": "Repair the upstream exhibit design: use a chart/table/matrix/cards/flow that carries enough evidence. Do not let a formal page render as text-only or a single datapoint chart.",
+    },
     "TARGET_ADVOCACY_OR_OVERCLAIM": {
         "category": "claim_strength",
         "owner_stage": "deck_blueprint",
@@ -960,6 +1038,10 @@ def classify_content_root_causes(messages: list[str]) -> list[dict[str, Any]]:
         (
             "TRANSACTION_EVIDENCE_TOO_THIN",
             ("transaction/consolidation", "transaction_case", "交易", "整合"),
+        ),
+        (
+            "EXHIBIT_DENSITY",
+            ("exhibit", "single-point chart", "datapoint", "text-only", "structured visual", "compare_table_data", "body_copy fields"),
         ),
         (
             "LAYOUT_FIT_RISK",
@@ -1415,6 +1497,100 @@ def chart_datapoint_count(chart_data: dict[str, Any]) -> int:
         if isinstance(chart_series, dict) and isinstance(chart_series.get("values"), list):
             datapoint_count += len(chart_series.get("values") or [])
     return datapoint_count
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _exhibit(slide: dict[str, Any]) -> dict[str, Any]:
+    return slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
+
+
+def _exhibit_type(slide: dict[str, Any]) -> str:
+    return str(_exhibit(slide).get("exhibit_type") or "").strip()
+
+
+def _compare_table_row_count(table_data: dict[str, Any]) -> int:
+    rows = table_data.get("rows") if isinstance(table_data.get("rows"), list) else []
+    count = len([row for row in rows if isinstance(row, (dict, list, str)) and str(row).strip()])
+    if count:
+        return count
+    for idx in range(1, 8):
+        if str(table_data.get(f"table_row_{idx}") or "").strip():
+            count += 1
+    return count
+
+
+def _filled_body_copy_count(slide: dict[str, Any]) -> int:
+    body_copy = slide.get("body_copy") if isinstance(slide.get("body_copy"), dict) else {}
+    return len([value for value in body_copy.values() if str(value or "").strip()])
+
+
+def check_exhibit_density(
+    slide: dict[str, Any],
+    warnings: list[str],
+    blocking_issues: list[str],
+) -> None:
+    slide_no = slide.get("slide_no")
+    exhibit = _exhibit(slide)
+    exhibit_type = _exhibit_type(slide)
+    if not exhibit:
+        message = f"slide {slide_no}: exhibit is required; formal pages must not be text-only renderer output"
+        warnings.append(message)
+        blocking_issues.append(message)
+        return
+
+    if exhibit_type not in VALID_EXHIBIT_TYPES:
+        message = f"slide {slide_no}: exhibit.exhibit_type '{exhibit_type or '(missing)'}' is invalid"
+        warnings.append(message)
+        blocking_issues.append(message)
+
+    for field in ("why_this_exhibit", "visual_structure", "density_target", "fallback_if_data_limited"):
+        if not str(exhibit.get(field) or "").strip():
+            message = f"slide {slide_no}: exhibit.{field} is required"
+            warnings.append(message)
+            blocking_issues.append(message)
+    inputs = [str(item).strip() for item in _as_list(exhibit.get("data_or_evidence_inputs")) if str(item).strip()]
+    if not inputs:
+        message = f"slide {slide_no}: exhibit.data_or_evidence_inputs is empty"
+        warnings.append(message)
+        blocking_issues.append(message)
+
+    chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
+    chart_type = str(chart_data.get("chart_type") or "").strip().lower()
+    chart_points = chart_datapoint_count(chart_data)
+    if exhibit_type == "chart":
+        if chart_type not in CHART_TYPES:
+            message = f"slide {slide_no}: chart exhibit requires supported chart_data.chart_type, found '{chart_type or '(missing)'}'"
+            warnings.append(message)
+            blocking_issues.append(message)
+        elif chart_points < 2:
+            message = (
+                f"slide {slide_no}: chart exhibit has {chart_points} datapoint(s); "
+                "single-point charts are not valid formal PPT exhibits"
+            )
+            warnings.append(message)
+            blocking_issues.append(message)
+    elif chart_type in CHART_TYPES and chart_points < 2:
+        message = (
+            f"slide {slide_no}: chart_data has {chart_points} datapoint(s); "
+            "use a KPI-card/table exhibit or add comparable data before rendering"
+        )
+        warnings.append(message)
+        blocking_issues.append(message)
+
+    table_data = slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {}
+    if exhibit_type in TABLE_EXHIBIT_TYPES and _compare_table_row_count(table_data) < 3 and chart_points < 2:
+        message = f"slide {slide_no}: {exhibit_type} exhibit needs at least 3 compare_table_data rows or 2 comparable datapoints"
+        warnings.append(message)
+        blocking_issues.append(message)
+    if exhibit_type in BODY_STRUCTURED_EXHIBIT_TYPES:
+        min_fields = 6 if exhibit_type == "value_chain" else 3
+        if _filled_body_copy_count(slide) < min_fields:
+            message = f"slide {slide_no}: {exhibit_type} exhibit needs at least {min_fields} filled body_copy fields"
+            warnings.append(message)
+            blocking_issues.append(message)
 
 
 def chart_expected_datapoints(chart_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -2258,6 +2434,8 @@ def validate(
     claim_strength_warnings: list[str] = []
     claim_strength_blocking_issues: list[str] = []
     consistency_warnings: list[str] = []
+    exhibit_warnings: list[str] = []
+    exhibit_blocking_issues: list[str] = []
 
     # Load inputs
     try:
@@ -2424,6 +2602,7 @@ def validate(
 
         # 5. Chart data completeness
         check_chart_data(slide, rules, chart_data_warnings, layout_blocking_issues, layout_budget, memo_text)
+        check_exhibit_density(slide, exhibit_warnings, exhibit_blocking_issues)
         check_slide_scope_compatibility(slide, memo_text, layout_blocking_issues, chart_data_warnings)
         check_visible_metric_claims(slide, memo_text, layout_blocking_issues, evidence_warnings)
 
@@ -2484,6 +2663,7 @@ def validate(
     if block_source_warnings:
         blocking_issues.extend(source_warnings)
     blocking_issues.extend(layout_blocking_issues)
+    blocking_issues.extend(exhibit_blocking_issues)
     blocking_issues.extend(claim_strength_blocking_issues)
     blocking_issues.extend(metric_id_issues)
     blocking_issues.extend(slide6_balance_issues)
@@ -2491,6 +2671,9 @@ def validate(
 
     layout_warnings = unique_preserve_order(
         [warning for warning in layout_warnings if warning not in set(blocking_issues)]
+    )
+    exhibit_warnings = unique_preserve_order(
+        [warning for warning in exhibit_warnings if warning not in set(blocking_issues)]
     )
     source_warnings = unique_preserve_order(source_warnings)
     density_warnings = unique_preserve_order(density_warnings)
@@ -2510,6 +2693,7 @@ def validate(
         + generic_copy_warnings
         + evidence_warnings
         + layout_warnings
+        + exhibit_warnings
         + claim_strength_warnings
         + consistency_warnings
         + blocking_issues
@@ -2545,6 +2729,7 @@ def validate(
         "evidence_warnings": evidence_warnings,
         "metric_id_warnings": unique_preserve_order(metric_id_issues),
         "layout_warnings": layout_warnings,
+        "exhibit_warnings": exhibit_warnings,
         "claim_strength_warnings": claim_strength_warnings,
         "tone_advisory_warnings": tone_advisory_warnings,
         "consistency_warnings": consistency_warnings,

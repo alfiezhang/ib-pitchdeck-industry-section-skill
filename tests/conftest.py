@@ -243,6 +243,10 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
         4: "thesis_anchor", 5: "supporting_evidence", 6: "supporting_evidence",
         7: "context_setting", 8: "context_setting",
     }
+    exhibit_types = {
+        1: "chart", 2: "chart", 3: "driver_cards", 4: "value_chain",
+        5: "driver_cards", 6: "peer_comparison", 7: "trend_cards", 8: "driver_cards",
+    }
     block_counts = {1: 3, 2: 3, 3: 4, 4: 6, 5: 3, 6: 3, 7: 3, 8: 4}
     issue_ids = {
         1: ["IA-001"], 2: ["IA-001", "IA-002"], 3: ["IA-003"], 4: ["IA-003"],
@@ -305,18 +309,26 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
             chart_data: dict = {}
             compare_table_data: dict = {}
             if no == 1:
-                visual_design = {"required_capability": "chart", "purpose": "Show current market scale.", "visual_metric_ids": ["MET-001"]}
+                visual_design = {"required_capability": "chart", "purpose": "Show current market scale.", "visual_metric_ids": ["MET-001", "MET-002"]}
                 chart_data = {
                     "chart_type": "bar", "title": "Current market scale",
-                    "categories": ["Current"], "series": [{"name": "Market size", "values": [100.0]}],
-                    "unit": "RMB bn", "source_rows": [{"label": "Current", "value": 100.0, "metric_id": "MET-001"}],
+                    "categories": ["2022", "2024"], "series": [{"name": "Market size", "values": [80.0, 100.0]}],
+                    "unit": "RMB bn",
+                    "source_rows": [
+                        {"label": "2022", "value": 80.0, "period": "2022", "metric_id": "MET-001"},
+                        {"label": "2024", "value": 100.0, "period": "2024", "metric_id": "MET-002"},
+                    ],
                 }
             if no == 2:
                 visual_design = {"required_capability": "chart", "purpose": "Show segmentation metric.", "visual_metric_ids": ["MET-003"]}
                 chart_data = {
                     "chart_type": "bar", "title": "Segment split",
-                    "categories": ["Segment"], "series": [{"name": "Share", "values": [45.0]}],
-                    "unit": "%", "source_rows": [{"label": "Segment", "value": 45.0, "metric_id": "MET-003"}],
+                    "categories": ["Segment A", "Segment B"], "series": [{"name": "Share", "values": [45.0, 55.0]}],
+                    "unit": "%",
+                    "source_rows": [
+                        {"label": "Segment A", "value": 45.0, "metric_id": "MET-003"},
+                        {"label": "Segment B", "value": 55.0, "metric_id": "MET-003"},
+                    ],
                 }
             if no == 6:
                 visual_design = {"required_capability": "table", "purpose": "Compare competitive dimensions."}
@@ -335,6 +347,14 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 "page_thesis": f"Slide {no} answers a distinct industry question with evidence-backed judgment.",
                 "page_argument": page_arguments[no], "visual_intent": visual_intents[no],
                 "evidence_role": evidence_roles[no],
+                "exhibit": {
+                    "exhibit_type": exhibit_types[no],
+                    "why_this_exhibit": f"Slide {no} needs a structured exhibit to make the page argument scannable.",
+                    "data_or_evidence_inputs": [*evidence, *metrics],
+                    "visual_structure": f"{exhibit_types[no]} using the selected evidence and active template fields.",
+                    "density_target": "Fill the formal layout with distinct evidence-backed modules.",
+                    "fallback_if_data_limited": "Use caveated cards or a diligence grid; do not use a single-point chart.",
+                },
                 "why_this_page_matters": f"Slide {no} matters because it converts research into a pitch-relevant page argument.",
                 "page_argument_ids": page_argument_ids[no],
                 "issue_analysis_ids": ids, "selected_page_type": page_types[no],

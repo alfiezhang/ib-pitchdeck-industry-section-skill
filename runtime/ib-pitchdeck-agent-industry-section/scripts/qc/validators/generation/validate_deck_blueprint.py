@@ -105,6 +105,228 @@ VALID_EVIDENCE_ROLES = {
     "open_question",
 }
 
+VALID_EXHIBIT_TYPES = {
+    "chart",
+    "table",
+    "matrix",
+    "flow",
+    "bridge",
+    "value_chain",
+    "kpi_cards",
+    "driver_cards",
+    "trend_cards",
+    "diligence_grid",
+    "peer_comparison",
+    "channel_flow",
+    "unit_economics_bridge",
+    "sku_traction_table",
+    "evidence_gap_matrix",
+}
+
+CHART_TYPES = {
+    "bar",
+    "column",
+    "clustered_bar",
+    "clustered_column",
+    "stacked_bar",
+    "stacked_column",
+    "line",
+    "line_chart",
+}
+
+TABLE_EXHIBIT_TYPES = {
+    "table",
+    "matrix",
+    "diligence_grid",
+    "peer_comparison",
+    "sku_traction_table",
+    "evidence_gap_matrix",
+}
+
+BODY_STRUCTURED_EXHIBIT_TYPES = {
+    "flow",
+    "bridge",
+    "value_chain",
+    "channel_flow",
+    "unit_economics_bridge",
+    "driver_cards",
+    "trend_cards",
+    "kpi_cards",
+}
+
+
+def _load_render_layouts_by_slide() -> dict[str, dict[str, Any]]:
+    path = _IB_RUNTIME_ROOT / "configs" / "render_layouts.json"
+    try:
+        payload = load_json_file(path)
+    except Exception:
+        return {}
+    slides = payload.get("slides") if isinstance(payload, dict) else {}
+    return slides if isinstance(slides, dict) else {}
+
+
+def _exhibit(slide: dict[str, Any]) -> dict[str, Any]:
+    return slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
+
+
+def _exhibit_type(slide: dict[str, Any]) -> str:
+    return str(_exhibit(slide).get("exhibit_type") or "").strip()
+
+
+def _chart_payload(slide: dict[str, Any]) -> dict[str, Any]:
+    chart = slide.get("chart_data")
+    if isinstance(chart, dict):
+        return chart
+    visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    chart = visual.get("chart_data")
+    return chart if isinstance(chart, dict) else {}
+
+
+def _compare_table_payload(slide: dict[str, Any]) -> dict[str, Any]:
+    table = slide.get("compare_table_data")
+    if isinstance(table, dict):
+        return table
+    visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    table = visual.get("compare_table_data")
+    return table if isinstance(table, dict) else {}
+
+
+def _chart_datapoint_count(chart_data: dict[str, Any]) -> int:
+    categories = chart_data.get("categories") if isinstance(chart_data.get("categories"), list) else []
+    series = chart_data.get("series") if isinstance(chart_data.get("series"), list) else []
+    count = 0
+    for item in series:
+        if isinstance(item, dict) and isinstance(item.get("values"), list):
+            count += len(item.get("values") or [])
+    if count:
+        return count
+    rows = chart_data.get("source_rows") if isinstance(chart_data.get("source_rows"), list) else []
+    return len([row for row in rows if isinstance(row, dict)]) if categories or rows else 0
+
+
+def _chart_metric_ids(chart_data: dict[str, Any]) -> list[str]:
+    ids: list[str] = []
+    for item in as_list(chart_data.get("metric_ids")):
+        text = str(item or "").strip()
+        if text.startswith("MET-"):
+            ids.append(text)
+    for row in as_list(chart_data.get("source_rows")):
+        if isinstance(row, dict):
+            text = str(row.get("metric_id") or "").strip()
+            if text.startswith("MET-"):
+                ids.append(text)
+    for series in as_list(chart_data.get("series")):
+        if isinstance(series, dict):
+            ids.extend(str(item).strip() for item in as_list(series.get("metric_ids")) if str(item).strip().startswith("MET-"))
+    return unique(ids)
+
+
+def _compare_table_row_count(table_data: dict[str, Any]) -> int:
+    rows = table_data.get("rows") if isinstance(table_data.get("rows"), list) else []
+    count = len([row for row in rows if isinstance(row, (dict, list, str)) and str(row).strip()])
+    if count:
+        return count
+    for idx in range(1, 8):
+        if str(table_data.get(f"table_row_{idx}") or "").strip():
+            count += 1
+    return count
+
+
+def _has_render_layout(render_layouts: dict[str, dict[str, Any]], slide_no: int, page_type: str) -> bool:
+    return page_type in (render_layouts.get(str(slide_no)) or {})
+
+
+def _check_exhibit_quality(
+    slide: dict[str, Any],
+    *,
+    prefix: str,
+    required_fields: list[str],
+    render_layouts: dict[str, dict[str, Any]],
+    main_visual_metric_usage: dict[str, list[int]],
+    errors: list[str],
+    warnings: list[str],
+    repair_targets: list[dict[str, Any]],
+) -> None:
+    slide_no = int(slide.get("slide_no") or 0)
+    page_type = str(slide.get("selected_page_type") or "").strip()
+    exhibit = _exhibit(slide)
+    if not exhibit:
+        errors.append(f"{prefix}: exhibit is required; deck_blueprint must be exhibit-first, not text-first")
+        _append_repair_target(
+            repair_targets,
+            repair_fields=[f"slides[{slide_no}].exhibit"],
+            repair_hint="Add an exhibit object describing the chart/table/matrix/flow/bridge/cards that carries the page argument.",
+            slide_no=slide_no,
+            error_text=f"{prefix}: exhibit is required",
+            active_fields=required_fields,
+        )
+        return
+
+    exhibit_type = _exhibit_type(slide)
+    if exhibit_type not in VALID_EXHIBIT_TYPES:
+        errors.append(
+            f"{prefix}: exhibit.exhibit_type '{exhibit_type or '(missing)'}' is invalid; "
+            f"use one of {sorted(VALID_EXHIBIT_TYPES)}"
+        )
+    for field in ("why_this_exhibit", "visual_structure", "density_target", "fallback_if_data_limited"):
+        if not non_empty_text(exhibit.get(field)):
+            errors.append(f"{prefix}: exhibit.{field} is required")
+    inputs = [str(item).strip() for item in as_list(exhibit.get("data_or_evidence_inputs")) if str(item).strip()]
+    if not inputs:
+        errors.append(f"{prefix}: exhibit.data_or_evidence_inputs must name the evidence, metrics, or user-provided data powering the exhibit")
+
+    if page_type and not _has_render_layout(render_layouts, slide_no, page_type):
+        errors.append(
+            f"{prefix}: selected_page_type '{page_type}' has no deterministic render_layout. "
+            "Formal generation must choose a page type with a render layout or add the layout before rendering."
+        )
+
+    chart_data = _chart_payload(slide)
+    chart_type = str(chart_data.get("chart_type") or "").strip().lower()
+    datapoints = _chart_datapoint_count(chart_data)
+    if exhibit_type == "chart":
+        if not chart_data:
+            errors.append(f"{prefix}: chart exhibit requires chart_data")
+        elif chart_type not in CHART_TYPES:
+            errors.append(f"{prefix}: chart exhibit uses unsupported chart_data.chart_type '{chart_type or '(missing)'}'")
+        elif datapoints < 2:
+            errors.append(
+                f"{prefix}: chart exhibit has only {datapoints} datapoint(s). "
+                "Do not use a single large bar as a formal page exhibit; use KPI cards or a table/matrix if evidence is limited."
+            )
+    elif chart_data and chart_type in CHART_TYPES and datapoints < 2:
+        errors.append(
+            f"{prefix}: chart_data has only {datapoints} datapoint(s). "
+            "Single-point charts are not allowed outside KPI-card mode."
+        )
+
+    if chart_data and chart_type in CHART_TYPES:
+        for metric_id in _chart_metric_ids(chart_data):
+            main_visual_metric_usage.setdefault(metric_id, []).append(slide_no)
+
+    table_data = _compare_table_payload(slide)
+    if exhibit_type in TABLE_EXHIBIT_TYPES and _compare_table_row_count(table_data) < 3 and datapoints < 2:
+        errors.append(
+            f"{prefix}: {exhibit_type} exhibit needs at least 3 compare_table_data rows "
+            "or at least 2 matrix/chart datapoints"
+        )
+
+    body_blocks = _body_blocks(slide)
+    if exhibit_type in BODY_STRUCTURED_EXHIBIT_TYPES:
+        min_blocks = 6 if exhibit_type == "value_chain" else 3
+        if len(body_blocks) < min_blocks:
+            errors.append(f"{prefix}: {exhibit_type} exhibit needs at least {min_blocks} substantive body_blocks")
+        supported_blocks = [
+            block
+            for block in body_blocks
+            if as_list(block.get("evidence_ids")) or as_list(block.get("metric_ids")) or str(block.get("claim_strength") or "").strip()
+        ]
+        if len(supported_blocks) < min(3, min_blocks):
+            errors.append(
+                f"{prefix}: {exhibit_type} exhibit has too few evidence/metric-linked blocks; "
+                "structured exhibits must carry proof points, not only labels."
+            )
+
 
 def _append_repair_target(
     targets: list[dict[str, Any]],
@@ -435,6 +657,9 @@ def validate(
     analyses_by_id = analysis_index(issue_analysis or {})
     page_arguments_by_id = page_argument_index(page_argument_pack)
     variants_by_slide = template_variants_by_slide(template_registry)
+    render_layouts = _load_render_layouts_by_slide()
+    structured_exhibit_count = 0
+    main_visual_metric_usage: dict[str, list[int]] = {}
     slides = deck_blueprint.get("slides") if isinstance(deck_blueprint, dict) else None
     if not isinstance(slides, list):
         return errors + ["slides must be an array"], warnings, []
@@ -612,11 +837,32 @@ def validate(
         else:
             block_count = len(_body_blocks(slide))
             if block_count < len(required_fields):
-                warnings.append(
+                errors.append(
                     f"{prefix}: body_blocks has {block_count} item(s), while selected template has "
-                    f"{len(required_fields)} active body field(s). Compiler will map available blocks only; "
-                    "choose a simpler template or add genuinely distinct copy if the page would feel thin."
+                    f"{len(required_fields)} active body field(s). Choose a simpler template or add genuinely "
+                    "distinct evidence-backed blocks; formal slides must not compile as sparse placeholder pages."
                 )
+                _append_repair_target(
+                    error_repair_targets,
+                    repair_fields=[f"slides[{slide_no}].body_blocks", f"slides[{slide_no}].selected_page_type"],
+                    repair_hint="Fill every active body field with distinct evidence-backed copy or select a simpler registered page type.",
+                    slide_no=int(slide_no),
+                    error_text=f"{prefix}: body_blocks has {block_count} item(s), selected template needs {len(required_fields)}",
+                    active_fields=required_fields,
+                )
+
+        _check_exhibit_quality(
+            slide,
+            prefix=prefix,
+            required_fields=required_fields,
+            render_layouts=render_layouts,
+            main_visual_metric_usage=main_visual_metric_usage,
+            errors=errors,
+            warnings=warnings,
+            repair_targets=error_repair_targets,
+        )
+        if _exhibit_type(slide) in VALID_EXHIBIT_TYPES:
+            structured_exhibit_count += 1
 
         _check_text_quality(slide, prefix, errors, warnings)
 
@@ -661,6 +907,19 @@ def validate(
     missing = set(FIXED_PAGE_ROLES) - seen
     if missing:
         errors.append("missing slide_no entries: " + ", ".join(str(num) for num in sorted(missing)))
+
+    if structured_exhibit_count < 6:
+        errors.append(
+            f"deck_blueprint has only {structured_exhibit_count} structured exhibit slide(s); "
+            "formal industry sections need at least 6 exhibit-led pages across the 8-slide deck"
+        )
+    for metric_id, slide_numbers in sorted(main_visual_metric_usage.items()):
+        unique_slides = sorted(set(slide_numbers))
+        if len(unique_slides) >= 2:
+            errors.append(
+                f"{metric_id} is reused as a primary chart metric on slides "
+                f"{', '.join(str(num) for num in unique_slides)}; do not repeat the same datapoint as multiple primary exhibits"
+            )
 
     normalized = normalize_deck_blueprint_for_page_plan(deck_blueprint)
     if len(normalized.get("slides") or []) != len(slides):

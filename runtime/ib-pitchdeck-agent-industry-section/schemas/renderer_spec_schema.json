@@ -23,6 +23,7 @@
           "primary_issue_analysis_id",
           "issue_analysis_ids",
           "claim_strength",
+          "exhibit",
           "headline",
           "main_message",
           "body_copy",
@@ -42,6 +43,22 @@
           "claim_strength": {
             "type": "string",
             "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "open_question"]
+          },
+          "exhibit": {
+            "type": "object",
+            "required": ["exhibit_type", "why_this_exhibit", "data_or_evidence_inputs", "visual_structure", "density_target", "fallback_if_data_limited"],
+            "properties": {
+              "exhibit_type": { "type": "string" },
+              "why_this_exhibit": { "type": "string" },
+              "data_or_evidence_inputs": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "visual_structure": { "type": "string" },
+              "density_target": { "type": "string" },
+              "fallback_if_data_limited": { "type": "string" }
+            },
+            "additionalProperties": true
           },
           "headline": { "type": "string" },
           "main_message": { "type": "string" },

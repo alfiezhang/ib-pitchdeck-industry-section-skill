@@ -129,3 +129,23 @@ Correct approach:
 - Keep factual claims sourced.
 - Keep inference modest.
 - Flag management-only claims in QC when support is insufficient.
+
+## Anti-Pattern 8: Sparse or Single-Point Exhibits
+
+What happens:
+- A formal page uses a single oversized bar, empty chart area, or three short bullets where the page needs a real exhibit.
+- Evidence-limited pages become visually blank instead of showing a caveated table, KPI card set, diligence grid, or evidence-gap matrix.
+
+Why it is wrong:
+- The deck may pass token replacement but still look unfinished.
+- A single datapoint rarely supports a conclusion-led investment-banking page.
+
+Recognition test:
+- `deck_blueprint.slides[].exhibit` is missing or does not match the visible page.
+- `chart_data` has only one datapoint.
+- A structured page has fewer than three meaningful cards/rows/modules.
+
+Correct approach:
+- Design the exhibit before writing body copy.
+- Use at least two comparable datapoints for chart-led pages.
+- When data is thin, use a structured fallback and make limitations explicit.

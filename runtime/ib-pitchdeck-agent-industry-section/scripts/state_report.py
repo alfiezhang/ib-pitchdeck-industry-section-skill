@@ -187,8 +187,8 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     },
     "DECK_BLUEPRINT_MISSING_OR_FAILED": {
         "checkpoint": "Generation/page argument quality",
-        "qc_mode": "Generation writes page arguments and slide drafts; QC reviews whether pages are thin, unsupported, or off-mission. Python validates fields and template compatibility.",
-        "if_not_ok": "Generation repairs deck_blueprint; Reasoning/Research repair only if the root cause is unsupported judgment or missing evidence.",
+        "qc_mode": "Generation writes page arguments, exhibit-led slide drafts, and visual payloads; QC reviews whether pages are thin, unsupported, off-mission, or single-datapoint visuals. Python validates fields, exhibit density, and template compatibility.",
+        "if_not_ok": "Generation repairs deck_blueprint exhibit/chart/table/body_blocks first; Reasoning/Research repair only if the root cause is unsupported judgment or missing evidence.",
     },
     "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": {
         "checkpoint": "Compiled evidence contract",
@@ -197,8 +197,8 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     },
     "RENDERER_SPEC_MISSING_OR_FAILED": {
         "checkpoint": "Renderer spec determinism",
-        "qc_mode": "Python checks renderer data; QC routes content/evidence problems upstream when renderer errors reveal them.",
-        "if_not_ok": "Repair deck_blueprint/template inputs and recompile.",
+        "qc_mode": "Python checks renderer data, exhibit preservation, chart datapoint density, and page-contract permissions; QC routes content/evidence problems upstream when renderer errors reveal them.",
+        "if_not_ok": "Repair deck_blueprint exhibit/chart/table/body_blocks or template inputs, then recompile.",
     },
     "TEMPLATE_PROFILE_MISSING_OR_FAILED": {
         "checkpoint": "Template analysis",
@@ -207,8 +207,8 @@ QC_POLICY_BY_STAGE: dict[str, dict[str, Any]] = {
     },
     "TEMPLATE_FIT_FAILED": {
         "checkpoint": "Template fit QC",
-        "qc_mode": "Template role decides fit repairs without changing core judgment; QC routes whether the fix belongs to Template or Generation.",
-        "if_not_ok": "Template adjusts fit/profile; Generation compresses/restructures only when content exceeds capacity.",
+        "qc_mode": "Template role decides fit repairs without changing core judgment; QC routes missing render layouts, sparse exhibit choices, and capacity conflicts to the right owner.",
+        "if_not_ok": "Template fixes missing layout/profile support; Generation restructures exhibit/body content when the selected page is visually sparse or exceeds capacity.",
     },
     "CHART_METRIC_BINDING_FAILED": {
         "checkpoint": "Chart/evidence binding",

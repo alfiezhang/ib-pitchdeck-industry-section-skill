@@ -14,7 +14,7 @@ Typical output behavior:
 - strong headline
 - one takeaway sentence
 - concise supporting text blocks
-- no overly dense visual dependency
+- structured synthesis exhibit or implication grid; do not leave the page as plain prose
 
 ### `driver_card_page`
 Use when the page is best expressed as several discrete drivers or modules.
@@ -22,7 +22,7 @@ Best for:
 - Slide 3
 
 Typical output behavior:
-- 3-4 cards
+- 4 cards
 - each card bundles claim, evidence, and implication
 
 ### `value_chain_page`
@@ -54,9 +54,11 @@ Allowed for:
 Use when:
 - one market-size or segmentation chart explains most of the page
 - the supporting commentary can stay short
+- the chart has at least two comparable datapoints
 
 Avoid when:
 - the page also needs a meaningful side comparison table
+- only one number is available; use KPI cards/table/matrix instead of a single-point chart
 
 ### `chart_plus_mini_table_page`
 Use when a chart should remain dominant but the reader also needs a compact side-by-side numeric comparison.
@@ -109,3 +111,5 @@ Upstream research pack hints can suggest whether a page is more data-led, compar
 They must not directly choose the final page type.
 
 Final page-type selection, page thesis, visible copy, and visual intent belong to `deck_blueprint.json`; `renderer_spec.json` is compiled from the blueprint for deterministic PPT rendering.
+
+Every formal page type must be backed by a `deck_blueprint.slides[].exhibit` object. The exhibit is the page's visual/analytical backbone; body copy interprets it rather than replacing it.
