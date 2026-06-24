@@ -48,14 +48,14 @@ def _looks_like_formal_run(run_dir: Path) -> bool:
         run_dir / "input_card.json",
         run_dir / "artifacts/research_evidence_db.json",
         run_dir / "industry_research_pack.md",
-        run_dir / "industry_issue_analysis.json",
+        run_dir / "banker_page_pack.json",
         run_dir / "industry_section_filled.pptx",
         run_dir / "artifacts/run_flags.json",
     )
     formal_core_artifacts = (
         run_dir / "artifacts/research_evidence_db.json",
         run_dir / "industry_research_pack.md",
-        run_dir / "industry_issue_analysis.json",
+        run_dir / "banker_page_pack.json",
         run_dir / "deck_blueprint.json",
         run_dir / "template_registry.json",
         run_dir / "renderer_spec.json",
@@ -111,7 +111,7 @@ def _reject_debug_on_formal_run_if_needed(run_dir: Path) -> None:
         raise RuntimeError(
             "ungated debug output is not allowed for this formal run package because "
             f"gate(s) are blocked after repeated failures: {', '.join(blocked)}. "
-            "Run scripts/state_report.py status and report the blocker instead of generating downstream artifacts."
+            "Run scripts/status.py next and report the blocker instead of generating downstream artifacts."
         )
     if not _pre_ppt_gate_is_passing(run_dir):
         raise RuntimeError(
@@ -146,7 +146,7 @@ def require_pre_ppt_gate(run_dir: Path, *, allow_ungated_debug: bool = False) ->
     if not gate_path.exists():
         raise RuntimeError(
             f"missing required pre-PPT gate artifact: {gate_path}. "
-            "Run scripts/qc/validators/final/validate_stage_gate.py --stage pre_ppt first, or use --allow-ungated-debug only for local diagnostics."
+            "Run scripts/qc/validate_artifact.py --artifact pre_ppt first, or use --allow-ungated-debug only for local diagnostics."
         )
 
     try:

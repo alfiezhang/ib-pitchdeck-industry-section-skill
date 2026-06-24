@@ -10,21 +10,20 @@ named by the current role or QC repair brief.
 Normal agent work should use only:
 
 - `start_case_from_brief.py` for one-shot text brief intake;
-- `state_report.py next` for observed state and owner routing;
-- `qc/gate_report.py` for one aggregated root-cause / owner / next-action report;
+- `status.py next` for observed state and owner routing;
+- `status.py gate` for one aggregated mechanical state report;
 - `pipeline.py rebuild-stale` for deterministic stale derived chains;
 - `pipeline.py validate-pre-ppt`, `pipeline.py render`, and
   `pipeline.py finalize` for output readiness and delivery;
-- `scripts/qc/qc_router.py` for repair grouping.
+- `scripts/qc/validate_artifact.py --artifact <artifact>` for one deterministic artifact check.
 
-Everything else should be called only when a role reference, `state_report.py`,
-`qc/gate_report.py`, or QC repair brief names the exact script.
+Everything else should be called only when a role reference, `status.py`, or QC repair brief names the exact script.
 
 ## Internal Layout
 
 - root `scripts/*.py`: small public runtime entrypoints only.
 - `scripts/<role>/`: role production tools.
-- `scripts/qc/validators/<layer>/`: deterministic QC validators.
+- `scripts/qc/validate_artifact.py`: unified deterministic artifact validator.
 - `scripts/_lib/`: shared imports used by multiple role tools; not commands.
 
 Install/package/manifest-check tooling lives in the repository-level
@@ -33,10 +32,10 @@ Install/package/manifest-check tooling lives in the repository-level
 All deterministic validators belong to QC:
 
 ```text
-scripts/qc/validators/<layer>/validate_*.py
+scripts/qc/validate_artifact.py --artifact <artifact>
 ```
 
 Role production `build_*`, `extract_*`, `compile_*`, `render_*`, and repository
-scripts are production tools for the relevant role. Validators are not role
-production tools; QC runs and interprets them, then routes repair back to the
+scripts are production tools for the relevant role. Mechanical validation is not role
+production work; QC interprets it, then routes repair back to the
 owning role.

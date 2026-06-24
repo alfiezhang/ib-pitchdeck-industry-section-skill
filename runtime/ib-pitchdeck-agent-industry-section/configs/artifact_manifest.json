@@ -8,15 +8,11 @@
         "input_card",
         "material_extracts",
         "industry_scope_pack",
-        "industry_boundary_qc",
         "formal_search_plan",
         "executable_search_batch",
         "research_graph_state",
         "research_evidence_db",
-        "issue_analysis",
-        "hypothesis_store",
-        "page_argument_pack",
-        "deck_blueprint"
+        "banker_page_pack"
       ],
       "artifacts": [
         "material_manifest",
@@ -38,11 +34,8 @@
         "formal_research_execution_report",
         "coverage_accounting",
         "research_evidence_db",
-        "issue_analysis",
-        "hypothesis_store",
         "research_request_queue",
-        "page_argument_pack",
-        "deck_blueprint"
+        "banker_page_pack"
       ]
     },
     "derived": {
@@ -55,6 +48,7 @@
         "template_fit_plan",
         "research_pack",
         "template_registry",
+        "deck_blueprint",
         "page_evidence_contract",
         "renderer_spec",
         "replacement_dict",
@@ -65,8 +59,6 @@
       "description": "Gate and validation artifacts. Repair upstream authoring files instead of editing these outputs.",
       "artifacts": [
         "pre_research_pack_gate",
-        "chart_metric_binding",
-        "content_quality",
         "pre_ppt_gate",
         "final_delivery"
       ]
@@ -74,16 +66,9 @@
     "diagnostic": {
       "description": "Optional helper artifacts for debugging or role handoff. They are not part of the main workflow path and should not be required for delivery.",
       "artifacts": [
-        "mission_state",
         "failure_memory",
-        "run_quality_summary",
-        "gate_report_json",
-        "gate_report_md",
-        "qc_router_report",
-        "qc_repair_brief_json",
-        "qc_repair_brief_md",
-        "boundary_loop_status",
-        "incremental_search_plan"
+        "status_report",
+        "boundary_loop_status"
       ]
     }
   },
@@ -132,18 +117,15 @@
       ]
     },
     "reasoning": {
-      "description": "Banker judgments, hypothesis resolution, research requests, and issue analysis.",
+      "description": "Research request routing only; banker judgment lives in banker_page_pack.",
       "artifacts": [
-        "hypothesis_store",
-        "research_request_queue",
-        "incremental_search_plan",
-        "page_argument_pack",
-        "issue_analysis"
+        "research_request_queue"
       ]
     },
     "generation": {
-      "description": "Page arguments, deck blueprint, template registry usage, evidence contract, and renderer spec.",
+      "description": "Banker page pack authoring plus deterministic compilation into renderer-facing artifacts.",
       "artifacts": [
+        "banker_page_pack",
         "template_registry",
         "deck_blueprint",
         "page_evidence_contract",
@@ -160,19 +142,11 @@
       ]
     },
     "qc": {
-      "description": "Cross-layer validation, gate status, repair targets, and final delivery audit.",
+      "description": "Small mechanical validation layer. LLM owns content-quality review.",
       "artifacts": [
-        "chart_metric_binding",
-        "content_quality",
         "pre_ppt_gate",
         "final_delivery",
-        "run_quality_summary",
-        "gate_report_json",
-        "gate_report_md",
-        "qc_router_report",
-        "qc_repair_brief_json",
-        "qc_repair_brief_md",
-        "mission_state",
+        "status_report",
         "failure_memory"
       ]
     },
@@ -189,7 +163,7 @@
       "path": "artifacts/material_manifest.json",
       "owner": "script_skeleton_llm_material_intake",
       "builder": "scripts/material-intake/ingest_materials.py",
-      "validator": "scripts/qc/validators/material/validate_material_manifest.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact material_manifest",
       "validation": "artifacts/material_manifest_validation.json",
       "inputs": []
     },
@@ -197,7 +171,7 @@
       "path": "artifacts/material_extracts.json",
       "owner": "script_content_capture_llm_fact_extraction_workspace",
       "builder": "scripts/material-intake/ingest_materials.py",
-      "validator": "scripts/qc/validators/material/validate_material_extracts.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact material_extracts",
       "validation": "artifacts/material_extracts_validation.json",
       "inputs": [
         "material_manifest"
@@ -239,7 +213,6 @@
       "path": "artifacts/repository_validation.json",
       "owner": "script_repository_validation",
       "builder": "scripts/knowledge-repository/repository.py validate",
-      "validator": "scripts/knowledge-repository/repository.py validate",
       "validation": "artifacts/repository_validation.json",
       "inputs": [
         "repository_retrieval"
@@ -248,7 +221,7 @@
     "input_card": {
       "path": "input_card.json",
       "owner": "llm_transcription",
-      "validator": "scripts/qc/validators/material/validate_input_card.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact input_card",
       "validation": "artifacts/input_card_validation.json",
       "inputs": []
     },
@@ -257,7 +230,7 @@
       "owner": "industry-scoping",
       "purpose": "brief boundary card",
       "schema_version": "industry_scope_pack_v2",
-      "validator": "scripts/qc/validators/scoping/validate_industry_scope_pack.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact industry_scope_pack",
       "validation": "artifacts/industry_scope_pack_validation.json",
       "inputs": [
         "input_card"
@@ -293,7 +266,7 @@
       "path": "artifacts/formal_search_plan.json",
       "owner": "state_first_research_graph",
       "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
-      "validator": "scripts/qc/validators/research/validate_formal_search_plan.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact formal_search_plan",
       "validation": "artifacts/formal_search_plan_validation.json",
       "inputs": [
         "input_card",
@@ -314,7 +287,7 @@
       "display_name": "executable_search_batch",
       "purpose": "Executable query workbench and the only editable query-authoring artifact.",
       "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
-      "validator": "scripts/qc/validators/research/validate_executable_search_batch.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact executable_search_batch",
       "validation": "artifacts/executable_search_batch_validation.json",
       "inputs": [
         "formal_search_plan"
@@ -341,7 +314,7 @@
       "path": "artifacts/formal_research_execution_report.json",
       "owner": "state_first_research_graph",
       "builder": "scripts/research-external-evidence/ib_research_graph.py compile",
-      "validator": "scripts/qc/validators/research/validate_formal_research_execution.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact formal_research_execution",
       "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": [
         "formal_search_plan",
@@ -360,7 +333,7 @@
     "source_archive": {
       "path": "artifacts/source_archive/source_archive_index.json",
       "owner": "research_archive_builder",
-      "validator": "scripts/qc/validators/research/validate_source_archive.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact source_archive",
       "validation": "artifacts/source_archive_validation.json",
       "inputs": [
         "search_log"
@@ -405,7 +378,7 @@
     "pre_research_pack_gate": {
       "path": "artifacts/stage_gate_pre_research_pack_validation.json",
       "owner": "script",
-      "validator": "scripts/qc/validators/final/validate_stage_gate.py --stage pre_research_pack",
+      "validator": "scripts/qc/validate_artifact.py --artifact pre_research_pack",
       "validation": "artifacts/stage_gate_pre_research_pack_validation.json",
       "inputs": [
         "material_manifest",
@@ -419,52 +392,21 @@
         "research_graph_state"
       ]
     },
-    "hypothesis_store": {
-      "path": "artifacts/hypothesis_store.json",
-      "owner": "script_skeleton_llm_hypothesis_resolution",
-      "builder": "scripts/reasoning/build_hypothesis_store_skeleton.py",
-      "validator": "scripts/qc/validators/reasoning/validate_hypothesis_store.py",
-      "validation": "artifacts/hypothesis_store_validation.json",
-      "inputs": [
-        "research_evidence_db",
-        "issue_analysis"
-      ]
-    },
     "research_request_queue": {
       "path": "artifacts/research_request_queue.json",
-      "owner": "script_from_hypothesis_store",
+      "owner": "llm_or_script_from_banker_page_pack_research_requests",
       "builder": "scripts/reasoning/build_research_request_queue.py",
-      "validator": "scripts/qc/validators/reasoning/validate_research_request_queue.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact research_request_queue",
       "validation": "artifacts/research_request_queue_validation.json",
       "inputs": [
-        "hypothesis_store"
-      ]
-    },
-    "incremental_search_plan": {
-      "path": "artifacts/incremental_search_plan.json",
-      "owner": "script_research_request_promotion",
-      "builder": "scripts/reasoning/promote_research_requests.py",
-      "inputs": [
-        "research_request_queue",
-        "formal_search_plan"
-      ]
-    },
-    "page_argument_pack": {
-      "path": "artifacts/page_argument_pack.json",
-      "owner": "script_skeleton_llm_page_argument_editor",
-      "builder": "scripts/reasoning/build_page_argument_pack_skeleton.py",
-      "validator": "scripts/qc/validators/reasoning/validate_page_argument_pack.py",
-      "validation": "artifacts/page_argument_pack_validation.json",
-      "inputs": [
-        "issue_analysis",
-        "hypothesis_store"
+        "banker_page_pack"
       ]
     },
     "research_pack": {
       "path": "industry_research_pack.md",
       "owner": "script_export_from_research_evidence_db",
       "builder": "scripts/knowledge-repository/export_research_pack_from_db.py",
-      "validator": "scripts/qc/validators/knowledge/validate_research_pack.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact research_pack",
       "validation": "artifacts/research_pack_validation.json",
       "inputs": [
         "research_evidence_db"
@@ -474,7 +416,7 @@
       "path": "artifacts/research_evidence_db.json",
       "owner": "script_skeleton_llm_evidence_extraction",
       "builder": "scripts/knowledge-repository/build_research_evidence_db.py",
-      "validator": "scripts/qc/validators/knowledge/validate_research_evidence_db.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact research_evidence_db",
       "validation": "artifacts/research_evidence_db_validation.json",
       "inputs": [
         "industry_scope_pack",
@@ -485,86 +427,61 @@
         "source_archive"
       ]
     },
-    "issue_analysis": {
-      "path": "industry_issue_analysis.json",
-      "owner": "script_skeleton_llm_issue_analysis",
-      "builder": "scripts/reasoning/build_issue_analysis_skeleton.py",
-      "validator": "scripts/qc/validators/reasoning/validate_issue_analysis.py",
-      "validation": "artifacts/issue_analysis_validation.json",
+    "banker_page_pack": {
+      "path": "banker_page_pack.json",
+      "owner": "llm_banker_page_author",
+      "purpose": "single LLM-authored pre-mandate page pack: banker judgment, exhibit design, dense copy, metrics, evidence bindings, and transaction readthrough",
+      "schema_version": "banker_page_pack",
+      "schema": "schemas/banker_page_pack_schema.json",
+      "validator": "scripts/qc/validate_artifact.py --artifact banker_page_pack",
+      "validation": "artifacts/banker_page_pack_validation.json",
       "inputs": [
+        "industry_scope_pack",
         "research_evidence_db",
-        "research_pack",
-        "formal_research_execution_report"
+        "template_registry"
       ]
     },
     "template_registry": {
       "path": "template_registry.json",
       "owner": "script",
       "builder": "scripts/template/extract_template_registry.py",
-      "validator": "scripts/qc/validators/template/validate_template_registry.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact template_registry",
       "validation": "artifacts/template_registry_validation.json",
       "inputs": []
     },
     "deck_blueprint": {
       "path": "deck_blueprint.json",
-      "owner": "llm_deck_designer",
-      "validator": "scripts/qc/validators/generation/validate_deck_blueprint.py",
+      "owner": "script_derived_from_banker_page_pack",
+      "builder": "scripts/generation/compile_banker_page_pack.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact deck_blueprint",
       "validation": "artifacts/deck_blueprint_validation.json",
       "inputs": [
-        "page_argument_pack",
-        "template_registry"
+        "banker_page_pack"
       ]
     },
     "page_evidence_contract": {
       "path": "page_evidence_contract.json",
       "owner": "script",
-      "builder": "scripts/generation/compile_deck_blueprint.py",
-      "validator": "scripts/qc/validators/generation/validate_page_evidence_contract.py",
+      "builder": "scripts/generation/compile_banker_page_pack.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact page_evidence_contract",
       "validation": "artifacts/page_evidence_contract_validation.json",
       "inputs": [
-        "page_argument_pack",
+        "banker_page_pack",
         "deck_blueprint"
       ]
     },
     "renderer_spec": {
       "path": "renderer_spec.json",
       "owner": "script",
-      "builder": "scripts/generation/compile_deck_blueprint.py",
-      "validator": "scripts/qc/validators/generation/validate_renderer_spec.py",
+      "builder": "scripts/generation/compile_banker_page_pack.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact renderer_spec",
       "validation": "artifacts/renderer_spec_validation.json",
       "inputs": [
         "template_registry",
+        "banker_page_pack",
         "deck_blueprint",
         "page_evidence_contract"
       ]
-    },
-    "chart_metric_binding": {
-      "path": "artifacts/chart_metric_binding_validation.json",
-      "owner": "script",
-      "validator": "scripts/qc/validators/final/validate_chart_metric_binding.py",
-      "validation": "artifacts/chart_metric_binding_validation.json",
-      "inputs": [
-        "research_pack",
-        "page_evidence_contract",
-        "renderer_spec"
-      ]
-    },
-    "content_quality": {
-      "path": "artifacts/content_quality_validation.json",
-      "owner": "script",
-      "validator": "scripts/qc/validators/final/validate_content_quality.py",
-      "validation": "artifacts/content_quality_validation.json",
-      "inputs": [
-        "research_pack",
-        "page_evidence_contract",
-        "renderer_spec"
-      ]
-    },
-    "mission_state": {
-      "path": "artifacts/mission_state.json",
-      "owner": "workflow",
-      "builder": "scripts/qc/validators/system/validate_run_state.py",
-      "inputs": []
     },
     "failure_memory": {
       "path": "artifacts/failure_memory.jsonl",
@@ -572,60 +489,16 @@
       "builder": "scripts/pipeline.py render",
       "inputs": []
     },
-    "qc_repair_brief_json": {
-      "path": "artifacts/qc_repair_brief.json",
-      "owner": "script_qc_repair",
-      "builder": "scripts/qc/qc_router.py"
-    },
-    "qc_repair_brief_md": {
-      "path": "artifacts/qc_repair_brief.md",
-      "owner": "script_qc_repair",
-      "builder": "scripts/qc/qc_router.py"
-    },
-    "run_quality_summary": {
-      "path": "artifacts/run_quality_summary.json",
-      "owner": "script",
-      "builder": "scripts/qc/generate_run_quality_summary.py",
-      "inputs": [
-        "source_archive",
-        "research_pack",
-        "issue_analysis",
-        "deck_blueprint",
-        "renderer_spec",
-        "filled_ppt",
-        "final_delivery"
-      ]
-    },
-    "gate_report_json": {
-      "path": "artifacts/gate_report.json",
-      "owner": "script_dashboard_triage",
-      "builder": "scripts/qc/gate_report.py",
-      "inputs": [
-        "mission_state"
-      ]
-    },
-    "gate_report_md": {
-      "path": "artifacts/gate_report.md",
-      "owner": "script_dashboard_triage",
-      "builder": "scripts/qc/gate_report.py",
-      "inputs": [
-        "gate_report_json"
-      ]
-    },
-    "qc_router_report": {
-      "path": "artifacts/qc_router_report.json",
-      "owner": "script",
-      "builder": "scripts/qc/qc_router.py",
-      "schema": "schemas/qc_repair_schema.json",
-      "normalizer": "scripts/qc/qc_normalize_report.py",
-      "inputs": [
-        "final_delivery"
-      ]
+    "status_report": {
+      "path": "artifacts/status_report.json",
+      "owner": "script_status_dashboard",
+      "builder": "scripts/status.py",
+      "inputs": []
     },
     "pre_ppt_gate": {
       "path": "artifacts/stage_gate_pre_ppt_validation.json",
       "owner": "script",
-      "validator": "scripts/qc/validators/final/validate_stage_gate.py --stage pre_ppt",
+      "validator": "scripts/qc/validate_artifact.py --artifact pre_ppt",
       "validation": "artifacts/stage_gate_pre_ppt_validation.json",
       "inputs": [
         "input_card",
@@ -637,20 +510,18 @@
         "source_archive",
         "research_evidence_db",
         "research_pack",
-        "issue_analysis",
+        "banker_page_pack",
         "template_registry",
         "deck_blueprint",
         "page_evidence_contract",
-        "renderer_spec",
-        "chart_metric_binding",
-        "content_quality"
+        "renderer_spec"
       ]
     },
     "replacement_dict": {
       "path": "replacement_dict.json",
       "owner": "script",
       "builder": "scripts/output/generate_replacement_dict.py",
-      "validator": "scripts/qc/validators/output/validate_replacement_dict.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact replacement_dict",
       "validation": "artifacts/replacement_dict_validation.json",
       "inputs": [
         "renderer_spec",
@@ -661,7 +532,7 @@
       "path": "industry_section_filled_clean.pptx",
       "owner": "script",
       "builder": "scripts/pipeline.py render",
-      "validator": "scripts/qc/validators/output/validate_filled_ppt.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact filled_ppt",
       "validation": "filled_ppt_validation.json",
       "inputs": [
         "renderer_spec",
@@ -673,7 +544,7 @@
     "final_delivery": {
       "path": "artifacts/final_delivery_validation.json",
       "owner": "script",
-      "validator": "scripts/qc/validators/final/validate_final_delivery.py",
+      "validator": "scripts/qc/validate_artifact.py --artifact final_delivery",
       "validation": "artifacts/final_delivery_validation.json",
       "inputs": [
         "input_card",
@@ -684,7 +555,7 @@
         "source_archive",
         "research_evidence_db",
         "research_pack",
-        "issue_analysis",
+        "banker_page_pack",
         "template_registry",
         "deck_blueprint",
         "page_evidence_contract",
@@ -744,20 +615,12 @@
       "artifact": "research_pack"
     },
     {
-      "gate": "issue_analysis",
-      "artifact": "issue_analysis"
-    },
-    {
-      "gate": "hypothesis_store",
-      "artifact": "hypothesis_store"
-    },
-    {
-      "gate": "page_argument_pack",
-      "artifact": "page_argument_pack"
-    },
-    {
       "gate": "template_registry",
       "artifact": "template_registry"
+    },
+    {
+      "gate": "banker_page_pack",
+      "artifact": "banker_page_pack"
     },
     {
       "gate": "deck_blueprint",
@@ -778,14 +641,6 @@
     {
       "gate": "template_fit_validation",
       "artifact": "template_fit_validation"
-    },
-    {
-      "gate": "chart_metric_binding",
-      "artifact": "chart_metric_binding"
-    },
-    {
-      "gate": "content_quality",
-      "artifact": "content_quality"
     },
     {
       "gate": "pre_ppt",

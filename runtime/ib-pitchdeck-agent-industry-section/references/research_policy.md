@@ -106,8 +106,9 @@ Recommended sequence:
    market research.
 8. Validate the scope pack after boundary QC has passed:
    ```bash
-   "$PYTHON_CMD" scripts/qc/validators/scoping/validate_industry_scope_pack.py \
-     --scope-pack artifacts/industry_scope_pack.json \
+   "$PYTHON_CMD" scripts/qc/validate_artifact.py \
+     --artifact industry_scope_pack \
+     --run-dir "$RUN_DIR" \
      --output artifacts/industry_scope_pack_validation.json
    ```
 9. Prepare the research graph in one operator-facing step. This writes
@@ -129,7 +130,7 @@ Recommended sequence:
    before validation or search execution. Do not execute searches from the
    mechanical coverage-map wording.
 10. Validate `artifacts/formal_search_plan.json` with
-   `scripts/qc/validators/research/validate_formal_search_plan.py` before executing formal searches.
+   `scripts/qc/validate_artifact.py --artifact formal_search_plan` before executing formal searches.
 
 Do not put confirmed market size, growth rate, share, ranking, valuation,
 competitive landscape, or page-ready claims in the scope pack. Any number found
@@ -137,7 +138,7 @@ during broad discovery is an unvalidated lead until formal research execution
 promotes it.
 
 The search plan must be issue/subissue based and must include every canonical
-subissue from the same taxonomy used by `industry_issue_analysis.json`:
+research area needed by `banker_page_pack.json`:
 
 - `market_size_growth`
 - `demand_customer_logic`
@@ -233,15 +234,14 @@ result is not a saved source.
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --run-dir "$RUN_DIR"
 
-"$PYTHON_CMD" scripts/qc/validators/research/validate_source_archive.py \
-  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact source_archive \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validators/research/validate_formal_research_execution.py \
-  --report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
-  --search-log "$RUN_DIR/artifacts/search_log.md" \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact formal_research_execution \
+  --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
 ```
 
@@ -309,25 +309,24 @@ issue-analysis claims, or deck headlines as evidence.
 Validate formal execution and source archive before writing the research pack:
 
 ```bash
-"$PYTHON_CMD" scripts/qc/validators/research/validate_formal_search_plan.py \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact formal_search_plan \
+  --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/formal_search_plan_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validators/research/validate_formal_research_execution.py \
-  --report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
-  --search-log "$RUN_DIR/artifacts/search_log.md" \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact formal_research_execution \
+  --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validators/research/validate_source_archive.py \
-  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact source_archive \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validators/final/validate_stage_gate.py \
-  --stage pre_research_pack \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact pre_research_pack \
   --run-dir "$RUN_DIR" \
-  --source-registry configs/source_registry.json \
   --output "$RUN_DIR/artifacts/stage_gate_pre_research_pack_validation.json"
 ```
 
@@ -345,18 +344,18 @@ first:
   --research-graph-state "$RUN_DIR/artifacts/research_graph_state.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db.json"
 
-"$PYTHON_CMD" scripts/qc/validators/knowledge/validate_research_evidence_db.py \
-  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact research_evidence_db \
+  --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
 
 "$PYTHON_CMD" scripts/knowledge-repository/export_research_pack_from_db.py \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/industry_research_pack.md"
 
-"$PYTHON_CMD" scripts/qc/validators/knowledge/validate_research_pack.py \
-  --research-pack "$RUN_DIR/industry_research_pack.md" \
+"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+  --artifact research_pack \
   --run-dir "$RUN_DIR" \
-  --source-registry configs/source_registry.json \
   --output "$RUN_DIR/artifacts/research_pack_validation.json"
 ```
 

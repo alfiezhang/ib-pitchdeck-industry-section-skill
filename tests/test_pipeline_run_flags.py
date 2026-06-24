@@ -22,7 +22,7 @@ def test_pipeline_run_flags_preserve_formal_defaults(tmp_path: Path) -> None:
     run_flags = json.loads((run_dir / "artifacts" / "run_flags.json").read_text(encoding="utf-8"))
     assert run_flags["schema_version"] == "run_flags_v1", run_flags
     assert run_flags["research_gate"] == 1, run_flags
-    assert run_flags["issue_analysis_layer"] == 1, run_flags
+    assert run_flags["banker_page_pack_layer"] == 1, run_flags
     assert run_flags["quality_gate"] == 1, run_flags
     assert run_flags["debug_output_only"] is False, run_flags
     assert run_flags["pipeline_entrypoint"] == "pytest", run_flags
@@ -35,7 +35,7 @@ def test_pipeline_run_flags_preserves_debug_only_when_set(tmp_path: Path) -> Non
     original = {
         "schema_version": "run_flags_v1",
         "research_gate": 1,
-        "issue_analysis_layer": 1,
+        "banker_page_pack_layer": 1,
         "quality_gate": 1,
         "source_run_dir": "debug-source",
         "output_run_dir": "debug-output",
@@ -63,11 +63,11 @@ def test_pipeline_run_flags_can_replace_draft_flags_for_formal_render(tmp_path: 
             {
                 "schema_version": "run_flags_v1",
                 "research_gate": 0,
-                "issue_analysis_layer": 0,
+                "banker_page_pack_layer": 0,
                 "quality_gate": 0,
                 "debug_output_only": True,
                 "draft_output_only": True,
-                "pipeline_entrypoint": "legacy-draft",
+                "pipeline_entrypoint": "draft-test",
             },
             ensure_ascii=False,
             indent=2,

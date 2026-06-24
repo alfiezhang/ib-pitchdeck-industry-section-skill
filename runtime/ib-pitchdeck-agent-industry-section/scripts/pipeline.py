@@ -28,11 +28,10 @@ if str(LIB_DIR) not in sys.path:
 
 from layout_config import layout_config_paths
 ROOT_DIR = Path(__file__).resolve().parent.parent
-QC_SYSTEM_VALIDATORS = ROOT_DIR / "scripts" / "qc" / "validators" / "system"
-if str(QC_SYSTEM_VALIDATORS) not in sys.path:
-    sys.path.insert(0, str(QC_SYSTEM_VALIDATORS))
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
-from validate_run_state import validate_run_state
+from status import build_status as build_run_status
 
 
 def _load_role_script_paths() -> dict[str, Path]:
@@ -58,13 +57,9 @@ ROLE_SCRIPT_DIRS = _load_role_script_paths()
 _TOOL_SOURCE_REPO = ROOT_DIR.parent.parent  # expected: <repo>/runtime/ib-pitchdeck-agent-industry-section
 _INTEGRITY_SENTINEL = "pipeline.py is a read-only tool file; repair upstream artifacts, not this script."  # noqa: E501
 TEMPLATE = ROOT_DIR / "assets" / "industry_section_template_master.pptx"
-SOURCE_REGISTRY = ROOT_DIR / "configs" / "source_registry.json"
-CONTENT_RULES = ROOT_DIR / "configs" / "content_quality_rules.json"
 LAYOUT_PATHS = layout_config_paths()
 PPT_MAPPING = LAYOUT_PATHS["ppt_mapping"]
 RENDER_LAYOUTS = LAYOUT_PATHS["render_layouts"]
-TEXT_FIT_RULES = LAYOUT_PATHS["text_fit_rules"]
-LAYOUT_BUDGET = LAYOUT_PATHS["layout_budget"]
 TEMPLATE_PROFILE = LAYOUT_PATHS["template_profile"]
 
 FILLED_PPT = "industry_section_filled.pptx"
@@ -130,25 +125,35 @@ def _ensure_run_dir(run_dir: Path) -> Path:
 
 
 def _preflight(run_dir: Path) -> None:
-    state = validate_run_state(run_dir)
-    if state["current_stage"] not in {
-        "TEMPLATE_PROFILE_MISSING_OR_FAILED",
-        "TEMPLATE_FIT_FAILED",
-        "CHART_METRIC_BINDING_FAILED",
-        "CONTENT_QUALITY_FAILED",
-        "PRE_PPT_GATE_FAILED",
-        "REPLACEMENT_DICT_MISSING_OR_FAILED",
-        "FILLED_PPT_VALIDATION_FAILED",
-        "FINAL_DELIVERY_NOT_READY",
-        "CLIENT_READY",
-    }:
+    required = [
+        "banker_page_pack.json",
+        "template_registry.json",
+        "deck_blueprint.json",
+        "page_evidence_contract.json",
+        "renderer_spec.json",
+    ]
+    missing = [rel for rel in required if not (run_dir / rel).exists()]
+    if missing:
+        state = build_run_status(run_dir)
         raise PipelineError(
             "run is not ready for deterministic PPT rendering. "
-            f"current_stage={state['current_stage']} status={state['status']}. "
-            "Run scripts/state_report.py next --run-dir <run_dir> and repair the listed upstream gate first."
+            f"missing={missing}. current_stage={state.get('current_stage')} status={state.get('status')}. "
+            "Run scripts/status.py next --run-dir <run_dir> and repair the upstream artifact first."
         )
-    if state.get("debug_only"):
-        raise PipelineError("debug-only runs cannot be rendered/finalized by the formal Python pipeline")
+
+
+def _validate_artifact(run_dir: Path, python_cmd: str, artifact: str, output: Path | None = None) -> None:
+    cmd = [
+        python_cmd,
+        ROLE_SCRIPT_DIRS["validate_artifact.py"],
+        "--artifact",
+        artifact,
+        "--run-dir",
+        run_dir,
+    ]
+    if output is not None:
+        cmd.extend(["--output", output])
+    _run(cmd)
 
 
 def _mark_not_client_ready(run_dir: Path) -> None:
@@ -202,10 +207,9 @@ def _clear_draft_state(run_dir: Path) -> None:
 def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool = False) -> None:
     """Record formal pipeline mode for final delivery.
 
-    The legacy shell wrapper used to own this artifact. The Python pipeline is
-    now the formal controller, so it must write the package-of-record flags
-    itself. Existing debug flags are preserved so a debug run cannot be
-    accidentally promoted by calling finalize.
+    The Python pipeline is the formal controller, so it writes the
+    package-of-record flags itself. Existing debug flags are preserved so a
+    debug run cannot be accidentally promoted by calling finalize.
     """
 
     artifacts = run_dir / "artifacts"
@@ -219,7 +223,7 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool 
     payload = {
         "schema_version": "run_flags_v1",
         "research_gate": 1,
-        "issue_analysis_layer": 1,
+        "banker_page_pack_layer": 1,
         "quality_gate": 1,
         "source_run_dir": str(run_dir),
         "output_run_dir": str(run_dir),
@@ -280,38 +284,6 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["validate_chart_metric_binding.py"],
-            "--renderer-spec",
-            run_dir / "renderer_spec.json",
-            "--research-pack",
-            run_dir / "industry_research_pack.md",
-            "--page-contract",
-            run_dir / "page_evidence_contract.json",
-            "--output",
-            artifacts / "chart_metric_binding_validation.json",
-        ]
-    )
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_content_quality.py"],
-            "--renderer-spec",
-            run_dir / "renderer_spec.json",
-            "--research-pack",
-            run_dir / "industry_research_pack.md",
-            "--rules",
-            CONTENT_RULES,
-            "--text-fit-rules",
-            TEXT_FIT_RULES,
-            "--layout-budget",
-            LAYOUT_BUDGET,
-            "--output",
-            artifacts / "content_quality_validation.json",
-        ]
-    )
-    _run(
-        [
-            python_cmd,
             ROLE_SCRIPT_DIRS["template_analyzer.py"],
             "--template",
             template_path,
@@ -335,20 +307,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
             artifacts / "template_fit_plan.json",
         ]
     )
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_stage_gate.py"],
-            "--stage",
-            "pre_ppt",
-            "--run-dir",
-            run_dir,
-            "--source-registry",
-            SOURCE_REGISTRY,
-            "--output",
-            artifacts / "stage_gate_pre_ppt_validation.json",
-        ]
-    )
+    _validate_artifact(run_dir, python_cmd, "pre_ppt", artifacts / "stage_gate_pre_ppt_validation.json")
 
 
 def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, template_path: Path | None = None) -> None:
@@ -394,20 +353,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
                 run_dir / "replacement_dict.json",
             ]
         )
-        _run(
-            [
-                python_cmd,
-                ROLE_SCRIPT_DIRS["validate_replacement_dict.py"],
-                "--replacement-dict",
-                run_dir / "replacement_dict.json",
-                "--renderer-spec",
-                run_dir / "renderer_spec.json",
-                "--ppt-mapping",
-                PPT_MAPPING,
-                "--output",
-                artifacts / "replacement_dict_validation.json",
-            ]
-        )
+        _validate_artifact(run_dir, python_cmd, "replacement_dict", artifacts / "replacement_dict_validation.json")
         _run(
             [
                 python_cmd,
@@ -455,25 +401,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
                 "--fail-on-unrendered",
             ]
         )
-        _run(
-            [
-                python_cmd,
-                ROLE_SCRIPT_DIRS["validate_filled_ppt.py"],
-                "--filled-ppt",
-                run_dir / FILLED_PPT,
-                "--clean-ppt",
-                run_dir / CLEAN_PPT,
-                "--control-file",
-                run_dir / "renderer_spec.json",
-                "--replacement-dict",
-                run_dir / "replacement_dict.json",
-                "--ppt-mapping",
-                PPT_MAPPING,
-                "--output",
-                run_dir / "filled_ppt_validation.json",
-                "--fail-on-issue",
-            ]
-        )
+        _validate_artifact(run_dir, python_cmd, "filled_ppt", run_dir / "filled_ppt_validation.json")
         finalize(run_dir, python_cmd, require_client_ready=True)
         _clear_not_client_ready(run_dir)
     except Exception:
@@ -503,16 +431,14 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py finalize")
     cmd = [
         python_cmd,
-        ROLE_SCRIPT_DIRS["validate_final_delivery.py"],
+        ROLE_SCRIPT_DIRS["validate_artifact.py"],
+        "--artifact",
+        "final_delivery",
         "--run-dir",
         run_dir,
-        "--source-registry",
-        SOURCE_REGISTRY,
         "--output",
         artifacts / "final_delivery_validation.json",
     ]
-    if require_client_ready:
-        cmd.append("--require-client-ready")
     final_returncode = _run_returncode(cmd)
     if final_returncode != 0:
         _append_failure_memory(
@@ -534,7 +460,7 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
         command=" ".join(str(part) for part in cmd),
         details={"require_client_ready": require_client_ready, "return_code": final_returncode},
     )
-    _run([python_cmd, ROLE_SCRIPT_DIRS["generate_run_quality_summary.py"], "--run-dir", run_dir])
+    _run([python_cmd, ROLE_SCRIPT_DIRS["status.py"], "summary", "--run-dir", run_dir, "--output", artifacts / "status_report.json"])
     if run_dir.name.startswith("attempt_"):
         runs_dir = run_dir.parent
         (runs_dir / "ACTIVE_ATTEMPT.txt").write_text(run_dir.name + "\n", encoding="utf-8")
@@ -560,18 +486,7 @@ def _compile_research_graph_for_archive(run_dir: Path, python_cmd: str) -> None:
             run_dir,
         ]
     )
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_source_archive.py"],
-            "--source-archive-index",
-            run_dir / "artifacts/source_archive/source_archive_index.json",
-            "--run-dir",
-            run_dir,
-            "--output",
-            run_dir / "artifacts/source_archive_validation.json",
-        ]
-    )
+    _validate_artifact(run_dir, python_cmd, "source_archive", run_dir / "artifacts/source_archive_validation.json")
 
 
 def _rebuild_execution_report(run_dir: Path, python_cmd: str) -> None:
@@ -588,37 +503,11 @@ def _rebuild_execution_report(run_dir: Path, python_cmd: str) -> None:
             run_dir,
         ]
     )
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_formal_research_execution.py"],
-            "--report",
-            run_dir / "artifacts/formal_research_execution_report.json",
-            "--formal-search-plan",
-            run_dir / "artifacts/formal_search_plan.json",
-            "--search-log",
-            run_dir / "artifacts/search_log.md",
-            "--output",
-            run_dir / "artifacts/formal_research_execution_validation.json",
-        ]
-    )
+    _validate_artifact(run_dir, python_cmd, "formal_research_execution", run_dir / "artifacts/formal_research_execution_validation.json")
 
 
 def _rebuild_pre_research_gate(run_dir: Path, python_cmd: str) -> None:
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_stage_gate.py"],
-            "--stage",
-            "pre_research_pack",
-            "--run-dir",
-            run_dir,
-            "--source-registry",
-            SOURCE_REGISTRY,
-            "--output",
-            run_dir / "artifacts/stage_gate_pre_research_pack_validation.json",
-        ]
-    )
+    _validate_artifact(run_dir, python_cmd, "pre_research_pack", run_dir / "artifacts/stage_gate_pre_research_pack_validation.json")
 
 
 def _rebuild_research_pack_export(run_dir: Path, python_cmd: str) -> None:
@@ -632,73 +521,29 @@ def _rebuild_research_pack_export(run_dir: Path, python_cmd: str) -> None:
             run_dir / "industry_research_pack.md",
         ]
     )
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_research_pack.py"],
-            "--research-pack",
-            run_dir / "industry_research_pack.md",
-            "--run-dir",
-            run_dir,
-            "--source-registry",
-            SOURCE_REGISTRY,
-            "--output",
-            run_dir / "artifacts/research_pack_validation.json",
-        ]
-    )
+    _validate_artifact(run_dir, python_cmd, "research_pack", run_dir / "artifacts/research_pack_validation.json")
 
 
 def _rebuild_compiled_deck(run_dir: Path, python_cmd: str) -> None:
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["compile_deck_blueprint.py"],
-            "--page-argument-pack",
-            run_dir / "artifacts/page_argument_pack.json",
-            "--issue-analysis",
-            run_dir / "industry_issue_analysis.json",
-            "--deck-blueprint",
-            run_dir / "deck_blueprint.json",
+            ROLE_SCRIPT_DIRS["compile_banker_page_pack.py"],
+            "--banker-page-pack",
+            run_dir / "banker_page_pack.json",
             "--template-registry",
             run_dir / "template_registry.json",
+            "--deck-blueprint-output",
+            run_dir / "deck_blueprint.json",
             "--page-contract-output",
             run_dir / "page_evidence_contract.json",
             "--renderer-spec-output",
             run_dir / "renderer_spec.json",
         ]
     )
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_page_evidence_contract.py"],
-            "--page-contract",
-            run_dir / "page_evidence_contract.json",
-            "--page-argument-pack",
-            run_dir / "artifacts/page_argument_pack.json",
-            "--issue-analysis",
-            run_dir / "industry_issue_analysis.json",
-            "--deck-blueprint",
-            run_dir / "deck_blueprint.json",
-            "--output",
-            run_dir / "artifacts/page_evidence_contract_validation.json",
-        ]
-    )
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["validate_renderer_spec.py"],
-            "--renderer-spec",
-            run_dir / "renderer_spec.json",
-            "--page-contract",
-            run_dir / "page_evidence_contract.json",
-            "--template-registry",
-            run_dir / "template_registry.json",
-            "--deck-blueprint",
-            run_dir / "deck_blueprint.json",
-            "--output",
-            run_dir / "artifacts/renderer_spec_validation.json",
-        ]
-    )
+    _validate_artifact(run_dir, python_cmd, "deck_blueprint", run_dir / "artifacts/deck_blueprint_validation.json")
+    _validate_artifact(run_dir, python_cmd, "page_evidence_contract", run_dir / "artifacts/page_evidence_contract_validation.json")
+    _validate_artifact(run_dir, python_cmd, "renderer_spec", run_dir / "artifacts/renderer_spec_validation.json")
 
 
 def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) -> None:
@@ -706,7 +551,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
 
     run_dir = _ensure_run_dir(run_dir)
     template_path = _select_template_for_run(run_dir, python_cmd, template_path)
-    state = validate_run_state(run_dir)
+    state = build_run_status(run_dir)
     stage = str(state.get("current_stage") or "")
     status_value = str(state.get("status") or "")
     _append_failure_memory(
@@ -718,34 +563,32 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
     )
 
     deterministic_requirements: dict[str, list[str]] = {
-        "SOURCE_ARCHIVE_MISSING_OR_FAILED": [
+        "source_archive": [
             "artifacts/formal_search_plan.json",
             "artifacts/research_graph_state.json",
         ],
-        "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED": [
+        "formal_research_execution": [
             "artifacts/formal_search_plan.json",
             "artifacts/research_graph_state.json",
         ],
-        "PRE_RESEARCH_PACK_GATE_FAILED": [
+        "pre_research_pack": [
             "artifacts/formal_research_execution_report.json",
             "artifacts/source_archive/source_archive_index.json",
         ],
-        "RESEARCH_PACK_MISSING_OR_FAILED": ["artifacts/research_evidence_db.json"],
-        "PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED": [
-            "industry_issue_analysis.json",
-            "deck_blueprint.json",
+        "research_pack": ["artifacts/research_evidence_db.json"],
+        "deck_blueprint": [
+            "banker_page_pack.json",
             "template_registry.json",
         ],
-        "RENDERER_SPEC_MISSING_OR_FAILED": [
-            "industry_issue_analysis.json",
-            "deck_blueprint.json",
+        "page_evidence_contract": [
+            "banker_page_pack.json",
             "template_registry.json",
         ],
-        "TEMPLATE_PROFILE_MISSING_OR_FAILED": ["renderer_spec.json"],
-        "TEMPLATE_FIT_FAILED": ["renderer_spec.json", "artifacts/template_profile.json"],
-        "CHART_METRIC_BINDING_FAILED": ["renderer_spec.json", "industry_research_pack.md", "page_evidence_contract.json"],
-        "CONTENT_QUALITY_FAILED": ["renderer_spec.json", "industry_research_pack.md"],
-        "PRE_PPT_GATE_FAILED": ["renderer_spec.json", "industry_research_pack.md", "page_evidence_contract.json"],
+        "renderer_spec": [
+            "banker_page_pack.json",
+            "template_registry.json",
+        ],
+        "pre_ppt": ["renderer_spec.json", "page_evidence_contract.json"],
     }
     ok, missing = _run_if_inputs_exist(run_dir, deterministic_requirements.get(stage, []))
     if not ok:
@@ -754,17 +597,17 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
         )
 
     try:
-        if stage == "SOURCE_ARCHIVE_MISSING_OR_FAILED":
+        if stage == "source_archive":
             _compile_research_graph_for_archive(run_dir, python_cmd)
-        elif stage == "FORMAL_RESEARCH_EXECUTION_MISSING_OR_FAILED":
+        elif stage == "formal_research_execution":
             _rebuild_execution_report(run_dir, python_cmd)
-        elif stage == "PRE_RESEARCH_PACK_GATE_FAILED":
+        elif stage == "pre_research_pack":
             _rebuild_pre_research_gate(run_dir, python_cmd)
-        elif stage == "RESEARCH_PACK_MISSING_OR_FAILED":
+        elif stage == "research_pack":
             _rebuild_research_pack_export(run_dir, python_cmd)
-        elif stage in {"PAGE_EVIDENCE_CONTRACT_MISSING_OR_FAILED", "RENDERER_SPEC_MISSING_OR_FAILED"}:
+        elif stage in {"deck_blueprint", "page_evidence_contract", "renderer_spec"}:
             _rebuild_compiled_deck(run_dir, python_cmd)
-        elif stage == "TEMPLATE_PROFILE_MISSING_OR_FAILED":
+        elif stage == "template_profile":
             _run(
                 [
                     python_cmd,
@@ -777,7 +620,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
                     run_dir / "artifacts/template_profile.json",
                 ]
             )
-        elif stage == "TEMPLATE_FIT_FAILED":
+        elif stage == "template_fit_validation":
             _run(
                 [
                     python_cmd,
@@ -792,12 +635,12 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
                     run_dir / "artifacts/template_fit_plan.json",
                 ]
             )
-        elif stage in {"CHART_METRIC_BINDING_FAILED", "CONTENT_QUALITY_FAILED", "PRE_PPT_GATE_FAILED"}:
+        elif stage == "pre_ppt":
             validate_pre_ppt(run_dir, python_cmd, template_path=template_path)
         else:
             raise PipelineError(
                 f"rebuild-stale does not auto-rebuild stage {stage}. "
-                "This stage likely needs LLM judgment or authoring repair; run state_report.py next and follow owner role guidance."
+                "This stage likely needs LLM judgment or authoring repair; run status.py next and follow owner guidance."
             )
     except Exception:
         _append_failure_memory(
@@ -809,7 +652,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
         )
         raise
 
-    new_state = validate_run_state(run_dir)
+    new_state = build_run_status(run_dir)
     _append_failure_memory(
         run_dir,
         "pipeline_rebuild_stale",
@@ -821,13 +664,11 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
 
 
 def status(run_dir: Path) -> None:
-    print(json.dumps(validate_run_state(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
+    print(json.dumps(build_run_status(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
 
 
 def next_action(run_dir: Path) -> None:
-    from state_report import next_payload
-
-    print(json.dumps(next_payload(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
+    print(json.dumps(build_run_status(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
 
 
 def _check_tool_integrity() -> None:

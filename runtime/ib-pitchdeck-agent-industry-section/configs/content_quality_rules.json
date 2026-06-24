@@ -1,5 +1,5 @@
 {
-  "_description": "Content quality thresholds and banned-phrase lists used by validate_content_quality.py. These rules supplement — not replace — the structural contract enforced by validate_renderer_spec.py.",
+  "_description": "LLM content-quality guidance for banker page authoring and review. These rules are not a Python gate; validate_artifact.py only checks mechanical structure.",
   "min_chars_by_field_type": {
     "_note": "These are advisory targets. Fields shorter than the minimum generate a density_warning, not an error.",
     "title": 16,

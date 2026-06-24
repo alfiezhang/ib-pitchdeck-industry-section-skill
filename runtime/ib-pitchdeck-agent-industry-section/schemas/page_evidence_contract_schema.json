@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Page Evidence Contract",
-  "description": "Page-level permissions and evidence boundaries deterministically derived from deck_blueprint selected page_argument_ids. It records what the page answer is allowed to claim before renderer_spec compilation; agents should build it with scripts/generation/compile_deck_blueprint.py rather than hand-writing it.",
+  "description": "Page-level permissions and evidence boundaries deterministically derived from banker_page_pack via deck_blueprint. It records what the page answer is allowed to claim before renderer_spec compilation; agents should build it with scripts/generation/compile_banker_page_pack.py rather than hand-writing it.",
   "type": "object",
   "required": ["slides"],
   "properties": {
@@ -13,11 +13,9 @@
         "type": "object",
         "required": [
           "slide_no",
+          "banker_page_id",
           "page_role",
           "page_question",
-          "page_argument_ids",
-          "primary_issue_analysis_id",
-          "supporting_issue_analysis_ids",
           "headline_claim",
           "proof_standard",
           "headline_allowed",
@@ -28,9 +26,8 @@
           "visual_metric_allowed",
           "chart_metric_ids",
           "allowed_visual_metric_ids",
-          "selected_issue_downstream_permissions",
-          "selected_page_argument_permissions",
           "body_evidence_ids",
+          "body_metric_ids",
           "proof_points",
           "claim_strength",
           "evidence_gap_handling",
@@ -39,17 +36,12 @@
         ],
         "properties": {
           "slide_no": { "type": "integer", "minimum": 1 },
+          "banker_page_id": { "type": "string", "pattern": "^BP-\\d{3}$" },
           "page_role": { "type": "string" },
           "page_question": {
             "type": "string",
             "description": "The single page-level question this slide must answer. This is proof responsibility, not visual design."
           },
-          "page_argument_ids": {
-            "type": "array",
-            "items": { "type": "string", "pattern": "^PA-\\d{3}$" }
-          },
-          "primary_issue_analysis_id": { "type": "string", "pattern": "^IA-\\d{3}$" },
-          "supporting_issue_analysis_ids": { "type": "array", "items": { "type": "string", "pattern": "^IA-\\d{3}$" } },
           "headline_claim": { "type": "string" },
           "proof_standard": {
             "type": "string",
@@ -86,77 +78,22 @@
             "items": { "type": "string", "pattern": "^MET-\\d{3}$" },
             "description": "All MET IDs allowed in material visual elements, including non-chart tables/cards/matrices."
           },
-          "selected_issue_downstream_permissions": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["analysis_id", "evidence_status", "downstream_permission"],
-              "properties": {
-                "analysis_id": { "type": "string", "pattern": "^IA-\\d{3}$" },
-                "evidence_status": {
-                  "type": "string",
-                  "enum": ["supported", "thin", "insufficient", "not_applicable", "unavailable_after_research", "not_researched", "caveat_only"]
-                },
-                "downstream_permission": {
-                  "type": "object",
-                  "required": ["headline_allowed", "main_message_allowed", "chart_allowed", "body_copy_allowed"],
-                  "properties": {
-                    "headline_allowed": { "type": "boolean" },
-                    "main_message_allowed": { "type": "boolean" },
-                    "chart_allowed": { "type": "boolean" },
-                    "body_copy_allowed": { "type": "boolean" }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "selected_page_argument_permissions": {
-            "type": "array",
-            "description": "Per-selected-PA authorization. This is the page contract's permission source of truth; issue_analysis IDs are lineage only.",
-            "items": {
-              "type": "object",
-              "required": ["page_argument_id", "source_issue_analysis_id", "evidence_status", "allowed_deck_usage", "downstream_permission", "evidence_ids", "metric_ids", "body_evidence_ids", "visual_metric_ids"],
-              "properties": {
-                "page_argument_id": { "type": "string", "pattern": "^PA-\\d{3}$" },
-                "source_issue_analysis_id": { "type": "string", "pattern": "^IA-\\d{3}$" },
-                "evidence_status": {
-                  "type": "string",
-                  "enum": ["supported", "thin", "insufficient", "not_applicable", "unavailable_after_research", "not_researched", "caveat_only"]
-                },
-                "allowed_deck_usage": { "type": "string" },
-                "downstream_permission": {
-                  "type": "object",
-                  "required": ["headline_allowed", "main_message_allowed", "chart_allowed", "body_copy_allowed"],
-                  "properties": {
-                    "headline_allowed": { "type": "boolean" },
-                    "main_message_allowed": { "type": "boolean" },
-                    "chart_allowed": { "type": "boolean" },
-                    "body_copy_allowed": { "type": "boolean" }
-                  },
-                  "additionalProperties": false
-                },
-                "evidence_ids": { "type": "array", "items": { "type": "string", "pattern": "^EV-\\d{3}$" } },
-                "metric_ids": { "type": "array", "items": { "type": "string", "pattern": "^MET-\\d{3}$" } },
-                "body_evidence_ids": { "type": "array", "items": { "type": "string", "pattern": "^EV-\\d{3}$" } },
-                "visual_metric_ids": { "type": "array", "items": { "type": "string", "pattern": "^MET-\\d{3}$" } }
-              },
-              "additionalProperties": false
-            }
-          },
           "body_evidence_ids": {
             "type": "array",
             "items": { "type": "string", "pattern": "^EV-\\d{3}$" }
+          },
+          "body_metric_ids": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^MET-\\d{3}$" }
           },
           "proof_points": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["point", "source_analysis_ids", "evidence_ids", "metric_ids", "claim_strength"],
+              "required": ["point", "banker_page_ids", "evidence_ids", "metric_ids", "claim_strength"],
               "properties": {
                 "point": { "type": "string" },
-                "source_analysis_ids": { "type": "array", "items": { "type": "string", "pattern": "^IA-\\d{3}$" } },
+                "banker_page_ids": { "type": "array", "items": { "type": "string", "pattern": "^BP-\\d{3}$" } },
                 "evidence_ids": { "type": "array", "items": { "type": "string", "pattern": "^EV-\\d{3}$" } },
                 "metric_ids": { "type": "array", "items": { "type": "string", "pattern": "^MET-\\d{3}$" } },
                 "claim_strength": {

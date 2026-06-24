@@ -86,7 +86,7 @@ Use JSON for machine-readable jobs when possible:
   "output_path": "artifacts/role_jobs/RJ-001.result.json",
   "forbidden_actions": [
     "Do not cite search snippets as evidence.",
-    "Do not edit deck_blueprint.json.",
+    "Do not edit derived deck_blueprint.json; repair banker_page_pack.json instead.",
     "Do not claim client-readiness."
   ],
   "blocker_format": {
@@ -108,7 +108,8 @@ Job packets define delegation context, not canonical artifact schemas.
 
 Examples:
 
-- `deck_blueprint.json`, conforming to `schemas/deck_blueprint_schema.json`
+- `banker_page_pack.json`, conforming to `schemas/banker_page_pack_schema.json`
+- derived `deck_blueprint.json`, conforming to `schemas/deck_blueprint_schema.json`
 - `artifacts/formal_search_plan.json`, conforming to `schemas/formal_search_plan_schema.json`
 - `artifacts/page_evidence_contract.json`, conforming to `schemas/page_evidence_contract_schema.json`
 
@@ -146,7 +147,7 @@ Job results are not automatically canonical. The parent or owning role must inte
 
 - source/archive results -> Knowledge evidence DB;
 - source-quality or evidence-limit results -> embedded source review fields in the evidence DB;
-- reasoning results -> hypothesis store, research request queue, page argument pack, or issue analysis;
-- generation results -> deck blueprint or page draft;
+- reasoning results -> banker_page_pack judgment fields or research request queue;
+- generation results -> banker_page_pack page fields before deterministic compilation;
 - template results -> template fit plan or fit feedback;
 - QC results -> repair brief and owner routing.

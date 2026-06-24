@@ -8,8 +8,8 @@ This skill builds the industry section of a **pre-mandate client pitchbook**. It
 2. Calibrate the target industry boundary before doing broad research.
 3. Knowledge stores facts, metrics, sources, conflicts, and unknowns; it does not search or judge.
 4. Research collects public evidence and user-supplied reports; it does not turn hypotheses into conclusions.
-5. Reasoning is where banker judgment happens: supported judgments, hypotheses, research requests, deliverable-depth decisions, and page arguments.
-6. Generation is page editing: it turns page arguments into slide drafts, chart specs, and deck blueprint content.
+5. Banker judgment and page design converge in `banker_page_pack.json`: supported views, caveats, exhibit logic, dense copy, data bindings, and transaction readthrough.
+6. Reasoning is a diagnostic support role when a judgment needs hypothesis resolution or a research request before it can enter the page pack.
 7. Template work comes after page logic: the template can compress, split, and fit content, but it cannot change the core judgment.
 8. QC owns validation. Python handles deterministic format, ID, provenance, and rendering checks. LLM QC handles quality, evidence sufficiency, source use, page thinness, and pitch relevance.
 9. Output is deterministic rendering only.
@@ -24,13 +24,11 @@ User materials / links / instructions
   -> Knowledge Repository
   -> Target Industry Scoping
   -> Boundary Validation Loop
-  -> Reasoning Kernel
-      -> Supported Judgments
-      -> Hypothesis Store / Resolution
-      -> Research Request Queue
   -> Public Evidence Loop
-  -> Page / Section Arguments
-  -> Generation
+  -> Banker Page Pack
+      -> Judgment / Exhibit / Copy / EV-MET Bindings
+      -> Optional Reasoning / Research Request Loop
+  -> Deterministic Compile
   -> Template Fit
   -> QC Engine
   -> Output
@@ -43,20 +41,20 @@ User materials / links / instructions
 - Knowledge Repository: evidence database and reusable source repository.
 - Industry Scoping: broad/core/adjacent/excluded boundary and boundary loop.
 - Research / External Evidence: public evidence collection, source archive, and execution accounting.
-- Reasoning: banker judgment, hypothesis handling, research requests, deliverable depth, and page arguments.
-- Generation: slide drafts, deck blueprint, chart/table intent, and content density.
+- Reasoning: optional hypothesis handling, research requests, and judgment diagnostics.
+- Generation: banker page pack authoring, exhibit design, content density, and compile to renderer artifacts.
 - Template: template analysis and fit.
 - QC: all validators plus LLM quality review and repair briefs.
 - Output: replacement dictionary, PPT render, postprocess, and final package.
 
 ## Validator Ownership
 
-All `validate_*.py` scripts live under `scripts/qc/validators/<layer>/`.
+Deterministic checks run through `scripts/qc/validate_artifact.py`.
 
-- Validators are deterministic checks and format red-lines.
+- The unified validator is limited to deterministic checks and format red-lines.
 - QC decides how to interpret validator output.
 - The repair owner remains the role that owns the artifact.
-- Validators do not decide source quality, evidence readiness, page quality, or client-readiness by themselves.
+- Python does not decide source quality, evidence readiness, page quality, or client-readiness by itself.
 
 ## Handoff Contract
 

@@ -49,7 +49,7 @@ The final output should look like a finished investment-banking presentation, no
 
 ## Content Density by Field Type
 
-The following are target density ranges for body_copy fields. `validate_content_quality.py` treats short/thin or paragraph-like body fields as editorial quality warnings unless they also create a separate evidence, metric, role, or final-render problem. Title and subtitle fit remain hard layout constraints. See `configs/content_quality_rules.json` and `configs/layout_budget.json` for canonical thresholds.
+The following are target density ranges for body_copy fields. They are LLM authoring and review guidance, not a Python gate. Title and subtitle fit remain hard layout constraints. See `configs/content_quality_rules.json` and `configs/layout_budget.json` for canonical guidance.
 
 | Field Type | Target Range | Description |
 |---|---|---|

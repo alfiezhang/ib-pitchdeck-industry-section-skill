@@ -1,4 +1,4 @@
-"""Contract tests: research evidence DB, research pack, issue analysis skeleton.
+"""Contract tests: research evidence DB and research pack.
 
 Covers Groups 16d-16e from the monolith (lines 1204-1391).
 """
@@ -31,9 +31,10 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
 
 class TestStageGate:
     def test_pre_research_pack_gate_passes(self, _pipeline_run_dir):
-        from validate_stage_gate import validate_stage
+        from validate_artifact import validate_artifact
         artifacts = _pipeline_run_dir["artifacts"]
-        result = validate_stage("pre_research_pack", _pipeline_run_dir["run_dir"], None)
+        errors, warnings = validate_artifact("pre_research_pack", _pipeline_run_dir["run_dir"])
+        result = {"is_valid": not errors, "errors": errors, "warnings": warnings}
         assert result["is_valid"], result
         _write_json(artifacts / "stage_gate_pre_research_pack_validation.json", result)
 
@@ -107,32 +108,9 @@ class TestResearchEvidenceDB:
         assert "Chart Ready" in exported, exported[:5000]
 
     def test_export_validates_without_chart_ready_warning(self, _pipeline_run_dir):
-        from validate_research_pack import validate as validate_research_pack
+        from validate_artifact import validate_artifact
         artifacts = _pipeline_run_dir["artifacts"]
-        result = validate_research_pack(
-            _pipeline_run_dir["run_dir"] / "industry_research_pack.md",
-            run_dir=_pipeline_run_dir["run_dir"],
-        )
+        errors, warnings = validate_artifact("research_pack", _pipeline_run_dir["run_dir"])
+        result = {"is_valid": not errors, "errors": errors, "warnings": warnings}
         assert result["is_valid"], result
         assert not any("chart_ready flags" in w for w in result["warnings"]), result
-
-
-class TestIssueAnalysisSkeleton:
-    def test_skeleton_from_db_fails_validation(self, _pipeline_run_dir):
-        """Issue analysis skeleton from DB should fail validation (has placeholder text)."""
-        from build_issue_analysis_skeleton import build_issue_analysis_skeleton
-        artifacts = _pipeline_run_dir["artifacts"]
-        report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
-        research_db = json.loads((artifacts / "research_evidence_db.json").read_text(encoding="utf-8"))
-        skeleton = build_issue_analysis_skeleton(None, report, research_db)
-        assert skeleton["issue_analyses"], skeleton
-        assert skeleton["issue_analyses"][0]["evidence_ids"], skeleton["issue_analyses"][0]
-        skeleton_path = _pipeline_run_dir["run_dir"] / "industry_issue_analysis_skeleton.json"
-        skeleton_path.write_text(json.dumps(skeleton, ensure_ascii=False, indent=2), encoding="utf-8")
-        result = _run([
-            sys.executable, "scripts/qc/validators/reasoning/validate_issue_analysis.py",
-            "--issue-analysis", str(skeleton_path),
-            "--research-pack", str(_pipeline_run_dir["run_dir"] / "industry_research_pack.md"),
-        ])
-        assert result.returncode != 0, result.stdout
-        assert "skeleton placeholder" in result.stdout, result.stdout

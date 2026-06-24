@@ -4,7 +4,7 @@ Use this checklist after generating `industry_section_filled_clean.pptx`.
 
 ## Objective
 
-This checklist complements deterministic validation. `validate_filled_ppt.py` confirms structural correctness; this checklist confirms whether the PPT looks like a finished deck.
+This checklist complements deterministic validation. `validate_artifact.py --artifact filled_ppt` confirms package mechanics; this checklist confirms whether the PPT looks like a finished deck.
 
 ## Visual QC Checklist
 

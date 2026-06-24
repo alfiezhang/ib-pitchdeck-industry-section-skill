@@ -55,9 +55,10 @@ class TestTemplateRegistryExtraction:
     def test_registry_validate(self, template_registry_path, tmp_path):
         env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
         result = subprocess.run(
-            [sys.executable, "scripts/qc/validators/template/validate_template_registry.py",
-             "--template-registry", str(template_registry_path),
-             "--slide-registry", "configs/slide_registry.json",
+            [sys.executable, "scripts/qc/validate_artifact.py",
+             "--artifact", "template_registry",
+             "--run-dir", str(tmp_path),
+             "--path", str(template_registry_path),
              "--output", str(tmp_path / "template_registry_validation.json")],
             text=True, capture_output=True, cwd=str(SKILL_DIR), env=env,
         )

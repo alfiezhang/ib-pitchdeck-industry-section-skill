@@ -13,11 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
 SCRIPT_DIR = SKILL_DIR / "scripts"
 ROLE_SCRIPT_PATHS = sorted(path for path in SCRIPT_DIR.iterdir() if path.is_dir())
-QC_VALIDATOR_PATHS = sorted((SCRIPT_DIR / "qc" / "validators").glob("*"))
-SCRIPT_IMPORT_PATHS = [SCRIPT_DIR, *ROLE_SCRIPT_PATHS, *QC_VALIDATOR_PATHS]
+SCRIPT_IMPORT_PATHS = [SCRIPT_DIR, *ROLE_SCRIPT_PATHS]
 ROLE_SCRIPT_DIRS = {
     script.name: script
-    for role_dir in [*ROLE_SCRIPT_PATHS, *QC_VALIDATOR_PATHS]
+    for role_dir in ROLE_SCRIPT_PATHS
     for script in role_dir.glob("*.py")
 }
 FIXTURES_DIR = ROOT / "tests" / "fixtures"
@@ -93,11 +92,6 @@ def run_script():
     return _run_script
 
 
-@pytest.fixture
-def issue_analysis(fixtures_dir: Path) -> dict:
-    return json.loads((fixtures_dir / "valid_issue_analysis.json").read_text(encoding="utf-8"))
-
-
 # ---------------------------------------------------------------------------
 # Session-scoped artifact chain fixtures
 # ---------------------------------------------------------------------------
@@ -117,58 +111,6 @@ def _build_template_registry(tmp_path: Path) -> Path:
     )
     out = tmp_path / "template_registry.json"
     _write_json(out, registry)
-    return out
-
-
-def _page_argument_pack_from_issue_analysis(issue_analysis: dict) -> dict:
-    page_arguments = []
-    for idx, item in enumerate(issue_analysis.get("issue_analyses", []), start=1):
-        analysis_id = item.get("analysis_id")
-        if not analysis_id:
-            continue
-        allowed = item.get("allowed_deck_usage") if isinstance(item.get("allowed_deck_usage"), dict) else {}
-        if allowed.get("headline") is True:
-            usage = "headline_allowed"
-        elif allowed.get("body_copy") is True or allowed.get("chart") is True:
-            usage = "body_only"
-        elif item.get("evidence_status") == "caveat_only":
-            usage = "caveat_only"
-        else:
-            usage = "not_allowed"
-        downstream = item.get("downstream_permission") if isinstance(item.get("downstream_permission"), dict) else {}
-        page_arguments.append(
-            {
-                "page_argument_id": f"PA-{idx:03d}",
-                "source_issue_analysis_id": analysis_id,
-                "issue_area": item.get("issue_area", ""),
-                "subissue": item.get("subissue", ""),
-                "client_question": f"What does {analysis_id} imply for the page?",
-                "page_argument": item.get("core_statement") or item.get("analysis_text", ""),
-                "evidence_status": item.get("evidence_status", "thin"),
-                "allowed_deck_usage": usage,
-                "downstream_permission": {
-                    "headline_allowed": downstream.get("headline_allowed") is True,
-                    "main_message_allowed": downstream.get("main_message_allowed") is True or downstream.get("headline_allowed") is True,
-                    "chart_allowed": downstream.get("chart_allowed") is True,
-                    "body_copy_allowed": downstream.get("body_copy_allowed") is True,
-                },
-                "hypothesis_resolution_status": item.get("hypothesis_resolution", "resolved"),
-                "evidence_ids": item.get("evidence_ids", []),
-                "metric_ids": item.get("metric_ids", []),
-                "caveat_or_diligence_question": "; ".join(item.get("limitations", [])),
-            }
-        )
-    return {
-        "schema_version": "page_argument_pack_v1",
-        "policy_context": "pre_mandate_client_pitch",
-        "page_arguments": page_arguments,
-    }
-
-
-def _build_page_argument_pack(tmp_path: Path, issue_path: Path | None = None) -> Path:
-    issue = json.loads((issue_path or FIXTURES_DIR / "valid_issue_analysis.json").read_text(encoding="utf-8"))
-    out = tmp_path / "page_argument_pack.json"
-    _write_json(out, _page_argument_pack_from_issue_analysis(issue))
     return out
 
 
@@ -247,34 +189,26 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
         1: "chart", 2: "chart", 3: "driver_cards", 4: "value_chain",
         5: "driver_cards", 6: "peer_comparison", 7: "trend_cards", 8: "driver_cards",
     }
-    block_counts = {1: 3, 2: 3, 3: 4, 4: 6, 5: 3, 6: 3, 7: 3, 8: 4}
-    issue_ids = {
-        1: ["IA-001"], 2: ["IA-001", "IA-002"], 3: ["IA-003"], 4: ["IA-003"],
-        5: ["IA-003"], 6: ["IA-003"], 7: ["IA-003"], 8: ["IA-003", "IA-004"],
-    }
-    page_argument_ids = {
-        no: [f"PA-{int(issue_id[3:]):03d}" for issue_id in ids]
-        for no, ids in issue_ids.items()
-    }
+    block_counts = {1: 4, 2: 4, 3: 4, 4: 6, 5: 4, 6: 4, 7: 4, 8: 4}
 
     slides = slides_override if slides_override is not None else []
     if slides_override is None:
         for no in range(1, 9):
-            ids = issue_ids[no]
-            evidence = ["EV-001"] if "IA-001" in ids or "IA-002" in ids else ["EV-003"]
+            banker_page_id = f"BP-{no:03d}"
+            evidence = ["EV-001"] if no in {1, 2} else ["EV-003"]
             metrics = ["MET-001"] if no == 1 else (["MET-003"] if no == 2 else [])
             blocks = []
             for idx in range(1, block_counts[no] + 1):
                 theme = copy_themes[((no - 1) * 6 + idx - 1) % len(copy_themes)]
                 if no == 6:
-                    role_name = ["right_top", "right_mid", "right_bottom"][idx - 1]
+                    role_name = ["right_top", "right_mid", "right_bottom", "left_panel"][idx - 1]
                 elif no == 8:
                     role_name = ["left_panel", "right_top", "right_mid", "right_bottom"][idx - 1]
                 else:
                     role_name = f"point_{idx}"
                 blocks.append({
                     "role": role_name, "copy": theme,
-                    "source_analysis_ids": ids[:1], "evidence_ids": evidence,
+                    "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence,
                     "metric_ids": metrics if idx == 1 else [],
                     "claim_strength": "supported_inference",
                 })
@@ -282,27 +216,27 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 blocks = [
                     {"role": "profit_pool", "target_field": "bottom_center",
                      "copy": "Profit-pool evidence shows where economics accrue across the industry chain.",
-                     "source_analysis_ids": ids[:1], "evidence_ids": evidence, "metric_ids": [],
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                     {"role": "upstream", "target_field": "top_left",
                      "copy": "Upstream inputs define cost exposure before operating capabilities take effect.",
-                     "source_analysis_ids": ids[:1], "evidence_ids": evidence, "metric_ids": [],
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                     {"role": "transaction_implication", "target_field": "bottom_right",
                      "copy": "Transaction relevance should stay tied to sector economics, not target promotion.",
-                     "source_analysis_ids": ids[:1], "evidence_ids": evidence, "metric_ids": [],
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                     {"role": "manufacturing", "target_field": "top_center",
                      "copy": "Manufacturing execution explains why quality control can become a buyer diligence topic.",
-                     "source_analysis_ids": ids[:1], "evidence_ids": evidence, "metric_ids": [],
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                     {"role": "brand", "target_field": "top_right",
                      "copy": "Brand ownership converts category credibility into pricing and repeat-purchase power.",
-                     "source_analysis_ids": ids[:1], "evidence_ids": evidence, "metric_ids": [],
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                     {"role": "channel", "target_field": "bottom_left",
                      "copy": "Channel access determines whether product strength can convert into scaled demand.",
-                     "source_analysis_ids": ids[:1], "evidence_ids": evidence, "metric_ids": [],
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                 ]
             visual_design = {"required_capability": "text", "purpose": f"Support slide {no} page thesis."}
@@ -342,7 +276,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     "comparison_basis_note": "Illustrative peer dimensions from selected issue analysis.",
                 }
             slides.append({
-                "slide_no": no, "fixed_page_role": roles[no],
+                "slide_no": no, "banker_page_id": banker_page_id, "fixed_page_role": roles[no],
                 "investor_question": f"What should an investor learn from slide {no}?",
                 "page_thesis": f"Slide {no} answers a distinct industry question with evidence-backed judgment.",
                 "page_argument": page_arguments[no], "visual_intent": visual_intents[no],
@@ -356,8 +290,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     "fallback_if_data_limited": "Use caveated cards or a diligence grid; do not use a single-point chart.",
                 },
                 "why_this_page_matters": f"Slide {no} matters because it converts research into a pitch-relevant page argument.",
-                "page_argument_ids": page_argument_ids[no],
-                "issue_analysis_ids": ids, "selected_page_type": page_types[no],
+                "selected_page_type": page_types[no],
                 "claim_strength": "supported_inference",
                 "headline": f"Slide {no}: conclusion-led industry view with distinct implication",
                 "main_message": f"Slide {no} connects evidence to the pitch without repeating the title.",
@@ -378,31 +311,85 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
     return blueprint
 
 
-def _compile_blueprint(
+def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
+    slides = []
+    for slide in deck_blueprint.get("slides", []):
+        slide_no = int(slide["slide_no"])
+        slides.append(
+            {
+                "slide_no": slide_no,
+                "banker_page_id": slide.get("banker_page_id") or f"BP-{slide_no:03d}",
+                "fixed_page_role": slide["fixed_page_role"],
+                "client_question": slide["investor_question"],
+                "banker_judgment": (
+                    f"Slide {slide_no} should communicate a banker judgment about sector structure, evidence quality, "
+                    "buyer diligence, and transaction relevance before a mandate is signed."
+                ),
+                "page_argument": slide["page_argument"],
+                "selected_page_type": slide["selected_page_type"],
+                "claim_strength": slide["claim_strength"],
+                "headline": slide["headline"],
+                "main_message": slide["main_message"],
+                "exhibit": slide["exhibit"],
+                "body_blocks": slide["body_blocks"],
+                "body_copy": slide.get("body_copy", {}),
+                "visual_design": slide.get("visual_design", {}),
+                "chart_data": slide.get("chart_data", {}),
+                "compare_table_data": slide.get("compare_table_data", {}),
+                "evidence_ids": slide.get("evidence_ids", ["EV-001"]),
+                "metric_ids": slide.get("metric_ids", []),
+                "visible_metric_claims": slide.get("visible_metric_claims", []),
+                "transaction_readthrough": (
+                    f"Slide {slide_no} turns industry evidence into a concrete pre-mandate buyer discussion point."
+                ),
+                "source_note": slide.get("source_note", "Sources: EV-001"),
+                "caveats": slide.get("caveats", []),
+                "open_questions": slide.get("open_questions", []),
+            }
+        )
+    return {
+        "schema_version": "banker_page_pack",
+        "section_meta": deck_blueprint.get("section_meta", {}),
+        "deck_storyline": (
+            "The section links sector structure, market evidence, competitive dynamics, and transaction implications "
+            "into a dense pre-mandate banker view with traceable evidence and page-level caveats."
+        ),
+        "deliverable_readiness": {
+            "decision_status": "llm_decided",
+            "decision_owner": "generation",
+            "enough_for_client_pitch": True,
+            "evidence_limited_pitch_outline": False,
+            "research_first_required": False,
+            "decision_note": "The fixture contains enough linked EV/MET references and page density for deterministic renderer tests.",
+        },
+        "key_data_audit": [],
+        "conflict_data_notes": [],
+        "slides": slides,
+    }
+
+
+def _compile_banker_page_pack(
     tmp_path: Path,
-    blueprint_path: Path | None = None,
-    issue_path: Path | None = None,
+    banker_page_pack_path: Path,
     registry_path: Path | None = None,
-    page_argument_pack_path: Path | None = None,
 ) -> tuple[Path, Path]:
-    """Compile deck blueprint → page_evidence_contract + renderer_spec."""
-    bp = blueprint_path or tmp_path / "deck_blueprint.json"
-    ia = issue_path or FIXTURES_DIR / "valid_issue_analysis.json"
-    pa = page_argument_pack_path or _build_page_argument_pack(tmp_path, ia)
+    """Compile banker_page_pack → page_evidence_contract + renderer_spec."""
     tr = registry_path or tmp_path / "template_registry.json"
     pc_out = tmp_path / "page_evidence_contract.json"
     rs_out = tmp_path / "renderer_spec.json"
+    db_out = tmp_path / "deck_blueprint.json"
     result = subprocess.run(
-        [sys.executable, str(ROLE_SCRIPT_DIRS["compile_deck_blueprint.py"]),
-         "--page-argument-pack", str(pa), "--issue-analysis", str(ia), "--deck-blueprint", str(bp),
+        [sys.executable, str(ROLE_SCRIPT_DIRS["compile_banker_page_pack.py"]),
+         "--banker-page-pack", str(banker_page_pack_path),
          "--template-registry", str(tr),
+         "--deck-blueprint-output", str(db_out),
          "--page-contract-output", str(pc_out),
          "--renderer-spec-output", str(rs_out)],
         text=True, capture_output=True, cwd=str(SKILL_DIR),
         env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
     )
     if result.returncode != 0:
-        raise RuntimeError(f"compile_deck_blueprint failed: {result.stdout}\n{result.stderr}")
+        raise RuntimeError(f"compile_banker_page_pack failed: {result.stdout}\n{result.stderr}")
     return pc_out, rs_out
 
 
@@ -433,19 +420,20 @@ def deck_blueprint_data(_session_tmp):
 
 
 @pytest.fixture(scope="session")
-def page_argument_pack_path(_session_tmp):
-    """Build page_argument_pack.json once per session."""
-    return _build_page_argument_pack(_session_tmp)
+def banker_page_pack_path(_session_tmp, deck_blueprint_data):
+    """Build banker_page_pack.json once per session."""
+    out = _session_tmp / "banker_page_pack.json"
+    _write_json(out, _banker_page_pack_from_deck_blueprint(deck_blueprint_data))
+    return out
 
 
 @pytest.fixture(scope="session")
-def compiled_artifacts(_session_tmp, deck_blueprint_path, template_registry_path, page_argument_pack_path):
-    """Compile deck blueprint → page_evidence_contract + renderer_spec."""
-    pc, rs = _compile_blueprint(
+def compiled_artifacts(_session_tmp, template_registry_path, banker_page_pack_path):
+    """Compile banker_page_pack → page_evidence_contract + renderer_spec."""
+    pc, rs = _compile_banker_page_pack(
         _session_tmp,
-        deck_blueprint_path,
+        banker_page_pack_path,
         registry_path=template_registry_path,
-        page_argument_pack_path=page_argument_pack_path,
     )
     return {"page_evidence_contract": pc, "renderer_spec": rs}
 
@@ -553,9 +541,7 @@ def _pipeline_run_dir(tmp_path_factory):
     from ib_research_graph import build_coverage_map, build_executable_search_batch, build_formal_search_plan
     from ib_research_graph import compile_graph_state, init_graph_state
     from pipeline import _write_run_flags
-    from validate_formal_research_execution import validate as validate_formal_research_execution
-    from validate_formal_search_plan import validate as validate_formal_search_plan
-    from validate_source_archive import validate as validate_source_archive
+    from validate_artifact import validate_artifact
 
     tmp = tmp_path_factory.mktemp("pipeline")
     run_dir = tmp
@@ -643,8 +629,7 @@ def _pipeline_run_dir(tmp_path_factory):
     # Scope pack
     scope_pack = _minimal_scope_pack()
     _write_json(artifacts / "industry_scope_pack.json", scope_pack)
-    from validate_industry_scope_pack import validate as validate_industry_scope_pack
-    scope_errors, scope_warnings = validate_industry_scope_pack(scope_pack)
+    scope_errors, scope_warnings = validate_artifact("industry_scope_pack", run_dir)
     assert not scope_errors, scope_errors
     _write_json(artifacts / "industry_scope_pack_validation.json", {"is_valid": True, "errors": [], "warnings": scope_warnings})
 
@@ -673,7 +658,7 @@ def _pipeline_run_dir(tmp_path_factory):
     _write_json(artifacts / "coverage_map.json", build_coverage_map(plan))
     _write_json(artifacts / "executable_search_batch.json", build_executable_search_batch(plan))
     _write_json(artifacts / "executable_search_batch_validation.json", {"is_valid": True, "errors": [], "warnings": []})
-    plan_errors, plan_warnings = validate_formal_search_plan(plan)
+    plan_errors, plan_warnings = validate_artifact("formal_search_plan", run_dir)
     assert not plan_errors, plan_errors
     _write_json(artifacts / "formal_search_plan_validation.json", {"is_valid": True, "errors": [], "warnings": plan_warnings})
 
@@ -886,15 +871,14 @@ def _pipeline_run_dir(tmp_path_factory):
     _write_json(artifacts / "research_graph_state.json", state)
     compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
     report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
-    errors, warnings = validate_formal_research_execution(report, plan, artifacts / "search_log.md")
+    errors, warnings = validate_artifact("formal_research_execution", run_dir)
     assert not errors, errors
     _write_json(artifacts / "formal_research_execution_validation.json", {"is_valid": True, "errors": [], "warnings": warnings})
 
     # Validate source archive
     archive_dir = artifacts / "source_archive"
-    archive_result = validate_source_archive(
-        source_archive_index_path=archive_dir / "source_archive_index.json", run_dir=run_dir,
-    )
+    archive_errors, archive_warnings = validate_artifact("source_archive", run_dir)
+    archive_result = {"is_valid": not archive_errors, "errors": archive_errors, "warnings": archive_warnings}
     assert archive_result["is_valid"], archive_result
     _write_json(artifacts / "source_archive_validation.json", archive_result)
 
@@ -994,43 +978,36 @@ def _pipeline_run_dir(tmp_path_factory):
     (run_dir / "industry_research_pack.md").write_text(exported, encoding="utf-8")
 
     # Stage gate
-    from validate_stage_gate import validate_stage
-    stage_result = validate_stage("pre_research_pack", run_dir, None)
+    stage_errors, stage_warnings = validate_artifact("pre_research_pack", run_dir)
+    stage_result = {"is_valid": not stage_errors, "errors": stage_errors, "warnings": stage_warnings}
     _write_json(artifacts / "stage_gate_pre_research_pack_validation.json", stage_result)
 
     # Research pack validation
-    from validate_research_pack import validate as validate_research_pack
-    pack_result = validate_research_pack(run_dir / "industry_research_pack.md", run_dir=run_dir)
+    pack_errors, pack_warnings = validate_artifact("research_pack", run_dir)
+    pack_result = {"is_valid": not pack_errors, "errors": pack_errors, "warnings": pack_warnings}
     _write_json(artifacts / "research_pack_validation.json", pack_result)
 
-    # Issue analysis (minimal, so run state advances past ISSUE_ANALYSIS)
-    _write_json(run_dir / "industry_issue_analysis.json", {"schema_version": "industry_issue_analysis_v1", "issue_analyses": []})
-    _write_json(artifacts / "issue_analysis_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    # Banker page pack seed so run state advances to deterministic generation.
     _write_json(
-        artifacts / "hypothesis_store.json",
+        run_dir / "banker_page_pack.json",
         {
-            "schema_version": "hypothesis_store_v1",
-            "hypotheses": [],
-            "resolution_summary": "No unresolved, directional, or thinly supported judgments identified.",
+            "schema_version": "banker_page_pack",
+            "section_meta": {"target_company": "Sample Target", "industry": "sample sector"},
+            "deck_storyline": "Fixture banker page pack for state-machine progression.",
+            "deliverable_readiness": {
+                "decision_status": "llm_decided",
+                "decision_owner": "generation",
+                "enough_for_client_pitch": True,
+                "evidence_limited_pitch_outline": False,
+                "research_first_required": False,
+                "decision_note": "Fixture marks enough evidence for state-machine progression.",
+            },
+            "key_data_audit": [],
+            "conflict_data_notes": [],
+            "slides": [],
         },
     )
-    _write_json(artifacts / "hypothesis_store_validation.json", {"is_valid": True, "errors": [], "warnings": []})
-    _write_json(
-        artifacts / "page_argument_pack.json",
-        {
-            "schema_version": "page_argument_pack_v1",
-            "page_arguments": [
-                {
-                    "page_argument_id": "PA-001",
-                    "source_issue_analysis_id": "IA-001",
-                    "page_argument": "Fixture page argument bridges issue analysis to deck generation.",
-                    "evidence_status": "directional",
-                    "allowed_deck_usage": "body_only",
-                }
-            ],
-        },
-    )
-    _write_json(artifacts / "page_argument_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
+    _write_json(artifacts / "banker_page_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
 
     # Template registry (copy from session fixture)
     from extract_template_registry import build_registry

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile deck_blueprint.json into internal PPT renderer inputs."""
+"""Compile banker-page-native deck_blueprint.json into renderer inputs."""
 
 from __future__ import annotations
 
@@ -27,27 +27,20 @@ for _ib_path in list(_IB_IMPORT_PATHS):
 for _ib_path in reversed(_IB_IMPORT_PATHS):
     _ib_sys.path.insert(0, _ib_path)
 
-import argparse
-import json
 import re
-from pathlib import Path
 from typing import Any
 
-from build_page_evidence_contract import build_page_evidence_contract
 from compare_table_utils import split_table_cells
 from deck_blueprint_utils import (
     FIXED_PAGE_ROLES,
     as_list,
     metric_ids_from_visual,
-    normalize_deck_blueprint_for_page_plan,
     proof_points_from_blueprint_slide,
-    selected_page_argument_ids,
-    selected_issue_analysis_ids,
     template_variants_by_slide,
     unique,
     visual_plan_from_blueprint_slide,
+    banker_page_id_for_slide,
 )
-from json_utils import load_json_file
 from template_contract_utils import active_body_fields, required_body_fields
 
 
@@ -72,61 +65,6 @@ ROLE_FIELD_ALIASES = {
     "pitch_implication": "bottom_right",
     "transaction_implication": "bottom_right",
 }
-
-
-UPSTREAM_VALIDATION_ARTIFACTS = (
-    "artifacts/industry_scope_pack_validation.json",
-    "artifacts/formal_search_plan_validation.json",
-    "artifacts/formal_research_execution_validation.json",
-    "artifacts/source_archive_validation.json",
-    "artifacts/stage_gate_pre_research_pack_validation.json",
-    "artifacts/research_pack_validation.json",
-    "artifacts/issue_analysis_validation.json",
-    "artifacts/hypothesis_store_validation.json",
-    "artifacts/page_argument_pack_validation.json",
-    "artifacts/deck_blueprint_validation.json",
-    "artifacts/template_registry_validation.json",
-)
-
-
-def _maybe_run_dir_from_inputs(paths: list[Path]) -> Path | None:
-    def run_parent(path: Path) -> Path:
-        parent = path.resolve().parent
-        return parent.parent if parent.name == "artifacts" else parent
-
-    parents = [
-        run_parent(path)
-        for path in paths
-        if path.name in {"page_argument_pack.json", "deck_blueprint.json", "template_registry.json"}
-    ]
-    if len(parents) < 3:
-        return None
-    first = parents[0]
-    if all(parent == first for parent in parents) and (first / "artifacts").is_dir():
-        return first
-    return None
-
-
-def _assert_upstream_package_valid(run_dir: Path) -> None:
-    blocking: list[str] = []
-    for rel in UPSTREAM_VALIDATION_ARTIFACTS:
-        path = run_dir / rel
-        if not path.exists():
-            blocking.append(f"missing {rel}")
-            continue
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
-            blocking.append(f"cannot read {rel}: {exc}")
-            continue
-        if payload.get("is_valid") is False:
-            blocking.append(f"{rel} is_valid=false")
-    if blocking:
-        detail = "; ".join(blocking[:8])
-        raise ValueError(
-            "cannot compile deck_blueprint for a formal run with incomplete upstream gates: "
-            f"{detail}. Fix upstream validation or use a separate temporary diagnostic directory."
-        )
 
 
 def _contract_index(page_contract: dict[str, Any]) -> dict[int, dict[str, Any]]:
@@ -192,7 +130,7 @@ def _candidate_fields_for_role(role: str, fields: list[str]) -> list[str]:
 def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], page_type: str) -> dict[str, str]:
     slide_no = int(slide.get("slide_no") or 0)
     explicit = slide.get("body_copy")
-    if isinstance(explicit, dict):
+    if isinstance(explicit, dict) and explicit:
         return {str(key): str(value or "").strip() for key, value in explicit.items()}
     fields = active_body_fields(required_fields, page_type, slide)
     blocks = [block for block in as_list(slide.get("body_blocks")) if isinstance(block, dict)]
@@ -228,6 +166,14 @@ def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], pa
 
     if len(assigned_block_indexes) < len(blocks):
         unmapped = [str(idx + 1) for idx in range(len(blocks)) if idx not in assigned_block_indexes]
+        if fields and all(body.get(field) for field in fields):
+            target = fields[-1]
+            for idx_text in unmapped:
+                block = blocks[int(idx_text) - 1]
+                extra = _body_text(block)
+                if extra:
+                    body[target] = (body[target] + "\n" + extra).strip()
+            return body
         raise ValueError(
             f"slide {slide_no}: {len(unmapped)} body block(s) could not be mapped by target_field or role: "
             f"blocks {', '.join(unmapped)}. Set target_field on those blocks or provide explicit body_copy."
@@ -515,7 +461,7 @@ def _normalize_compare_table_data(raw: dict[str, Any]) -> dict[str, Any]:
                     cells = [
                         str(value).strip()
                         for key, value in row.items()
-                        if key not in {"label", "name", "metric_ids", "evidence_ids", "source_analysis_ids"}
+                        if key not in {"label", "name", "metric_ids", "evidence_ids", "source_banker_page_ids"}
                         and not isinstance(value, (dict, list))
                         and str(value).strip()
                     ]
@@ -588,9 +534,7 @@ def build_renderer_spec_from_deck_blueprint(
         page_type = str(slide.get("selected_page_type") or "").strip()
         required_fields = required_body_fields(template_registry, slide_no, page_type)
         body_copy = _body_copy_from_blocks(slide, required_fields, page_type)
-        issue_ids = selected_issue_analysis_ids(slide)
-        primary = issue_ids[0] if issue_ids else ""
-        page_argument_ids = selected_page_argument_ids(slide)
+        banker_page_id = banker_page_id_for_slide(slide)
         evidence_ids = unique(
             [str(item).strip() for item in as_list(contract.get("body_evidence_ids")) if str(item).strip()]
             + [
@@ -616,9 +560,7 @@ def build_renderer_spec_from_deck_blueprint(
             "fixed_page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
             "slide_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
             "selected_page_type": page_type,
-            "primary_issue_analysis_id": primary,
-            "issue_analysis_ids": issue_ids,
-            "page_argument_ids": page_argument_ids,
+            "banker_page_id": banker_page_id,
             "claim_strength": str(contract.get("claim_strength") or slide.get("claim_strength") or "").strip(),
             "exhibit": slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {},
             "headline": str(slide.get("headline") or "").strip(),
@@ -664,73 +606,3 @@ def build_renderer_spec_from_deck_blueprint(
         "slides": slides,
         "template_binding": template_binding,
     }
-
-
-def compile_deck_blueprint(
-    page_argument_pack: dict[str, Any],
-    deck_blueprint: dict[str, Any],
-    template_registry: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    page_plan = normalize_deck_blueprint_for_page_plan(deck_blueprint)
-    page_contract = build_page_evidence_contract(page_argument_pack, page_plan)
-    renderer_spec = build_renderer_spec_from_deck_blueprint(deck_blueprint, template_registry, page_contract)
-    return page_contract, renderer_spec
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--page-argument-pack", required=True)
-    parser.add_argument("--issue-analysis", help="Optional lineage cross-check artifact; not used as the compiler source of truth.")
-    parser.add_argument("--deck-blueprint", required=True)
-    parser.add_argument("--template-registry", required=True)
-    parser.add_argument("--page-contract-output", required=True)
-    parser.add_argument("--renderer-spec-output", required=True)
-    args = parser.parse_args()
-
-    input_paths = [Path(args.page_argument_pack), Path(args.deck_blueprint), Path(args.template_registry)]
-    run_dir = _maybe_run_dir_from_inputs(input_paths)
-    if run_dir is not None:
-        try:
-            _assert_upstream_package_valid(run_dir)
-        except ValueError as exc:
-            print(
-                json.dumps(
-                    {
-                        "is_valid": False,
-                        "error": str(exc),
-                        "run_dir": str(run_dir),
-                        "repair_hint": "Run scripts/state_report.py status/next, fix the failed upstream gate, then rerun compile_deck_blueprint.py. Do not compile derived renderer artifacts from a failed formal run.",
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                )
-            )
-            return 1
-
-    page_contract, renderer_spec = compile_deck_blueprint(
-        load_json_file(input_paths[0]),
-        load_json_file(input_paths[1]),
-        load_json_file(input_paths[2]),
-    )
-    page_contract_path = Path(args.page_contract_output)
-    renderer_spec_path = Path(args.renderer_spec_output)
-    page_contract_path.parent.mkdir(parents=True, exist_ok=True)
-    renderer_spec_path.parent.mkdir(parents=True, exist_ok=True)
-    page_contract_path.write_text(json.dumps(page_contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    renderer_spec_path.write_text(json.dumps(renderer_spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(
-        json.dumps(
-            {
-                "is_valid": True,
-                "page_contract_output": str(page_contract_path),
-                "renderer_spec_output": str(renderer_spec_path),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

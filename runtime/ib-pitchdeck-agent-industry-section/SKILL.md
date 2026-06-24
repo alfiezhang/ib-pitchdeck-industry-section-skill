@@ -11,7 +11,7 @@ This skill helps create the **industry section of a pre-mandate client pitchbook
 
 The default engagement setting is **pre-mandate client pitch**. The output should show the potential client that the bank understands the industry, the target's position, the likely buyer lens, and the transaction story. Do not write it like a CIM, diligence report, investor memo, or signed-engagement workplan unless the user explicitly changes the deliverable.
 
-Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and format validation. They do not replace your judgment. Dashboards such as `state_report.py` and `qc/gate_report.py` are instruments, not autopilots.
+Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. `scripts/status.py` and `scripts/qc/validate_artifact.py` are instruments, not autopilots.
 
 When a task is narrow enough to delegate or isolate, use a role job packet: the parent agent prepares the packet, the worker handles only that packet, and the parent integrates the result. Do not hand off the whole workflow.
 
@@ -53,17 +53,20 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - If a page supports EV/MET but full-page archive fails, Research must perform secondary verification, record `verification_method`, and explicitly declare the Research Archive Status before Knowledge promotes the excerpt; QC only checks that the verification and status decision are clear and credible.
    - Separate coverage accounting from the evidence binder: unexecuted searches and research gaps belong in coverage/gap audit, not in the usable evidence body.
 
-6. Form banker judgment.
-   - Convert evidence into supported judgments, hypotheses, research requests, buyer concerns, deliverable-depth decisions, and page arguments.
-   - Do not let a hypothesis become a conclusion. Resolve each hypothesis as supported, directional, caveat-only, unresolved, or research-needed.
-   - If evidence is too thin for a client-ready section, say so and route repair to Research, Knowledge, or Reasoning. Do not render a shortcut deck from incomplete artifacts.
+6. Author one banker page pack.
+   - After Knowledge validates `artifacts/research_evidence_db.json`, write `banker_page_pack.json` as the single LLM-authored page artifact.
+   - This pack is the only default LLM-authored page-judgment artifact.
+   - Each page must show a client question, banker judgment, page argument, substantive headline/main message, exhibit, at least four body blocks, traceable EV/MET bindings, source note, and transaction readthrough.
+   - Pages should look banker-dense, not empty: use specific mechanisms, implications, buyer lenses, and proof points. At least five pages should use metrics or visible quantitative claims, and at least four pages should carry chart/table-grade data or a deliberately structured evidence exhibit.
+   - Important numbers require `key_data_audit` rows with indicator, value, unit, period, geography, source type/name, original locator, short excerpt, and deck usage. Normal prose needs standard EV/source linkage but does not need audit-grade treatment.
+   - When public sources conflict, choose a working number for the page, disclose why it was selected, and record the conflicting values in `conflict_data_notes`. Do not postpone all judgment merely because sources differ.
+   - The mission is pre-mandate: show industry understanding, transaction understanding, and professional judgment without pretending confidential diligence or a signed mandate.
+   - If evidence is thin, make the page structured and caveated; do not render empty pages or invent numbers.
 
-7. Generate page arguments and slide drafts.
-   - Start from page/section arguments, not from raw research notes.
-   - Each page should have a clear investor/client question, a supported point of view, the evidence it relies on, and any caveat.
-   - Each formal slide must be exhibit-led: define a chart, table, matrix, flow, card grid, value-chain map, or evidence-gap exhibit before compiling.
-   - Do not use single-point charts as formal exhibits. If evidence is limited, use structured KPI cards, caveat grids, or diligence questions rather than leaving a sparse page.
-   - Use the template to fit the content, not to weaken the story. If a layout makes the page thin or misleading, revise the page argument or choose a better layout.
+7. Compile the page pack.
+   - Run `scripts/generation/compile_banker_page_pack.py` to create derived `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`.
+   - Treat those files as deterministic renderer artifacts. Do not hand-edit them to change judgment or fill missing content.
+   - If a derived validation fails because content is sparse, unsupported, or data-light, repair `banker_page_pack.json` or the evidence DB, then recompile.
 
 8. Use the right template.
    - If the user provides a PPT/POTX template, use it.
@@ -76,9 +79,9 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - When warnings appear, route the repair to the owner of the problem. Do not patch derived artifacts just to quiet a report.
 
 10. Render and report.
-   - Formal delivery should go through the evidence, reasoning, generation, template, QC, and output path.
+   - Formal delivery should go through the evidence, banker page pack, template, QC, and output path.
    - Do not create ad-hoc render scripts in the user's run directory.
-   - Do not create fake formal artifacts just to make a deck visible. If formal research, evidence DB, issue analysis, deck blueprint, renderer spec, or replacement dict are not ready, leave them absent or clearly incomplete and report the current blocker.
+   - Do not create fake formal artifacts just to make a deck visible. If formal research, evidence DB, banker page pack, renderer spec, or replacement dict are not ready, leave them absent or clearly incomplete and report the current blocker.
    - There is no alternate renderer. A visible PPT should come only from the formal render path after required upstream artifacts are ready.
 
 ## Two Loops To Use
@@ -94,28 +97,28 @@ Use this when the researched market might be wrong, too broad, too narrow, or mi
 **Public evidence loop**
 
 ```text
-Reasoning -> Research Request Queue -> Research -> Knowledge -> Reasoning
+Banker Page Pack -> Research Request Queue -> Research -> Knowledge -> Banker Page Pack
 ```
 
-Use this when a page argument, hypothesis, or buyer concern needs more public evidence before it can be used.
+Use this when a page argument, caveat, buyer concern, or exhibit needs more public evidence before it can be used.
 
 ## Practical Dashboard Commands
 
 Run bundled scripts from the skill root, or resolve them relative to this `SKILL.md`.
 
-Use the state dashboard when you need a snapshot of what exists and what looks stale:
+Use the status dashboard when you need a snapshot of what exists and what looks mechanically invalid:
 
 ```bash
-python3 scripts/state_report.py next --run-dir "<run_dir>"
+python3 scripts/status.py next --run-dir "<run_dir>"
 ```
 
-Use the QC dashboard when multiple issues need triage:
+Use the same entrypoint for gate-style or repair-routing views:
 
 ```bash
-python3 scripts/qc/gate_report.py --run-dir "<run_dir>" --output "<run_dir>/artifacts/gate_report.json" --markdown-output "<run_dir>/artifacts/gate_report.md"
+python3 scripts/status.py gate --run-dir "<run_dir>" --output "<run_dir>/artifacts/status_report.json" --markdown-output "<run_dir>/artifacts/status_report.md"
 ```
 
-These reports should help you decide the next repair. They are not a substitute for banker judgment.
+Use `scripts/qc/validate_artifact.py --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, pitch relevance, and banker judgment.
 
 ## Reference Map
 
@@ -125,8 +128,8 @@ Read only the reference that matches the current work.
 - `references/knowledge-repository.md`: maintain facts, metrics, sources, conflicts, unknowns, and evidence DB.
 - `references/industry-scoping.md`: define and validate broad/core/adjacent/excluded industry scope.
 - `references/research-external-evidence.md`: plan searches, archive sources, extract public evidence, and account for coverage.
-- `references/reasoning.md`: form supported judgments, hypotheses, research requests, deliverable depth, and page arguments.
-- `references/generation.md`: turn page arguments into slide drafts, deck blueprint, and chart/table intent.
+- `references/reasoning.md`: sharpen banker judgments inside `banker_page_pack.json` and route bounded research requests.
+- `references/generation.md`: author the banker page pack and compile it into renderer artifacts.
 - `references/template.md`: analyze and fit PPT templates without changing the page judgment.
 - `references/qc.md`: run deterministic checks, perform LLM quality review, and route repairs.
 - `references/output.md`: create replacement dictionaries, render PPT, postprocess, and finalize.
@@ -141,13 +144,13 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 
 - The industry boundary is explicit and not confused with parent markets, channels, applications, or adjacent sectors.
 - User-provided facts, public evidence, assumptions, and hypotheses are clearly separated.
-- Evidence used in page arguments is traceable to archived/opened sources, not search snippets.
-- The deck contains real banker page arguments, not a thin list of caveats.
+- Evidence used in banker page pack claims is traceable to archived/opened sources, not search snippets.
+- The deck contains real banker judgments and transaction readthrough, not a thin list of caveats.
 - The deck has visible exhibits with adequate data/table/card density; chart-led pages are not single datapoint placeholders.
 - Buyer perspective and transaction relevance are visible where appropriate.
 - A user-provided PPT template is honored; otherwise the bundled template is used.
 - Final output status is honest: client-ready or blocked/not client-ready.
-- If output is not final client-ready, the handoff includes the current `state_report.py next` stage and the owner role that must repair the run.
+- If output is not final client-ready, the handoff includes the current `status.py next` stage and the owner role that must repair the run.
 
 ## Failure Modes To Avoid
 
@@ -156,8 +159,8 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - Creating fake S/SRC/EV/MET IDs to satisfy a format check.
 - Moving unexecuted or not-material research coverage into the evidence binder.
 - Turning hypotheses into headlines.
-- Rendering a PPT directly from raw research without page arguments.
+- Rendering a PPT directly from raw research without a banker page pack.
 - Rendering sparse token-only pages when a slide needs a visual exhibit.
 - Writing draft-only or off-schema formal artifacts to bypass the formal workflow.
-- Hand-editing `template_profile.json`, `renderer_spec.json`, `replacement_dict.json`, or final flags to hide upstream issues.
+- Hand-editing derived `deck_blueprint.json`, `template_profile.json`, `renderer_spec.json`, `replacement_dict.json`, or final flags to hide upstream issues.
 - Claiming a formal delivery when the run is only a draft or when QC has identified unresolved client-readiness problems.

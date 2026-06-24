@@ -4,7 +4,7 @@ This reference keeps the skill aligned with the role-based workflow. It is not a
 
 ## Core Rule
 
-The main agent is the engagement lead. `state_report.py`, `qc/gate_report.py`, validators, and pipeline commands are tools. They do not decide the banker story, evidence readiness, or page quality.
+The main agent is the engagement lead. `status.py`, `validate_artifact.py`, and pipeline commands are tools. They do not decide the banker story, evidence readiness, or page quality.
 
 ## Role-First Execution
 
@@ -36,7 +36,7 @@ Do not bulk-read every schema, test, or script as a workflow menu.
 
 QC has two tracks:
 
-- Python format QC: deterministic validators under `scripts/qc/validators/<layer>/`.
+- Python format QC: the unified deterministic validator at `scripts/qc/validate_artifact.py`.
 - LLM quality QC: source quality, evidence sufficiency, boundary relevance, reasoning quality, page density, template fit tradeoff, final client-readiness.
 
 A validator failure tells QC where a deterministic red-line exists. QC still decides the repair owner and whether the issue is format-only or substantive.
@@ -49,7 +49,7 @@ Warnings are not silent permission to proceed. Every material warning needs one 
 - `accepted_with_limits` with downstream-use limits;
 - `repair_before_downstream` with owner and repair action.
 
-Use `qc/gate_report.py` or `qc_router.py` when failures are numerous or root cause is unclear.
+Use `scripts/status.py gate` when failures are numerous or root cause is unclear.
 
 ## Repair Discipline
 

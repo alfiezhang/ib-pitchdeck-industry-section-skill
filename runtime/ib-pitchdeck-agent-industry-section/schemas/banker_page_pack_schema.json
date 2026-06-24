@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Banker Page Pack",
+  "description": "LLM-authored pre-mandate industry section artifact. It combines banker judgment, page argument, exhibit design, copy density, metric usage, and traceable evidence bindings in one handoff to deterministic rendering.",
+  "type": "object",
+  "required": ["schema_version", "section_meta", "deck_storyline", "deliverable_readiness", "slides"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "banker_page_pack" },
+    "section_meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "deck_storyline": {
+      "type": "string",
+      "description": "One banker storyline for the 8-page industry section. It should explain how industry understanding supports the pre-mandate transaction conversation."
+    },
+    "evidence_policy": {
+      "type": "object",
+      "description": "Short note on data traceability expectations for key metrics and normal prose claims.",
+      "additionalProperties": true
+    },
+    "deliverable_readiness": {
+      "type": "object",
+      "description": "LLM decision on whether the evidence supports a client-facing pre-mandate industry section.",
+      "required": ["decision_status", "decision_owner", "enough_for_client_pitch", "decision_note"],
+      "properties": {
+        "decision_status": {
+          "type": "string",
+          "enum": ["llm_decided", "qc_confirmed"]
+        },
+        "decision_owner": {
+          "type": "string",
+          "enum": ["generation", "reasoning", "qc"]
+        },
+        "enough_for_client_pitch": { "type": "boolean" },
+        "evidence_limited_pitch_outline": { "type": "boolean" },
+        "research_first_required": { "type": "boolean" },
+        "decision_note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "key_data_audit": {
+      "type": "array",
+      "description": "Audit table for important numbers used in headlines, exhibits, visible metric claims, and key body claims.",
+      "items": {
+        "type": "object",
+        "required": ["metric_id", "indicator", "value", "unit", "period", "geography", "source", "original_location", "original_excerpt", "usage_in_deck"],
+        "properties": {
+          "metric_id": { "type": "string", "pattern": "^MET-\\d{3}$" },
+          "indicator": { "type": "string" },
+          "value": { "type": "string" },
+          "unit": { "type": "string" },
+          "period": { "type": "string" },
+          "geography": { "type": "string" },
+          "source": { "type": "string" },
+          "original_location": { "type": "string" },
+          "original_excerpt": { "type": "string" },
+          "usage_in_deck": { "type": "string" },
+          "remarks": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "conflict_data_notes": {
+      "type": "array",
+      "description": "When sources conflict, choose a working number for the PPT and note the conflict, source range, and reason for the chosen basis.",
+      "items": {
+        "type": "object",
+        "required": ["metric_id", "chosen_value", "chosen_basis", "conflicting_values", "how_conflict_is_disclosed"],
+        "properties": {
+          "metric_id": { "type": "string", "pattern": "^MET-\\d{3}$" },
+          "chosen_value": { "type": "string" },
+          "chosen_basis": { "type": "string" },
+          "conflicting_values": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "how_conflict_is_disclosed": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "slides": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "slide_no",
+          "fixed_page_role",
+          "client_question",
+          "banker_judgment",
+          "page_argument",
+          "selected_page_type",
+          "claim_strength",
+          "headline",
+          "main_message",
+          "exhibit",
+          "body_blocks",
+          "evidence_ids",
+          "metric_ids",
+          "transaction_readthrough",
+          "source_note"
+        ],
+        "properties": {
+          "slide_no": { "type": "integer", "minimum": 1, "maximum": 8 },
+          "fixed_page_role": { "type": "string" },
+          "client_question": { "type": "string" },
+          "banker_judgment": {
+            "type": "string",
+            "description": "Banker judgment for this page. This is not a research memo; it should state what matters for the pitch."
+          },
+          "page_argument": { "type": "string" },
+          "selected_page_type": { "type": "string" },
+          "claim_strength": {
+            "type": "string",
+            "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "open_question"]
+          },
+          "headline": { "type": "string" },
+          "main_message": { "type": "string" },
+          "exhibit": {
+            "type": "object",
+            "required": [
+              "exhibit_type",
+              "why_this_exhibit",
+              "data_or_evidence_inputs",
+              "visual_structure",
+              "density_target",
+              "fallback_if_data_limited"
+            ],
+            "properties": {
+              "exhibit_type": {
+                "type": "string",
+                "enum": [
+                  "chart",
+                  "table",
+                  "matrix",
+                  "flow",
+                  "bridge",
+                  "value_chain",
+                  "kpi_cards",
+                  "driver_cards",
+                  "trend_cards",
+                  "diligence_grid",
+                  "peer_comparison",
+                  "channel_flow",
+                  "unit_economics_bridge",
+                  "sku_traction_table",
+                  "evidence_gap_matrix"
+                ]
+              },
+              "why_this_exhibit": { "type": "string" },
+              "data_or_evidence_inputs": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" }
+              },
+              "visual_structure": { "type": "string" },
+              "density_target": { "type": "string" },
+              "fallback_if_data_limited": { "type": "string" }
+            },
+            "additionalProperties": true
+          },
+          "body_blocks": {
+            "type": "array",
+            "minItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["role", "copy", "evidence_ids", "metric_ids"],
+              "properties": {
+                "role": { "type": "string" },
+                "target_field": { "type": "string" },
+                "copy": { "type": "string" },
+                "evidence_ids": {
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^EV-\\d{3}$" }
+                },
+                "metric_ids": {
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^MET-\\d{3}$" }
+                },
+                "claim_strength": {
+                  "type": "string",
+                  "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "open_question"]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^EV-\\d{3}$" }
+          },
+          "metric_ids": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^MET-\\d{3}$" }
+          },
+          "visible_metric_claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["location", "display_text", "metric_ids", "usage_type"],
+              "properties": {
+                "location": { "type": "string" },
+                "display_text": { "type": "string" },
+                "metric_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "pattern": "^MET-\\d{3}$" }
+                },
+                "usage_type": {
+                  "type": "string",
+                  "enum": ["direct_display", "calculated_display", "ranking", "peer_comparison", "context_only"]
+                },
+                "calculation_note": { "type": "string" },
+                "basis_note": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "key_data_metric_ids": {
+            "type": "array",
+            "description": "MET IDs on this page that require audit-grade traceability because they are important to the page argument, exhibit, or visible claim.",
+            "items": { "type": "string", "pattern": "^MET-\\d{3}$" }
+          },
+          "chart_data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "compare_table_data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "transaction_readthrough": {
+            "type": "string",
+            "description": "How this industry page supports a pre-mandate client conversation without pretending a transaction conclusion is final."
+          },
+          "caveats": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "open_questions": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "source_note": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

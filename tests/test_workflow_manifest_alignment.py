@@ -30,11 +30,8 @@ def test_artifact_manifest_covers_main_mental_path() -> None:
         "source_archive",
         "formal_research_execution_report",
         "research_pack",
-        "hypothesis_store",
+        "banker_page_pack",
         "research_request_queue",
-        "incremental_search_plan",
-        "page_argument_pack",
-        "issue_analysis",
         "deck_blueprint",
         "template_profile",
         "template_fit_validation",
@@ -91,12 +88,18 @@ def test_industry_scope_pack_is_v2_boundary_card() -> None:
     assert "handoff_to_research" in template
 
 
-def test_state_report_commands_generate_incremental_and_template_fit_plan() -> None:
-    workflow_text = (RUNTIME / "scripts" / "state_report.py").read_text(encoding="utf-8")
+def test_status_and_manifest_use_unified_validator() -> None:
+    workflow_text = (RUNTIME / "scripts" / "status.py").read_text(encoding="utf-8")
+    manifest = _manifest()
 
-    assert "ib_research_graph.py prepare --run-dir {{run_dir}}" in workflow_text
-    assert "--incremental-search-plan {{run_dir}}/artifacts/incremental_search_plan.json" in workflow_text
-    assert "--fit-plan-output {{run_dir}}/artifacts/template_fit_plan.json" in workflow_text
+    assert "scripts/qc/validate_artifact.py" in workflow_text
+    validators = [
+        artifact.get("validator", "")
+        for artifact in manifest["artifacts"].values()
+        if artifact.get("validator")
+    ]
+    assert validators
+    assert all("scripts/qc/validate_artifact.py" in validator for validator in validators)
 
 
 def test_development_package_scripts_are_outside_runtime() -> None:

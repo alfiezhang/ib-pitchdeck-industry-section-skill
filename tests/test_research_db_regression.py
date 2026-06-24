@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 import tempfile
-import time
 from pathlib import Path
 
 
@@ -15,9 +13,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from pipeline import _write_run_flags  # noqa: E402
 from research_evidence_db import build_db, export_markdown, validate_db  # noqa: E402
-from validate_final_delivery import validate_artifact_provenance  # noqa: E402
-from validate_research_pack import validate as validate_research_pack  # noqa: E402
-from state_report import recommended_commands  # noqa: E402
+from validate_artifact import validate_artifact  # noqa: E402
 
 
 def minimal_research_db() -> dict:
@@ -189,9 +185,9 @@ def test_research_db_export_validates_without_chart_ready_warning(tmp_path: Path
     assert "Chart Ready" in pack
     (run_dir / "industry_research_pack.md").write_text(pack, encoding="utf-8")
 
-    result = validate_research_pack(run_dir / "industry_research_pack.md")
-    assert result["is_valid"] is True
-    assert not any("chart_ready flags" in warning for warning in result["warnings"])
+    errors, warnings = validate_artifact("research_pack", run_dir)
+    assert not errors, errors
+    assert not any("chart_ready flags" in warning for warning in warnings)
 
 
 def test_research_db_rejects_extract_promoted_evidence_source_mismatch() -> None:
@@ -326,42 +322,14 @@ def test_build_db_keeps_multi_source_evidence_source_specific() -> None:
     assert evidence_sources == {"EV-001": "SRC-A", "EV-002": "SRC-B"}
 
 
-def test_final_delivery_provenance_detects_stale_research_db_validation(tmp_path: Path) -> None:
-    tmp_path.mkdir(parents=True, exist_ok=True)
-    artifacts = tmp_path / "artifacts"
-    artifacts.mkdir()
-    db_validation = artifacts / "research_evidence_db_validation.json"
-    db_validation.write_text(json.dumps({"is_valid": True}), encoding="utf-8")
-    db_path = artifacts / "research_evidence_db.json"
-    db_path.write_text(json.dumps(minimal_research_db(), ensure_ascii=False), encoding="utf-8")
-    now = time.time()
-    os.utime(db_validation, (now - 20, now - 20))
-    os.utime(db_path, (now, now))
-
-    errors, warnings, stale = validate_artifact_provenance(tmp_path)
-    # Staleness is detected and tracked (auto-rerun will fail since no command is defined)
-    assert "artifacts/research_evidence_db_validation.json" in stale
-
-
 def test_pipeline_run_flags_written_for_formal_package(tmp_path: Path) -> None:
     tmp_path.mkdir(parents=True, exist_ok=True)
     _write_run_flags(tmp_path, entrypoint="pytest")
     flags = json.loads((tmp_path / "artifacts" / "run_flags.json").read_text(encoding="utf-8"))
     assert flags["schema_version"] == "run_flags_v1"
     assert flags["research_gate"] == 1
-    assert flags["issue_analysis_layer"] == 1
+    assert flags["banker_page_pack_layer"] == 1
     assert flags["debug_output_only"] is False
-
-
-def test_workflow_next_keeps_research_pack_derived() -> None:
-    commands = recommended_commands({"run_dir": "/tmp/run", "current_stage": "RESEARCH_PACK_MISSING_OR_FAILED"})
-    command_text = "\n".join(item["command"] for item in commands)
-    assert "export_research_pack_from_db.py" in command_text
-    assert "validate_research_pack.py" in command_text
-    assert "--source-registry" in command_text
-    assert "/configs/source_registry.json" in command_text
-    assert "configs/source_registry.json --source-registry" not in command_text
-    assert "build_research_evidence_pack_skeleton.py" not in command_text
 
 
 def test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence() -> None:

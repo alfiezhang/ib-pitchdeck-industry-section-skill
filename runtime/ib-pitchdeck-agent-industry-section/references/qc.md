@@ -28,10 +28,10 @@ QC has two tracks:
 - template/token/render mechanics;
 - final package integrity.
 
-All deterministic validators live under:
+All deterministic artifact checks use one entrypoint:
 
 ```text
-scripts/qc/validators/<layer>/validate_*.py
+scripts/qc/validate_artifact.py --artifact <artifact> --run-dir <run_dir>
 ```
 
 **Quality QC by LLM**
@@ -46,21 +46,20 @@ scripts/qc/validators/<layer>/validate_*.py
 
 ## Outputs
 
-- `artifacts/gate_report.json` / `.md` when broad triage is needed;
-- `artifacts/qc_router_report.json`;
-- `artifacts/qc_repair_brief.json` / `.md`;
-- `artifacts/qc_warning_disposition.json`;
+- `artifacts/status_report.json` / `.md` when broad triage is needed;
+- one artifact validation report per mechanical check;
+- LLM QC notes or repair brief when a substantive quality issue exists;
 - final delivery decision and repair owner.
 
 ## How To Work
 
-1. Read the current state/gate report.
+1. Read the current status report.
 2. Group symptoms into root causes.
 3. Identify the smallest upstream repair.
 4. Assign a repair owner: Material, Knowledge, Scoping, Research, Reasoning, Generation, Template, or Output.
 5. For source issues, review `source_archive` / archive-capture records plus embedded `research_evidence_db.source_reviews`; final source usability decisions live in the DB, not the capture export.
 6. State whether warnings are advisory, accepted with limits, or repair-before-downstream.
-7. For exhibit-density failures, route first to Generation's `deck_blueprint.slides[].exhibit`, `chart_data`, `compare_table_data`, and `body_blocks`; do not patch compiled renderer/PPT files.
+7. For exhibit-density failures, route first to `banker_page_pack.slides[].exhibit`, `chart_data`, `compare_table_data`, and `body_blocks`; do not patch derived deck_blueprint, renderer, or PPT files.
 8. Run deterministic validators only after the owning role has made the substantive repair.
 9. Record repeated failure patterns so future runs do not repeat them.
 
@@ -91,32 +90,19 @@ A useful QC repair brief tells the next role:
 - who owns the repair;
 - what to do next;
 - what not to patch;
-- which validator or dashboard to rerun;
+- which artifact check or dashboard to rerun;
 - whether downstream output is blocked.
 
-## Validator Layout
+## Validator Boundary
 
-```text
-scripts/qc/validators/material/
-scripts/qc/validators/scoping/
-scripts/qc/validators/research/
-scripts/qc/validators/knowledge/
-scripts/qc/validators/reasoning/
-scripts/qc/validators/generation/
-scripts/qc/validators/template/
-scripts/qc/validators/output/
-scripts/qc/validators/final/
-scripts/qc/validators/system/
-```
-
-The validator location does not decide repair ownership. QC interprets the result and routes the repair to the role that owns the underlying artifact.
+`validate_artifact.py` checks only mechanical conditions: file presence, JSON parseability, IDs, cross-references, required renderer inputs, and PPT package integrity. It must not decide whether a page is persuasive, dense enough, or client-ready. QC interprets the result and routes the repair to the role that owns the underlying artifact.
 
 ## Public QC Tools
 
 ```bash
-"$PYTHON_CMD" scripts/state_report.py next --run-dir "$RUN_DIR"
-"$PYTHON_CMD" scripts/qc/gate_report.py --run-dir "$RUN_DIR" --output "$RUN_DIR/artifacts/gate_report.json" --markdown-output "$RUN_DIR/artifacts/gate_report.md"
-"$PYTHON_CMD" scripts/qc/qc_router.py --run-dir "$RUN_DIR" --output "$RUN_DIR/artifacts/qc_router_report.json"
+"$PYTHON_CMD" scripts/status.py next --run-dir "$RUN_DIR"
+"$PYTHON_CMD" scripts/status.py gate --run-dir "$RUN_DIR" --output "$RUN_DIR/artifacts/status_report.json" --markdown-output "$RUN_DIR/artifacts/status_report.md"
+"$PYTHON_CMD" scripts/qc/validate_artifact.py --artifact banker_page_pack --run-dir "$RUN_DIR"
 ```
 
-Use `qc/gate_report.py` for multi-issue triage. Use `qc_router.py` to normalize validation output into repair targets. Use validators for deterministic checks, not as substitutes for LLM quality review.
+Use `status.py` for multi-artifact triage. Use `validate_artifact.py` for deterministic checks, not as a substitute for LLM quality review.

@@ -1,12 +1,10 @@
 # reasoning production scripts
 
-Reasoning artifact builders and promotion tools. Reasoning validators are owned by QC.
+Reasoning helper tools. Banker judgment and final page content live in
+`banker_page_pack.json`; this folder only contains bounded research-request
+queue helpers.
 
 Use these only when the reasoning role or a QC repair brief names the exact tool. Do not browse this folder as a workflow menu.
 
 Scripts:
-- `build_hypothesis_store_skeleton.py`
-- `build_issue_analysis_skeleton.py`
-- `build_page_argument_pack_skeleton.py`
 - `build_research_request_queue.py`
-- `promote_research_requests.py`

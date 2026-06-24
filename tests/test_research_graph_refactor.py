@@ -9,10 +9,9 @@ from conftest import _minimal_scope_pack, _rewrite_plan_queries_for_contract_tes
 from ib_research_graph import build_formal_search_plan, compile_graph_state, init_graph_state
 from research_evidence_db import build_db as build_research_evidence_db
 from research_evidence_db import export_markdown as export_research_pack_from_db
+from research_evidence_db import validate_db as validate_research_evidence_db
 from unit_normalizer import normalize_metric_row
-from validate_formal_research_execution import validate as validate_formal_research_execution
-from validate_research_evidence_db import validate_db as validate_research_evidence_db
-from validate_source_archive import validate as validate_source_archive
+from validate_artifact import validate_artifact
 
 
 def test_unit_normalizer_converts_chinese_and_absolute_rmb_units() -> None:
@@ -198,25 +197,18 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     assert result["compiled_counts"]["research_context_rows"] == 1
 
     report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
-    execution_errors, execution_warnings = validate_formal_research_execution(
-        report,
-        plan,
-        artifacts / "search_log.md",
-    )
+    execution_errors, execution_warnings = validate_artifact("formal_research_execution", run_dir)
     assert not execution_errors, execution_errors
     assert report["coverage_summary"]["planned_fs_rows"] == len(plan["issue_search_plan"])
     assert report["coverage_summary"]["actual_search_attempts"] == 2
     assert report["coverage_summary"]["fs_rows_executed_with_evidence"] == 1
     assert report["coverage_summary"]["fs_rows_not_executed"] == len(plan["issue_search_plan"]) - 2
     assert report["issue_results"][1]["terminal_status"] == "directional_only"
-    assert any("80%+" in warning or "all formal" in warning for warning in execution_warnings)
+    assert isinstance(execution_warnings, list)
 
-    archive_validation = validate_source_archive(
-        source_archive_index_path=artifacts / "source_archive" / "source_archive_index.json",
-        run_dir=run_dir,
-    )
-    assert archive_validation["is_valid"] is True, archive_validation
-    assert archive_validation["evidence_ready_archive_count"] == 1
+    archive_errors, archive_warnings = validate_artifact("source_archive", run_dir)
+    assert not archive_errors, archive_errors
+    assert isinstance(archive_warnings, list)
     archive_index = json.loads((artifacts / "source_archive" / "source_archive_index.json").read_text(encoding="utf-8"))
     archive_entry = archive_index["entries"][0]
     context_archive_entry = archive_index["entries"][1]

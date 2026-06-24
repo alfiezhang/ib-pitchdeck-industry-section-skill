@@ -499,7 +499,7 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
             "path": "chart_data.series",
             "expected": "list[object] where each object has name and values",
             "actual": type(series).__name__,
-            "repair_hint": "Use compile_deck_blueprint.py to normalize natural data_series into renderer chart series.",
+            "repair_hint": "Use compile_banker_page_pack.py to normalize natural data_series into renderer chart series.",
         }
     non_object_series = [idx for idx, item in enumerate(series, start=1) if not isinstance(item, dict)]
     if non_object_series:
@@ -1051,7 +1051,7 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
             "path": "chart_data.source_rows",
             "expected": "list[object]",
             "actual": type(rows).__name__,
-            "repair_hint": "Use compile_deck_blueprint.py to normalize chart data before postprocess.",
+            "repair_hint": "Use compile_banker_page_pack.py to normalize chart data before postprocess.",
         }
     if len(rows) < 2:
         return {

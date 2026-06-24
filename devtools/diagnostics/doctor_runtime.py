@@ -65,15 +65,16 @@ def runtime_diagnostic_payload() -> dict[str, object]:
             "bootstrap_runtime": script_exists("scripts/bootstrap_runtime.py"),
             "python_pipeline": script_exists("scripts/pipeline.py"),
             "legacy_run_pipeline": script_exists("run_pipeline.sh"),
-            "validate_stage_gate": script_exists("scripts/qc/validators/final/validate_stage_gate.py"),
-            "validate_final_delivery": script_exists("scripts/qc/validators/final/validate_final_delivery.py"),
+            "status_dashboard": script_exists("scripts/status.py"),
+            "validate_artifact": script_exists("scripts/qc/validate_artifact.py"),
         },
         "nonexistent_entrypoints_do_not_use": [
             "scripts/stage_gate_ppt.py",
         ],
         "recommended_commands": [
             "python3 scripts/bootstrap_runtime.py --print-python",
-            "\"$PYTHON_CMD\" scripts/state_report.py next --run-dir <run>",
+            "\"$PYTHON_CMD\" scripts/status.py next --run-dir <run>",
+            "\"$PYTHON_CMD\" scripts/qc/validate_artifact.py --artifact pre_ppt --run-dir <run>",
             "\"$PYTHON_CMD\" scripts/pipeline.py render --run-dir <run>",
         ],
         "rules": [
