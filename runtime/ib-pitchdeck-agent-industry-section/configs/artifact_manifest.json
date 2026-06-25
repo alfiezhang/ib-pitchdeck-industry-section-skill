@@ -151,7 +151,7 @@
       "path": "artifacts/material_manifest.json",
       "owner": "script_skeleton_llm_material_intake",
       "builder": "scripts/material-intake/ingest_materials.py",
-      "validator": "scripts/qc/validate_artifact.py --artifact material_manifest",
+      "validator": "scripts/pipeline.py validate --artifact material_manifest",
       "validation": "artifacts/material_manifest_validation.json",
       "inputs": []
     },
@@ -159,7 +159,7 @@
       "path": "artifacts/material_extracts.json",
       "owner": "script_content_capture_llm_fact_extraction_workspace",
       "builder": "scripts/material-intake/ingest_materials.py",
-      "validator": "scripts/qc/validate_artifact.py --artifact material_extracts",
+      "validator": "scripts/pipeline.py validate --artifact material_extracts",
       "validation": "artifacts/material_extracts_validation.json",
       "inputs": [
         "material_manifest"
@@ -176,7 +176,7 @@
     "input_card": {
       "path": "input_card.json",
       "owner": "llm_transcription",
-      "validator": "scripts/qc/validate_artifact.py --artifact input_card",
+      "validator": "scripts/pipeline.py validate --artifact input_card",
       "validation": "artifacts/input_card_validation.json",
       "inputs": []
     },
@@ -185,7 +185,7 @@
       "owner": "industry-scoping",
       "purpose": "brief boundary card",
       "schema_version": "industry_scope_pack_v2",
-      "validator": "scripts/qc/validate_artifact.py --artifact industry_scope_pack",
+      "validator": "scripts/pipeline.py validate --artifact industry_scope_pack",
       "validation": "artifacts/industry_scope_pack_validation.json",
       "inputs": [
         "input_card"
@@ -202,7 +202,7 @@
       "path": "artifacts/formal_search_plan.json",
       "owner": "state_first_research_graph",
       "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
-      "validator": "scripts/qc/validate_artifact.py --artifact formal_search_plan",
+      "validator": "scripts/pipeline.py validate --artifact formal_search_plan",
       "validation": "artifacts/formal_search_plan_validation.json",
       "inputs": [
         "input_card",
@@ -223,7 +223,7 @@
       "display_name": "executable_search_batch",
       "purpose": "Executable query workbench and the only editable query-authoring artifact.",
       "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
-      "validator": "scripts/qc/validate_artifact.py --artifact executable_search_batch",
+      "validator": "scripts/pipeline.py validate --artifact executable_search_batch",
       "validation": "artifacts/executable_search_batch_validation.json",
       "inputs": [
         "formal_search_plan"
@@ -250,7 +250,7 @@
       "path": "artifacts/formal_research_execution_report.json",
       "owner": "state_first_research_graph",
       "builder": "scripts/research-external-evidence/ib_research_graph.py compile",
-      "validator": "scripts/qc/validate_artifact.py --artifact formal_research_execution",
+      "validator": "scripts/pipeline.py validate --artifact formal_research_execution",
       "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": [
         "formal_search_plan",
@@ -269,7 +269,7 @@
     "source_archive": {
       "path": "artifacts/source_archive/source_archive_index.json",
       "owner": "research_archive_builder",
-      "validator": "scripts/qc/validate_artifact.py --artifact source_archive",
+      "validator": "scripts/pipeline.py validate --artifact source_archive",
       "validation": "artifacts/source_archive_validation.json",
       "inputs": [
         "search_log"
@@ -295,7 +295,7 @@
     "template_fit_validation": {
       "path": "artifacts/template_fit_validation.json",
       "owner": "script",
-      "builder": "scripts/template/template_fit.py",
+      "builder": "scripts/template/template_analyzer.py fit",
       "inputs": [
         "template_profile",
         "renderer_spec"
@@ -304,7 +304,7 @@
     "template_fit_plan": {
       "path": "artifacts/template_fit_plan.json",
       "owner": "script",
-      "builder": "scripts/template/template_fit.py",
+      "builder": "scripts/template/template_analyzer.py fit",
       "inputs": [
         "template_profile",
         "renderer_spec",
@@ -314,7 +314,7 @@
     "pre_research_pack_gate": {
       "path": "artifacts/stage_gate_pre_research_pack_validation.json",
       "owner": "script",
-      "validator": "scripts/qc/validate_artifact.py --artifact pre_research_pack",
+      "validator": "scripts/pipeline.py validate --artifact pre_research_pack",
       "validation": "artifacts/stage_gate_pre_research_pack_validation.json",
       "inputs": [
         "material_manifest",
@@ -332,7 +332,7 @@
       "path": "artifacts/research_request_queue.json",
       "owner": "reasoning_llm_research_request_author",
       "purpose": "LLM-authored bounded request queue for evidence that must be researched before a claim can be promoted.",
-      "validator": "scripts/qc/validate_artifact.py --artifact research_request_queue",
+      "validator": "scripts/pipeline.py validate --artifact research_request_queue",
       "validation": "artifacts/research_request_queue_validation.json",
       "inputs": [
         "banker_page_pack",
@@ -343,7 +343,7 @@
       "path": "industry_research_pack.md",
       "owner": "script_export_from_research_evidence_db",
       "builder": "scripts/knowledge-repository/research_evidence_db.py export",
-      "validator": "scripts/qc/validate_artifact.py --artifact research_pack",
+      "validator": "scripts/pipeline.py validate --artifact research_pack",
       "validation": "artifacts/research_pack_validation.json",
       "inputs": [
         "research_evidence_db"
@@ -353,7 +353,7 @@
       "path": "artifacts/research_evidence_db.json",
       "owner": "script_skeleton_llm_evidence_extraction",
       "builder": "scripts/knowledge-repository/research_evidence_db.py build",
-      "validator": "scripts/qc/validate_artifact.py --artifact research_evidence_db",
+      "validator": "scripts/pipeline.py validate --artifact research_evidence_db",
       "validation": "artifacts/research_evidence_db_validation.json",
       "inputs": [
         "industry_scope_pack",
@@ -370,7 +370,7 @@
       "purpose": "single LLM-authored pre-mandate page pack: banker judgment, exhibit design, dense copy, metrics, evidence bindings, and transaction readthrough",
       "schema_version": "banker_page_pack",
       "schema": "schemas/banker_page_pack_schema.json",
-      "validator": "scripts/qc/validate_artifact.py --artifact banker_page_pack",
+      "validator": "scripts/pipeline.py validate --artifact banker_page_pack",
       "validation": "artifacts/banker_page_pack_validation.json",
       "inputs": [
         "industry_scope_pack",
@@ -382,15 +382,15 @@
       "path": "template_registry.json",
       "owner": "script",
       "builder": "scripts/template/template_analyzer.py registry",
-      "validator": "scripts/qc/validate_artifact.py --artifact template_registry",
+      "validator": "scripts/pipeline.py validate --artifact template_registry",
       "validation": "artifacts/template_registry_validation.json",
       "inputs": []
     },
     "deck_blueprint": {
       "path": "deck_blueprint.json",
       "owner": "script_derived_from_banker_page_pack",
-      "builder": "scripts/generation/compile_banker_page_pack.py",
-      "validator": "scripts/qc/validate_artifact.py --artifact deck_blueprint",
+      "builder": "scripts/pipeline.py compile",
+      "validator": "scripts/pipeline.py validate --artifact deck_blueprint",
       "validation": "artifacts/deck_blueprint_validation.json",
       "inputs": [
         "banker_page_pack"
@@ -399,8 +399,8 @@
     "page_evidence_contract": {
       "path": "page_evidence_contract.json",
       "owner": "script",
-      "builder": "scripts/generation/compile_banker_page_pack.py",
-      "validator": "scripts/qc/validate_artifact.py --artifact page_evidence_contract",
+      "builder": "scripts/pipeline.py compile",
+      "validator": "scripts/pipeline.py validate --artifact page_evidence_contract",
       "validation": "artifacts/page_evidence_contract_validation.json",
       "inputs": [
         "banker_page_pack",
@@ -410,8 +410,8 @@
     "renderer_spec": {
       "path": "renderer_spec.json",
       "owner": "script",
-      "builder": "scripts/generation/compile_banker_page_pack.py",
-      "validator": "scripts/qc/validate_artifact.py --artifact renderer_spec",
+      "builder": "scripts/pipeline.py compile",
+      "validator": "scripts/pipeline.py validate --artifact renderer_spec",
       "validation": "artifacts/renderer_spec_validation.json",
       "inputs": [
         "template_registry",
@@ -435,7 +435,7 @@
     "pre_ppt_gate": {
       "path": "artifacts/stage_gate_pre_ppt_validation.json",
       "owner": "script",
-      "validator": "scripts/qc/validate_artifact.py --artifact pre_ppt",
+      "validator": "scripts/pipeline.py validate --artifact pre_ppt",
       "validation": "artifacts/stage_gate_pre_ppt_validation.json",
       "inputs": [
         "input_card",
@@ -457,8 +457,8 @@
     "replacement_dict": {
       "path": "replacement_dict.json",
       "owner": "script",
-      "builder": "scripts/output/generate_replacement_dict.py",
-      "validator": "scripts/qc/validate_artifact.py --artifact replacement_dict",
+      "builder": "scripts/pipeline.py render",
+      "validator": "scripts/pipeline.py validate --artifact replacement_dict",
       "validation": "artifacts/replacement_dict_validation.json",
       "inputs": [
         "renderer_spec",
@@ -469,7 +469,7 @@
       "path": "industry_section_filled_clean.pptx",
       "owner": "script",
       "builder": "scripts/pipeline.py render",
-      "validator": "scripts/qc/validate_artifact.py --artifact filled_ppt",
+      "validator": "scripts/pipeline.py validate --artifact filled_ppt",
       "validation": "filled_ppt_validation.json",
       "inputs": [
         "renderer_spec",
@@ -481,7 +481,7 @@
     "final_delivery": {
       "path": "artifacts/final_delivery_validation.json",
       "owner": "script",
-      "validator": "scripts/qc/validate_artifact.py --artifact final_delivery",
+      "validator": "scripts/pipeline.py validate --artifact final_delivery",
       "validation": "artifacts/final_delivery_validation.json",
       "inputs": [
         "input_card",

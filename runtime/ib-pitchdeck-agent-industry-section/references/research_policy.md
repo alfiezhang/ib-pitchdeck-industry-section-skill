@@ -115,7 +115,7 @@ Recommended sequence:
    market research.
 8. Validate the scope pack after boundary QC has passed:
    ```bash
-   "$PYTHON_CMD" scripts/qc/validate_artifact.py \
+   "$PYTHON_CMD" scripts/pipeline.py validate \
      --artifact industry_scope_pack \
      --run-dir "$RUN_DIR" \
      --output artifacts/industry_scope_pack_validation.json
@@ -139,7 +139,7 @@ Recommended sequence:
    before validation or search execution. Do not execute searches from the
    mechanical coverage-map wording.
 10. Validate `artifacts/formal_search_plan.json` with
-   `scripts/qc/validate_artifact.py --artifact formal_search_plan` before executing formal searches.
+   `scripts/pipeline.py validate --artifact formal_search_plan` before executing formal searches.
 
 Do not put confirmed market size, growth rate, share, ranking, valuation,
 competitive landscape, or page-ready claims in the scope pack. Any number found
@@ -253,12 +253,12 @@ result is not a saved source.
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
   --run-dir "$RUN_DIR"
 
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact source_archive \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact formal_research_execution \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
@@ -328,22 +328,22 @@ issue-analysis claims, or deck headlines as evidence.
 Validate formal execution and source archive before writing the research pack:
 
 ```bash
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact formal_search_plan \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/formal_search_plan_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact formal_research_execution \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/formal_research_execution_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact source_archive \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/source_archive_validation.json"
 
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact pre_research_pack \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/stage_gate_pre_research_pack_validation.json"
@@ -363,7 +363,7 @@ first:
   --research-graph-state "$RUN_DIR/artifacts/research_graph_state.json" \
   --output "$RUN_DIR/artifacts/research_evidence_db.json"
 
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact research_evidence_db \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
@@ -372,7 +372,7 @@ first:
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/industry_research_pack.md"
 
-"$PYTHON_CMD" scripts/qc/validate_artifact.py \
+"$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact research_pack \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/research_pack_validation.json"

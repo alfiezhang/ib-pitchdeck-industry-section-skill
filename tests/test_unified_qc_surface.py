@@ -30,6 +30,21 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / "scripts/start_case_from_brief.py").exists()
     assert not (SKILL_DIR / "scripts/knowledge-repository/build_research_evidence_db.py").exists()
     assert not (SKILL_DIR / "scripts/knowledge-repository/export_research_pack_from_db.py").exists()
+    assert not (SKILL_DIR / "scripts/generation/compile_banker_page_pack.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/compare_table_utils.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/issue_taxonomy.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/layout_config.py").exists()
+    assert not (SKILL_DIR / "scripts/template/template_fit.py").exists()
+
+
+def test_internal_output_scripts_are_not_agent_facing() -> None:
+    role_map = json.loads((SKILL_DIR / "configs/script_role_map.json").read_text(encoding="utf-8"))
+    exposed = set(role_map)
+    assert "pipeline.py" in exposed
+    assert "generate_replacement_dict.py" not in exposed
+    assert "fill_ppt_tokens.py" not in exposed
+    assert "clean_filled_ppt.py" not in exposed
+    assert "postprocess_ppt_visuals.py" not in exposed
 
 
 def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
@@ -73,7 +88,7 @@ def test_status_next_reports_missing_first_artifact(tmp_path: Path) -> None:
     assert payload["schema_version"] == "status_report_v1"
     assert payload["current_stage"] == "input_card"
     assert payload["current_state"] == "missing"
-    assert "scripts/qc/validate_artifact.py" in payload["recommended_next_commands"][-1]
+    assert "scripts/pipeline.py validate" in payload["recommended_next_commands"][-1]
 
 
 def test_validate_artifact_cli_writes_output(tmp_path: Path) -> None:
@@ -84,7 +99,8 @@ def test_validate_artifact_cli_writes_output(tmp_path: Path) -> None:
 
     result = _run([
         sys.executable,
-        "scripts/qc/validate_artifact.py",
+        "scripts/pipeline.py",
+        "validate",
         "--artifact",
         "input_card",
         "--run-dir",

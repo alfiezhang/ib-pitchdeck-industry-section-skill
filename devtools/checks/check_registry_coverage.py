@@ -33,7 +33,6 @@ from zipfile import ZipFile
 from typing import Any
 
 from json_utils import load_json_file
-from layout_config import layout_config_paths
 from slide_registry import load_slide_registry, slides_by_no
 
 
@@ -53,6 +52,24 @@ KNOWN_RENDERERS = {
     "transaction_summary",
 }
 RENDER_LAYOUT_REQUIRED = {"overview_dynamic", "chart", "chart_plus_table", "compare_table", "matrix"}
+
+
+def _layout_config_paths(path: Path | str) -> dict[str, Path]:
+    config_path = Path(path)
+    if not config_path.is_absolute():
+        candidate = Path.cwd() / config_path
+        config_path = candidate if candidate.exists() else ROOT_DIR / config_path
+    config = load_json_file(config_path)
+    if config.get("schema_version") != "layout_config_v1":
+        raise ValueError(f"{config_path} must use schema_version layout_config_v1")
+    files = config.get("files")
+    if not isinstance(files, dict):
+        raise ValueError(f"{config_path} must define object field 'files'")
+    resolved: dict[str, Path] = {}
+    for key, raw in files.items():
+        candidate = Path(str(raw))
+        resolved[key] = candidate if candidate.is_absolute() else ROOT_DIR / candidate
+    return resolved
 
 
 def _ppt_slide_names(template_path: Path) -> set[str]:
@@ -82,7 +99,6 @@ def _registry_pairs(registry: dict[str, Any]) -> set[tuple[int, str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check registry coverage across downstream contracts.")
-    layout_paths = layout_config_paths()
     parser.add_argument("--layout-config", default=str(ROOT_DIR / "configs" / "layout_config.json"))
     parser.add_argument("--registry")
     parser.add_argument("--render-layouts")
@@ -92,8 +108,7 @@ def main() -> int:
     parser.add_argument("--template", default=str(ROOT_DIR / "assets" / "industry_section_template_master.pptx"))
     args = parser.parse_args()
 
-    if args.layout_config:
-        layout_paths = layout_config_paths(Path(args.layout_config))
+    layout_paths = _layout_config_paths(Path(args.layout_config))
     registry_path = Path(args.registry) if args.registry else layout_paths["slide_registry"]
     render_layouts_path = Path(args.render_layouts) if args.render_layouts else layout_paths["render_layouts"]
     ppt_mapping_path = Path(args.ppt_mapping) if args.ppt_mapping else layout_paths["ppt_mapping"]

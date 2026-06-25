@@ -11,7 +11,7 @@ This skill helps create the **industry section of a pre-mandate client pitchbook
 
 The default engagement setting is **pre-mandate client pitch**. The output is an **industry section**, not a target marketing section: it should prove that the bank understands the industry first, the transaction logic second, and only the selective target context needed to make the industry view relevant. Do not write it like a CIM, signed-engagement report, investor memo, target profile, diagnostic checklist, or execution workplan unless the user explicitly changes the deliverable.
 
-Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. `scripts/pipeline.py next` and `scripts/qc/validate_artifact.py` are instruments, not autopilots.
+Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. `scripts/pipeline.py next` and `scripts/pipeline.py validate` are instruments, not autopilots.
 
 When a task is narrow enough to delegate or isolate, use a role job packet: the parent agent prepares the packet, the worker handles only that packet, and the parent integrates the result. Do not hand off the whole workflow.
 
@@ -72,7 +72,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - If a page needs more public evidence before claim promotion or exhibit readiness, have Reasoning LLM author `artifacts/research_request_queue.json` directly from the queue template. Do not run a script that mechanically converts every open question into a research request.
 
 7. Compile the page pack.
-   - Run `scripts/generation/compile_banker_page_pack.py` to create derived `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`.
+   - Run `scripts/pipeline.py compile` to create derived `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`.
    - Treat those files as deterministic renderer artifacts. Do not hand-edit them to change judgment or fill missing content.
    - If a derived validation fails because content is sparse, unsupported, or data-light, repair `banker_page_pack.json` or the evidence DB, then recompile.
 
@@ -110,7 +110,7 @@ Banker Page Pack -> Research Request Queue -> Research -> Knowledge -> Banker Pa
 
 Use this when a page argument, caveat, transaction framing angle, or exhibit needs more public evidence before it can be used.
 
-`Research Request Queue` is an LLM-authored control artifact. Validate its structure with `scripts/qc/validate_artifact.py --artifact research_request_queue`, but do not generate it with a builder script.
+`Research Request Queue` is an LLM-authored control artifact. Validate its structure with `scripts/pipeline.py validate --artifact research_request_queue`, but do not generate it with a builder script.
 
 ## Practical Dashboard Commands
 
@@ -128,7 +128,7 @@ Use the same entrypoint for gate-style or repair-routing views:
 python3 scripts/pipeline.py gate --run-dir "<run_dir>" --output "<run_dir>/artifacts/status_report.json" --markdown-output "<run_dir>/artifacts/status_report.md"
 ```
 
-Use `scripts/qc/validate_artifact.py --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, pitch relevance, and banker judgment.
+Use `scripts/pipeline.py validate --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, pitch relevance, and banker judgment.
 
 ## Reference Map
 

@@ -31,7 +31,7 @@ QC has two tracks:
 All deterministic artifact checks use one entrypoint:
 
 ```text
-scripts/qc/validate_artifact.py --artifact <artifact> --run-dir <run_dir>
+scripts/pipeline.py validate --artifact <artifact> --run-dir <run_dir>
 ```
 
 **Quality QC by LLM**
@@ -95,14 +95,14 @@ A useful QC repair brief tells the next role:
 
 ## Validator Boundary
 
-`validate_artifact.py` checks only mechanical conditions: file presence, JSON parseability, IDs, cross-references, required renderer inputs, and PPT package integrity. It must not decide whether a page is persuasive, dense enough, or client-ready. QC interprets the result and routes the repair to the role that owns the underlying artifact.
+`pipeline.py validate` checks only mechanical conditions: file presence, JSON parseability, IDs, cross-references, required renderer inputs, and PPT package integrity. It must not decide whether a page is persuasive, dense enough, or client-ready. QC interprets the result and routes the repair to the role that owns the underlying artifact.
 
 ## Public QC Tools
 
 ```bash
 "$PYTHON_CMD" scripts/pipeline.py next --run-dir "$RUN_DIR"
 "$PYTHON_CMD" scripts/pipeline.py gate --run-dir "$RUN_DIR" --output "$RUN_DIR/artifacts/status_report.json" --markdown-output "$RUN_DIR/artifacts/status_report.md"
-"$PYTHON_CMD" scripts/qc/validate_artifact.py --artifact banker_page_pack --run-dir "$RUN_DIR"
+"$PYTHON_CMD" scripts/pipeline.py validate --artifact banker_page_pack --run-dir "$RUN_DIR"
 ```
 
-Use `pipeline.py next/gate` for multi-artifact triage. Use `validate_artifact.py` for deterministic checks, not as a substitute for LLM quality review.
+Use `pipeline.py next/gate` for multi-artifact triage. Use `pipeline.py validate` for deterministic checks, not as a substitute for LLM quality review.

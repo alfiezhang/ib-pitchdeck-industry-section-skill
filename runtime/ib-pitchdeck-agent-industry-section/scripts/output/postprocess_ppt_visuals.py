@@ -35,7 +35,6 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from gate_guard import require_debug_output_name, require_pre_ppt_gate
 from json_utils import load_json_file
-from compare_table_utils import normalize_compare_table_payload
 
 try:
     from pptx import Presentation
@@ -123,6 +122,21 @@ SCAFFOLD_LABELS = {
     "industry_trends_future_evolution",
     "industry_takeaways_for_project",
 }
+
+
+def normalize_compare_table_payload(slide_data: dict) -> tuple[list[str], list[list[str]]]:
+    compare_table = slide_data.get("compare_table_data")
+    if isinstance(compare_table, dict):
+        headers = [str(item).strip() for item in compare_table.get("headers") or []]
+        rows: list[list[str]] = []
+        for row in compare_table.get("rows") or []:
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("label") or "").strip()
+            cells = [str(item).strip() for item in row.get("cells") or []]
+            rows.append([label] + cells)
+        return headers, rows
+    return [], []
 
 DEFAULT_RENDER_LAYOUTS_PATH = _IB_RUNTIME_ROOT / "configs" / "render_layouts.json"
 DEFAULT_TEMPLATE_PROFILE_PATH = _IB_RUNTIME_ROOT / "configs" / "template_profile.json"
@@ -498,7 +512,7 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
             "path": "chart_data.series",
             "expected": "list[object] where each object has name and values",
             "actual": type(series).__name__,
-            "repair_hint": "Use compile_banker_page_pack.py to normalize natural data_series into renderer chart series.",
+            "repair_hint": "Use scripts/pipeline.py compile to normalize natural data_series into renderer chart series.",
         }
     non_object_series = [idx for idx, item in enumerate(series, start=1) if not isinstance(item, dict)]
     if non_object_series:
@@ -1050,7 +1064,7 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
             "path": "chart_data.source_rows",
             "expected": "list[object]",
             "actual": type(rows).__name__,
-            "repair_hint": "Use compile_banker_page_pack.py to normalize chart data before postprocess.",
+            "repair_hint": "Use scripts/pipeline.py compile to normalize chart data before postprocess.",
         }
     if len(rows) < 2:
         return {

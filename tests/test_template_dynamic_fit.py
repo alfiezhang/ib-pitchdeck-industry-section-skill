@@ -158,8 +158,9 @@ def test_template_fit_outputs_plan_and_blocks_capacity_conflict(tmp_path: Path) 
     _write_json(renderer_path, _renderer_spec("This body copy is intentionally long enough to exceed a tiny template slot budget."))
 
     result = _run_script(
-        "template_fit.py",
+        "template_analyzer.py",
         [
+            "fit",
             "--renderer-spec",
             str(renderer_path),
             "--template-profile",
@@ -192,8 +193,9 @@ def test_template_fit_plan_records_slot_assignments_for_compatible_content(tmp_p
     _write_json(renderer_path, _renderer_spec("Concise supported point."))
 
     result = _run_script(
-        "template_fit.py",
+        "template_analyzer.py",
         [
+            "fit",
             "--renderer-spec",
             str(renderer_path),
             "--template-profile",

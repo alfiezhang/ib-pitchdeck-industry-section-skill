@@ -90,14 +90,14 @@ def test_status_and_manifest_use_unified_validator() -> None:
     workflow_text = (RUNTIME / "scripts" / "pipeline.py").read_text(encoding="utf-8")
     manifest = _manifest()
 
-    assert "scripts/qc/validate_artifact.py" in workflow_text
+    assert "scripts/pipeline.py validate" in workflow_text
     validators = [
         artifact.get("validator", "")
         for artifact in manifest["artifacts"].values()
         if artifact.get("validator")
     ]
     assert validators
-    assert all("scripts/qc/validate_artifact.py" in validator for validator in validators)
+    assert all("scripts/pipeline.py validate" in validator for validator in validators)
 
 
 def test_development_package_scripts_are_outside_runtime() -> None:

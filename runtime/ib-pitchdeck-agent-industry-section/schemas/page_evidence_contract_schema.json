@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Page Evidence Contract",
-  "description": "Page-level permissions and evidence boundaries deterministically derived from banker_page_pack via deck_blueprint. It records what the page answer is allowed to claim before renderer_spec compilation; agents should build it with scripts/generation/compile_banker_page_pack.py rather than hand-writing it.",
+  "description": "Page-level permissions and evidence boundaries deterministically derived from banker_page_pack via deck_blueprint. It records what the page answer is allowed to claim before renderer_spec compilation; agents should build it with scripts/pipeline.py compile rather than hand-writing it.",
   "type": "object",
   "required": ["slides"],
   "properties": {

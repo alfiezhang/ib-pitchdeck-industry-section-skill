@@ -1,5 +1,5 @@
 {
-  "_description": "LLM content-quality guidance for banker page authoring and review. These rules are not a Python gate; validate_artifact.py only checks mechanical structure.",
+  "_description": "LLM content-quality guidance for banker page authoring and review. These rules are not a Python gate; pipeline.py validate only checks mechanical structure.",
   "qc_advisory_targets": {
     "_note": "Advisory diagnostics only. Python validators may warn when these are missed, but should not fail content artifacts solely because an advisory target is missed.",
     "formal_execution_evidence_rows": 3,

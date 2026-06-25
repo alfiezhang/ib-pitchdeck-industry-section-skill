@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Full-Taxonomy Formal Search Plan",
-  "description": "Industry-scope-pack-driven coverage and evidence-need plan. Executable queries belong only in executable_search_batch.json. The schema documents shape; scripts/qc/validate_artifact.py --artifact formal_search_plan enforces mechanical checks before formal searches.",
+  "description": "Industry-scope-pack-driven coverage and evidence-need plan. Executable queries belong only in executable_search_batch.json. The schema documents shape; scripts/pipeline.py validate --artifact formal_search_plan enforces mechanical checks before formal searches.",
   "type": "object",
     "required": ["schema_version", "meta", "industry_scope_pack", "plan_mode", "issue_search_plan"],
   "properties": {

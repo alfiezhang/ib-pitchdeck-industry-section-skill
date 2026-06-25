@@ -74,7 +74,7 @@
     "default_status": "pending_public_evidence",
     "default_allowed_use_before_resolution": "not_allowed_in_headline",
     "authoring_rule": "Reasoning LLM writes research_request_queue.json directly only for evidence that is required before promoting a claim. Do not generate requests mechanically from every open question.",
-    "build_rule": "No builder script owns this artifact. Use LLM authoring plus validate_artifact.py for mechanical structure only."
+    "build_rule": "No builder script owns this artifact. Use LLM authoring plus pipeline.py validate for mechanical structure only."
   },
   "issue_execution_policy": {
     "market_size_growth/current_market_size": "deep_search",

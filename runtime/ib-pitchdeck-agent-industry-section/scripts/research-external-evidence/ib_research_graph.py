@@ -42,13 +42,34 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from issue_taxonomy import ISSUE_TOPICS_BY_AREA
 from json_utils import load_json_file
 from material_intake_common import classify_access, normalize_source_type
 from unit_normalizer import normalize_metric_row
 
 
 GRAPH_SCHEMA_VERSION = "ib_research_graph_state_v1"
+
+
+def _load_issue_topics_by_area() -> dict[str, set[str]]:
+    path = _IB_RUNTIME_ROOT / "configs" / "research_issue_taxonomy.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    raw = payload.get("issue_topics_by_area") if isinstance(payload, dict) else None
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError(f"{path} must contain non-empty issue_topics_by_area")
+    result: dict[str, set[str]] = {}
+    for issue_area, subissues in raw.items():
+        if not isinstance(issue_area, str) or not issue_area.strip():
+            raise ValueError(f"{path} contains an invalid issue area")
+        if not isinstance(subissues, list) or not subissues:
+            raise ValueError(f"{path} issue area {issue_area!r} must contain a non-empty subissue list")
+        clean = {str(item).strip() for item in subissues if str(item).strip()}
+        if not clean:
+            raise ValueError(f"{path} issue area {issue_area!r} has no usable subissues")
+        result[issue_area.strip()] = clean
+    return result
+
+
+ISSUE_TOPICS_BY_AREA = _load_issue_topics_by_area()
 FULL_URL_RE = re.compile(r"https?://[^\s,;，；\]|)）>]+", flags=re.IGNORECASE)
 VALID_RESULT_STATUS = {
     "supported",

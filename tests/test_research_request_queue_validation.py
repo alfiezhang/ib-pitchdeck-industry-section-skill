@@ -15,7 +15,8 @@ def _run_validate(run_dir: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [
             sys.executable,
-            "scripts/qc/validate_artifact.py",
+            "scripts/pipeline.py",
+            "validate",
             "--artifact",
             "research_request_queue",
             "--run-dir",

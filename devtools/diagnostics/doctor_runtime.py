@@ -66,7 +66,7 @@ def runtime_diagnostic_payload() -> dict[str, object]:
             "python_pipeline": script_exists("scripts/pipeline.py"),
             "legacy_run_pipeline": script_exists("run_pipeline.sh"),
             "status_dashboard": script_exists("scripts/pipeline.py"),
-            "validate_artifact": script_exists("scripts/qc/validate_artifact.py"),
+            "pipeline_validate": script_exists("scripts/pipeline.py"),
         },
         "nonexistent_entrypoints_do_not_use": [
             "scripts/stage_gate_ppt.py",
@@ -74,7 +74,7 @@ def runtime_diagnostic_payload() -> dict[str, object]:
         "recommended_commands": [
             "python3 scripts/bootstrap_runtime.py --print-python",
             "\"$PYTHON_CMD\" scripts/pipeline.py next --run-dir <run>",
-            "\"$PYTHON_CMD\" scripts/qc/validate_artifact.py --artifact pre_ppt --run-dir <run>",
+            "\"$PYTHON_CMD\" scripts/pipeline.py validate --artifact pre_ppt --run-dir <run>",
             "\"$PYTHON_CMD\" scripts/pipeline.py render --run-dir <run>",
         ],
         "rules": [

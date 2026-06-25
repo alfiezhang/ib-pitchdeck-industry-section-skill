@@ -4,7 +4,7 @@ This reference keeps the skill aligned with the role-based workflow. It is not a
 
 ## Core Rule
 
-The main agent is the engagement lead. `pipeline.py next/gate`, `validate_artifact.py`, and render commands are tools. They do not decide the banker story, evidence readiness, or page quality.
+The main agent is the engagement lead. `pipeline.py next/gate`, `pipeline.py validate`, and render commands are tools. They do not decide the banker story, evidence readiness, or page quality.
 
 ## Role-First Execution
 
@@ -36,7 +36,7 @@ Do not bulk-read every schema, test, or script as a workflow menu.
 
 QC has two tracks:
 
-- Python format QC: the unified deterministic validator at `scripts/qc/validate_artifact.py`.
+- Python format QC: the unified deterministic validator at `scripts/pipeline.py validate`.
 - LLM quality QC: source quality, evidence sufficiency, boundary relevance, reasoning quality, page density, template fit tradeoff, final client-readiness.
 
 A validator failure tells QC where a deterministic red-line exists. QC still decides the repair owner and whether the issue is format-only or substantive.

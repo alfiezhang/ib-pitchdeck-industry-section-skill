@@ -242,12 +242,12 @@ Source Locator: page number, section, table, paragraph, or URL anchor
 -->
 
 Before using this research pack downstream, the run must already have passed:
-- `artifacts/formal_search_plan_validation.json` via `scripts/qc/validate_artifact.py --artifact formal_search_plan`
-- `artifacts/formal_research_execution_validation.json` via `scripts/qc/validate_artifact.py --artifact formal_research_execution`
-- `artifacts/source_archive_validation.json` via `scripts/qc/validate_artifact.py --artifact source_archive`
-- `artifacts/research_evidence_db_validation.json` via `scripts/qc/validate_artifact.py --artifact research_evidence_db`
+- `artifacts/formal_search_plan_validation.json` via `scripts/pipeline.py validate --artifact formal_search_plan`
+- `artifacts/formal_research_execution_validation.json` via `scripts/pipeline.py validate --artifact formal_research_execution`
+- `artifacts/source_archive_validation.json` via `scripts/pipeline.py validate --artifact source_archive`
+- `artifacts/research_evidence_db_validation.json` via `scripts/pipeline.py validate --artifact research_evidence_db`
 - `artifacts/stage_gate_pre_research_pack_validation.json` refreshed after Research repairs `research_graph_state.json` and recompiles execution/archive artifacts
-- `artifacts/research_pack_validation.json` via `scripts/qc/validate_artifact.py --artifact research_pack`
+- `artifacts/research_pack_validation.json` via `scripts/pipeline.py validate --artifact research_pack`
 
 Claim strength values:
 - hard_fact: directly sourced; preserve period, geography, unit, and scope

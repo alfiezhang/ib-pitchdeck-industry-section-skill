@@ -384,19 +384,17 @@ def _compile_banker_page_pack(
     tr = registry_path or tmp_path / "template_registry.json"
     pc_out = tmp_path / "page_evidence_contract.json"
     rs_out = tmp_path / "renderer_spec.json"
-    db_out = tmp_path / "deck_blueprint.json"
+    if banker_page_pack_path != tmp_path / "banker_page_pack.json":
+        (tmp_path / "banker_page_pack.json").write_text(banker_page_pack_path.read_text(encoding="utf-8"), encoding="utf-8")
+    if tr != tmp_path / "template_registry.json":
+        (tmp_path / "template_registry.json").write_text(tr.read_text(encoding="utf-8"), encoding="utf-8")
     result = subprocess.run(
-        [sys.executable, str(ROLE_SCRIPT_DIRS["compile_banker_page_pack.py"]),
-         "--banker-page-pack", str(banker_page_pack_path),
-         "--template-registry", str(tr),
-         "--deck-blueprint-output", str(db_out),
-         "--page-contract-output", str(pc_out),
-         "--renderer-spec-output", str(rs_out)],
+        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "compile", "--run-dir", str(tmp_path)],
         text=True, capture_output=True, cwd=str(SKILL_DIR),
         env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
     )
     if result.returncode != 0:
-        raise RuntimeError(f"compile_banker_page_pack failed: {result.stdout}\n{result.stderr}")
+        raise RuntimeError(f"pipeline compile failed: {result.stdout}\n{result.stderr}")
     return pc_out, rs_out
 
 

@@ -33,8 +33,8 @@ QC_DIR = SCRIPT_DIR / "qc"
 if str(QC_DIR) not in sys.path:
     sys.path.insert(0, str(QC_DIR))
 
-from layout_config import layout_config_paths
-from validate_artifact import ARTIFACT_PATHS, VALIDATION_OUTPUTS
+from renderer_compile_utils import compile_banker_page_pack
+from validate_artifact import ARTIFACT_PATHS, VALIDATION_OUTPUTS, validate_artifact as run_artifact_validation
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
@@ -59,11 +59,33 @@ def _load_role_script_paths() -> dict[str, Path]:
 
 ROLE_SCRIPT_DIRS = _load_role_script_paths()
 
+
+def _layout_config_paths(path: Path | str | None = None) -> dict[str, Path]:
+    config_path = Path(path or ROOT_DIR / "configs" / "layout_config.json")
+    if not config_path.is_absolute():
+        candidate = Path.cwd() / config_path
+        config_path = candidate if candidate.exists() else ROOT_DIR / config_path
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    if config.get("schema_version") != "layout_config_v1":
+        raise ValueError(f"{config_path} must use schema_version layout_config_v1")
+    files = config.get("files")
+    if not isinstance(files, dict):
+        raise ValueError(f"{config_path} must define object field 'files'")
+    resolved: dict[str, Path] = {}
+    for key, raw in files.items():
+        candidate = Path(str(raw))
+        resolved[key] = candidate if candidate.is_absolute() else ROOT_DIR / candidate
+    return resolved
+
+
+def _internal_script(relative_path: str) -> Path:
+    return ROOT_DIR / "scripts" / relative_path
+
 # --- Tool integrity: do not modify this file during a run ---
 _TOOL_SOURCE_REPO = ROOT_DIR.parent.parent  # expected: <repo>/runtime/ib-pitchdeck-agent-industry-section
 _INTEGRITY_SENTINEL = "pipeline.py is a read-only tool file; repair upstream artifacts, not this script."  # noqa: E501
 TEMPLATE = ROOT_DIR / "assets" / "industry_section_template_master.pptx"
-LAYOUT_PATHS = layout_config_paths()
+LAYOUT_PATHS = _layout_config_paths()
 PPT_MAPPING = LAYOUT_PATHS["ppt_mapping"]
 RENDER_LAYOUTS = LAYOUT_PATHS["render_layouts"]
 TEMPLATE_PROFILE = LAYOUT_PATHS["template_profile"]
@@ -103,12 +125,12 @@ BUILD_HINTS = {
     "research_pack": "scripts/knowledge-repository/research_evidence_db.py export",
     "template_registry": "scripts/template/template_analyzer.py registry",
     "banker_page_pack": "Generation LLM authors banker_page_pack.json",
-    "deck_blueprint": "scripts/generation/compile_banker_page_pack.py",
-    "page_evidence_contract": "scripts/generation/compile_banker_page_pack.py",
-    "renderer_spec": "scripts/generation/compile_banker_page_pack.py",
-    "replacement_dict": "scripts/output/generate_replacement_dict.py",
+    "deck_blueprint": "scripts/pipeline.py compile",
+    "page_evidence_contract": "scripts/pipeline.py compile",
+    "renderer_spec": "scripts/pipeline.py compile",
+    "replacement_dict": "scripts/pipeline.py render",
     "filled_ppt": "scripts/pipeline.py render",
-    "final_delivery": "scripts/qc/validate_artifact.py --artifact final_delivery",
+    "final_delivery": "scripts/pipeline.py validate --artifact final_delivery",
 }
 
 
@@ -147,7 +169,7 @@ def validation_path(run_dir: Path, artifact: str) -> Path:
 
 def validate_command(run_dir: Path, artifact: str) -> str:
     return (
-        f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validate_artifact.py "
+        f"{PYTHON_COMMAND_TEMPLATE} scripts/pipeline.py validate "
         f"--artifact {artifact} --run-dir {run_dir} --output {validation_path(run_dir, artifact)}"
     )
 
@@ -334,6 +356,11 @@ def _write_template_token_report(template_path: Path, ppt_mapping_path: Path, ou
         raise PipelineError("template tokens and ppt_mapping.json are inconsistent")
 
 
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def _run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
     printable = " ".join(str(part) for part in cmd)
     print(f"[pipeline] {printable}")
@@ -417,18 +444,37 @@ def _check_runtime_readiness(run_dir: Path, python_cmd: str, *, strict: bool = F
     return True
 
 
+def validate_artifact_entry(
+    run_dir: Path,
+    artifact: str,
+    *,
+    path: Path | None = None,
+    output: Path | None = None,
+) -> dict[str, Any]:
+    run_dir = _ensure_run_dir(run_dir)
+    errors, warnings = run_artifact_validation(artifact, run_dir, path)
+    result = {
+        "is_valid": not errors,
+        "artifact": artifact,
+        "run_dir": str(run_dir),
+        "path": str(path or run_dir / ARTIFACT_PATHS[artifact]),
+        "error_count": len(errors),
+        "warning_count": len(warnings),
+        "errors": errors,
+        "warnings": warnings,
+        "validation_policy": "mechanical_only",
+    }
+    output_path = output or run_dir / VALIDATION_OUTPUTS.get(artifact, f"artifacts/{artifact}_validation.json")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return result
+
+
 def _validate_artifact(run_dir: Path, python_cmd: str, artifact: str, output: Path | None = None) -> None:
-    cmd = [
-        python_cmd,
-        ROLE_SCRIPT_DIRS["validate_artifact.py"],
-        "--artifact",
-        artifact,
-        "--run-dir",
-        run_dir,
-    ]
-    if output is not None:
-        cmd.extend(["--output", output])
-    _run(cmd)
+    result = validate_artifact_entry(run_dir, artifact, output=output)
+    if not result["is_valid"]:
+        raise PipelineError(f"{artifact} validation failed")
 
 
 def _mark_not_client_ready(run_dir: Path) -> None:
@@ -605,7 +651,8 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["template_fit.py"],
+            ROLE_SCRIPT_DIRS["template_analyzer.py"],
+            "fit",
             "--renderer-spec",
             run_dir / "renderer_spec.json",
             "--template-profile",
@@ -649,7 +696,7 @@ def render(
         _run(
             [
                 python_cmd,
-                ROLE_SCRIPT_DIRS["generate_replacement_dict.py"],
+                _internal_script("output/generate_replacement_dict.py"),
                 "--renderer-spec",
                 run_dir / "renderer_spec.json",
                 "--ppt-mapping",
@@ -662,7 +709,7 @@ def render(
         _run(
             [
                 python_cmd,
-                ROLE_SCRIPT_DIRS["fill_ppt_tokens.py"],
+                _internal_script("output/fill_ppt_tokens.py"),
                 "--template",
                 template_path,
                 "--replacement-dict",
@@ -676,7 +723,7 @@ def render(
         _run(
             [
                 python_cmd,
-                ROLE_SCRIPT_DIRS["clean_filled_ppt.py"],
+                _internal_script("output/clean_filled_ppt.py"),
                 "--input",
                 run_dir / FILLED_PPT,
                 "--control-file",
@@ -690,7 +737,7 @@ def render(
         _run(
             [
                 python_cmd,
-                ROLE_SCRIPT_DIRS["postprocess_ppt_visuals.py"],
+                _internal_script("output/postprocess_ppt_visuals.py"),
                 "--input-ppt",
                 run_dir / CLEAN_PPT,
                 "--renderer-spec",
@@ -734,24 +781,19 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py finalize")
-    cmd = [
-        python_cmd,
-        ROLE_SCRIPT_DIRS["validate_artifact.py"],
-        "--artifact",
-        "final_delivery",
-        "--run-dir",
+    command_text = f"{python_cmd} {Path('scripts/pipeline.py')} validate --artifact final_delivery --run-dir {run_dir}"
+    result = validate_artifact_entry(
         run_dir,
-        "--output",
-        artifacts / "final_delivery_validation.json",
-    ]
-    final_returncode = _run_returncode(cmd)
-    if final_returncode != 0:
+        "final_delivery",
+        output=artifacts / "final_delivery_validation.json",
+    )
+    if not result["is_valid"]:
         _append_failure_memory(
             run_dir,
             "pipeline_finalize",
             outcome="failure",
-            command=" ".join(str(part) for part in cmd),
-            details={"require_client_ready": require_client_ready, "return_code": final_returncode},
+            command=command_text,
+            details={"require_client_ready": require_client_ready, "return_code": 1},
         )
         _mark_not_client_ready(run_dir)
         raise PipelineError(
@@ -762,8 +804,8 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
         run_dir,
         "pipeline_finalize",
         outcome="success",
-        command=" ".join(str(part) for part in cmd),
-        details={"require_client_ready": require_client_ready, "return_code": final_returncode},
+        command=command_text,
+        details={"require_client_ready": require_client_ready, "return_code": 0},
     )
     summary = build_run_status(run_dir)
     summary["view"] = "summary"
@@ -832,22 +874,26 @@ def _rebuild_research_pack_export(run_dir: Path, python_cmd: str) -> None:
 
 
 def _rebuild_compiled_deck(run_dir: Path, python_cmd: str) -> None:
-    _run(
-        [
-            python_cmd,
-            ROLE_SCRIPT_DIRS["compile_banker_page_pack.py"],
-            "--banker-page-pack",
-            run_dir / "banker_page_pack.json",
-            "--template-registry",
-            run_dir / "template_registry.json",
-            "--deck-blueprint-output",
-            run_dir / "deck_blueprint.json",
-            "--page-contract-output",
-            run_dir / "page_evidence_contract.json",
-            "--renderer-spec-output",
-            run_dir / "renderer_spec.json",
-        ]
+    compile_page_pack(run_dir, python_cmd)
+
+
+def compile_page_pack(run_dir: Path, python_cmd: str) -> None:
+    run_dir = _ensure_run_dir(run_dir)
+    missing = [
+        rel
+        for rel in ("banker_page_pack.json", "template_registry.json")
+        if not (run_dir / rel).exists()
+    ]
+    if missing:
+        raise PipelineError(f"cannot compile page pack: missing {', '.join(missing)}")
+    print(f"[pipeline] compile banker_page_pack.json -> deck_blueprint/page_evidence_contract/renderer_spec")
+    deck_blueprint, page_contract, renderer_spec = compile_banker_page_pack(
+        _json(run_dir / "banker_page_pack.json"),
+        _json(run_dir / "template_registry.json"),
     )
+    _write_json(run_dir / "deck_blueprint.json", deck_blueprint)
+    _write_json(run_dir / "page_evidence_contract.json", page_contract)
+    _write_json(run_dir / "renderer_spec.json", renderer_spec)
     _validate_artifact(run_dir, python_cmd, "deck_blueprint", run_dir / "artifacts/deck_blueprint_validation.json")
     _validate_artifact(run_dir, python_cmd, "page_evidence_contract", run_dir / "artifacts/page_evidence_contract_validation.json")
     _validate_artifact(run_dir, python_cmd, "renderer_spec", run_dir / "artifacts/renderer_spec_validation.json")
@@ -931,7 +977,8 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
             _run(
                 [
                     python_cmd,
-                    ROLE_SCRIPT_DIRS["template_fit.py"],
+                    ROLE_SCRIPT_DIRS["template_analyzer.py"],
+                    "fit",
                     "--renderer-spec",
                     run_dir / "renderer_spec.json",
                     "--template-profile",
@@ -1018,15 +1065,18 @@ def main() -> int:
     parser.add_argument("--python", default=sys.executable, help="Python interpreter used for child scripts.")
     sub = parser.add_subparsers(dest="command", required=True)
     validate_pre_ppt_parser = None
+    validate_parser = None
     render_parser = None
     rebuild_stale_parser = None
     finalize_parser = None
     status_parsers = []
-    for name in ("status", "next", "gate", "route", "summary", "validate-pre-ppt", "rebuild-stale", "render", "finalize"):
+    for name in ("status", "next", "gate", "route", "summary", "compile", "validate", "validate-pre-ppt", "rebuild-stale", "render", "finalize"):
         p = sub.add_parser(name)
         p.add_argument("--run-dir", required=True)
         if name in {"status", "next", "gate", "route", "summary"}:
             status_parsers.append(p)
+        elif name == "validate":
+            validate_parser = p
         elif name == "validate-pre-ppt":
             validate_pre_ppt_parser = p
         elif name == "rebuild-stale":
@@ -1037,7 +1087,8 @@ def main() -> int:
             finalize_parser = p
 
     if (
-        validate_pre_ppt_parser is None
+        validate_parser is None
+        or validate_pre_ppt_parser is None
         or rebuild_stale_parser is None
         or render_parser is None
         or finalize_parser is None
@@ -1053,6 +1104,9 @@ def main() -> int:
     for status_parser in status_parsers:
         status_parser.add_argument("--output")
         status_parser.add_argument("--markdown-output")
+    validate_parser.add_argument("--artifact", required=True, choices=sorted(ARTIFACT_PATHS))
+    validate_parser.add_argument("--path", help="Optional explicit artifact path.")
+    validate_parser.add_argument("--output")
     render_parser.add_argument(
         "--skip-preflight",
         action="store_true",
@@ -1076,6 +1130,17 @@ def main() -> int:
                 output=Path(args.output) if args.output else None,
                 markdown_output=Path(args.markdown_output) if args.markdown_output else None,
             )
+        elif args.command == "compile":
+            compile_page_pack(_ensure_run_dir(run_dir), args.python)
+        elif args.command == "validate":
+            result = validate_artifact_entry(
+                _ensure_run_dir(run_dir),
+                args.artifact,
+                path=Path(args.path) if args.path else None,
+                output=Path(args.output) if args.output else None,
+            )
+            if not result["is_valid"]:
+                return 1
         elif args.command == "validate-pre-ppt":
             validate_pre_ppt(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template) if args.template else None)
         elif args.command == "rebuild-stale":

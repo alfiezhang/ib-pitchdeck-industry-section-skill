@@ -146,7 +146,7 @@ def require_pre_ppt_gate(run_dir: Path, *, allow_ungated_debug: bool = False) ->
     if not gate_path.exists():
         raise RuntimeError(
             f"missing required pre-PPT gate artifact: {gate_path}. "
-            "Run scripts/qc/validate_artifact.py --artifact pre_ppt first, or use --allow-ungated-debug only for local diagnostics."
+            "Run scripts/pipeline.py validate --artifact pre_ppt first, or use --allow-ungated-debug only for local diagnostics."
         )
 
     try:

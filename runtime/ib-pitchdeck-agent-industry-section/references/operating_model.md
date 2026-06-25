@@ -49,7 +49,7 @@ User materials / links / instructions
 
 ## Validator Ownership
 
-Deterministic checks run through `scripts/qc/validate_artifact.py`.
+Deterministic checks run through `scripts/pipeline.py validate`.
 
 - The unified validator is limited to deterministic checks and format red-lines.
 - QC decides how to interpret validator output.

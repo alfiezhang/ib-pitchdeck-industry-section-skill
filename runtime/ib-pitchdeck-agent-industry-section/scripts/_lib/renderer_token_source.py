@@ -26,12 +26,26 @@ import copy
 import json
 from pathlib import Path
 
-from compare_table_utils import normalize_compare_table_payload
 from json_utils import load_json_file
 from slide_registry import controlled_layout_variants, load_slide_registry, variant_page_types
 
 
 SLIDE_REGISTRY = load_slide_registry()
+
+
+def normalize_compare_table_payload(slide_data: dict) -> tuple[list[str], list[list[str]]]:
+    compare_table = slide_data.get("compare_table_data")
+    if isinstance(compare_table, dict):
+        headers = [str(item).strip() for item in compare_table.get("headers") or []]
+        rows: list[list[str]] = []
+        for row in compare_table.get("rows") or []:
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("label") or "").strip()
+            cells = [str(item).strip() for item in row.get("cells") or []]
+            rows.append([label] + cells)
+        return headers, rows
+    return [], []
 
 
 def _clean_source_footer(source_note: str) -> str:

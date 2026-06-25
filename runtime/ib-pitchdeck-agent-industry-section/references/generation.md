@@ -51,17 +51,12 @@ Treat those files as deterministic renderer artifacts. Do not hand-author them i
 After authoring and validating the page pack:
 
 ```bash
-python3 scripts/qc/validate_artifact.py \
+python3 scripts/pipeline.py validate \
   --artifact banker_page_pack \
   --run-dir <run_dir> \
   --output <run_dir>/artifacts/banker_page_pack_validation.json
 
-python3 scripts/generation/compile_banker_page_pack.py \
-  --banker-page-pack <run_dir>/banker_page_pack.json \
-  --template-registry <run_dir>/template_registry.json \
-  --deck-blueprint-output <run_dir>/deck_blueprint.json \
-  --page-contract-output <run_dir>/page_evidence_contract.json \
-  --renderer-spec-output <run_dir>/renderer_spec.json
+python3 scripts/pipeline.py compile --run-dir <run_dir>
 ```
 
 ## Judgment Boundary

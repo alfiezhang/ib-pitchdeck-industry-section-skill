@@ -182,8 +182,9 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
 
 
 def _run(script_name: str, args: list[str]) -> subprocess.CompletedProcess:
+    script_path = SKILL_DIR / "scripts" / "pipeline.py" if script_name == "pipeline.py" else ROLE_SCRIPT_DIRS[script_name]
     return subprocess.run(
-        [sys.executable, str(ROLE_SCRIPT_DIRS[script_name]), *args],
+        [sys.executable, str(script_path), *args],
         text=True,
         capture_output=True,
         cwd=str(SKILL_DIR),
@@ -221,7 +222,7 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
     path = tmp_path / "banker_page_pack.json"
     _write_json(path, pack)
 
-    result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
     assert result.returncode != 0
     assert "body_blocks is required" in result.stdout
 
@@ -280,7 +281,7 @@ def test_banker_page_pack_warns_target_drift(tmp_path: Path) -> None:
     path = tmp_path / "banker_page_pack.json"
     _write_json(path, pack)
 
-    result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "headline contains target/project terms" in result.stdout
 
@@ -339,7 +340,7 @@ def test_banker_page_pack_warns_industry_majority(tmp_path: Path) -> None:
     path = tmp_path / "banker_page_pack.json"
     _write_json(path, pack)
 
-    result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "fewer industry-primary pages than the advisory target" in result.stdout
     assert "more project_relevance_note pages than the advisory target" in result.stdout
@@ -359,7 +360,7 @@ def test_banker_page_pack_warns_mixed_axis_units(
     path = tmp_path / "banker_page_pack.json"
     _write_json(path, pack)
 
-    result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "chart_data mixes units on one chart axis" in result.stdout
@@ -374,22 +375,20 @@ def test_banker_page_pack_validates_and_compiles(
     pack = _banker_page_pack(deck_blueprint_data, template_registry)
     pack_path = tmp_path / "banker_page_pack.json"
     _write_json(pack_path, pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
 
-    validation = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
+    validation = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
     assert validation.returncode == 0, validation.stdout + validation.stderr
 
     deck_blueprint = tmp_path / "deck_blueprint.json"
     page_contract = tmp_path / "page_evidence_contract.json"
     renderer_spec = tmp_path / "renderer_spec.json"
-    result = _run(
-        "compile_banker_page_pack.py",
-        [
-            "--banker-page-pack", str(pack_path),
-            "--template-registry", str(template_registry_path),
-            "--deck-blueprint-output", str(deck_blueprint),
-            "--page-contract-output", str(page_contract),
-            "--renderer-spec-output", str(renderer_spec),
-        ],
+    result = subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "compile", "--run-dir", str(tmp_path)],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
     )
     assert result.returncode == 0, result.stdout + result.stderr
     compiled_deck = json.loads(deck_blueprint.read_text(encoding="utf-8"))
