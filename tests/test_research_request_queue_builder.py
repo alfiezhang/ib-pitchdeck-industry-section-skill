@@ -60,4 +60,4 @@ def test_build_research_request_queue_from_banker_page_pack(tmp_path: Path) -> N
     assert [row["request_id"] for row in payload["requests"]] == ["RQ-001", "RQ-002"]
     assert payload["requests"][0]["origin_issue_id"] == "PA-002"
     assert payload["requests"][1]["origin_issue_area"] == "industry_overview"
-    assert payload["requests"][1]["downstream_permission_if_unresolved"] == "caveat_or_diligence_question_only"
+    assert payload["requests"][1]["downstream_permission_if_unresolved"] == "caveat_or_evidence_boundary_only"

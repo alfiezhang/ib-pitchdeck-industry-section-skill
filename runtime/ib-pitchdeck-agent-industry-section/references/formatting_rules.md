@@ -32,7 +32,7 @@ The final output should look like a finished investment-banking presentation, no
    - Prefer at most 6-7 bullets in a box.
    - Prefer compact body phrasing, but body length is an editorial scanability prompt rather than a hard validation limit. Title and subtitle fields are the hard-fit fields.
    - If copy looks like research pack prose, compress it.
-   - If copy is a single generic sentence, expand it with evidence, mechanism, and transaction implication.
+   - If copy is a single generic sentence, expand it with evidence, industry mechanism, comparison, and only a short project implication where needed.
    - See `configs/content_quality_rules.json` for per-field density targets.
 
 5. **Comparisons must read like structured comparisons.**
@@ -56,7 +56,7 @@ The following are target density ranges for body_copy fields. They are LLM autho
 | title / headline | Must fit one title line | Complete investment insight, not a topic label |
 | main_takeaway | Target one line; hard max two lines | One sentence: opinion + evidence or implication; no terminal punctuation |
 | bullet / card | Dense but scannable; no hard character cap | Label + opinion + data point or implication |
-| panel | Dense but scannable; no hard character cap | Context synthesis + judgment + pitch relevance |
+| panel | Dense but scannable; no hard character cap | Context synthesis + industry judgment + selective project relevance |
 | table_row | 30–70 chars; cells must stay compact | Metric-led, label prefix bolded |
 | timeline_stage | 60–100 chars | Event + timeframe + significance |
 | source_footer | 30+ chars | Specific source name or Evidence ID |
@@ -80,7 +80,7 @@ Use inline markers only when they improve scanability without breaking layout di
 
 ### Preferred Uses
 
-- If a sentence contains a label structure such as `行业结构：...`, `标的位置：...`, or `关键尽调问题：...`, prefer bolding the label prefix before the colon rather than coloring the whole phrase.
+- If a sentence contains a label structure such as `行业结构：...`, `项目相关性：...`, or `交易启示：...`, prefer bolding the label prefix before the colon rather than coloring the whole phrase.
 - On comparison and summary pages, prefer bolding the label prefix and the single key proof point.
 - Reserve color highlight for one short headline phrase or one critical contrast on the page.
 
@@ -99,23 +99,23 @@ Use inline markers only when they improve scanability without breaking layout di
 
 ### Slide 2 — Market Size & Segmentation
 - Bold the 2-3 most decision-relevant datapoints
-- Highlight the one sentence or phrase that explains why the market matters for the target
+- Highlight the one sentence or phrase that explains the industry conclusion; project relevance should remain secondary
 - Keep the mini-table crisp and metric-led
 - `chart_title` should be a short client-facing label, ideally one line
 - `visual_direction` and `chart_data.notes` should carry build instructions, not the on-slide title
 - The left chart box should contain an actual chart object where feasible, not a prose description of the intended visual
 
 ### Slide 6 — Competitive Landscape
-- Visually prioritize the target
+- Visually prioritize the industry structure and peer/segment comparison; the project company is secondary unless the page is explicitly target-context
 - At most 1-2 peers may receive secondary emphasis
 - Right-panel conclusion should read like a synthesis, not another data dump
-- Prefer `标的公司：`, `行业结构：`, `行业演化：`, `标的位置：` style bold prefixes over color
+- Prefer `行业结构：`, `竞争维度：`, `行业演化：`, `项目相关性：` style bold prefixes over color
 
-### Slide 8 — Key Takeaways for Target
+### Slide 8 — Industry Takeaways For The Project
 - Highlight the investment conclusion
 - Bold one synergy or proof point
-- Keep diligence questions concise and decision-oriented
-- Prefer bold label prefixes such as `行业吸引力：`, `标的公司为什么能赢：`, `买方协同空间：`, `关键尽调问题：`
+- Keep caveats and evidence-boundary notes concise and banker-like
+- Prefer bold label prefixes such as `行业吸引力：`, `交易相关性：`, `项目启示：`, `证据边界：`
 
 ## Anti-Patterns
 
@@ -129,3 +129,4 @@ Use inline markers only when they improve scanability without breaking layout di
 - Writing thin single-sentence copy that barely fills placeholders
 - Using generic source attributions ("industry reports", "public sources") instead of named sources or Evidence IDs
 - Writing vague claims ("market growing rapidly") without specific data and source references
+- Letting target/company facts dominate the slide when the page is meant to prove an industry judgment

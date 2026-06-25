@@ -21,14 +21,16 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
   risks, or topics belong in the scope pack/search plan, not in the input card.
 - The material is for `pre_mandate_transaction_pitch`: show sector credibility
   first, transaction relevance second, and selective target context only where
-  supported.
+  supported. A short target brief is primarily classification/context input for
+  industry boundary and research priorities; it is not the page storyline.
 - Broad discovery is scoping, not research synthesis. It defines the industry,
   vocabulary, category boundaries, reconciliation risks, and boundary-
-  validation questions.
+  boundary checks.
 - Formal research execution is the research gate. The search plan itself is not
-  a hypothesis gate, but it must cover every canonical issue/subissue so
-  downstream issue analysis is not starved of source material.
-- Full taxonomy coverage is a coverage audit, not proof that every row has been
+  a hypothesis gate; it should start from the configured issue taxonomy and add
+  industry-specific evidence needs so downstream issue analysis is not starved
+  of source material.
+- Taxonomy coverage is a coverage audit, not proof that every row has been
   searched. Planned `FS-xxx` rows and planned query strings are not evidence.
   Evidence can only flow from actual `S-xxx` searches, reviewed `SRC-xxx`
   sources, and promoted `EV-xxx` / `MET-xxx` rows.
@@ -62,6 +64,13 @@ configured graph worker or explicitly supplied source URLs/files and record the 
 `artifacts/research_graph_state.json`. Do not convert planned queries or model
 memory into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
 
+A formal client-ready PPT requires a runtime that can support formal public
+research and source review. If `scripts/qc/check_runtime_dependencies.py`
+reports no configured search provider or no PDF extraction capability, stop
+before formal rendering and route to runtime setup or an evidence-limited
+outline. Manual source mode is useful when the user supplies exact sources, but
+it is not a silent fallback for missing public-search execution.
+
 ## Industry Scope Pack And Search Plan
 
 Create these artifacts before formal research execution:
@@ -80,7 +89,7 @@ Recommended sequence:
 1. Read `configs/source_registry.json` as a source menu only.
 2. Draft a short industry boundary card from the brief and model knowledge
    only. It is a scope hypothesis, not evidence.
-3. If needed, identify 1-5 boundary-validation questions in
+3. If needed, identify 1-5 boundary checks in
    `boundary_validation_needed`. These questions should be definition/scope-
    oriented, not market-answer-oriented.
 4. Record broad-discovery notes in the boundary QC workstream; do
@@ -137,8 +146,8 @@ competitive landscape, or page-ready claims in the scope pack. Any number found
 during broad discovery is an unvalidated lead until formal research execution
 promotes it.
 
-The search plan must be issue/subissue based and must include every canonical
-research area needed by `banker_page_pack.json`:
+The search plan should be issue/subissue based and start from the configured
+research areas used by `banker_page_pack.json`:
 
 - `market_size_growth`
 - `demand_customer_logic`
@@ -146,12 +155,16 @@ research area needed by `banker_page_pack.json`:
 - `key_trends_drivers`
 - `competitive_landscape`
 - `competitive_dynamics`
-- `pitch_relevance_target_context`
+- `pitch_relevance_target_context` (limited support row: it explains why the
+  industry matters for this project and what target facts require verification;
+  it must not crowd out industry coverage)
 
-Do not write investment hypotheses in the search plan. For every
-issue/subissue, write a research question, evidence need, source hint, and
+Do not write investment hypotheses in the search plan. For material
+issue/subissue rows, write a research question, evidence need, source hint, and
 planned FS instruction. Author exact executable query strings only in
-`artifacts/executable_search_batch.json`. Do not delete low-relevance subissues.
+`artifacts/executable_search_batch.json`. Low-relevance subissues can be
+accounted for as not material during execution rather than researched at equal
+depth.
 Use `execution_expectation` to decide depth:
 
 - `deep_search`: material row; normally needs multiple actual searches or a
@@ -162,8 +175,8 @@ Use `execution_expectation` to decide depth:
 
 If a subissue turns out to be weak, irrelevant, unavailable, or not comparable
 after real searching, keep it in the formal execution report with limitations.
-Do not create fake `S-xxx` IDs for unexecuted rows and do not delete planned
-taxonomy coverage to make the report look complete.
+Do not create fake `S-xxx` IDs for unexecuted rows and do not use taxonomy
+coverage to make the report look complete.
 
 ## Formal Research Execution
 
@@ -182,6 +195,12 @@ state fields:
   threshold, or chart datapoint. Each promoted `MET-xxx` row must carry
   indicator, value, unit, period, geography, source, original locator, short
   excerpt, and audit note.
+- Management-provided target data from the brief, including GMV, net profit,
+  sales volume, rankings, and channel traction, is unaudited project context
+  unless independently verified by a reviewable external source. Keep it in
+  labeled project context, `management_provided_claims_to_verify`, or
+  `research_context`; do not promote it to `audited_metric` or chart-ready
+  industry data.
 - `research_context`: open_deep_research-style background notes with source
   URLs/titles/summaries. These notes can guide wording and context but cannot
   support key numbers, chart data, hard claims, or client-facing source notes

@@ -1,0 +1,95 @@
+{
+  "schema_version": "research_planning_policy_v1",
+  "description": "Configurable planning policy for formal research preparation. These values seed the plan and can be changed without editing Python.",
+  "source_hints_by_area": {
+    "market_size_growth": "official statistics, industry association, broker/consulting report, market data provider",
+    "demand_customer_logic": "customer/end-user/end-market research, industry report, channel/platform/user data",
+    "industry_structure": "industry report, company filings, broker report, value-chain analysis",
+    "key_trends_drivers": "industry report, regulator/standard body, technology report, broker report, M&A news",
+    "competitive_landscape": "company filings, industry report, peer disclosures, market data provider",
+    "competitive_dynamics": "industry report, company disclosures, broker report, trade media with cited data",
+    "pitch_relevance_target_context": "company-provided materials, peer transactions, investor commentary, sector reports"
+  },
+  "source_specific_hints": {
+    "market_size_growth": "official statistics, industry associations, regulatory or sector reports",
+    "demand_customer_logic": "company filings, company calls/transcripts, user or purchaser research",
+    "industry_structure": "industry reports, value-chain studies, financial filings",
+    "key_trends_drivers": "industry report, regulator/standard body, M&A and company announcements",
+    "competitive_landscape": "company filings, peer filings, transaction updates",
+    "competitive_dynamics": "financial results, M&A databases, strategic announcements",
+    "pitch_relevance_target_context": "company disclosures, peer transactions, sector commentary"
+  },
+  "default_source_hint": "industry report, company disclosure, official or authoritative source",
+  "default_expected_source_type": "public_search",
+  "execution_defaults": {
+    "deep_search": {
+      "minimum_actual_searches": 2,
+      "priority": "high",
+      "rationale": "Core pitch issue: run multiple actual searches when possible, ideally authority/source-specific plus reconciliation/counter-check."
+    },
+    "light_search": {
+      "minimum_actual_searches": 1,
+      "priority": "medium",
+      "rationale": "Supporting issue: run one actual search when material, or account for why it is not material/available."
+    },
+    "accounting_only": {
+      "minimum_actual_searches": 0,
+      "priority": "low",
+      "rationale": "Coverage-audit row: execute only if material after scoping; otherwise account for it as not_material or not_executed in formal execution."
+    }
+  },
+  "research_request_queue": {
+    "allowed_source_types": [
+      "public_search",
+      "user_curated_industry_report",
+      "manual_url_ingestion",
+      "repository_retrieval"
+    ],
+    "source_type_alias_terms": {
+      "repository_retrieval": ["repo", "repository"],
+      "manual_url_ingestion": ["manual", "url"],
+      "user_curated_industry_report": ["industry report", "user curated", "用户报告"],
+      "public_search": ["client", "confidential", "internal", "sensitive"]
+    },
+    "default_source_type": "public_search",
+    "downstream_permissions": [
+      "headline_disallowed",
+      "caveat_or_evidence_boundary_only",
+      "context_only",
+      "body_only",
+      "disallowed_as_claim"
+    ],
+    "headline_aliases": [
+      "headline_allowed",
+      "headline",
+      "not_allowed_in_headline"
+    ],
+    "headline_alias_downgrade_permission": "caveat_or_evidence_boundary_only",
+    "default_permission_if_unresolved": "caveat_or_evidence_boundary_only",
+    "default_minimum_actual_searches": 1,
+    "default_status": "pending_public_evidence",
+    "default_allowed_use_before_resolution": "not_allowed_in_headline",
+    "build_rule": "Requests are generated only from banker_page_pack.research_requests and internal slide open_questions; unresolved requests stay caveat/evidence-boundary-only until formal execution creates evidence."
+  },
+  "issue_execution_policy": {
+    "market_size_growth/current_market_size": "deep_search",
+    "market_size_growth/historical_growth": "deep_search",
+    "market_size_growth/forecast_growth": "deep_search",
+    "market_size_growth/market_segmentation": "deep_search",
+    "industry_structure/value_chain": "deep_search",
+    "industry_structure/profit_pool": "deep_search",
+    "industry_structure/barriers_to_entry": "deep_search",
+    "key_trends_drivers/secular_tailwinds": "deep_search",
+    "key_trends_drivers/channel_or_go_to_market_shift": "deep_search",
+    "competitive_landscape/competitor_profiles": "deep_search",
+    "competitive_landscape/strategic_positioning": "deep_search",
+    "competitive_dynamics/consolidation_logic": "deep_search",
+    "pitch_relevance_target_context/why_sector_relevant": "deep_search",
+    "pitch_relevance_target_context/discussion_implications": "deep_search",
+    "market_size_growth/market_cycle": "accounting_only",
+    "key_trends_drivers/technology_disruption": "accounting_only",
+    "key_trends_drivers/regulatory_developments": "accounting_only",
+    "competitive_landscape/valuation_snapshot_peer_fact": "accounting_only",
+    "pitch_relevance_target_context/evidence_limits": "accounting_only"
+  }
+}

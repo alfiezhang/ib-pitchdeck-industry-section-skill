@@ -746,7 +746,7 @@
             "midstream": 74,
             "downstream": 74,
             "channel": 74,
-            "target_positioning": 82,
+            "project_relevance": 82,
             "profit_pool": 74
           }
         },
@@ -1079,7 +1079,7 @@
         "top_right": "downstream_stage",
         "bottom_left": "profit_pool_view",
         "bottom_center": "key_barriers_by_stage",
-        "bottom_right": "target_positioning_and_extension",
+        "bottom_right": "project_relevance_or_transaction_framing_angle",
         "source_footer": "page_source_footer"
       },
       "capacity_rules": {
@@ -1154,7 +1154,7 @@
         "table_row_6": "compare_table_row_6",
         "right_top": "industry_structure_judgment",
         "right_mid": "industry_evolution",
-        "right_bottom": "target_relative_positioning",
+        "right_bottom": "project_relevance_or_transaction_framing_angle",
         "source_footer": "page_source_footer"
       },
       "capacity_rules": {
@@ -1196,7 +1196,7 @@
         "matrix_label_y": "matrix_axis_y",
         "right_top": "industry_structure_judgment",
         "right_mid": "industry_evolution",
-        "right_bottom": "target_relative_positioning",
+        "right_bottom": "project_relevance_or_transaction_framing_angle",
         "source_footer": "page_source_footer"
       },
       "capacity_rules": {
@@ -1402,9 +1402,9 @@
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
         "left_panel": "why_industry_is_attractive",
-        "right_top": "why_target_is_well_positioned",
-        "right_mid": "key_industry_changes_benefiting_target",
-        "right_bottom": "open_diligence_questions",
+        "right_top": "transaction_relevance_from_industry_view",
+        "right_mid": "industry_changes_to_test_in_project",
+        "right_bottom": "evidence_boundary_or_caveated_readthrough",
         "source_footer": "page_source_footer"
       },
       "capacity_rules": {

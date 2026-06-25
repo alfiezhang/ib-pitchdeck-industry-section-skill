@@ -42,17 +42,17 @@ Avoid Topics / Sources:
 
 ## Scope Boundary
 Engagement Context: pre_mandate_transaction_pitch
-Purpose: demonstrate sector understanding, transaction relevance, and selective target context or open questions where supported
+Purpose: demonstrate sector understanding, transaction relevance, selective target context, and evidence boundaries where needed
 Not A Generic Industry Report:
 Not A Full Consulting Study:
 Not A Company Deep Dive:
 Not A Valuation Report:
-Fixed 8-Slide Structure Preserved:
+Registry-Defined Slide Structure Preserved:
 
 ---
 
 ## Scope Pack And Formal Research Execution Summary
-> Summarize `artifacts/industry_scope_pack.json`, `artifacts/formal_search_plan.json`, and `artifacts/formal_research_execution_report.json`. Use the scope pack only for working/parent/broader market, category classification, reconciliation requirements, and boundary-validation questions. Do not treat the scope pack as evidence. Do not invent a separate issue tree in the research pack. The research pack should reflect the issue/subissue research actually executed, archived, and extracted into `artifacts/research_evidence_db.json`.
+> Summarize `artifacts/industry_scope_pack.json`, `artifacts/formal_search_plan.json`, and `artifacts/formal_research_execution_report.json`. Use the scope pack only for working/parent/broader market, category classification, reconciliation requirements, and boundary checks. Do not treat the scope pack as evidence. Do not invent a separate issue tree in the research pack. The research pack should reflect the issue/subissue research actually executed, archived, and extracted into `artifacts/research_evidence_db.json`.
 > The run must include passing `artifacts/formal_search_plan_validation.json`, `artifacts/formal_research_execution_validation.json`, `artifacts/source_archive/source_archive_index.json`, `artifacts/source_archive_validation.json`, and `artifacts/research_evidence_db_validation.json`, proving the search plan was executable, formal/latest searches were executed, and the underlying evidence sources were archived before research pack synthesis.
 
 Scope Boundary Check:
@@ -62,13 +62,13 @@ Scope Boundary Check:
 - Core / broad / adjacent categories:
 - Excluded scope:
 - Must reconcile:
-- Boundary validation needed:
+- Boundary checks needed:
 
 Project Classification:
 - Sector type:
 - Transaction type:
 - Target business model:
-- Likely buyer / investor angle:
+- Likely transaction / investor angle:
 - Key transaction question:
 
 Formal Research Execution Results:
@@ -253,7 +253,7 @@ Claim strength values:
 - hard_fact: directly sourced; preserve period, geography, unit, and scope
 - supported_inference: derived from sourced facts; use cautious wording
 - management_claim: provided by user/company; label as such unless externally verified
-- hypothesis: useful but unproven; treat as a diligence question
+- hypothesis: useful but unproven; treat as a caveated working view or route to Research
 
 ## Metric Reconciliation
 > All quantitative metrics used in slides must be reconciled before deck blueprint and renderer spec.
@@ -338,7 +338,7 @@ Key rules:
 -
 
 ### Optional Gaps
-> Useful to mention as open questions, but not blocking.
+> Useful to preserve as caveats or evidence boundaries, but not blocking.
 -
 
 ### Not Relevant / Intentionally Excluded

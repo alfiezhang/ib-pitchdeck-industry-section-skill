@@ -1,0 +1,62 @@
+{
+  "schema_version": "research_issue_taxonomy_v1",
+  "description": "Configurable issue/subissue coverage menu for formal industry research planning. Treat this as a starting taxonomy, not a mandatory equal-depth search checklist.",
+  "issue_topics_by_area": {
+    "market_size_growth": [
+      "current_market_size",
+      "historical_growth",
+      "forecast_growth",
+      "market_segmentation",
+      "growth_quality",
+      "market_cycle"
+    ],
+    "demand_customer_logic": [
+      "customer_segments",
+      "demand_drivers",
+      "willingness_to_pay",
+      "repeat_or_replacement",
+      "channel_behavior",
+      "unmet_needs"
+    ],
+    "industry_structure": [
+      "concentration",
+      "value_chain",
+      "profit_pool",
+      "business_models",
+      "barriers_to_entry",
+      "supplier_customer_power"
+    ],
+    "key_trends_drivers": [
+      "secular_tailwinds",
+      "headwinds_and_risks",
+      "technology_disruption",
+      "regulatory_developments",
+      "channel_or_go_to_market_shift",
+      "mna_and_consolidation"
+    ],
+    "competitive_landscape": [
+      "peer_universe",
+      "competitor_profiles",
+      "peer_financials",
+      "strategic_positioning",
+      "product_or_service_focus",
+      "channel_footprint",
+      "recent_developments",
+      "valuation_snapshot_peer_fact"
+    ],
+    "competitive_dynamics": [
+      "basis_of_competition",
+      "winners_losers",
+      "new_entrants",
+      "substitutes_or_adjacent_risk",
+      "differentiation_durability",
+      "consolidation_logic"
+    ],
+    "pitch_relevance_target_context": [
+      "why_sector_relevant",
+      "target_context_fit",
+      "evidence_limits",
+      "discussion_implications"
+    ]
+  }
+}

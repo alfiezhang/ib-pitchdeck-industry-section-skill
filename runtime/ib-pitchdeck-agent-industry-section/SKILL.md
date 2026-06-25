@@ -9,7 +9,7 @@ description: Build pre-mandate investment banking pitchbook industry sections fr
 
 This skill helps create the **industry section of a pre-mandate client pitchbook**. The user may provide only a short target brief, a PDF/PPT, a link, an industry report, or a rough project lead. Your job is to behave like the banker/editor responsible for the section: understand the material, define the right industry boundary, collect public evidence, form defensible page arguments, and produce an editable PPT.
 
-The default engagement setting is **pre-mandate client pitch**. The output should show the potential client that the bank understands the industry, the target's position, the likely buyer lens, and the transaction story. Do not write it like a CIM, diligence report, investor memo, or signed-engagement workplan unless the user explicitly changes the deliverable.
+The default engagement setting is **pre-mandate client pitch**. The output is an **industry section**, not a target marketing section: it should prove that the bank understands the industry first, the transaction logic second, and only the selective target context needed to make the industry view relevant. Do not write it like a CIM, signed-engagement report, investor memo, target profile, diagnostic checklist, or execution workplan unless the user explicitly changes the deliverable.
 
 Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. `scripts/status.py` and `scripts/qc/validate_artifact.py` are instruments, not autopilots.
 
@@ -19,7 +19,9 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 
 1. Establish the engagement context.
    - Treat the work as a pre-mandate client pitch unless told otherwise.
-   - Use only user materials and public evidence. Do not imply confidential diligence access.
+   - Treat a short target brief primarily as classification and context input: use it to define the market, geography, transaction setting, and research priorities.
+   - Do not let user-provided target facts become the page storyline. Target facts belong in labeled project context, caveats, or a short relevance note unless independently verified and needed for the industry argument.
+   - Use only user materials and public evidence. Do not imply confidential company access or a signed mandate.
    - Decide whether the user expects a formal client-ready PPT. If evidence is not ready, report the missing owner-role repair instead of rendering a shortcut deck.
 
 2. Ingest the material.
@@ -33,19 +35,20 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    ```
 
 3. Build the current-project knowledge base.
-   - Extract target facts, transaction context, source provenance, metrics, unknowns, conflicts, and access level.
+   - Extract target facts, transaction context, source provenance, metrics, unknowns, conflicts, and access level only to support scope, research prioritization, and selective project relevance.
    - Keep user-provided claims separate from externally verified evidence.
    - Do not search from the knowledge layer. New public evidence enters through the research layer, then returns to knowledge.
 
 4. Define the target industry boundary before researching the industry.
    - Specify working market, parent market, broader market, core/broad/adjacent/excluded categories, and reconciliation rules.
    - The scope pack should be short. It defines the research boundary and reconciliation rules; it does not summarize the industry.
-   - Use a small boundary-validation search when the category could be too broad, too narrow, or confused with an application, channel, parent market, or adjacent market.
-   - Boundary validation is not full industry research.
+   - Use a small boundary-check search when the category could be too broad, too narrow, or confused with an application, channel, parent market, or adjacent market.
+   - Boundary checking is not full industry research.
    - Do not start formal research planning or formal search execution until Industry Boundary QC has passed or routed a repair.
 
 5. Collect public evidence.
    - Use the host's web search, SearXNG/manual URL ingestion, user-provided reports, or repository retrieval as available.
+   - If formal search or PDF extraction capability is unavailable, do not continue to a formal client-ready PPT; route to runtime setup or an evidence-limited outline.
    - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage/evidence-need map, `executable_search_batch.json` is the only query workbench, and `research_graph_state.json` is the editable execution state.
    - Treat search results as leads. A search snippet is not evidence.
    - Keep ordinary background as `research_context`; promote only hard facts and key numbers into EV/MET evidence.
@@ -56,12 +59,16 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 6. Author one banker page pack.
    - After Knowledge validates `artifacts/research_evidence_db.json`, write `banker_page_pack.json` as the single LLM-authored page artifact.
    - This pack is the only default LLM-authored page-judgment artifact.
-   - Each page must show a client question, banker judgment, page argument, substantive headline/main message, exhibit, at least four body blocks, traceable EV/MET bindings, source note, and transaction readthrough.
-   - Pages should look banker-dense, not empty: use specific mechanisms, implications, buyer lenses, and proof points. At least five pages should use metrics or visible quantitative claims, and at least four pages should carry chart/table-grade data or a deliberately structured evidence exhibit.
+   - Each page must be industry-first: the headline, main message, banker judgment, page argument, exhibit, and body blocks should primarily explain market structure, growth, demand, economics, competition, or trends.
+   - Each page should show `page_primary_subject`, a client question, banker judgment, page argument, substantive headline/main message, exhibit, multiple body blocks, traceable EV/MET bindings where available, and source note.
+   - Use `project_relevance_note` only as a short bridge from an industry finding to the pre-mandate discussion. It is optional on pages where the industry point is self-evident, and it must not become a target profile paragraph.
+   - Pages should look banker-dense, not empty: use specific industry mechanisms, quantitative evidence, competitive comparisons, profit-pool logic, transaction framing angles, and proof points. Prefer metric-supported pages and chart/table-grade exhibits when evidence supports them; use evidence-boundary exhibits when it does not.
    - Important numbers require `key_data_audit` rows with indicator, value, unit, period, geography, source type/name, original locator, short excerpt, and deck usage. Normal prose needs standard EV/source linkage but does not need audit-grade treatment.
    - When public sources conflict, choose a working number for the page, disclose why it was selected, and record the conflicting values in `conflict_data_notes`. Do not postpone all judgment merely because sources differ.
-   - The mission is pre-mandate: show industry understanding, transaction understanding, and professional judgment without pretending confidential diligence or a signed mandate.
+   - The mission is pre-mandate: show industry understanding, transaction understanding, and professional judgment without pretending confidential access or a signed mandate.
+   - Keep target context selective: the default page subject is `industry`; `target_context` pages and target-specific terms should be exceptional and clearly source-labeled.
    - If evidence is thin, make the page structured and caveated; do not render empty pages or invent numbers.
+   - Management-provided target metrics from the brief are unaudited project context unless externally verified; do not treat them as audited/chart-ready industry MET data.
 
 7. Compile the page pack.
    - Run `scripts/generation/compile_banker_page_pack.py` to create derived `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`.
@@ -100,7 +107,7 @@ Use this when the researched market might be wrong, too broad, too narrow, or mi
 Banker Page Pack -> Research Request Queue -> Research -> Knowledge -> Banker Page Pack
 ```
 
-Use this when a page argument, caveat, buyer concern, or exhibit needs more public evidence before it can be used.
+Use this when a page argument, caveat, transaction framing angle, or exhibit needs more public evidence before it can be used.
 
 ## Practical Dashboard Commands
 
@@ -146,6 +153,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - User-provided facts, public evidence, assumptions, and hypotheses are clearly separated.
 - Evidence used in banker page pack claims is traceable to archived/opened sources, not search snippets.
 - The deck contains real banker judgments and transaction readthrough, not a thin list of caveats.
+- The deck is industry-led: target/project context is selective and labeled, not the main storyline.
 - The deck has visible exhibits with adequate data/table/card density; chart-led pages are not single datapoint placeholders.
 - Buyer perspective and transaction relevance are visible where appropriate.
 - A user-provided PPT template is honored; otherwise the bundled template is used.
@@ -161,6 +169,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - Turning hypotheses into headlines.
 - Rendering a PPT directly from raw research without a banker page pack.
 - Rendering sparse token-only pages when a slide needs a visual exhibit.
+- Turning a target brief into eight pages of target promotion instead of using it for industry classification and selective relevance.
 - Writing draft-only or off-schema formal artifacts to bypass the formal workflow.
 - Hand-editing derived `deck_blueprint.json`, `template_profile.json`, `renderer_spec.json`, `replacement_dict.json`, or final flags to hide upstream issues.
 - Claiming a formal delivery when the run is only a draft or when QC has identified unresolved client-readiness problems.

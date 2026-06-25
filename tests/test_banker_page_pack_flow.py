@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from conftest import ROLE_SCRIPT_DIRS, SCRIPT_IMPORT_PATHS, SKILL_DIR, _write_json
+from conftest import ROLE_SCRIPT_DIRS, SCRIPT_IMPORT_PATHS, SKILL_DIR, SLIDE_NUMBERS, _write_json
 
 
 def _body_copy_for(slide_no: int, page_type: str, template_registry: dict, blocks: list[dict]) -> dict[str, str]:
@@ -24,8 +24,13 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
     slides = []
     for slide in deck_blueprint_data["slides"]:
         slide_no = int(slide["slide_no"])
+        page_evidence_ids = [
+            f"EV-{((slide_no - 1) % 6) + 1:03d}",
+            f"EV-{((slide_no) % 6) + 1:03d}",
+        ]
         evidence_ids = sorted(
             {
+                *page_evidence_ids,
                 *(item for item in slide.get("evidence_ids", []) if item),
                 *(
                     item
@@ -35,10 +40,12 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 ),
             }
         ) or ["EV-001"]
-        metric_id = f"MET-{((slide_no - 1) % 3) + 1:03d}"
+        metric_id = f"MET-{((slide_no - 1) % 4) + 1:03d}"
+        secondary_metric_id = f"MET-{((slide_no) % 4) + 1:03d}"
         metric_ids = sorted(
             {
                 metric_id,
+                secondary_metric_id,
                 *(item for item in slide.get("metric_ids", []) if item),
                 *(
                     item
@@ -53,7 +60,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 "role": f"point_{idx}",
                 "copy": (
                     f"Page {slide_no} point {idx} interprets evidence for a pre-mandate client discussion, "
-                    "linking industry structure, buyer diligence, and transaction positioning rather than listing generic facts."
+                    "linking industry structure, transaction framing, and market economics rather than listing generic facts."
                 ),
                 "evidence_ids": evidence_ids,
                 "metric_ids": [metric_id] if idx in {1, 2} else [],
@@ -72,7 +79,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 "unit": "index",
                 "source_rows": [
                     {"label": "2022", "value": 80.0 + slide_no, "metric_id": metric_id},
-                    {"label": "2023", "value": 92.0 + slide_no, "metric_id": metric_id},
+                    {"label": "2023", "value": 92.0 + slide_no, "metric_id": secondary_metric_id},
                     {"label": "2024", "value": 108.0 + slide_no, "metric_id": metric_id},
                 ],
             }
@@ -80,7 +87,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
             compare_table_data = {
                 "headers": ["Dimension", "Evidence-backed read", "Pitch implication"],
                 "rows": [
-                    {"label": "Demand", "cells": ["Supported by EV/MET linkage", "Buyer diligence should test repeatability"]},
+                    {"label": "Demand", "cells": ["Supported by EV/MET linkage", "Repeatability should be framed with evidence boundaries"]},
                     {"label": "Competition", "cells": ["Differentiation varies by capability", "Positioning should avoid unsupported share claims"]},
                     {"label": "Economics", "cells": ["Profit pool evidence remains central", "Transaction story must connect to margin control"]},
                 ],
@@ -89,18 +96,19 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
             {
                 "slide_no": slide_no,
                 "fixed_page_role": slide["fixed_page_role"],
+                "page_primary_subject": "industry" if slide_no <= 6 else "industry_with_project_relevance",
                 "client_question": f"What should the client understand from page {slide_no} before signing a mandate?",
                 "banker_judgment": (
-                    f"Page {slide_no} should communicate a banker judgment about market structure, buyer diligence, "
-                    "and transaction relevance using evidence rather than broad industry commentary, while also explaining "
-                    "how the client should frame growth quality, competitive risk, and buyer questions before a mandate is signed."
+                    f"Page {slide_no} should communicate a banker judgment about market structure, transaction framing, "
+                    "and sector economics using evidence rather than broad industry commentary, while also explaining "
+                    "how the client should frame growth quality, competitive risk, and transaction logic before a mandate is signed."
                 ),
                 "page_argument": slide["page_argument"],
                 "selected_page_type": slide["selected_page_type"],
                 "claim_strength": "supported_inference",
                 "headline": slide["headline"],
                 "main_message": (
-                    f"Page {slide_no} connects sourced evidence, visible data, and transaction relevance so the page reads as banker judgment instead of a sparse research summary, "
+                    f"Page {slide_no} connects sourced evidence, visible data, and industry implications so the page reads as banker judgment instead of a sparse research summary, "
                     "with enough detail to support client discussion and enough caution to preserve evidence boundaries."
                 ),
                 "exhibit": {
@@ -123,8 +131,10 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 ],
                 "chart_data": chart_data,
                 "compare_table_data": compare_table_data,
-                "transaction_readthrough": (
-                    f"For a pre-mandate pitch, page {slide_no} turns industry evidence into a specific buyer or process discussion point without claiming final diligence conclusions."
+                "project_relevance_note": (
+                    f"For a pre-mandate pitch, page {slide_no} turns the industry evidence into a transaction-framing discussion point."
+                    if slide_no in {7, 8}
+                    else ""
                 ),
                 "source_note": "Sources: " + "; ".join(evidence_ids),
                 "caveats": [],
@@ -135,8 +145,8 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
         "schema_version": "banker_page_pack",
         "section_meta": {"target_company": "Example Target", "industry": "Example sector"},
         "deck_storyline": (
-            "The section moves from industry scale and structure into competition, economics, and transaction implications, "
-            "using traceable data and banker judgment to support a pre-mandate client conversation. It should make the bank's view visible through charts, tables, caveats, and transaction readthrough rather than through generic industry summary language."
+            "The section moves from industry scale and structure into competition, economics, and project implications, "
+            "using traceable data and banker judgment to support a pre-mandate client conversation. It should make the bank's industry view visible through charts, tables, caveats, and selective project relevance rather than through generic summary language."
         ),
         "evidence_policy": {
             "important_data": "Use MET rows from research_evidence_db with audit-grade source fields.",
@@ -164,7 +174,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 "usage_in_deck": "Visible metric claim and exhibit support.",
                 "remarks": "Contract-test audit row.",
             }
-            for idx in range(1, 4)
+            for idx in range(1, 5)
         ],
         "conflict_data_notes": [],
         "slides": slides,
@@ -190,6 +200,7 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
             {
                 "slide_no": idx,
                 "fixed_page_role": "industry_overview",
+                "page_primary_subject": "industry",
                 "client_question": "Question?",
                 "banker_judgment": "thin",
                 "page_argument": "thin",
@@ -201,10 +212,10 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
                 "body_blocks": [],
                 "evidence_ids": ["EV-001"],
                 "metric_ids": [],
-                "transaction_readthrough": "thin",
+                "project_relevance_note": "",
                 "source_note": "Sources: EV-001",
             }
-            for idx in range(1, 9)
+            for idx in SLIDE_NUMBERS
         ],
     }
     path = tmp_path / "banker_page_pack.json"
@@ -213,6 +224,145 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
     result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
     assert result.returncode != 0
     assert "body_blocks is required" in result.stdout
+
+
+def test_banker_page_pack_warns_target_drift(tmp_path: Path) -> None:
+    slides = []
+    for idx in SLIDE_NUMBERS:
+        slides.append(
+            {
+                "slide_no": idx,
+                "fixed_page_role": "industry_overview",
+                "page_primary_subject": "industry",
+                "client_question": "What industry point matters?",
+                "banker_judgment": "Industry judgment with source-backed market mechanism.",
+                "page_argument": "Industry page argument with evidence and implication.",
+                "selected_page_type": "summary_page",
+                "claim_strength": "supported_inference",
+                "headline": "标的公司具备强交易故事",
+                "main_message": "Industry message.",
+                "exhibit": {
+                    "exhibit_type": "driver_cards",
+                    "why_this_exhibit": "Shows market mechanisms.",
+                    "data_or_evidence_inputs": ["EV-001"],
+                    "visual_structure": "Four industry cards.",
+                    "density_target": "Dense.",
+                    "fallback_if_data_limited": "Use evidence-gap matrix.",
+                },
+                "body_blocks": [
+                    {
+                        "role": f"point_{n}",
+                        "copy": "Industry mechanism with evidence and implication.",
+                        "evidence_ids": ["EV-001"],
+                        "metric_ids": [],
+                        "claim_strength": "supported_inference",
+                    }
+                    for n in range(4)
+                ],
+                "evidence_ids": ["EV-001"],
+                "metric_ids": [],
+                "project_relevance_note": "",
+                "source_note": "Sources: EV-001",
+            }
+        )
+    pack = {
+        "schema_version": "banker_page_pack",
+        "section_meta": {},
+        "deck_storyline": "Industry-led storyline.",
+        "deliverable_readiness": {
+            "decision_status": "llm_decided",
+            "decision_owner": "generation",
+            "enough_for_client_pitch": True,
+            "decision_note": "Fixture.",
+        },
+        "slides": slides,
+    }
+    path = tmp_path / "banker_page_pack.json"
+    _write_json(path, pack)
+
+    result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "headline contains target/project terms" in result.stdout
+
+
+def test_banker_page_pack_warns_industry_majority(tmp_path: Path) -> None:
+    slides = []
+    for idx in SLIDE_NUMBERS:
+        slides.append(
+            {
+                "slide_no": idx,
+                "fixed_page_role": "industry_overview",
+                "page_primary_subject": "industry_with_project_relevance",
+                "client_question": "What industry point matters?",
+                "banker_judgment": "Industry judgment with source-backed market mechanism.",
+                "page_argument": "Industry page argument with evidence and implication.",
+                "selected_page_type": "summary_page",
+                "claim_strength": "supported_inference",
+                "headline": "Industry structure is the primary page subject",
+                "main_message": "Industry message.",
+                "exhibit": {
+                    "exhibit_type": "driver_cards",
+                    "why_this_exhibit": "Shows market mechanisms.",
+                    "data_or_evidence_inputs": ["EV-001"],
+                    "visual_structure": "Four industry cards.",
+                    "density_target": "Dense.",
+                    "fallback_if_data_limited": "Use evidence-gap matrix.",
+                },
+                "body_blocks": [
+                    {
+                        "role": f"point_{n}",
+                        "copy": "Industry mechanism with evidence and implication.",
+                        "evidence_ids": ["EV-001"],
+                        "metric_ids": [],
+                        "claim_strength": "supported_inference",
+                    }
+                    for n in range(4)
+                ],
+                "evidence_ids": ["EV-001"],
+                "metric_ids": [],
+                "project_relevance_note": "Short project bridge.",
+                "source_note": "Sources: EV-001",
+            }
+        )
+    pack = {
+        "schema_version": "banker_page_pack",
+        "section_meta": {},
+        "deck_storyline": "Industry-led storyline.",
+        "deliverable_readiness": {
+            "decision_status": "llm_decided",
+            "decision_owner": "generation",
+            "enough_for_client_pitch": True,
+            "decision_note": "Fixture.",
+        },
+        "slides": slides,
+    }
+    path = tmp_path / "banker_page_pack.json"
+    _write_json(path, pack)
+
+    result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "fewer industry-primary pages than the advisory target" in result.stdout
+    assert "more project_relevance_note pages than the advisory target" in result.stdout
+
+
+def test_banker_page_pack_warns_mixed_axis_units(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    pack["slides"][0]["chart_data"]["source_rows"] = [
+        {"label": "market size", "value": 100, "unit": "RMB bn", "metric_id": "MET-001"},
+        {"label": "target sales", "value": 470, "unit": "万件", "metric_id": "MET-002"},
+    ]
+    path = tmp_path / "banker_page_pack.json"
+    _write_json(path, pack)
+
+    result = _run("validate_artifact.py", ["--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "chart_data mixes units on one chart axis" in result.stdout
 
 
 def test_banker_page_pack_validates_and_compiles(

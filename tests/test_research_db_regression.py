@@ -154,6 +154,8 @@ def minimal_research_db() -> dict:
             }
         ],
         "research_gap_audit": {
+            "deliverable_constraint": "evidence_limited_outline_only",
+            "evidence_limited_rationale": "Minimal regression fixture intentionally carries fewer rows than a formal client-ready research base.",
             "critical_gaps": [],
             "metric_consistency_check": {
                 "GMV vs revenue": "No conflict.",
@@ -214,6 +216,20 @@ def test_research_db_rejects_extract_promoted_evidence_source_mismatch() -> None
     errors, _, _ = validate_db(db)
 
     assert any("promoted_evidence_id EV-001 belongs to source_review_id SRC-001, not SRC-002" in error for error in errors), errors
+
+
+def test_research_db_warns_project_specific_audited_metric() -> None:
+    db = minimal_research_db()
+    db["source_materials"][0]["source_type"] = "project_specific_material"
+    db["source_materials"][0]["source_access"] = "user_provided"
+    db["metric_reconciliation"][0]["metric_name"] = "Target GMV"
+    db["metric_reconciliation"][0]["metric_type"] = "target_traction"
+    db["metric_reconciliation"][0]["source_type"] = "project_specific_material"
+
+    errors, warnings, _ = validate_db(db)
+
+    assert not errors, errors
+    assert any("project-specific / management-provided target metrics cannot be promoted" in warning for warning in warnings), warnings
 
 
 def test_build_db_keeps_multi_source_evidence_source_specific() -> None:

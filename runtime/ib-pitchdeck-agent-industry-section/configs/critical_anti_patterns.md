@@ -134,7 +134,7 @@ Correct approach:
 
 What happens:
 - A formal page uses a single oversized bar, empty chart area, or three short bullets where the page needs a real exhibit.
-- Evidence-limited pages become visually blank instead of showing a caveated table, KPI card set, diligence grid, or evidence-gap matrix.
+- Evidence-limited pages become visually blank instead of showing a caveated table, KPI card set, evidence-boundary grid, or evidence-gap matrix.
 
 Why it is wrong:
 - The deck may pass token replacement but still look unfinished.

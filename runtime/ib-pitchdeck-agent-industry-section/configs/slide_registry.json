@@ -1,6 +1,6 @@
 {
-  "description": "Single registry for fixed 8-slide layout variants. Validators, converters, cleaners, renderers, and renderer-spec planning should use this as the canonical page-variant contract.",
-  "workflow_scope": "fixed_8_slide_standard_only",
+  "description": "Single registry for logical slide roles and layout variants. Validators, converters, cleaners, renderers, and renderer-spec planning should use this as the canonical page-variant contract.",
+  "workflow_scope": "slide_registry_defined_standard",
   "slides": [
     {
       "slide_no": 1,
@@ -518,7 +518,7 @@
     },
     {
       "slide_no": 8,
-      "slide_key": "transaction_implications",
+      "slide_key": "industry_takeaways_for_project",
       "selection_mode": "fixed",
       "default_variant": "summary_page",
       "variants": {

@@ -1,6 +1,6 @@
 # IB Pitchdeck Agent Industry Section Operating Model
 
-This skill builds the industry section of a **pre-mandate client pitchbook**. It is not a CIM, DD workplan, buyer memo, or generic market report. The output should help a potential client believe that the bank understands the industry, the target's position, the transaction window, and how buyers will evaluate the story.
+This skill builds the industry section of a **pre-mandate client pitchbook**. It is not a CIM, signed-engagement workplan, buyer memo, target profile, or generic market report. The output should help a potential client believe that the bank understands the industry first, the transaction implications second, and only the selective project context needed to make the industry view relevant.
 
 ## Design Principles
 
@@ -8,7 +8,7 @@ This skill builds the industry section of a **pre-mandate client pitchbook**. It
 2. Calibrate the target industry boundary before doing broad research.
 3. Knowledge stores facts, metrics, sources, conflicts, and unknowns; it does not search or judge.
 4. Research collects public evidence and user-supplied reports; it does not turn hypotheses into conclusions.
-5. Banker judgment and page design converge in `banker_page_pack.json`: supported views, caveats, exhibit logic, dense copy, data bindings, and transaction readthrough.
+5. Banker judgment and page design converge in `banker_page_pack.json`: industry-first supported views, caveats, exhibit logic, dense copy, data bindings, and selective project relevance.
 6. Reasoning is a diagnostic support role when a judgment needs hypothesis resolution or a research request before it can enter the page pack.
 7. Template work comes after page logic: the template can compress, split, and fit content, but it cannot change the core judgment.
 8. QC owns validation. Python handles deterministic format, ID, provenance, and rendering checks. LLM QC handles quality, evidence sufficiency, source use, page thinness, and pitch relevance.

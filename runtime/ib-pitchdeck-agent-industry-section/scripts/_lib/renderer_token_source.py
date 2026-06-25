@@ -56,7 +56,7 @@ SLIDE_KEY_MAP = {
     "barriers_value_drivers": "key_barriers_value_drivers",
     "competitive_landscape": "competitive_landscape",
     "industry_trends_future_evolution": "industry_trends_future_evolution",
-    "transaction_implications": "transaction_implications",
+    "industry_takeaways_for_project": "industry_takeaways_for_project",
 }
 
 # Page types that render quantitative charts. All others get chart_title cleared.

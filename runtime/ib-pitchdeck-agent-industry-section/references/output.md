@@ -24,9 +24,10 @@ You are the delivery operator. Your job is deterministic rendering and final pac
 2. Do not hand-edit deck copy, evidence, renderer spec, or replacement dictionary to mask upstream issues.
 3. If rendering fails because of missing exhibit, single-point charts, sparse visual payload, or content fit, route to Generation or Template.
 4. If final delivery is not client-ready, report the blocking repair owner instead of calling the PPT complete.
-5. Use the selected template from `artifacts/template_selection.json`; if absent, the pipeline selects a user-registered template or the bundled template.
-6. Do not write ad-hoc run-local render scripts such as `render_deck.py`.
-7. Do not render a shortcut deck from page arguments, issue analysis, or hand-written replacement dictionaries. If upstream artifacts are not ready, return the owner role and repair target instead.
+5. `scripts/pipeline.py render` records `artifacts/runtime_dependencies.json`. Missing search/PDF capability is a readiness warning by default; use `--strict-runtime-readiness` only when the operator wants runtime diagnostics to block rendering.
+6. Use the selected template from `artifacts/template_selection.json`; if absent, the pipeline selects a user-registered template or the bundled template.
+7. Do not write ad-hoc run-local render scripts such as `render_deck.py`.
+8. Do not render a shortcut deck from page arguments, issue analysis, or hand-written replacement dictionaries. If upstream artifacts are not ready, return the owner role and repair target instead.
 
 ## Judgment Boundary
 

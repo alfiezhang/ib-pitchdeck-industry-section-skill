@@ -12,7 +12,7 @@ The scope pack is a boundary card, not a research memo. Target length is 1-2 scr
 - What parent market and broader market provide context but should not be confused with the working market?
 - Which categories are core, broad, adjacent, or excluded?
 - Which source or metric definitions must be reconciled later?
-- Is a small boundary-validation search needed before formal research?
+- Is a small boundary-check search needed before formal research?
 
 ## Outputs
 
@@ -90,7 +90,7 @@ The scope pack is a boundary card, not a research memo. Target length is 1-2 scr
 2. Draft the working, parent, and broader market definitions.
 3. Classify categories into core, broad, adjacent, and excluded.
 4. List only material reconciliation topics.
-5. Request small boundary-validation research only when needed.
+5. Request small boundary-check research only when needed.
 
 ## Judgment Boundary
 
@@ -105,7 +105,7 @@ Return:
 - working / parent / broader market treatment;
 - core / broad / adjacent / excluded treatment;
 - material reconciliation needs;
-- boundary-validation questions if needed;
+- boundary checks if needed;
 - blocker if the brief is too ambiguous to define scope.
 
 Do not answer market attractiveness or write page arguments.
@@ -117,4 +117,4 @@ Hand off to Research with:
 - final working market definition;
 - exclusions and label-required broad/adjacent categories;
 - source/metric reconciliation needs;
-- boundary-validation questions if unresolved.
+- boundary checks if unresolved.

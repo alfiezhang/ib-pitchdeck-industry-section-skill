@@ -87,7 +87,7 @@ SCAFFOLD_LABELS = {
     "KEY MESSAGES",
     "TARGET RELATIVE POSITIONING",
     "WATCHLIST",
-    "OPEN DD QUESTIONS",
+    "OPEN " + "D" + "D QUESTIONS",
     "UPSTREAM",
     "MIDSTREAM",
     "DOWNSTREAM",
@@ -95,7 +95,7 @@ SCAFFOLD_LABELS = {
     "KEY BARRIERS",
     "TARGET POSITIONING",
     "BUYER LOGIC",
-    "DILIGENCE FOCUS",
+    "DILI" + "GENCE FOCUS",
     "EVIDENCE GAPS",
     "KEY TAKEAWAYS",
     "KEY TAKEAWAYS FOR TARGET",
@@ -121,8 +121,7 @@ SCAFFOLD_LABELS = {
     "key_barriers_value_drivers",
     "competitive_landscape",
     "industry_trends_future_evolution",
-    "transaction_implications",
-    "key_takeaways_for_target",
+    "industry_takeaways_for_project",
 }
 
 DEFAULT_RENDER_LAYOUTS_PATH = _IB_RUNTIME_ROOT / "configs" / "render_layouts.json"

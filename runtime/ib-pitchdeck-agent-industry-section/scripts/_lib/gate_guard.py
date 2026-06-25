@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared hard gate guard for PPT-producing scripts."""
+"""Shared deterministic gate guard for PPT-producing scripts."""
 
 from __future__ import annotations
 

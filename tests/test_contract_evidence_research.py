@@ -66,38 +66,61 @@ class TestResearchEvidenceDB:
                 ev.update({
                     "claim_or_metric": "Current market size is source-backed with explicit scope.",
                     "claim_scope": "industry-level", "source_type": "industry_report",
-                    "reliability": "reviewed_source", "data_period": "2026",
+                    "evidence_status": "primary-reviewed",
+                    "reliability": "reviewed_source", "confidence": "high", "data_period": "2026",
                 })
             if ev["evidence_id"] == "EV-002":
                 ev.update({
                     "claim_or_metric": "Value-chain economics are directionally supported.",
                     "claim_scope": "industry-level", "source_type": "industry_report",
-                    "reliability": "reviewed_source", "data_period": "2026",
+                    "evidence_status": "primary-reviewed",
+                    "reliability": "reviewed_source", "confidence": "high", "data_period": "2026",
+                })
+            if ev["evidence_id"] == "EV-003":
+                ev.update({
+                    "claim_or_metric": "Market segmentation is source-backed with explicit segment basis.",
+                    "claim_scope": "industry-level", "source_type": "industry_report",
+                    "evidence_status": "primary-reviewed",
+                    "reliability": "reviewed_source", "confidence": "high", "data_period": "2026",
                 })
         # Fill metrics
         for met in research_db["metric_reconciliation"]:
-            met.update({
-                "metric_name": "Current market size", "metric_type": "market_size",
-                "market_definition": "sample sector market", "channel_scope": "all_channel",
-                "geography": "Samplestan", "data_period": "2026",
-                "value": "100", "unit": "RMB bn",
-                "conflict_status": "single-source",
-                "resolution": "Use as contract-test metric only.", "chart_ready": True,
-                "audit_note": "Contract fixture audit note; source locator and excerpt are inherited from SRC review.",
-            })
+            if met.get("metric_id") == "MET-002":
+                met.update({
+                    "audit_level": "audited_metric",
+                    "metric_name": "Segment A share", "metric_type": "market_share",
+                    "market_definition": "sample sector market", "channel_scope": "all_channel",
+                    "geography": "Samplestan", "data_period": "2026",
+                    "value": "45", "unit": "%",
+                    "conflict_status": "single-source",
+                    "resolution": "Use as contract-test segmentation metric only.", "chart_ready": True,
+                    "audit_note": "Contract fixture audit note; source locator and excerpt are inherited from SRC review.",
+                })
+            else:
+                met.update({
+                    "audit_level": "audited_metric",
+                    "metric_name": "Current market size", "metric_type": "market_size",
+                    "market_definition": "sample sector market", "channel_scope": "all_channel",
+                    "geography": "Samplestan", "data_period": "2026",
+                    "value": "100", "unit": "RMB bn",
+                    "conflict_status": "single-source",
+                    "resolution": "Use as contract-test metric only.", "chart_ready": True,
+                    "audit_note": "Contract fixture audit note; source locator and excerpt are inherited from SRC review.",
+                })
         research_db["research_gap_audit"]["critical_gaps"] = []
         research_db["research_gap_audit"]["metric_consistency_check"] = {
             "GMV vs revenue": "No GMV/revenue conflict in contract fixture.",
-            "Cross-slide repeated metric consistency": "Repeated metrics use MET-001 only.",
+            "Cross-slide repeated metric consistency": "Repeated metrics use MET-001 and MET-002 consistently.",
             "Target financials consistency": "No target financials in contract fixture.",
             "User-provided vs external-source discrepancy": "No discrepancy in contract fixture.",
-            "Chart number consistency": "Chart numbers should bind to MET-001.",
+            "Chart number consistency": "Chart numbers should bind to MET-001 and MET-002.",
         }
 
         # Validate
         db_errors, db_warnings, db_metrics = validate_research_evidence_db(research_db)
         assert not db_errors, db_errors
-        assert db_metrics["evidence_ledger_row_count"] == 2, db_metrics
+        assert db_metrics["evidence_ledger_row_count"] == 3, db_metrics
+        assert db_metrics["metric_reconciliation_row_count"] == 2, db_metrics
         _write_json(artifacts / "research_evidence_db.json", research_db)
         _write_json(artifacts / "research_evidence_db_validation.json", {"is_valid": True, "errors": [], "warnings": db_warnings})
 

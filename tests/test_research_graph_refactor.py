@@ -128,6 +128,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
             "metrics": [
                 {
                     "metric_group": "market_size_growth",
+                    "audit_level": "audited_metric",
                     "metric_name": "Sample sector market size",
                     "metric_type": "market_size",
                     "market_definition": "sample sector working market",
@@ -139,6 +140,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
                     "conflict_status": "single-source",
                     "resolution": "Use only with the report's stated scope and period.",
                     "chart_ready": True,
+                    "audit_note": "Fixture metric is explicitly authorized as audited_metric for regression validation.",
                 }
             ],
         }
@@ -199,6 +201,8 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
     execution_errors, execution_warnings = validate_artifact("formal_research_execution", run_dir)
     assert not execution_errors, execution_errors
+    assert any("below minimum search coverage" in warning for warning in execution_warnings), execution_warnings
+    assert any("evidence-bearing FS rows" in warning for warning in execution_warnings), execution_warnings
     assert report["coverage_summary"]["planned_fs_rows"] == len(plan["issue_search_plan"])
     assert report["coverage_summary"]["actual_search_attempts"] == 2
     assert report["coverage_summary"]["fs_rows_executed_with_evidence"] == 1
@@ -241,6 +245,11 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     research_db["research_gap_audit"]["critical_gaps"] = [
         item for item in research_db["research_gap_audit"].get("critical_gaps", []) if "TODO" not in item
     ]
+    research_db["research_gap_audit"]["deliverable_constraint"] = "evidence_limited_outline_only"
+    research_db["research_gap_audit"]["evidence_limited_rationale"] = (
+        "Compiler contract fixture intentionally has one evidence row and one metric row; "
+        "it validates DB honesty but cannot support formal client-ready generation."
+    )
     research_db["research_gap_audit"]["metric_consistency_check"] = {
         "GMV vs revenue": "Not applicable in graph refactor fixture.",
         "Cross-slide repeated metric consistency": "MET-001 is unique and source scoped.",

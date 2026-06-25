@@ -32,20 +32,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from deck_blueprint_utils import FIXED_PAGE_ROLES
 from json_utils import load_json_file
 
 
 ROOT = _IB_RUNTIME_ROOT
-FIXED_PAGE_ROLES = {
-    1: "industry_overview",
-    2: "market_size_segmentation",
-    3: "key_industry_drivers",
-    4: "value_chain_profit_pool",
-    5: "key_barriers_value_drivers",
-    6: "competitive_landscape",
-    7: "industry_trends_future_evolution",
-    8: "transaction_implications",
-}
 
 
 def _load(path: Path) -> dict[str, Any]:

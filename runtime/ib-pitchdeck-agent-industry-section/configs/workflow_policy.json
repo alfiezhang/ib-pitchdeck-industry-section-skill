@@ -1,0 +1,7 @@
+{
+  "schema_version": "workflow_policy_v1",
+  "gate_retry": {
+    "default_max_repair_cycles": 3,
+    "description": "Default retry budget for repeated deterministic gate failures. Operators may override via CLI when a case needs a different repair loop."
+  }
+}

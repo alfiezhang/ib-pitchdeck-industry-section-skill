@@ -108,7 +108,7 @@
     },
     "4": {
       "selected_page_type": "value_chain_page",
-      "structure_summary": "Top row for value-chain stages, bottom row for profit pool, barriers, and target positioning.",
+      "structure_summary": "Top row for value-chain stages, bottom row for profit pool, barriers, and selective project relevance.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
@@ -117,13 +117,13 @@
         "top_right": "downstream_stage",
         "bottom_left": "profit_pool_view",
         "bottom_center": "key_barriers_by_stage",
-        "bottom_right": "target_positioning_and_extension",
+        "bottom_right": "project_relevance_or_transaction_framing_angle",
         "source_footer": "page_source_footer"
       }
     },
     "5": {
       "selected_page_type": "moat_page",
-      "structure_summary": "Three industry barrier / value-driver modules, each explaining why the capability matters and how the target maps to it.",
+      "structure_summary": "Three industry barrier / value-driver modules, each explaining why the capability matters and the project implication where source-labeled.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
@@ -142,7 +142,7 @@
       "variants": {
         "compare_table_page": {
           "variant_key": "06a",
-          "structure_summary": "Peer-comparison table on the left with structure judgment and target positioning panels on the right.",
+          "structure_summary": "Peer-comparison table on the left with structure judgment and project relevance panels on the right.",
           "field_roles": {
             "slide_title": "conclusion_led_page_title",
             "main_takeaway": "page_conclusion",
@@ -155,7 +155,7 @@
             "table_row_6": "compare_table_row_6",
             "right_top": "industry_structure_judgment",
             "right_mid": "industry_evolution",
-            "right_bottom": "target_relative_positioning",
+            "right_bottom": "project_relevance_or_transaction_framing_angle",
             "source_footer": "page_source_footer"
           }
         },
@@ -171,7 +171,7 @@
             "matrix_label_y": "matrix_axis_y",
             "right_top": "industry_structure_judgment",
             "right_mid": "industry_evolution",
-            "right_bottom": "target_relative_positioning",
+            "right_bottom": "project_relevance_or_transaction_framing_angle",
             "source_footer": "page_source_footer"
           }
         }
@@ -259,14 +259,14 @@
     },
     "8": {
       "selected_page_type": "summary_page",
-      "structure_summary": "Synthesis page combining attractiveness, target positioning, key benefits, and DD questions.",
+      "structure_summary": "Synthesis page combining industry attractiveness, transaction relevance, project implications, and evidence boundaries.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
         "left_panel": "why_industry_is_attractive",
-        "right_top": "why_target_is_well_positioned",
-        "right_mid": "key_industry_changes_benefiting_target",
-        "right_bottom": "open_diligence_questions",
+        "right_top": "transaction_relevance_from_industry_view",
+        "right_mid": "industry_changes_relevant_to_project",
+        "right_bottom": "evidence_boundary_or_caveated_readthrough",
         "source_footer": "page_source_footer"
       }
     }
@@ -504,7 +504,7 @@
     },
     {
       "slide_no": 8,
-      "slide_key": "transaction_implications",
+      "slide_key": "industry_takeaways_for_project",
       "selected_page_type": "summary_page",
       "tokens": [
         { "placeholder": "{{slide_08_title}}", "field_name": "slide_title", "max_chars": 95, "notes": "" },

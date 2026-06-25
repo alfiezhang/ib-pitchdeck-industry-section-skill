@@ -28,6 +28,10 @@ for _path in SCRIPT_IMPORT_PATHS:
 for _path in reversed(SCRIPT_IMPORT_PATHS):
     sys.path.insert(0, str(_path))
 
+from deck_blueprint_utils import FIXED_PAGE_ROLES  # noqa: E402
+
+SLIDE_NUMBERS = tuple(sorted(FIXED_PAGE_ROLES))
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,9 +119,9 @@ def _build_template_registry(tmp_path: Path) -> Path:
 
 
 def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None) -> dict:
-    """Build a minimal 8-slide deck blueprint for testing."""
+    """Build a minimal registry-defined deck blueprint for testing."""
     copy_themes = [
-        "Scale evidence establishes a market large enough for senior buyer attention.",
+        "Scale evidence establishes a market large enough for senior transaction attention.",
         "Forecast evidence needs period assumptions, not broad extrapolation.",
         "Segmentation evidence identifies where growth differs from the total market.",
         "Demand evidence links customer behavior to repeatable revenue pools.",
@@ -132,11 +136,11 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
         "Pricing evidence indicates whether growth is volume-led or premium-led.",
         "Regulatory context frames risk without becoming the main page story.",
         "Technology change matters when it alters cost, quality, or route to market.",
-        "Customer concentration affects repeatability and buyer diligence priorities.",
+        "Customer concentration affects repeatability and transaction framing priorities.",
         "Business model evidence separates recurring economics from project revenue.",
         "Margin evidence distinguishes profitable growth from headline expansion.",
         "Market-cycle context prevents overstating a short-term demand spike.",
-        "End-market mix explains which pockets deserve deeper buyer discussion.",
+        "End-market mix explains which pockets deserve deeper transaction discussion.",
         "Distribution power affects bargaining leverage across the chain.",
         "Supply constraints can create advantage only when they persist.",
         "Brand trust evidence matters when purchase risk is high.",
@@ -148,12 +152,12 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
         "Operational KPIs explain why similar revenue bases may trade differently.",
         "Geographic scope matters before comparing market size or growth rates.",
         "Historical growth should be separated from forecast assumptions.",
-        "The final page should turn sector view into focused buyer discussion points.",
+        "The final page should turn sector view into focused transaction discussion points.",
     ]
     roles = {
         1: "industry_overview", 2: "market_size_segmentation", 3: "key_industry_drivers",
         4: "value_chain_profit_pool", 5: "key_barriers_value_drivers", 6: "competitive_landscape",
-        7: "industry_trends_future_evolution", 8: "transaction_implications",
+        7: "industry_trends_future_evolution", 8: "industry_takeaways_for_project",
     }
     page_types = {
         1: "industry_overview_dynamic_page", 2: "chart_page", 3: "driver_card_page",
@@ -166,19 +170,19 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
         3: "Show key demand and channel dynamics shaping the sector.",
         4: "Trace value-chain economics to identify where profitability is controlled.",
         5: "Explain industry moat from barriers, capability, and switching friction.",
-        6: "Map peer dispersion to benchmark strategic attractiveness and buyer selectivity.",
+        6: "Map peer dispersion to benchmark strategic attractiveness and investor/acquirer selectivity.",
         7: "Separate forward-looking trend risks from current trend momentum.",
-        8: "Translate sector economics into concrete buyer diligence implications.",
+        8: "Translate sector economics into concrete transaction framing angles.",
     }
     visual_intents = {
         1: "Prove scale with a current-size evidence visual.",
-        2: "Show segment split to guide what buyers compare first.",
+        2: "Show segment split to guide what transaction stakeholders compare first.",
         3: "Demonstrate demand momentum through concise directional copy blocks.",
         4: "Explain margin and cost-chain positions with a structured visual map.",
         5: "Use barrier evidence to support defensibility without overclaiming.",
         6: "Compare competitive positions across practical operating dimensions.",
         7: "Use directional trend signals to frame near-term watch points.",
-        8: "Frame transaction relevance with caveated implications and buyer questions.",
+        8: "Frame transaction relevance with caveated implications and evidence boundaries.",
     }
     evidence_roles = {
         1: "thesis_anchor", 2: "supporting_evidence", 3: "supporting_evidence",
@@ -193,7 +197,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
 
     slides = slides_override if slides_override is not None else []
     if slides_override is None:
-        for no in range(1, 9):
+        for no in SLIDE_NUMBERS:
             banker_page_id = f"BP-{no:03d}"
             evidence = ["EV-001"] if no in {1, 2} else ["EV-003"]
             metrics = ["MET-001"] if no == 1 else (["MET-003"] if no == 2 else [])
@@ -227,7 +231,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                      "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                     {"role": "manufacturing", "target_field": "top_center",
-                     "copy": "Manufacturing execution explains why quality control can become a buyer diligence topic.",
+                    "copy": "Manufacturing execution explains why quality control can become a client discussion point.",
                      "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
                     {"role": "brand", "target_field": "top_right",
@@ -287,7 +291,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     "data_or_evidence_inputs": [*evidence, *metrics],
                     "visual_structure": f"{exhibit_types[no]} using the selected evidence and active template fields.",
                     "density_target": "Fill the formal layout with distinct evidence-backed modules.",
-                    "fallback_if_data_limited": "Use caveated cards or a diligence grid; do not use a single-point chart.",
+                    "fallback_if_data_limited": "Use caveated cards or an evidence-boundary grid; do not use a single-point chart.",
                 },
                 "why_this_page_matters": f"Slide {no} matters because it converts research into a pitch-relevant page argument.",
                 "selected_page_type": page_types[no],
@@ -298,7 +302,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 "chart_data": chart_data, "compare_table_data": compare_table_data,
                 "source_note": "Sources: " + "; ".join(evidence),
                 "pitch_relevance": "Sector credibility first; target context remains selective.",
-                "caveats": [], "open_questions": ["Verify target-specific fit after mandate"] if no == 8 else [],
+                "caveats": [], "open_questions": ["Keep target-specific fit as a caveated evidence-boundary item"] if no == 8 else [],
             })
     blueprint = {
         "schema_version": "deck_blueprint_v1",
@@ -320,10 +324,11 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
                 "slide_no": slide_no,
                 "banker_page_id": slide.get("banker_page_id") or f"BP-{slide_no:03d}",
                 "fixed_page_role": slide["fixed_page_role"],
+                "page_primary_subject": "industry" if slide_no <= 6 else "industry_with_project_relevance",
                 "client_question": slide["investor_question"],
                 "banker_judgment": (
                     f"Slide {slide_no} should communicate a banker judgment about sector structure, evidence quality, "
-                    "buyer diligence, and transaction relevance before a mandate is signed."
+                    "transaction framing priorities, and market economics before a mandate is signed."
                 ),
                 "page_argument": slide["page_argument"],
                 "selected_page_type": slide["selected_page_type"],
@@ -339,8 +344,10 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
                 "evidence_ids": slide.get("evidence_ids", ["EV-001"]),
                 "metric_ids": slide.get("metric_ids", []),
                 "visible_metric_claims": slide.get("visible_metric_claims", []),
-                "transaction_readthrough": (
-                    f"Slide {slide_no} turns industry evidence into a concrete pre-mandate buyer discussion point."
+                "project_relevance_note": (
+                    f"Slide {slide_no} turns industry evidence into a concrete pre-mandate transaction discussion point."
+                    if slide_no in {7, 8}
+                    else ""
                 ),
                 "source_note": slide.get("source_note", "Sources: EV-001"),
                 "caveats": slide.get("caveats", []),
@@ -351,7 +358,7 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
         "schema_version": "banker_page_pack",
         "section_meta": deck_blueprint.get("section_meta", {}),
         "deck_storyline": (
-            "The section links sector structure, market evidence, competitive dynamics, and transaction implications "
+            "The section links sector structure, market evidence, competitive dynamics, and selective project implications "
             "into a dense pre-mandate banker view with traceable evidence and page-level caveats."
         ),
         "deliverable_readiness": {
@@ -654,6 +661,7 @@ def _pipeline_run_dir(tmp_path_factory):
 
     market_fs = fs_for("market_size_growth", "current_market_size")
     value_fs = fs_for("industry_structure", "value_chain")
+    segment_fs = fs_for("market_size_growth", "market_segmentation")
     _write_json(artifacts / "formal_search_plan.json", plan)
     _write_json(artifacts / "coverage_map.json", build_coverage_map(plan))
     _write_json(artifacts / "executable_search_batch.json", build_executable_search_batch(plan))
@@ -696,8 +704,8 @@ def _pipeline_run_dir(tmp_path_factory):
             "limitations": ["Broad discovery rows are not formal evidence."],
         },
     )
-    fs_to_attempt: dict[str, str] = {market_fs: "S-002", value_fs: "S-003"}
-    fallback_attempt_no = 4
+    fs_to_attempt: dict[str, str] = {market_fs: "S-002", value_fs: "S-003", segment_fs: "S-004"}
+    fallback_attempt_no = 5
     for unit in state["research_units"]:
         fs_ids = unit.get("fs_ids") or []
         fs_id = fs_ids[0] if fs_ids else ""
@@ -721,6 +729,18 @@ def _pipeline_run_dir(tmp_path_factory):
                             "excerpt_origin": "opened_page",
                             "secondary_verification": "verified",
                             "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        },
+                        {
+                            "search_attempt_id": "S-102",
+                            "query": f"sample sector {fs_id} reconciliation search",
+                            "provider": "contract_fixture",
+                            "selected_source_urls": ["https://example.com/market-size-crosscheck"],
+                            "opened_reviewed": "yes",
+                            "locator_excerpt": "Cross-check page confirms the market-size scope used by the fixture.",
+                            "excerpt_origin": "opened_page",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture cross-checks the market-size scope.",
                             "research_archive_status": "manual_verified_excerpt",
                         }
                     ],
@@ -798,6 +818,18 @@ def _pipeline_run_dir(tmp_path_factory):
                             "secondary_verification": "verified",
                             "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
                             "research_archive_status": "manual_verified_excerpt",
+                        },
+                        {
+                            "search_attempt_id": "S-103",
+                            "query": f"sample sector {fs_id} reconciliation search",
+                            "provider": "contract_fixture",
+                            "selected_source_urls": ["https://example.com/value-chain-crosscheck"],
+                            "opened_reviewed": "yes",
+                            "locator_excerpt": "Cross-check page confirms the value-chain economics described by the fixture.",
+                            "excerpt_origin": "opened_page",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture cross-checks the value-chain scope.",
+                            "research_archive_status": "manual_verified_excerpt",
                         }
                     ],
                     "sources": [
@@ -836,10 +868,118 @@ def _pipeline_run_dir(tmp_path_factory):
                     "metrics": [],
                 }
             )
+        elif fs_id == segment_fs:
+            unit.update(
+                {
+                    "status": "supported",
+                    "terminal_status": "executed_with_evidence",
+                    "downstream_permission": "may_support_claim",
+                    "findings_summary": "Market segmentation is source-backed with explicit segment basis.",
+                    "limitations": ["Contract fixture only."],
+                    "research_pack_handling": "Promote to Evidence Ledger and Metric Reconciliation.",
+                    "attempts": [
+                        {
+                            "search_attempt_id": "S-004",
+                            "query": f"sample sector {fs_id} formal search",
+                            "provider": "contract_fixture",
+                            "selected_source_urls": ["https://example.com/segmentation"],
+                            "opened_reviewed": "yes",
+                            "locator_excerpt": "table 4 contains segment split and methodology.",
+                            "excerpt_origin": "opened_page",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture treats the segmentation excerpt as source-matched.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        },
+                        {
+                            "search_attempt_id": "S-104",
+                            "query": f"sample sector {fs_id} reconciliation search",
+                            "provider": "contract_fixture",
+                            "selected_source_urls": ["https://example.com/segmentation-crosscheck"],
+                            "opened_reviewed": "yes",
+                            "locator_excerpt": "Cross-check page confirms segment basis and units.",
+                            "excerpt_origin": "opened_page",
+                            "secondary_verification": "verified",
+                            "secondary_verification_notes": "Contract fixture cross-checks segmentation basis.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        },
+                    ],
+                    "sources": [
+                        {
+                            "source_review_id": "SRC-003",
+                            "url": "https://example.com/segmentation",
+                            "title": "Example segmentation report",
+                            "source_type": "industry_report",
+                            "archive_status": "manual_verified_excerpt",
+                            "locator": "table 4, segment split row",
+                            "reviewed_excerpt": "The report gives a segment split for the sample sector with explicit denominator and methodology.",
+                            "usable_as_evidence": True,
+                            "evidence_use_tier": "core_evidence",
+                            "claim_use_scope": "segmentation test fixture only",
+                            "secondary_verification": "verified",
+                            "verification_method": "manual_source_reviewed",
+                            "secondary_verification_notes": "Contract fixture treats the reviewed excerpt as source-matched for tests.",
+                            "research_archive_status": "manual_verified_excerpt",
+                        }
+                    ],
+                    "evidence": [
+                        {
+                            "evidence_id": "EV-003",
+                            "source_review_id": "SRC-003",
+                            "claim_or_metric": "Market segmentation is source-backed with explicit segment basis.",
+                            "claim_scope": "industry-level",
+                            "source_type": "industry_report",
+                            "evidence_status": "primary-reviewed",
+                            "source_locator": "table 4, segment split row",
+                            "raw_excerpt": "The report gives a segment split for the sample sector with explicit denominator and methodology.",
+                            "reliability": "reviewed_source",
+                            "confidence": "high",
+                            "data_period": "2026",
+                        }
+                    ],
+                    "metrics": [
+                        {
+                            "metric_id": "MET-002",
+                            "source_review_id": "SRC-003",
+                            "metric_group": "market_size_growth",
+                            "metric_name": "Segment A share",
+                            "metric_type": "market_share",
+                            "market_definition": "sample sector market",
+                            "channel_scope": "all_channel",
+                            "geography": "Samplestan",
+                            "data_period": "2026",
+                            "value": "45",
+                            "unit": "%",
+                            "conflict_status": "single-source",
+                            "resolution": "Use as contract-test segmentation metric only.",
+                            "chart_ready": True,
+                        }
+                    ],
+                }
+            )
         elif fs_id:
-            attempt_id = f"S-{fallback_attempt_no:03d}"
-            fallback_attempt_no += 1
-            fs_to_attempt[fs_id] = attempt_id
+            min_attempts = max(1, int(unit.get("minimum_actual_searches") or 1))
+            attempts = []
+            first_attempt_id = ""
+            for _ in range(min_attempts):
+                attempt_id = f"S-{fallback_attempt_no:03d}"
+                fallback_attempt_no += 1
+                first_attempt_id = first_attempt_id or attempt_id
+                attempts.append(
+                    {
+                        "search_attempt_id": attempt_id,
+                        "query": f"sample sector {fs_id} formal search",
+                        "provider": "contract_fixture",
+                        "result_count": 1,
+                        "selected_source_urls": [f"https://example.com/research/{fs_id.lower()}/{attempt_id.lower()}"],
+                        "opened_reviewed": "yes",
+                        "locator_excerpt": "Reviewed synthetic contract-test page; no usable evidence was identified for promotion.",
+                        "excerpt_origin": "opened_page",
+                        "secondary_verification": "not_verified",
+                        "secondary_verification_notes": "No promotable source was identified in this contract fixture row.",
+                        "research_archive_status": "",
+                    }
+                )
+            fs_to_attempt[fs_id] = first_attempt_id
             unit.update(
                 {
                     "status": "insufficient",
@@ -848,21 +988,7 @@ def _pipeline_run_dir(tmp_path_factory):
                     "findings_summary": "Formal search was executed in the contract fixture, but no usable evidence was promoted.",
                     "limitations": ["Reviewed synthetic contract-test page; no usable evidence was identified for promotion."],
                     "research_pack_handling": "Keep as a research gap/backlog unless later searches produce usable evidence.",
-                    "attempts": [
-                        {
-                            "search_attempt_id": attempt_id,
-                            "query": f"sample sector {fs_id} formal search",
-                            "provider": "contract_fixture",
-                            "result_count": 1,
-                            "selected_source_urls": [f"https://example.com/research/{fs_id.lower()}"],
-                            "opened_reviewed": "yes",
-                            "locator_excerpt": "Reviewed synthetic contract-test page; no usable evidence was identified for promotion.",
-                            "excerpt_origin": "opened_page",
-                            "secondary_verification": "not_verified",
-                            "secondary_verification_notes": "No promotable source was identified in this contract fixture row.",
-                            "research_archive_status": "",
-                        }
-                    ],
+                    "attempts": attempts,
                     "sources": [],
                     "evidence": [],
                     "metrics": [],
@@ -921,6 +1047,7 @@ def _pipeline_run_dir(tmp_path_factory):
         row["source_date"] = row.get("source_date") or "2026-01-01"
         row["source_locator"] = row.get("source_locator") or "table 2, current market-size row"
         row["raw_excerpt"] = row.get("raw_excerpt") or "The report gives a current market-size datapoint with geography and source scope."
+        row["audit_level"] = "audited_metric"
         row["audit_note"] = "Contract fixture audited metric row."
     for extract in research_db.get("formal_research_extracts", []):
         promoted_ev = extract.get("promoted_evidence_ids") or []

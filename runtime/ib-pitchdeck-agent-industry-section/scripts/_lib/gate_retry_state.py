@@ -18,7 +18,24 @@ from typing import Any
 from json_utils import load_json_file
 
 
-DEFAULT_MAX_REPAIR_CYCLES = 3
+def _runtime_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "configs").is_dir() and (parent / "scripts").is_dir():
+            return parent
+    raise RuntimeError("Cannot locate runtime root for workflow policy")
+
+
+def _default_max_repair_cycles() -> int:
+    path = _runtime_root() / "configs" / "workflow_policy.json"
+    try:
+        payload = load_json_file(path)
+        gate_retry = payload.get("gate_retry") if isinstance(payload, dict) else {}
+        return int(gate_retry.get("default_max_repair_cycles") or 3) if isinstance(gate_retry, dict) else 3
+    except Exception:
+        return 3
+
+
+DEFAULT_MAX_REPAIR_CYCLES = _default_max_repair_cycles()
 
 
 def now_iso() -> str:

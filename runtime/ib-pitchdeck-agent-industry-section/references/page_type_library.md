@@ -1,6 +1,6 @@
 # Page Type Library
 
-This library defines the allowed page types for the fixed 8-logical-slide workflow.
+This library defines the allowed page types for the registry-defined logical-slide workflow.
 
 ## Fixed Page Types
 
@@ -8,7 +8,7 @@ This library defines the allowed page types for the fixed 8-logical-slide workfl
 Use when the page should synthesize the story in a conclusion-led way.
 Best for:
 - Slide 1 when the page combines definition, market context, and a few takeaways
-- Slide 8 when the page synthesizes why the industry matters for the Target
+- Slide 8 when the page synthesizes why the industry matters for the pre-mandate project
 
 Typical output behavior:
 - strong headline
@@ -32,7 +32,7 @@ Best for:
 
 Typical output behavior:
 - one dominant structure diagram
-- supporting panels for profit pool, barriers, and target positioning
+- supporting panels for profit pool, barriers, and project relevance
 
 ### `moat_page`
 Use when the page is about the industry-level barriers, winner capabilities, or value drivers that separate winners from followers. In this skill, `moat_page` does **not** mean a target-only moat page.
@@ -41,8 +41,8 @@ Best for:
 
 Typical output behavior:
 - 3 modules
-- each module focuses on the industry barrier / value driver, why it matters in the sector, and the Target implication or diligence question
-- the Target may appear as evidence of fit, but the primary subject remains the industry barrier / value driver
+- each module focuses on the industry barrier / value driver, why it matters in the sector, and the project relevance or evidence-boundary caveat
+- target context may appear as evidence of fit only when source-labeled, but the primary subject remains the industry barrier / value driver
 
 ## Controlled-Choice Page Types
 
@@ -94,7 +94,7 @@ Allowed for:
 
 Use when:
 - trends are thematic rather than sequential
-- each trend needs evidence and clear pitch relevance; target context is selective
+- each trend needs evidence and clear project relevance; target context is selective
 
 ### `timeline_page`
 Use when the sequence and timing of developments is central to the story.

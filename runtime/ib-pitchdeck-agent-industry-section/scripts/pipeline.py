@@ -142,6 +142,31 @@ def _preflight(run_dir: Path) -> None:
         )
 
 
+def _check_runtime_readiness(run_dir: Path, python_cmd: str, *, strict: bool = False) -> bool:
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    check_script = ROLE_SCRIPT_DIRS["check_runtime_dependencies.py"]
+    cmd = [str(python_cmd), str(check_script)]
+    printable = " ".join(cmd)
+    print(f"[pipeline] {printable}")
+    completed = subprocess.run(cmd, cwd=str(ROOT_DIR), text=True, capture_output=True, check=False)
+    (artifacts / "runtime_dependencies.json").write_text(completed.stdout or "{}\n", encoding="utf-8")
+    if completed.stderr:
+        (artifacts / "runtime_dependencies.stderr.txt").write_text(completed.stderr, encoding="utf-8")
+    else:
+        (artifacts / "runtime_dependencies.stderr.txt").unlink(missing_ok=True)
+    if completed.returncode != 0:
+        message = (
+            "runtime readiness diagnostics found missing formal E2E research capabilities. "
+            f"See {artifacts / 'runtime_dependencies.json'} and {artifacts / 'runtime_dependencies.stderr.txt'}."
+        )
+        if strict:
+            raise PipelineError(message)
+        print(f"[pipeline] WARNING: {message}")
+        return False
+    return True
+
+
 def _validate_artifact(run_dir: Path, python_cmd: str, artifact: str, output: Path | None = None) -> None:
     cmd = [
         python_cmd,
@@ -310,7 +335,14 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
     _validate_artifact(run_dir, python_cmd, "pre_ppt", artifacts / "stage_gate_pre_ppt_validation.json")
 
 
-def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, template_path: Path | None = None) -> None:
+def render(
+    run_dir: Path,
+    python_cmd: str,
+    *,
+    skip_preflight: bool = False,
+    template_path: Path | None = None,
+    strict_runtime_readiness: bool = False,
+) -> None:
     run_dir = _ensure_run_dir(run_dir)
     template_path = _select_template_for_run(run_dir, python_cmd, template_path)
     _append_failure_memory(
@@ -322,6 +354,7 @@ def render(run_dir: Path, python_cmd: str, *, skip_preflight: bool = False, temp
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(exist_ok=True)
     _clear_draft_state(run_dir)
+    _check_runtime_readiness(run_dir, python_cmd, strict=strict_runtime_readiness)
     if not skip_preflight:
         _preflight(run_dir)
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render", preflight_skipped=skip_preflight)
@@ -740,6 +773,11 @@ def main() -> int:
         action="store_true",
         help="Only for repairing a run whose state report is stale but the operator has verified pre-PPT readiness.",
     )
+    render_parser.add_argument(
+        "--strict-runtime-readiness",
+        action="store_true",
+        help="Fail render when search/PDF runtime diagnostics are missing instead of recording an advisory warning.",
+    )
     finalize_parser.add_argument("--require-client-ready", action="store_true")
     args = parser.parse_args()
 
@@ -760,6 +798,7 @@ def main() -> int:
                 args.python,
                 skip_preflight=args.skip_preflight,
                 template_path=Path(args.template) if args.template else None,
+                strict_runtime_readiness=args.strict_runtime_readiness,
             )
         elif args.command == "finalize":
             finalize(_ensure_run_dir(run_dir), args.python, require_client_ready=args.require_client_ready)

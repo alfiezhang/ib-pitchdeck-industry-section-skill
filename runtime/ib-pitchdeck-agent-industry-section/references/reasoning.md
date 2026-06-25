@@ -2,13 +2,14 @@
 
 ## Role
 
-Reasoning is now a judgment-support role inside the `banker_page_pack.json` workflow. It sharpens page judgment, caveat treatment, and research requests after Knowledge validates the evidence DB.
+Reasoning is now a judgment-support role inside the `banker_page_pack.json` workflow. It sharpens industry judgment, caveat treatment, selective project relevance, and research requests after Knowledge validates the evidence DB.
 
 ## When To Use
 
 - A potential page argument rests on thin or conflicting evidence.
 - A hypothesis might become an overstated headline.
-- A buyer concern or transaction readthrough needs a sharper logic chain.
+- A transaction angle or project relevance note needs a sharper logic chain.
+- The draft is drifting into target/company promotion instead of industry analysis.
 - Public evidence is insufficient and should become a research request.
 - The run needs an evidence-limited outline rather than a client-ready deck.
 
@@ -19,10 +20,11 @@ Reasoning writes directly into the relevant `banker_page_pack.slides[]` fields o
 ## How To Work
 
 1. Start from `artifacts/research_evidence_db.json`, not from desired page titles.
-2. Separate supported judgments, directional views, caveats, and open questions.
-3. If a hypothesis is unresolved, write a caveat/open question or route a Research request instead of promoting it.
+2. Separate supported judgments, directional views, caveats, and evidence boundaries.
+3. If a hypothesis is unresolved, write a caveated judgment or route a Research request instead of promoting it.
 4. Decide whether the evidence supports a dense client-facing page, a caveated page, or no page.
-5. Feed the result into the relevant `banker_page_pack.slides[]` fields: `banker_judgment`, `page_argument`, `claim_strength`, `body_blocks`, `transaction_readthrough`, `caveats`, and `open_questions`.
+5. Feed the result into the relevant `banker_page_pack.slides[]` fields: `page_primary_subject`, `banker_judgment`, `page_argument`, `claim_strength`, `body_blocks`, `project_relevance_note`, `caveats`, and `open_questions`.
+6. Preserve the subject hierarchy: industry judgment is the default page subject; target/project context is a short relevance bridge or a labeled limitation unless the page is explicitly `target_context`.
 
 ## Judgment Boundary
 
@@ -36,4 +38,4 @@ If the deck feels empty, generic, or data-light, repair `banker_page_pack.json` 
 - bind claims to EV/MET IDs;
 - add chart/table/card-ready exhibit content;
 - downgrade unsupported claims;
-- add transaction readthrough that explains why the page matters before a mandate.
+- add a short project relevance note that explains why the industry point matters before a mandate, without turning the page into target promotion.

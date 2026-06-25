@@ -15,7 +15,7 @@ SCRIPT_DIR = SKILL_DIR / "scripts"
 EXPECTED_ROLES = {
     1: "industry_overview", 2: "market_size_segmentation", 3: "key_industry_drivers",
     4: "value_chain_profit_pool", 5: "key_barriers_value_drivers", 6: "competitive_landscape",
-    7: "industry_trends_future_evolution", 8: "transaction_implications",
+    7: "industry_trends_future_evolution", 8: "industry_takeaways_for_project",
 }
 EXPECTED_DEFAULT_VARIANTS = {
     1: "industry_overview_dynamic_page", 2: "chart_page", 3: "driver_card_page",

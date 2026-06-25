@@ -1,5 +1,76 @@
 {
   "_description": "LLM content-quality guidance for banker page authoring and review. These rules are not a Python gate; validate_artifact.py only checks mechanical structure.",
+  "qc_advisory_targets": {
+    "_note": "Advisory diagnostics only. Python validators may warn when these are missed, but should not fail content artifacts solely because an advisory target is missed.",
+    "formal_execution_evidence_rows": 3,
+    "research_db_ev_rows": 3,
+    "research_db_met_rows": 2,
+    "unique_ev_refs": 6,
+    "unique_met_refs": 4,
+    "metric_supported_slides": 5,
+    "structured_exhibit_slides": 4,
+    "slide_text_chars": 420,
+    "body_blocks_per_slide": 4,
+    "project_relevance_note_chars": 180,
+    "industry_subject_slides": 6,
+    "target_context_slides": 2,
+    "project_relevance_note_slides": 2
+  },
+  "target_context_terms": [
+    "标的",
+    "目标公司",
+    "项目公司",
+    "客户公司",
+    "target",
+    "project company",
+    "GMV",
+    "净利润",
+    "控股权",
+    "控股",
+    "出售"
+  ],
+  "project_specific_source_types": [
+    "project_specific_material",
+    "company_material"
+  ],
+  "project_specific_source_name_tokens": [
+    "brief",
+    "management",
+    "target",
+    "company-provided",
+    "用户brief",
+    "管理层",
+    "标的",
+    "项目公司"
+  ],
+  "project_specific_metric_name_tokens": [
+    "gmv",
+    "profit",
+    "net income",
+    "sales volume",
+    "target",
+    "标的",
+    "净利润",
+    "销量"
+  ],
+  "project_specific_metric_type_tokens": [
+    "target",
+    "traction",
+    "management",
+    "company_claim",
+    "user_provided",
+    "management_provided"
+  ],
+  "axis_chart_types": [
+    "bar",
+    "column",
+    "clustered_bar",
+    "clustered_column",
+    "stacked_bar",
+    "stacked_column",
+    "line",
+    "line_chart"
+  ],
   "min_chars_by_field_type": {
     "_note": "These are advisory targets. Fields shorter than the minimum generate a density_warning, not an error.",
     "title": 16,
@@ -126,7 +197,7 @@
   "cross_slide_distinctness_rules": [
     {
       "slides": [3, 7],
-      "description": "Slide 3 should explain current growth drivers; Slide 7 should explain future trend / transaction implications. Do not repeat the same driver cards as trends."
+      "description": "Slide 3 should explain current growth drivers; Slide 7 should explain future industry evolution and transaction read-through. Do not repeat the same driver cards as trends."
     },
     {
       "slides": [4, 5],
@@ -134,7 +205,7 @@
     },
     {
       "slides": [1, 8],
-      "description": "Slide 1 should establish industry attractiveness; Slide 8 should synthesize transaction implications and diligence questions. Do not reuse the same market-size thesis as the transaction conclusion."
+      "description": "Slide 1 should establish industry attractiveness; Slide 8 should synthesize transaction read-through, project relevance, and evidence boundaries. Do not reuse the same market-size thesis as the transaction conclusion."
     }
   ],
   "slide_specific_quality_rules": {
@@ -205,7 +276,7 @@
       ]
     },
     "4": {
-      "description": "Slide 4 should focus on industry value chain and profit pool first; target positioning is secondary.",
+      "description": "Slide 4 should focus on industry value chain and profit pool first; project relevance is secondary.",
       "forbidden_headline_patterns": [
         "标的.{0,12}(最优|核心|制高点|利润池)",
         "target.{0,30}(best|optimal|profit pool)"
@@ -262,7 +333,7 @@
       ]
     },
     "6": {
-      "description": "Slide 6 should explain competitive landscape / peer segmentation first; target positioning is secondary.",
+      "description": "Slide 6 should explain competitive landscape / peer segmentation first; project relevance is secondary.",
       "forbidden_headline_patterns": [
         "标的.{0,12}(差异化|优势|生态位|定位|胜出)",
         "目标公司.{0,12}(差异化|优势|生态位|定位|胜出)",
@@ -305,7 +376,7 @@
         "bullet primarily titled 标的位置 or 标的定位",
         "table designed mainly to prove target differentiation",
         "headline frames target as the primary subject of competitive landscape",
-        "body_copy has a dedicated 'target positioning' bullet alongside the table"
+        "body_copy has a dedicated target-positioning bullet alongside the table"
       ]
     },
     "7": {
@@ -366,16 +437,16 @@
       ]
     },
     "8": {
-      "description": "Slide 8 should include balanced transaction implications and explicit open diligence questions, not only positive target advocacy.",
+      "description": "Slide 8 should include balanced transaction read-through, project relevance, and evidence boundaries, not only positive target advocacy.",
       "required_body_terms": [
-        "待验证",
-        "尽调",
+        "证据边界",
+        "口径",
         "风险",
-        "open DD",
-        "diligence",
-        "question"
+        "交易启示",
+        "project relevance",
+        "evidence boundary"
       ],
-      "required_body_message": "Slide 8 should include at least one explicit open diligence question / risk / validation item."
+      "required_body_message": "Slide 8 should include at least one concise evidence-boundary, caveat, or risk note framed as professional judgment rather than an unresolved-task checklist."
     }
   }
 }

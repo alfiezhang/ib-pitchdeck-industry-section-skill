@@ -79,6 +79,30 @@ def load_optional_json(path: str | Path | None) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def quality_rules() -> dict[str, Any]:
+    path = _IB_RUNTIME_ROOT / "configs" / "content_quality_rules.json"
+    try:
+        payload = load_json_file(path)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def quality_list(key: str) -> list[str]:
+    values = quality_rules().get(key)
+    return [text(item) for item in as_list(values) if text(item)]
+
+
+def advisory_target(key: str) -> int:
+    targets = quality_rules().get("qc_advisory_targets")
+    if not isinstance(targets, dict):
+        return 0
+    try:
+        return int(targets.get(key) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def pipe(value: Any) -> str:
     value_text = text(value)
     return value_text.replace("|", "/").replace("\n", " ").strip()
@@ -190,6 +214,24 @@ def source_requires_evidence_ready_archive(source: dict[str, Any]) -> bool:
         return False
     source_url = text(source.get("source_url") or source.get("url"))
     return source_access == "public_search" or source_url.lower().startswith(("http://", "https://"))
+
+
+def project_specific_metric_source(source: dict[str, Any], metric_row: dict[str, Any]) -> bool:
+    project_specific_types = set(quality_list("project_specific_source_types"))
+    source_type = normalize_source_type(source.get("source_type") or metric_row.get("source_type"))
+    source_access = text(source.get("source_access"))
+    source_url = text(source.get("source_url")).lower()
+    metric_type = text(metric_row.get("metric_type")).lower()
+    metric_name = text(metric_row.get("metric_name")).lower()
+    if source_type in project_specific_types:
+        return True
+    if source_access == "user_provided" and source_type not in {"user_curated_industry_report", "industry_report", "official_filing", "database", "regulator"}:
+        return True
+    if source_url in {"", "user-provided"} and any(
+        token.lower() in metric_name for token in quality_list("project_specific_metric_name_tokens")
+    ):
+        return True
+    return any(token.lower() in metric_type for token in quality_list("project_specific_metric_type_tokens"))
 
 
 def merged_reviews(
@@ -572,18 +614,18 @@ def build_db(
                 {
                     "evidence_id": ev_id,
                     "claim_or_metric": text(graph_ev.get("claim_or_metric") or graph_ev.get("claim") or graph_ev.get("metric")) or "TODO_REPLACE_WITH_PROMOTED_CLAIM",
-                    "claim_scope": text(graph_ev.get("claim_scope") or "industry-level"),
+                    "claim_scope": text(graph_ev.get("claim_scope")) or "TODO_REPLACE_WITH_CLAIM_SCOPE",
                     "source_review_id": src_id,
                     "source_name": text(graph_ev.get("source_name")) or review_title(primary_review),
                     "source_url": text(graph_ev.get("source_url")) or review_url(primary_review),
                     "source_type": text(graph_ev.get("source_type")) or text(primary_review.get("source_type")),
-                    "evidence_status": text(graph_ev.get("evidence_status")) or ("primary-reviewed" if text(result.get("status")) == "supported" else "secondary-reviewed"),
+                    "evidence_status": text(graph_ev.get("evidence_status")) or "TODO_REPLACE_WITH_EVIDENCE_STATUS",
                     "source_date": text(graph_ev.get("source_date")) or text(primary_review.get("source_date")),
                     "data_period": text(graph_ev.get("data_period")),
                     "source_locator": text(graph_ev.get("source_locator") or graph_ev.get("locator")) or review_locator(primary_review),
                     "raw_excerpt": text(graph_ev.get("raw_excerpt") or graph_ev.get("reviewed_excerpt")) or review_excerpt(primary_review),
                     "reliability": text(graph_ev.get("reliability")) or text(primary_review.get("reliability") or primary_review.get("source_reliability")),
-                    "confidence": text(graph_ev.get("confidence")) or "medium",
+                    "confidence": text(graph_ev.get("confidence")) or "TODO_REPLACE_WITH_CONFIDENCE",
                 }
             )
         for met_id in metric_ids:
@@ -609,7 +651,7 @@ def build_db(
             source_access_path = text(primary_review.get("source_access_path") or primary_review.get("archive_path"))
             metric_rows.append(
                 {
-                    "audit_level": AUDITED_METRIC_LEVEL,
+                    "audit_level": text(graph_met.get("audit_level")) or "TODO_REPLACE_WITH_AUDIT_LEVEL",
                     "metric_group": text(graph_met.get("metric_group")) or text(result.get("issue_area")),
                     "metric_id": met_id,
                     "metric_name": text(graph_met.get("metric_name") or graph_met.get("name") or graph_met.get("claim_or_metric")) or "TODO_REPLACE_WITH_METRIC_NAME",
@@ -995,7 +1037,10 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         if met_id in met_ids:
             errors.append(f"{met_id}: duplicate metric_id")
         met_ids.add(met_id)
-        audit_level = text(row.get("audit_level") or AUDITED_METRIC_LEVEL)
+        audit_level = text(row.get("audit_level"))
+        if not audit_level:
+            errors.append(f"{met_id}: audit_level is required; Knowledge LLM must explicitly authorize audited_metric promotion")
+            audit_level = ""
         if audit_level != AUDITED_METRIC_LEVEL:
             errors.append(f"{met_id}: metric_reconciliation rows must use audit_level=audited_metric; context-only numbers stay in research_context, not MET rows")
         for field in ("metric_group", "metric_name", "metric_type", "market_definition", "channel_scope", "geography", "data_period", "value", "unit", "conflict_status", "resolution"):
@@ -1021,6 +1066,12 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
                 row_url = text(row.get("source_url"))
                 if source_url and row_url and source_url != row_url:
                     errors.append(f"{met_id}: source_url does not match source_materials[{src_id}]")
+                if project_specific_metric_source(source, row):
+                    warnings.append(
+                        f"{met_id}: project-specific / management-provided target metrics cannot be promoted to "
+                        "metric_reconciliation audited_metric rows without explicit external verification; QC should "
+                        "verify this is labeled as unaudited project context or move it to research_context"
+                    )
                 if source_requires_evidence_ready_archive(source):
                     if not text(source.get("archive_path")):
                         errors.append(
@@ -1101,6 +1152,15 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
         if not text(metric_check.get(label)):
             errors.append(f"research_gap_audit.metric_consistency_check.{label} is required")
 
+    min_ev_rows = advisory_target("research_db_ev_rows")
+    min_met_rows = advisory_target("research_db_met_rows")
+    if (min_ev_rows and len(ev_ids) < min_ev_rows) or (min_met_rows and len(met_ids) < min_met_rows):
+        warnings.append(
+            f"research_evidence_db has {len(ev_ids)} EV rows and {len(met_ids)} MET rows; "
+            f"advisory target is {min_ev_rows or 'n/a'} EV and {min_met_rows or 'n/a'} MET rows. "
+            "QC should decide whether to continue, mark evidence-limited, or request more research."
+        )
+
     metrics = {
         "source_material_count": len(source_ids),
         "formal_extract_count": extract_count,
@@ -1161,12 +1221,12 @@ def export_markdown(db: dict[str, Any]) -> str:
         "",
         "## Scope Boundary",
         f"Engagement Context: {text(meta.get('engagement_context') or meta.get('stage') or 'pre_mandate_client_pitch')}",
-        "Purpose: demonstrate sector understanding, transaction relevance, and selective target context or open questions where supported",
+        "Purpose: demonstrate sector understanding, transaction relevance, selective target context, and evidence boundaries where needed",
         "Not A Generic Industry Report: yes",
         "Not A Full Consulting Study: yes",
         "Not A Company Deep Dive: yes",
         "Not A Valuation Report: yes",
-        "Fixed 8-Slide Structure Preserved: yes",
+        "Registry-Defined Slide Structure Preserved: yes",
         "",
         "---",
         "",
@@ -1184,7 +1244,7 @@ def export_markdown(db: dict[str, Any]) -> str:
         "- Sector type:",
         f"- Transaction type: {text(meta.get('transaction_type'))}",
         "- Target business model:",
-        "- Likely buyer / investor angle:",
+        "- Likely transaction / investor angle:",
         "- Key transaction question:",
         "",
         "Formal Research Execution Results:",

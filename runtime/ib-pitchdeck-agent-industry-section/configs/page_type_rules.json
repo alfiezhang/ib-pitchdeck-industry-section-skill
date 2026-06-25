@@ -1,5 +1,5 @@
 {
-  "workflow_scope": "fixed_8_slide_standard_only",
+  "workflow_scope": "slide_registry_defined_standard",
   "input_policy": {
     "presentation_hint_is_soft_input_only": true,
     "visual_candidate_is_soft_input_only": true,
@@ -55,9 +55,9 @@
       "default_dominant_element": "text",
       "semantic_role": "industry_barriers_with_selective_target_context",
       "primary_focus": "industry-level entry barriers, winner capabilities, and value drivers",
-      "secondary_focus": "selective target context, evidence-backed fit where relevant, or diligence questions",
+      "secondary_focus": "selective target context, evidence-backed fit where relevant, or evidence-boundary caveats",
       "primary_question": "What barriers, capabilities, or value drivers determine winners in this industry?",
-      "secondary_question": "To what extent does the target appear to possess or need to validate these capabilities?",
+      "secondary_question": "What project relevance follows from these industry-level winner capabilities?",
       "content_balance_rule": {
         "industry_barriers_min_share": "60%",
         "target_implications_max_share": "40%"
@@ -65,7 +65,7 @@
       "required_structure": [
         "industry barrier or value driver",
         "why it matters in this sector",
-        "selective target context, evidence-backed fit where relevant, or diligence question"
+        "selective target context, evidence-backed fit where relevant, or evidence-boundary caveat"
       ],
       "anti_patterns": [
         "Do not write Slide 5 as a target-only moat page.",
@@ -80,14 +80,14 @@
       "selection_mode": "controlled_choice",
       "page_types": ["compare_table_page", "matrix_page"],
       "default_dominant_element": "table",
-      "semantic_role": "competitive_landscape_with_target_positioning",
+      "semantic_role": "competitive_landscape_with_selective_project_relevance",
       "primary_focus": "market structure, peer segmentation, and positioning dimensions",
-      "secondary_focus": "target's relative position within that landscape",
+      "secondary_focus": "selective project relevance within that landscape",
       "primary_question": "How is the competitive landscape structured and which dimensions separate player groups?",
-      "secondary_question": "Where does the target sit relative to named peers and what does that imply?",
+      "secondary_question": "What transaction read-through follows from the competitive landscape?",
       "content_balance_rule": {
         "competitive_landscape_min_share": "60%",
-        "target_positioning_max_share": "40%"
+        "project_relevance_max_share": "25%"
       },
       "selection_priority": [
         "prefer_compare_table_when named peer comparison is the clearest story",
@@ -96,12 +96,12 @@
       "required_structure": [
         "market structure or player tiers",
         "comparison dimensions or positioning axes",
-        "target's relative position and implication"
+        "project-relevant implication or evidence-boundary caveat"
       ],
       "anti_patterns": [
         "Do not write Slide 6 as a target-only differentiation page.",
         "Do not make the headline or main_message primarily about the target's advantage.",
-        "Do not discuss target positioning without named peer or market-structure context."
+        "Do not discuss project relevance without named peer or market-structure context."
       ]
     },
     {
@@ -125,7 +125,7 @@
     },
     {
       "slide_no": 8,
-      "slide_key": "transaction_implications",
+      "slide_key": "industry_takeaways_for_project",
       "selection_mode": "fixed",
       "page_types": ["summary_page"],
       "default_dominant_element": "text"

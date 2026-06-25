@@ -96,51 +96,6 @@ ARCHIVE_STATUSES_REQUIRING_SNAPSHOT = {
     "excerpt_snapshot",
 }
 
-SOURCE_HINTS_BY_AREA = {
-    "market_size_growth": "official statistics, industry association, broker/consulting report, market data provider",
-    "demand_customer_logic": "customer/end-user/end-market research, industry report, channel/platform/user data",
-    "industry_structure": "industry report, company filings, broker report, value-chain analysis",
-    "key_trends_drivers": "industry report, regulator/standard body, technology report, broker report, M&A news",
-    "competitive_landscape": "company filings, industry report, peer disclosures, market data provider",
-    "competitive_dynamics": "industry report, company disclosures, broker report, trade media with cited data",
-    "pitch_relevance_target_context": "company-provided materials, peer transactions, investor commentary, sector reports",
-}
-
-SOURCE_SPECIFIC_HINTS = {
-    "market_size_growth": "official statistics, industry associations, regulatory or sector reports",
-    "demand_customer_logic": "company filings, company calls/transcripts, user or purchaser research",
-    "industry_structure": "industry reports, value-chain studies, financial filings",
-    "key_trends_drivers": "industry report, regulator/standard body, M&A and company announcements",
-    "competitive_landscape": "company filings, peer filings, transaction updates",
-    "competitive_dynamics": "financial results, M&A databases, strategic announcements",
-    "pitch_relevance_target_context": "company disclosures, peer transactions, sector commentary",
-}
-
-DEEP_SEARCH_PAIRS = {
-    ("market_size_growth", "current_market_size"),
-    ("market_size_growth", "historical_growth"),
-    ("market_size_growth", "forecast_growth"),
-    ("market_size_growth", "market_segmentation"),
-    ("industry_structure", "value_chain"),
-    ("industry_structure", "profit_pool"),
-    ("industry_structure", "barriers_to_entry"),
-    ("key_trends_drivers", "secular_tailwinds"),
-    ("key_trends_drivers", "channel_or_go_to_market_shift"),
-    ("competitive_landscape", "competitor_profiles"),
-    ("competitive_landscape", "strategic_positioning"),
-    ("competitive_dynamics", "consolidation_logic"),
-    ("pitch_relevance_target_context", "why_sector_relevant"),
-    ("pitch_relevance_target_context", "discussion_implications"),
-}
-
-ACCOUNTING_ONLY_PAIRS = {
-    ("market_size_growth", "market_cycle"),
-    ("key_trends_drivers", "technology_disruption"),
-    ("key_trends_drivers", "regulatory_developments"),
-    ("competitive_landscape", "valuation_snapshot_peer_fact"),
-    ("pitch_relevance_target_context", "evidence_limits"),
-}
-
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
@@ -163,6 +118,20 @@ def _load_optional_json(path: str | Path | None) -> dict[str, Any]:
         return {}
     data = load_json_file(p)
     return data if isinstance(data, dict) else {}
+
+
+def _research_planning_policy() -> dict[str, Any]:
+    path = _IB_RUNTIME_ROOT / "configs" / "research_planning_policy.json"
+    try:
+        payload = load_json_file(path)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _policy_dict(key: str) -> dict[str, Any]:
+    value = _research_planning_policy().get(key)
+    return value if isinstance(value, dict) else {}
 
 
 def _assert_scope_ready_for_prepare(run_dir: Path, scope_pack: dict[str, Any], *, allow_missing_scope_bootstrap: bool) -> None:
@@ -261,7 +230,8 @@ def _scope_summary(scope_pack: dict[str, Any]) -> dict[str, Any]:
 
 
 def _expected_source_type(issue_area: str) -> str:
-    return SOURCE_SPECIFIC_HINTS.get(issue_area, "public_search")
+    hints = _policy_dict("source_specific_hints")
+    return _text(hints.get(issue_area)) or _text(_research_planning_policy().get("default_expected_source_type")) or "public_search"
 
 
 def _to_text_query(value: Any) -> str:
@@ -364,31 +334,22 @@ def _label(value: str) -> str:
 
 
 def _execution_policy(issue_area: str, subissue: str) -> tuple[str, int, str]:
-    pair = (issue_area, subissue)
-    if pair in DEEP_SEARCH_PAIRS:
-        return (
-            "deep_search",
-            2,
-            "Core pitch issue: run at least two actual S-xxx searches when possible, ideally authority/source-specific plus reconciliation/counter-check.",
-        )
-    if pair in ACCOUNTING_ONLY_PAIRS:
-        return (
-            "accounting_only",
-            0,
-            "Coverage-audit row: execute only if material after scoping; otherwise account for it as not_material or not_executed in formal execution.",
-        )
-    return (
-        "light_search",
-        1,
-        "Supporting issue: run one actual S-xxx search when material, or account for why it is not material/available.",
-    )
+    policy = _research_planning_policy()
+    pair_key = f"{issue_area}/{subissue}"
+    expectation = _text(_policy_dict("issue_execution_policy").get(pair_key)) or "light_search"
+    defaults = _policy_dict("execution_defaults")
+    rule = defaults.get(expectation) if isinstance(defaults.get(expectation), dict) else {}
+    minimum = int(rule.get("minimum_actual_searches") or 0)
+    rationale = _text(rule.get("rationale")) or "Configured research-planning policy."
+    return expectation, minimum, rationale
 
 
 def _priority_for_expectation(expectation: str) -> str:
-    if expectation == "deep_search":
-        return "high"
-    if expectation == "accounting_only":
-        return "low"
+    rule = _policy_dict("execution_defaults").get(expectation)
+    if isinstance(rule, dict):
+        priority = _text(rule.get("priority"))
+        if priority:
+            return priority
     return "medium"
 
 
@@ -410,7 +371,7 @@ def _industry_specific_research_threads(scope_pack: dict[str, Any]) -> list[dict
             continue
         raw_items.append(
             (
-                _first_text(item.get("question"), "Boundary validation question"),
+                _first_text(item.get("question"), "Boundary check"),
                 _first_text(item.get("suggested_validation_source"), item.get("why_needed"), "Find authoritative category or market-definition evidence."),
                 _first_text(item.get("why_needed"), "Can affect formal research scope."),
             )
@@ -472,7 +433,9 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
                                 "scope, period, source authority, and limitations."
                             ),
                             "search_stage": "formal_research_execution",
-                            "source_hint": SOURCE_HINTS_BY_AREA.get(issue_area, "industry report, company disclosure, official or authoritative source"),
+                            "source_hint": _text(_policy_dict("source_hints_by_area").get(issue_area))
+                            or _text(_research_planning_policy().get("default_source_hint"))
+                            or "industry report, company disclosure, official or authoritative source",
                             "query_authoring_artifact": "artifacts/executable_search_batch.json",
                         }
                     ],
@@ -487,15 +450,16 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
             "artifact_path": "artifacts/industry_scope_pack.json",
             "purpose": (
                 "Use the scope pack as a boundary card. Do not convert scope definitions, "
-                "reconciliation instructions, or validation questions into findings."
+                "reconciliation instructions, or boundary checks into findings."
             ),
         },
         "coverage_requirement": {
-            "must_cover_all_canonical_subissues": True,
+            "coverage_menu_source": "configs/research_issue_taxonomy.json",
+            "configured_taxonomy_is_advisory": True,
             "canonical_issue_area_count": len(ISSUE_TOPICS_BY_AREA),
             "canonical_subissue_count": sum(len(items) for items in ISSUE_TOPICS_BY_AREA.values()),
             "instruction": (
-                "Retain every issue_search_plan row. Author executable query strings only in "
+                "Use configured issue_search_plan rows as a coverage audit menu. Author executable query strings only in "
                 "artifacts/executable_search_batch.json, not in this coverage plan. The taxonomy is a coverage audit, "
                 "not an equal-depth search mandate: execute deep/light rows when material, and explicitly "
                 "account for not_material, not_executed, or unavailable rows in formal_research_execution_report.json."
@@ -503,7 +467,8 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
         },
         "allowed_issue_taxonomy": {area: sorted(subissues) for area, subissues in ISSUE_TOPICS_BY_AREA.items()},
         "planning_instruction": (
-            "This plan intentionally covers every canonical issue/subissue to thicken upstream research. "
+            "This plan starts from the configured issue/subissue menu to thicken upstream research without hard-coding "
+            "industry judgment into Python. "
             "For each row, define the evidence need, source hint, and execution expectation only. "
             "Use industry_specific_research_threads for material scope-specific evidence needs that do not fit cleanly "
             "inside one canonical row. Executable queries belong in artifacts/executable_search_batch.json. Do not write "
@@ -886,19 +851,19 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
                 {
                     "evidence_id": ev_id,
                     "audit_level": _first_text(raw_ev.get("audit_level"), RESEARCH_CONTEXT_LEVEL),
-                    "claim_or_metric": _first_text(raw_ev.get("claim_or_metric"), raw_ev.get("claim"), raw_ev.get("metric"), unit.get("findings_summary"), "Source-backed research graph finding."),
-                    "claim_scope": _first_text(raw_ev.get("claim_scope"), "industry-level"),
+                    "claim_or_metric": _first_text(raw_ev.get("claim_or_metric"), raw_ev.get("claim"), raw_ev.get("metric"), "TODO_REPLACE_WITH_SOURCE_FAITHFUL_CLAIM"),
+                    "claim_scope": _first_text(raw_ev.get("claim_scope"), "TODO_REPLACE_WITH_CLAIM_SCOPE"),
                     "source_review_id": src_id,
                     "source_name": _first_text(raw_ev.get("source_name"), source.get("title")),
                     "source_url": _first_text(raw_ev.get("source_url"), source.get("url")),
                     "source_type": normalize_source_type(raw_ev.get("source_type") or source.get("source_type") or "industry_report"),
-                    "evidence_status": _first_text(raw_ev.get("evidence_status"), "primary-reviewed"),
+                    "evidence_status": _first_text(raw_ev.get("evidence_status"), "TODO_REPLACE_WITH_EVIDENCE_STATUS"),
                     "source_date": _text(raw_ev.get("source_date") or source.get("source_date")),
                     "data_period": _text(raw_ev.get("data_period")),
                     "source_locator": _first_text(raw_ev.get("source_locator"), raw_ev.get("locator"), source.get("source_locator")),
                     "raw_excerpt": _first_text(raw_ev.get("raw_excerpt"), raw_ev.get("reviewed_excerpt"), source.get("reviewed_excerpt")),
                     "reliability": _first_text(raw_ev.get("reliability"), source.get("reliability"), "reviewed_source"),
-                    "confidence": _first_text(raw_ev.get("confidence"), source.get("confidence"), "medium"),
+                    "confidence": _first_text(raw_ev.get("confidence"), "TODO_REPLACE_WITH_CONFIDENCE"),
                 }
             )
 
@@ -913,23 +878,23 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
             src_id = requested_src_id if requested_src_id in source_ids else (source_ids[0] if source_ids else "")
             source = next((item for item in sources if item["source_review_id"] == src_id), sources[0] if sources else {})
             metric = {
-                "audit_level": AUDITED_METRIC_LEVEL,
+                "audit_level": _first_text(raw_metric.get("audit_level"), "TODO_REPLACE_WITH_AUDIT_LEVEL"),
                 "metric_group": _first_text(raw_metric.get("metric_group"), unit.get("issue_area")),
                 "metric_id": met_id,
-                "metric_name": _first_text(raw_metric.get("metric_name"), raw_metric.get("name"), raw_metric.get("claim_or_metric"), "Research graph metric"),
-                "metric_type": _first_text(raw_metric.get("metric_type"), "market_size"),
-                "market_definition": _first_text(raw_metric.get("market_definition"), unit.get("research_question"), "Source-defined market"),
-                "channel_scope": _first_text(raw_metric.get("channel_scope"), "all_channel"),
+                "metric_name": _first_text(raw_metric.get("metric_name"), raw_metric.get("name"), raw_metric.get("claim_or_metric"), "TODO_REPLACE_WITH_METRIC_NAME"),
+                "metric_type": _first_text(raw_metric.get("metric_type"), "TODO_REPLACE_WITH_METRIC_TYPE"),
+                "market_definition": _first_text(raw_metric.get("market_definition"), "TODO_REPLACE_WITH_MARKET_DEFINITION"),
+                "channel_scope": _first_text(raw_metric.get("channel_scope"), "TODO_REPLACE_WITH_CHANNEL_SCOPE"),
                 "geography": _first_text(raw_metric.get("geography"), meta.get("geography")),
-                "data_period": _first_text(raw_metric.get("data_period"), raw_metric.get("period"), "latest"),
+                "data_period": _first_text(raw_metric.get("data_period"), raw_metric.get("period"), "TODO_REPLACE_WITH_DATA_PERIOD"),
                 "value": raw_metric.get("value"),
                 "unit": _text(raw_metric.get("unit")),
                 "comparable_with": _text(raw_metric.get("comparable_with")),
                 "parent_metric_id": _text(raw_metric.get("parent_metric_id")),
                 "cagr_endpoint_ids": _text(raw_metric.get("cagr_endpoint_ids")),
-                "conflict_status": _first_text(raw_metric.get("conflict_status"), "single-source"),
-                "resolution": _first_text(raw_metric.get("resolution"), "Use only with the source definition, period, geography, and methodology captured in this row."),
-                "chart_ready": raw_metric.get("chart_ready") if isinstance(raw_metric.get("chart_ready"), bool) else True,
+                "conflict_status": _first_text(raw_metric.get("conflict_status"), "TODO_REPLACE_WITH_CONFLICT_STATUS"),
+                "resolution": _first_text(raw_metric.get("resolution"), "TODO_REPLACE_WITH_RECONCILIATION_RESOLUTION"),
+                "chart_ready": raw_metric.get("chart_ready") if isinstance(raw_metric.get("chart_ready"), bool) else False,
                 "source_review_id": src_id,
                 "source_name": _first_text(raw_metric.get("source_name"), source.get("title")),
                 "source_url": _first_text(raw_metric.get("source_url"), source.get("url")),
@@ -938,7 +903,7 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
                 "source_date": _first_text(raw_metric.get("source_date"), source.get("source_date")),
                 "source_locator": _first_text(raw_metric.get("source_locator"), raw_metric.get("locator"), source.get("source_locator")),
                 "raw_excerpt": _first_text(raw_metric.get("raw_excerpt"), raw_metric.get("reviewed_excerpt"), source.get("reviewed_excerpt")),
-                "audit_note": _first_text(raw_metric.get("audit_note"), raw_metric.get("remarks"), raw_metric.get("notes"), raw_metric.get("resolution"), "Use only with the captured source scope and limitations."),
+                "audit_note": _first_text(raw_metric.get("audit_note"), raw_metric.get("remarks"), raw_metric.get("notes"), raw_metric.get("resolution"), "TODO_REPLACE_WITH_AUDIT_NOTE"),
             }
             normalized_metric, audit = normalize_metric_row(metric)
             unit_conversion_audit.append({"metric_id": met_id, **audit})

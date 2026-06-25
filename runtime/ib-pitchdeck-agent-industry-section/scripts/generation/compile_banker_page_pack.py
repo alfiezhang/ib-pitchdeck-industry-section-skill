@@ -100,6 +100,7 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
             continue
         slide_no = int(slide.get("slide_no") or len(slides) + 1)
         banker_page_id = text(slide.get("banker_page_id")) or f"BP-{slide_no:03d}"
+        project_relevance_note = text(slide.get("project_relevance_note"))
         blocks: list[dict[str, Any]] = []
         for block in as_list(slide.get("body_blocks")):
             if not isinstance(block, dict):
@@ -114,13 +115,14 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
                 "slide_no": slide_no,
                 "banker_page_id": banker_page_id,
                 "fixed_page_role": text(slide.get("fixed_page_role")) or FIXED_PAGE_ROLES.get(slide_no, ""),
+                "page_primary_subject": text(slide.get("page_primary_subject")),
                 "investor_question": text(slide.get("client_question")),
                 "page_thesis": text(slide.get("banker_judgment")),
                 "page_argument": text(slide.get("page_argument")),
                 "visual_intent": text(slide.get("visual_intent") or slide.get("exhibit", {}).get("why_this_exhibit")),
                 "evidence_role": text(slide.get("evidence_role") or "thesis_anchor"),
                 "exhibit": slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {},
-                "why_this_page_matters": text(slide.get("transaction_readthrough")),
+                "why_this_page_matters": project_relevance_note,
                 "selected_page_type": text(slide.get("selected_page_type")),
                 "claim_strength": text(slide.get("claim_strength")),
                 "headline": text(slide.get("headline")),
@@ -132,13 +134,13 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
                 "compare_table_data": slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {},
                 "visible_metric_claims": [item for item in as_list(slide.get("visible_metric_claims")) if isinstance(item, dict)],
                 "source_note": text(slide.get("source_note")),
-                "pitch_relevance": text(slide.get("transaction_readthrough")),
+                "pitch_relevance": project_relevance_note,
                 "caveats": [text(item) for item in as_list(slide.get("caveats")) if text(item)],
                 "open_questions": [text(item) for item in as_list(slide.get("open_questions")) if text(item)],
                 "strategy_checks": {
                     "new_information_added": [
                         text(slide.get("banker_judgment")),
-                        text(slide.get("transaction_readthrough")),
+                        project_relevance_note,
                     ],
                     "source_artifact": "banker_page_pack.json",
                 },
@@ -179,7 +181,7 @@ def _proof_standard(claim_strength: str, usage: str) -> str:
     if usage == "body_only":
         return "Use this page's EV/MET IDs in body copy and supporting visuals; avoid unqualified headline claims."
     if usage == "caveat_only":
-        return "Use only as caveat, diligence question, or clearly caveated context."
+        return "Use only as caveated context or route back to Research before promotion."
     return "Do not use as a deck claim until LLM authoring resolves evidence sufficiency."
 
 

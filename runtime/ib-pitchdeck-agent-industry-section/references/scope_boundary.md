@@ -8,8 +8,8 @@ Sector credibility comes first. Transaction relevance comes second. Explicit tar
 
 The purpose is to demonstrate:
 1. credible sector understanding;
-2. relevance to potential M&A, financing, control-sale, valuation, or buyer-interest angles;
-3. selective target context where supported, including potential fit, risks, and diligence questions.
+2. relevance to potential M&A, financing, control-sale, valuation, or investor/acquirer interest angles;
+3. selective target context where supported, including potential fit, risks, and evidence boundaries.
 
 This is not:
 - a generic industry report;
@@ -19,7 +19,7 @@ This is not:
 - a BP or CIM;
 - a retained-client sell-side marketing book that assumes the target is already the client.
 
-The output must preserve the fixed 8-slide industry section structure. The research can be broad and judgment-led, but the delivery format remains the bundled template.
+The output must preserve the slide structure defined by `configs/slide_registry.json`. The research can be broad and judgment-led, but the delivery format remains governed by the selected template and registry.
 
 ## Search Discipline
 
@@ -32,16 +32,16 @@ Each slide should primarily serve at least one level:
 
 - `sector_credibility`: explain market structure, growth, segmentation, value chain, competition, or trends.
 - `transaction_relevance`: explain why the sector setup matters for valuation, buyer interest, consolidation, financing, or timing.
-- `target_implication`: selective target context, evidence-backed fit, exposure, or open diligence questions.
+- `target_implication`: selective target context, evidence-backed fit, exposure, or caveated project relevance.
 - `mixed`: intentionally combines more than one of the above.
 
 Do not force target mentions on every slide. Do not turn every slide into "industry tailwind benefits the target." Target linkage should be selective, evidence-based, and transaction-relevant.
 
-Across the 8-slide section:
-- at least 3 slides should build sector credibility;
-- at least 2 slides should explain transaction relevance;
-- at least 1 slide should include selective target context where evidence supports it;
-- no more than 4 slides should make the target the central claim.
+Across the section, keep the story balanced:
+- sector credibility should carry the deck;
+- transaction relevance should be visible where it follows from the sector view;
+- target context should appear only where evidence supports it;
+- the target should not become the central claim of the industry section.
 
 ## Claim Strength
 
@@ -50,6 +50,6 @@ Classify important claims as:
 - `hard_fact`: directly supported by a cited source; preserve period, geography, scope, and unit.
 - `supported_inference`: derived from cited evidence; use cautious inference language.
 - `management_claim`: provided by the user/company; label as company-provided unless externally verified.
-- `hypothesis`: useful but not proven; treat as a diligence question or working hypothesis.
+- `hypothesis`: useful but not proven; treat as a caveated working view or route to Research.
 
 Do not use absolute language for `supported_inference`, `directional_inference`, `management_claim`, `hypothesis`, or `open_question`, including: 确定性, 不可逆, 无放缓迹象, 不可复制, 必然, 绝对领先.
