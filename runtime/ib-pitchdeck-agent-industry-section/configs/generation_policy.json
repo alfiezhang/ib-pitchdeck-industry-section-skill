@@ -34,8 +34,7 @@
     "peer_comparison",
     "channel_flow",
     "unit_economics_bridge",
-    "sku_traction_table",
-    "evidence_gap_matrix"
+    "sku_traction_table"
   ],
   "visual_capability_aliases": {
     "bar_chart": "chart",
@@ -52,7 +51,6 @@
     "evidence_boundary_grid": "table",
     "peer_comparison": "table",
     "sku_traction_table": "table",
-    "evidence_gap_matrix": "table",
     "flow": "table",
     "bridge": "table",
     "channel_flow": "table",

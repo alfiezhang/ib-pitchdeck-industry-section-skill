@@ -19,6 +19,7 @@ Each client-ready page should have:
 - traceable EV/MET references where available;
 - specific source notes, not generic source phrases;
 - caveats where evidence is thin or source scope is narrow.
+- no visible question-label, internal evidence-boundary prompt, or research-control language unless the user explicitly asks for a working appendix.
 
 Density targets are editorial prompts, not hard limits. A full page normally
 needs several body blocks, visible evidence, and enough chart/table/card
@@ -59,7 +60,7 @@ Red flags:
 - target metrics are used as if they were audited industry metrics.
 
 Use `project_relevance_note` sparingly. It is a bridge from industry finding
-to pre-mandate discussion, not an execution checklist and not a sales paragraph.
+to pre-mandate discussion, not an execution workplan and not a sales paragraph.
 
 ## Generic Copy To Rewrite
 
@@ -111,8 +112,8 @@ transaction framing.
 - Slide 7: industry trends and future evolution. Avoid blanket "all trends
   benefit target" or sale-window conclusions without evidence.
 - Slide 8: transaction read-through, project relevance, and evidence
-  boundaries. Include at least one evidence-boundary, caveat, or risk note
-  framed as professional judgment, not as an unresolved task checklist.
+  boundaries. Frame any evidence boundary as professional judgment, not as a
+  visible unresolved task list.
 
 ## QC Disposition
 

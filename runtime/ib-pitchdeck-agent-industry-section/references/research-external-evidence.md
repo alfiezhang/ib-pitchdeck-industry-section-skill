@@ -63,7 +63,7 @@ You may flag source relevance and obvious limitations, but Knowledge/QC records 
 
 ## Job Packet Use
 
-Use a Research job packet for one bounded public-evidence question or one small search batch. The packet must include the industry scope, claim scope, known exclusions, proposed queries or URLs, and the required archive/extract output.
+Use a Research job packet for one bounded public-evidence question or one small search batch. The packet must include the industry scope, claim scope, known exclusions, proposed queries or URLs, and the required archive/extract output. Treat the configured taxonomy as an expansion menu; do not execute every taxonomy row unless the LLM Query Author decides it is material.
 
 Return:
 

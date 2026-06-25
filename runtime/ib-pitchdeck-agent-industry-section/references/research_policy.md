@@ -1,7 +1,7 @@
 # Research Policy
 
 Use this file for public evidence collection and Knowledge handoff. It defines
-evidence discipline; it is not a script checklist.
+evidence discipline; it is not a script-driven workplan.
 
 ## Non-Negotiables
 

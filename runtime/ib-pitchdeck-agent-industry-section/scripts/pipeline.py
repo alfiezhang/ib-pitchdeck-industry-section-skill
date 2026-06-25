@@ -11,12 +11,15 @@ and quality summary in one predictable Python entrypoint.
 from __future__ import annotations
 
 import argparse
+import copy
+import html
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -24,6 +27,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
+from xml.sax.saxutils import escape
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 LIB_DIR = SCRIPT_DIR / "_lib"
@@ -76,6 +80,15 @@ CLEAN_PPT = "industry_section_filled_clean.pptx"
 FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
 TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
 PYTHON_COMMAND_TEMPLATE = "$PYTHON_CMD"
+PPT_PRESENTATION_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
+PPT_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+PPT_PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+DRAWINGML_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+XML_NS = "http://www.w3.org/XML/1998/namespace"
+ET.register_namespace("a", "http://schemas.openxmlformats.org/drawingml/2006/main")
+ET.register_namespace("r", PPT_REL_NS)
+ET.register_namespace("p", PPT_PRESENTATION_NS)
+ET.register_namespace("", PPT_PACKAGE_REL_NS)
 REPLACEMENT_TOP_LEVEL_FIELDS = {
     "selected_page_type",
     "slide_title",
@@ -85,6 +98,10 @@ REPLACEMENT_TOP_LEVEL_FIELDS = {
     "speaker_note",
 }
 BULLET_PREFIX = "• "
+PARAGRAPH_XML_RE = re.compile(r"(<a:p\b.*?</a:p>)", re.DOTALL)
+TEXT_RUN_RE = re.compile(r"(<a:t>)(.*?)(</a:t>)", re.DOTALL)
+RICH_TEXT_TAG_RE = re.compile(r"\[\[(\/?)(b|hl)\]\]")
+HIGHLIGHT_COLOR = "E85D04"
 REQUIRED_IMPORTS = [
     {"module": "pptx", "package": "python-pptx"},
     {"module": "lxml.etree", "package": "lxml"},
@@ -313,6 +330,362 @@ def _collect_mapping_tokens(mapping: dict[str, Any]) -> dict[str, dict[str, Any]
                         "variant_key": variant.get("variant_key", ""),
                     }
     return tokens
+
+
+def _normalize_replacement_value(value: Any) -> str:
+    return html.unescape(str(value))
+
+
+def _ensure_paragraph_properties(paragraph: ET.Element) -> ET.Element:
+    properties = paragraph.find(f"{{{DRAWINGML_NS}}}pPr")
+    if properties is None:
+        properties = ET.Element(f"{{{DRAWINGML_NS}}}pPr")
+        paragraph.insert(0, properties)
+    return properties
+
+
+def _apply_bullet_properties(paragraph: ET.Element) -> None:
+    properties = _ensure_paragraph_properties(paragraph)
+    properties.set("marL", "228600")
+    properties.set("indent", "-152400")
+    for tag in ("buNone", "buAutoNum", "buBlip", "buChar"):
+        for child in list(properties.findall(f"{{{DRAWINGML_NS}}}{tag}")):
+            properties.remove(child)
+    ET.SubElement(properties, f"{{{DRAWINGML_NS}}}buChar", {"char": "•"})
+
+
+def _parse_rich_text_segments(text: str) -> list[dict[str, Any]]:
+    segments: list[dict[str, Any]] = []
+    state = {"b": 0, "hl": 0}
+    cursor = 0
+    for match in RICH_TEXT_TAG_RE.finditer(text):
+        if match.start() > cursor:
+            segments.append(
+                {
+                    "text": text[cursor:match.start()],
+                    "bold": state["b"] > 0,
+                    "highlight": state["hl"] > 0,
+                }
+            )
+        closing, tag = match.groups()
+        state[tag] = max(0, state[tag] - 1) if closing else state[tag] + 1
+        cursor = match.end()
+    if cursor < len(text):
+        segments.append(
+            {
+                "text": text[cursor:],
+                "bold": state["b"] > 0,
+                "highlight": state["hl"] > 0,
+            }
+        )
+
+    merged: list[dict[str, Any]] = []
+    for segment in segments:
+        if not segment["text"]:
+            continue
+        if merged and merged[-1]["bold"] == segment["bold"] and merged[-1]["highlight"] == segment["highlight"]:
+            merged[-1]["text"] += segment["text"]
+        else:
+            merged.append(segment)
+    return merged
+
+
+def _strip_rich_text_markup(text: str) -> str:
+    return RICH_TEXT_TAG_RE.sub("", text)
+
+
+def _has_rich_text_markup(text: str) -> bool:
+    return bool(RICH_TEXT_TAG_RE.search(text))
+
+
+def _ensure_text_space(node: ET.Element, text: str) -> None:
+    if text[:1].isspace() or text[-1:].isspace():
+        node.set(f"{{{XML_NS}}}space", "preserve")
+
+
+def _build_styled_runs(paragraph_xml: str, updated: str) -> str:
+    wrapper = f'<root xmlns:a="{DRAWINGML_NS}">{paragraph_xml}</root>'
+    root = ET.fromstring(wrapper)
+    paragraph = root[0]
+    bullet_paragraph = updated.startswith(BULLET_PREFIX)
+    if bullet_paragraph:
+        updated = updated[len(BULLET_PREFIX):].lstrip()
+        _apply_bullet_properties(paragraph)
+
+    text_containers: list[ET.Element] = []
+    first_run_template: ET.Element | None = None
+    first_run_properties: ET.Element | None = None
+    for child in list(paragraph):
+        if child.tag == f"{{{DRAWINGML_NS}}}r":
+            text_containers.append(child)
+            if first_run_template is None:
+                first_run_template = child
+            if first_run_properties is None:
+                first_run_properties = child.find(f"{{{DRAWINGML_NS}}}rPr")
+        elif child.tag == f"{{{DRAWINGML_NS}}}fld":
+            text_containers.append(child)
+            if first_run_properties is None:
+                first_run_properties = child.find(f"{{{DRAWINGML_NS}}}rPr")
+
+    if first_run_properties is None:
+        first_run_properties = ET.Element(f"{{{DRAWINGML_NS}}}rPr")
+
+    for child in text_containers:
+        paragraph.remove(child)
+
+    end_para = paragraph.find(f"{{{DRAWINGML_NS}}}endParaRPr")
+    children = list(paragraph)
+    insert_at = children.index(end_para) if end_para is not None and end_para in children else len(children)
+
+    new_nodes: list[ET.Element] = []
+    segments = (
+        _parse_rich_text_segments(updated)
+        if _has_rich_text_markup(updated)
+        else [{"text": updated, "bold": False, "highlight": False}]
+    )
+    for segment in segments:
+        parts = str(segment["text"]).split("\n")
+        for idx, part in enumerate(parts):
+            if idx > 0:
+                new_nodes.append(ET.Element(f"{{{DRAWINGML_NS}}}br"))
+            if first_run_template is not None:
+                run = copy.deepcopy(first_run_template)
+                for child in list(run):
+                    if child.tag != f"{{{DRAWINGML_NS}}}rPr":
+                        run.remove(child)
+                run_properties = run.find(f"{{{DRAWINGML_NS}}}rPr")
+                if run_properties is None:
+                    run_properties = ET.Element(f"{{{DRAWINGML_NS}}}rPr")
+                    run.insert(0, run_properties)
+            else:
+                run = ET.Element(f"{{{DRAWINGML_NS}}}r")
+                run_properties = copy.deepcopy(first_run_properties)
+                run.append(run_properties)
+            if segment["bold"] or segment["highlight"]:
+                run_properties.set("b", "1")
+            if segment["highlight"]:
+                for fill in list(run_properties.findall(f"{{{DRAWINGML_NS}}}solidFill")):
+                    run_properties.remove(fill)
+                solid_fill = ET.SubElement(run_properties, f"{{{DRAWINGML_NS}}}solidFill")
+                ET.SubElement(solid_fill, f"{{{DRAWINGML_NS}}}srgbClr", {"val": HIGHLIGHT_COLOR})
+            text_node = ET.SubElement(run, f"{{{DRAWINGML_NS}}}t")
+            text_node.text = _strip_rich_text_markup(part)
+            _ensure_text_space(text_node, text_node.text or "")
+            new_nodes.append(run)
+
+    for offset, node in enumerate(new_nodes):
+        paragraph.insert(insert_at + offset, node)
+    return ET.tostring(paragraph, encoding="unicode")
+
+
+def _rewrite_paragraph(paragraph_xml: str, replacements: dict[str, str]) -> tuple[str, int]:
+    matches = list(TEXT_RUN_RE.finditer(paragraph_xml))
+    if not matches:
+        return paragraph_xml, 0
+
+    original = "".join(match.group(2) for match in matches)
+    updated = original
+    replacement_count = 0
+    for placeholder, value in replacements.items():
+        occurrences = updated.count(placeholder)
+        if occurrences:
+            updated = updated.replace(placeholder, value)
+            replacement_count += occurrences
+    if updated == original:
+        return paragraph_xml, 0
+
+    if updated.startswith(BULLET_PREFIX) or _has_rich_text_markup(updated) or "\n" in updated:
+        return _build_styled_runs(paragraph_xml, updated), replacement_count
+
+    escaped_updated = escape(updated)
+    new_parts = [escaped_updated] + [""] * (len(matches) - 1)
+    rebuilt: list[str] = []
+    last_end = 0
+    for match, new_text in zip(matches, new_parts):
+        rebuilt.append(paragraph_xml[last_end:match.start(2)])
+        rebuilt.append(new_text)
+        last_end = match.end(2)
+    rebuilt.append(paragraph_xml[last_end:])
+    return "".join(rebuilt), replacement_count
+
+
+def _replace_tokens_in_slide(xml_bytes: bytes, replacements: dict[str, str]) -> tuple[bytes, int, int]:
+    text = xml_bytes.decode("utf-8")
+    updated_text = text
+    replaced_paragraphs = 0
+    replacement_count = 0
+
+    if PARAGRAPH_XML_RE.findall(text):
+        rebuilt: list[str] = []
+        last_end = 0
+        for match in PARAGRAPH_XML_RE.finditer(text):
+            rewritten, count = _rewrite_paragraph(match.group(1), replacements)
+            rebuilt.append(text[last_end:match.start(1)])
+            rebuilt.append(rewritten)
+            last_end = match.end(1)
+            if count:
+                replaced_paragraphs += 1
+                replacement_count += count
+        rebuilt.append(text[last_end:])
+        updated_text = "".join(rebuilt)
+    else:
+        for placeholder, value in replacements.items():
+            occurrences = updated_text.count(placeholder)
+            if occurrences:
+                updated_text = updated_text.replace(placeholder, escape(value))
+                replacement_count += occurrences
+        replaced_paragraphs = 1 if updated_text != text else 0
+    return updated_text.encode("utf-8"), replaced_paragraphs, replacement_count
+
+
+def fill_ppt(template: Path, replacement_dict: Path, output: Path) -> dict[str, Any]:
+    replacements = {
+        str(key): _normalize_replacement_value(value)
+        for key, value in _json(replacement_dict).items()
+    }
+    replaced_files = 0
+    replaced_paragraphs = 0
+    replaced_tokens = 0
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        try:
+            with ZipFile(template, "r") as zin:
+                zin.extractall(tmpdir_path)
+        except FileNotFoundError as exc:
+            raise PipelineError(f"PPTX template not found: {template}") from exc
+        except Exception as exc:
+            raise PipelineError(f"Failed to open PPTX template {template}: {exc}") from exc
+
+        for slide_xml in sorted((tmpdir_path / "ppt" / "slides").glob("slide*.xml")):
+            updated_bytes, paragraph_count, token_count = _replace_tokens_in_slide(slide_xml.read_bytes(), replacements)
+            if paragraph_count:
+                slide_xml.write_bytes(updated_bytes)
+                replaced_files += 1
+                replaced_paragraphs += paragraph_count
+                replaced_tokens += token_count
+
+        with ZipFile(output, "w") as zout:
+            for file_path in sorted(tmpdir_path.rglob("*")):
+                if file_path.is_file():
+                    zout.write(file_path, file_path.relative_to(tmpdir_path))
+
+    return {
+        "template": str(template),
+        "replacement_dict": str(replacement_dict),
+        "output": str(output),
+        "replaced_files": replaced_files,
+        "replaced_paragraphs": replaced_paragraphs,
+        "replaced_tokens": replaced_tokens,
+        "replacement_key_count": len(replacements),
+    }
+
+
+def _load_slide_layout_library(path: Path | None = None) -> dict[int, dict[str, Any]]:
+    payload = _json(path or ROOT_DIR / "configs" / "slide_layout_library.json")
+    slides = payload.get("slides")
+    if not isinstance(slides, list):
+        raise PipelineError("slide_layout_library.json must contain list field 'slides'")
+
+    library: dict[int, dict[str, Any]] = {}
+    for item in slides:
+        if not isinstance(item, dict):
+            continue
+        slide_no = item.get("slide_no")
+        slide_key = item.get("slide_key")
+        page_type_to_slide = item.get("page_type_to_slide")
+        if not isinstance(slide_no, int) or not slide_key or not isinstance(page_type_to_slide, dict):
+            raise PipelineError(
+                "invalid slide layout library entry: "
+                f"slide_no={slide_no}, slide_key={slide_key}, page_type_to_slide={page_type_to_slide}"
+            )
+        library[slide_no] = {
+            "slide_key": slide_key,
+            "page_type_to_slide": page_type_to_slide,
+        }
+    return library
+
+
+def _renderer_slides(control_data: dict[str, Any], control_file_path: Path) -> list[dict[str, Any]]:
+    slides = control_data.get("slides")
+    if isinstance(slides, list) and slides:
+        return [slide for slide in slides if isinstance(slide, dict)]
+    raise PipelineError(f"{control_file_path} must contain non-empty slides array")
+
+
+def _selected_slide_files(control_data: dict[str, Any], control_file_path: Path) -> set[str]:
+    keep: set[str] = set()
+    by_no = {int(slide["slide_no"]): slide for slide in _renderer_slides(control_data, control_file_path) if slide.get("slide_no")}
+    for slide_no, config in _load_slide_layout_library().items():
+        page = by_no.get(slide_no)
+        if not page:
+            raise PipelineError(f"renderer_spec missing slide_no={slide_no} for {config['slide_key']}")
+        selected_page_type = str(page.get("selected_page_type") or "").strip()
+        slide_name = config["page_type_to_slide"].get(selected_page_type)
+        if not slide_name:
+            allowed = ", ".join(config["page_type_to_slide"].keys())
+            raise PipelineError(
+                f"invalid selected_page_type for slide_no={slide_no}, slide_key={config['slide_key']}: "
+                f"{selected_page_type!r}; allowed={allowed}"
+            )
+        keep.add(str(slide_name))
+    return keep
+
+
+def clean_presentation(pptx_path: Path, control_file_path: Path, output_path: Path) -> dict[str, Any]:
+    keep_slides = _selected_slide_files(_json(control_file_path), control_file_path)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        try:
+            with ZipFile(pptx_path, "r") as zin:
+                zin.extractall(tmpdir_path)
+        except FileNotFoundError as exc:
+            raise PipelineError(f"filled PPTX not found: {pptx_path}") from exc
+        except Exception as exc:
+            raise PipelineError(f"failed to open filled PPTX {pptx_path}: {exc}") from exc
+
+        presentation_xml = tmpdir_path / "ppt" / "presentation.xml"
+        rels_xml = tmpdir_path / "ppt" / "_rels" / "presentation.xml.rels"
+        presentation_tree = ET.parse(presentation_xml)
+        presentation_root = presentation_tree.getroot()
+        rels_tree = ET.parse(rels_xml)
+        rels_root = rels_tree.getroot()
+
+        rel_targets = {
+            rel.attrib["Id"]: rel.attrib["Target"].split("/")[-1]
+            for rel in rels_root.findall(f"{{{PPT_PACKAGE_REL_NS}}}Relationship")
+            if rel.attrib.get("Type", "").endswith("/slide")
+        }
+        slide_id_list = presentation_root.find(f"{{{PPT_PRESENTATION_NS}}}sldIdLst")
+        if slide_id_list is None:
+            raise PipelineError(f"presentation.xml is missing p:sldIdLst in {pptx_path}")
+
+        kept_rids: set[str] = set()
+        for slide_id in list(slide_id_list):
+            rid = slide_id.attrib.get(f"{{{PPT_REL_NS}}}id")
+            target_name = rel_targets.get(rid, "")
+            if target_name not in keep_slides:
+                slide_id_list.remove(slide_id)
+            elif rid:
+                kept_rids.add(rid)
+
+        for rel in list(rels_root.findall(f"{{{PPT_PACKAGE_REL_NS}}}Relationship")):
+            if rel.attrib.get("Type", "").endswith("/slide") and rel.attrib.get("Id") not in kept_rids:
+                rels_root.remove(rel)
+
+        presentation_tree.write(presentation_xml, encoding="UTF-8", xml_declaration=True)
+        rels_tree.write(rels_xml, encoding="UTF-8", xml_declaration=True)
+        with ZipFile(output_path, "w") as zout:
+            for file_path in sorted(tmpdir_path.rglob("*")):
+                if file_path.is_file():
+                    zout.write(file_path, file_path.relative_to(tmpdir_path))
+
+    return {
+        "input_pptx": str(pptx_path),
+        "control_file": str(control_file_path),
+        "output_pptx": str(output_path),
+        "kept_slide_files": sorted(keep_slides),
+        "kept_slide_count": len(keep_slides),
+    }
 
 
 def build_template_token_report(template_path: Path, ppt_mapping_path: Path) -> dict[str, Any]:
@@ -958,33 +1331,13 @@ def render(
         )
         _write_json(run_dir / "replacement_dict.json", replacements)
         _validate_artifact(run_dir, python_cmd, "replacement_dict", artifacts / "replacement_dict_validation.json")
-        _run(
-            [
-                python_cmd,
-                _internal_script("output/fill_ppt_tokens.py"),
-                "--template",
-                template_path,
-                "--replacement-dict",
-                run_dir / "replacement_dict.json",
-                "--output",
-                run_dir / FILLED_PPT,
-                "--log",
-                artifacts / "fill_ppt_tokens.log.json",
-            ]
+        _write_json(
+            artifacts / "fill_ppt_tokens.log.json",
+            fill_ppt(template_path, run_dir / "replacement_dict.json", run_dir / FILLED_PPT),
         )
-        _run(
-            [
-                python_cmd,
-                _internal_script("output/clean_filled_ppt.py"),
-                "--input",
-                run_dir / FILLED_PPT,
-                "--control-file",
-                run_dir / "renderer_spec.json",
-                "--output",
-                run_dir / CLEAN_PPT,
-                "--log",
-                artifacts / "clean_filled_ppt.log.json",
-            ]
+        _write_json(
+            artifacts / "clean_filled_ppt.log.json",
+            clean_presentation(run_dir / FILLED_PPT, run_dir / "renderer_spec.json", run_dir / CLEAN_PPT),
         )
         _run(
             [

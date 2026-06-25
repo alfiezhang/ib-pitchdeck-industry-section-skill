@@ -1,6 +1,6 @@
 {
   "schema_version": "research_issue_taxonomy_v1",
-  "description": "Configurable issue/subissue coverage menu for formal industry research planning. Treat this as a starting taxonomy, not a mandatory equal-depth search checklist.",
+  "description": "Configurable issue/subissue coverage menu for formal industry research planning. Treat this as a starting taxonomy, not a mandatory equal-depth search plan.",
   "issue_topics_by_area": {
     "market_size_growth": [
       "current_market_size",

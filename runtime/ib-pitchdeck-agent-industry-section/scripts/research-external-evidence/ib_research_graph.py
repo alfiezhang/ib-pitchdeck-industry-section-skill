@@ -470,6 +470,53 @@ def _priority_for_expectation(expectation: str) -> str:
     return "medium"
 
 
+def _starter_issue_pairs() -> list[tuple[str, str]]:
+    raw_pairs = _research_planning_policy().get("starter_issue_pairs")
+    pairs: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    if isinstance(raw_pairs, list):
+        for item in raw_pairs:
+            if isinstance(item, dict):
+                issue_area = _text(item.get("issue_area"))
+                subissue = _text(item.get("subissue"))
+            elif isinstance(item, str) and "/" in item:
+                issue_area, subissue = [part.strip() for part in item.split("/", 1)]
+            else:
+                raise ValueError("research_planning_policy.starter_issue_pairs entries must be objects or issue_area/subissue strings")
+
+            if not issue_area or not subissue:
+                raise ValueError("research_planning_policy.starter_issue_pairs contains a blank issue_area/subissue")
+            if subissue not in ISSUE_TOPICS_BY_AREA.get(issue_area, set()):
+                raise ValueError(f"starter issue pair is not in research_issue_taxonomy: {issue_area}/{subissue}")
+            pair = (issue_area, subissue)
+            if pair not in seen:
+                pairs.append(pair)
+                seen.add(pair)
+
+    if pairs:
+        return pairs
+
+    # Safe fallback for older policy files: seed only configured deep-search
+    # rows, not the full taxonomy. LLM authoring can add rows when material.
+    for pair_key, expectation in _policy_dict("issue_execution_policy").items():
+        if _text(expectation) != "deep_search" or "/" not in str(pair_key):
+            continue
+        issue_area, subissue = [part.strip() for part in str(pair_key).split("/", 1)]
+        if subissue in ISSUE_TOPICS_BY_AREA.get(issue_area, set()):
+            pair = (issue_area, subissue)
+            if pair not in seen:
+                pairs.append(pair)
+                seen.add(pair)
+    if pairs:
+        return pairs
+
+    for issue_area, subissues in ISSUE_TOPICS_BY_AREA.items():
+        subissue = sorted(subissues)[0]
+        pairs.append((issue_area, subissue))
+    return pairs
+
+
 def _industry_specific_research_threads(scope_pack: dict[str, Any]) -> list[dict[str, Any]]:
     threads: list[dict[str, Any]] = []
     raw_items: list[tuple[str, str, str]] = []
@@ -520,44 +567,42 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
     issue_search_plan: list[dict[str, Any]] = []
     fs_counter = 1
 
-    for issue_area, subissues in ISSUE_TOPICS_BY_AREA.items():
-        for subissue in sorted(subissues):
-            fs_id = f"FS-{fs_counter:03d}"
-            fs_counter += 1
-            issue_label = _label(issue_area)
-            subissue_label = _label(subissue)
-            execution_expectation, minimum_actual_searches, rationale = _execution_policy(issue_area, subissue)
-            issue_search_plan.append(
-                {
-                    "issue_area": issue_area,
-                    "subissue": subissue,
-                    "plan_layer": "core_research_thread" if execution_expectation == "deep_search" else "coverage_audit_row",
-                    "priority": _priority_for_expectation(execution_expectation),
-                    "execution_expectation": execution_expectation,
-                    "minimum_actual_searches": minimum_actual_searches,
-                    "coverage_required": True,
-                    "terminal_status": "pending",
-                    "execution_rationale": rationale,
-                    "research_question": (
-                        f"What evidence is available for {subissue_label} within {market_terms}, "
-                        "and what source scope, period, geography, denominator, and limitations apply?"
-                    ),
-                    "search_instructions": [
-                        {
-                            "instruction_id": fs_id,
-                            "purpose": (
-                                f"Find formal evidence for {issue_area}/{subissue}; capture facts, metrics, "
-                                "scope, period, source authority, and limitations."
-                            ),
-                            "search_stage": "formal_research_execution",
-                            "source_hint": _text(_policy_dict("source_hints_by_area").get(issue_area))
-                            or _text(_research_planning_policy().get("default_source_hint"))
-                            or "industry report, company disclosure, official or authoritative source",
-                            "query_authoring_artifact": "artifacts/executable_search_batch.json",
-                        }
-                    ],
-                }
-            )
+    for issue_area, subissue in _starter_issue_pairs():
+        fs_id = f"FS-{fs_counter:03d}"
+        fs_counter += 1
+        subissue_label = _label(subissue)
+        execution_expectation, minimum_actual_searches, rationale = _execution_policy(issue_area, subissue)
+        issue_search_plan.append(
+            {
+                "issue_area": issue_area,
+                "subissue": subissue,
+                "plan_layer": "starter_research_thread",
+                "priority": _priority_for_expectation(execution_expectation),
+                "execution_expectation": execution_expectation,
+                "minimum_actual_searches": minimum_actual_searches,
+                "coverage_required": True,
+                "terminal_status": "pending",
+                "execution_rationale": rationale,
+                "research_question": (
+                    f"What evidence is available for {subissue_label} within {market_terms}, "
+                    "and what source scope, period, geography, denominator, and limitations apply?"
+                ),
+                "search_instructions": [
+                    {
+                        "instruction_id": fs_id,
+                        "purpose": (
+                            f"Find formal evidence for {issue_area}/{subissue}; capture facts, metrics, "
+                            "scope, period, source authority, and limitations."
+                        ),
+                        "search_stage": "formal_research_execution",
+                        "source_hint": _text(_policy_dict("source_hints_by_area").get(issue_area))
+                        or _text(_research_planning_policy().get("default_source_hint"))
+                        or "industry report, company disclosure, official or authoritative source",
+                        "query_authoring_artifact": "artifacts/executable_search_batch.json",
+                    }
+                ],
+            }
+        )
 
     return {
         "schema_version": "formal_search_plan_v1",
@@ -573,20 +618,22 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
         "coverage_requirement": {
             "coverage_menu_source": "configs/research_issue_taxonomy.json",
             "configured_taxonomy_is_advisory": True,
+            "python_seed_mode": "starter_issue_pairs_only",
+            "python_seed_row_count": len(issue_search_plan),
             "canonical_issue_area_count": len(ISSUE_TOPICS_BY_AREA),
             "canonical_subissue_count": sum(len(items) for items in ISSUE_TOPICS_BY_AREA.values()),
             "instruction": (
-                "Use configured issue_search_plan rows as a coverage audit menu. Author executable query strings only in "
-                "artifacts/executable_search_batch.json, not in this coverage plan. The taxonomy is a coverage audit, "
-                "not an equal-depth search mandate: execute deep/light rows when material, and explicitly "
-                "account for not_material, not_executed, or unavailable rows in formal_research_execution_report.json."
+                "Python seeds only starter issue rows. Treat allowed_issue_taxonomy as an LLM expansion menu, not as "
+                "automatic backlog. Author executable query strings only in artifacts/executable_search_batch.json, "
+                "not in this coverage plan. Execute starter or LLM-added rows when material, and explicitly account "
+                "for not_material, not_executed, or unavailable rows in formal_research_execution_report.json."
             ),
         },
         "allowed_issue_taxonomy": {area: sorted(subissues) for area, subissues in ISSUE_TOPICS_BY_AREA.items()},
         "planning_instruction": (
-            "This plan starts from the configured issue/subissue menu to thicken upstream research without hard-coding "
-            "industry judgment into Python. "
-            "For each row, define the evidence need, source hint, and execution expectation only. "
+            "This plan starts from a small configured starter set so Python does not pre-fill the entire research universe. "
+            "The LLM Query Author may add, drop, or reprioritize rows from allowed_issue_taxonomy when the industry scope "
+            "makes them material. For each row, define the evidence need, source hint, and execution expectation only. "
             "Use industry_specific_research_threads for material scope-specific evidence needs that do not fit cleanly "
             "inside one canonical row. Executable queries belong in artifacts/executable_search_batch.json. Do not write "
             "investment hypotheses, validated findings, slide conclusions, or page plans. A planned FS row is not evidence."

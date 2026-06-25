@@ -11,7 +11,7 @@ from conftest import ROLE_SCRIPT_DIRS, SCRIPT_IMPORT_PATHS, SKILL_DIR, SLIDE_NUM
 
 
 def _body_copy_for(slide_no: int, page_type: str, template_registry: dict, blocks: list[dict]) -> dict[str, str]:
-    from template_contract_utils import required_body_fields
+    from deck_blueprint_utils import required_body_fields
 
     fields = required_body_fields(template_registry, slide_no, page_type)
     result: dict[str, str] = {}
@@ -248,7 +248,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
                     "data_or_evidence_inputs": ["EV-001"],
                     "visual_structure": "Four industry cards.",
                     "density_target": "Dense.",
-                    "evidence_limited_exhibit_plan": "Use evidence-gap matrix.",
+                    "evidence_limited_exhibit_plan": "Use caveated KPI cards.",
                 },
                 "body_blocks": [
                     {
@@ -309,7 +309,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
                     "data_or_evidence_inputs": ["EV-001"],
                     "visual_structure": "Four industry cards.",
                     "density_target": "Dense.",
-                    "evidence_limited_exhibit_plan": "Use evidence-gap matrix.",
+                    "evidence_limited_exhibit_plan": "Use caveated KPI cards.",
                 },
                 "body_blocks": [
                     {
@@ -404,3 +404,4 @@ def test_banker_page_pack_validates_and_compiles(
     renderer = json.loads(renderer_spec.read_text(encoding="utf-8"))
     assert len(renderer["slides"]) == 8
     assert all(slide.get("source_note") for slide in renderer["slides"])
+    assert all(not slide.get("pitch_relevance") for slide in renderer["slides"][:6])

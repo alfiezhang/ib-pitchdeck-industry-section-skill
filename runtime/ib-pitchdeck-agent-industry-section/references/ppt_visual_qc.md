@@ -1,10 +1,10 @@
 # PPT Visual QC
 
-Use this checklist after generating `industry_section_filled_clean.pptx`.
+Use this review guide after generating `industry_section_filled_clean.pptx`.
 
 ## Objective
 
-This checklist complements deterministic validation. `pipeline.py validate --artifact filled_ppt` confirms package mechanics; this checklist confirms whether the PPT looks like a finished deck.
+This review complements deterministic validation. `pipeline.py validate --artifact filled_ppt` confirms package mechanics; this review confirms whether the PPT looks like a finished deck.
 
 ## Visual QC Checklist
 
@@ -38,7 +38,7 @@ This checklist complements deterministic validation. `pipeline.py validate --art
 - If the slide is chart-led, does it contain an actual chart / visual object rather than prose describing the intended chart?
 - Does the slide's `exhibit` match what is visible on the page?
 - Does a chart have at least two comparable datapoints? A single large bar is not a finished exhibit.
-- If evidence is limited, did the page use a structured exhibit such as KPI cards, an evidence-boundary grid, an evidence-gap matrix, or caveated table?
+- If evidence is limited, did the page use a structured exhibit such as KPI cards, an evidence-boundary grid, or caveated table?
 - Are the key datapoints visible, or buried in prose?
 - Does the slide still feel complete if the visual were presented to a client?
 

@@ -21,6 +21,21 @@
   },
   "default_source_hint": "industry report, company disclosure, official or authoritative source",
   "default_expected_source_type": "public_search",
+  "starter_issue_pairs": [
+    {"issue_area": "market_size_growth", "subissue": "current_market_size"},
+    {"issue_area": "market_size_growth", "subissue": "market_segmentation"},
+    {"issue_area": "market_size_growth", "subissue": "forecast_growth"},
+    {"issue_area": "demand_customer_logic", "subissue": "demand_drivers"},
+    {"issue_area": "demand_customer_logic", "subissue": "channel_behavior"},
+    {"issue_area": "industry_structure", "subissue": "value_chain"},
+    {"issue_area": "industry_structure", "subissue": "profit_pool"},
+    {"issue_area": "industry_structure", "subissue": "barriers_to_entry"},
+    {"issue_area": "key_trends_drivers", "subissue": "secular_tailwinds"},
+    {"issue_area": "key_trends_drivers", "subissue": "channel_or_go_to_market_shift"},
+    {"issue_area": "competitive_landscape", "subissue": "competitor_profiles"},
+    {"issue_area": "competitive_landscape", "subissue": "strategic_positioning"},
+    {"issue_area": "competitive_dynamics", "subissue": "consolidation_logic"}
+  ],
   "execution_defaults": {
     "deep_search": {
       "minimum_actual_searches": 2,

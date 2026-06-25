@@ -25,7 +25,7 @@ Do not run a builder script for the queue. Do not mechanically convert page evid
 2. Separate supported judgments, directional views, caveats, and evidence boundaries.
 3. If a hypothesis is unresolved, write a caveated judgment or author a bounded research request instead of promoting it.
 4. Decide whether the evidence supports a dense client-facing page, a caveated page, or no page.
-5. Feed the result into the relevant `banker_page_pack.slides[]` fields: `page_primary_subject`, `banker_judgment`, `page_argument`, `claim_strength`, `body_blocks`, `project_relevance_note`, `caveats`, and `evidence_boundary_notes`. Treat evidence-boundary notes as internal use limits, not as visible follow-up tasks.
+5. Feed the result into the relevant `banker_page_pack.slides[]` fields: `page_primary_subject`, `banker_judgment`, `page_argument`, `claim_strength`, `body_blocks`, `project_relevance_note`, `caveats`, and `evidence_boundary_notes`. Treat evidence-boundary notes as internal use limits, not as visible task language.
 6. Preserve the subject hierarchy: industry judgment is the default page subject; target/project context is a short relevance bridge or a labeled limitation unless the page is explicitly `target_context`.
 7. If creating `research_request_queue.json`, set `authoring_mode` to `llm_authored`, cite the origin artifact/ref, state the exact source type needed, and set unresolved downstream use conservatively.
 

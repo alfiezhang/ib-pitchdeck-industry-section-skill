@@ -39,6 +39,10 @@ def test_prepare_cli_writes_plan_batch_and_graph_state(tmp_path: Path) -> None:
     assert (artifacts / "coverage_map.json").exists()
     assert (artifacts / "executable_search_batch.json").exists()
     assert (artifacts / "research_graph_state.json").exists()
+    plan = json.loads((artifacts / "formal_search_plan.json").read_text(encoding="utf-8"))
+    assert plan["coverage_requirement"]["python_seed_mode"] == "starter_issue_pairs_only"
+    assert len(plan["issue_search_plan"]) == plan["coverage_requirement"]["python_seed_row_count"]
+    assert len(plan["issue_search_plan"]) < plan["coverage_requirement"]["canonical_subissue_count"]
     batch = json.loads((artifacts / "executable_search_batch.json").read_text(encoding="utf-8"))
     assert "LLM_REWRITE_REQUIRED" in json.dumps(batch)
 

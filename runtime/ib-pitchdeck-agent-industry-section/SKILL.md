@@ -9,7 +9,7 @@ description: Build pre-mandate investment banking pitchbook industry sections fr
 
 This skill helps create the **industry section of a pre-mandate client pitchbook**. The user may provide only a short target brief, a PDF/PPT, a link, an industry report, or a rough project lead. Your job is to behave like the banker/editor responsible for the section: understand the material, define the right industry boundary, collect public evidence, form defensible banker page judgments, and produce an editable PPT.
 
-The default engagement setting is **pre-mandate client pitch**. The output is an **industry section**, not a target marketing section: it should prove that the bank understands the industry first, the transaction logic second, and only the selective target context needed to make the industry view relevant. Do not write it like a CIM, signed-engagement report, investor memo, target profile, diagnostic checklist, or execution workplan unless the user explicitly changes the deliverable.
+The default engagement setting is **pre-mandate client pitch**. The output is an **industry section**, not a target marketing section: it should prove that the bank understands the industry first, the transaction logic second, and only the selective target context needed to make the industry view relevant. Do not write it like a CIM, signed-engagement report, investor memo, target profile, or execution workplan unless the user explicitly changes the deliverable.
 
 Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. Treat `scripts/pipeline.py` as the main public controller; internal scripts are implementation details, not alternate workflow routes.
 
@@ -49,7 +49,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 5. Collect public evidence.
    - Use the host's web search, SearXNG/manual URL ingestion, or user-provided reports as available.
    - If formal search or PDF extraction capability is unavailable, do not continue to a formal client-ready PPT; route to runtime setup or an evidence-limited outline.
-   - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage/evidence-need map, `executable_search_batch.json` is the only query workbench, and `research_graph_state.json` is the editable execution state.
+   - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage/evidence-need map, `executable_search_batch.json` is the only query workbench, and `research_graph_state.json` is the editable execution state. Python seeds only starter research rows; the LLM Query Author expands or narrows the plan based on the actual industry scope.
    - Treat search results as leads. A search snippet is not evidence.
    - Keep ordinary background as `research_context`; promote only hard facts and key numbers into EV/MET evidence.
    - Open/archive or manually verify a source before using it for EV/MET evidence. Key numbers require audited metric fields.

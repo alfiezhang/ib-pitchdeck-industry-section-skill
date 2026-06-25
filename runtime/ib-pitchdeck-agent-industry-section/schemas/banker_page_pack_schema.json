@@ -112,7 +112,10 @@
             "description": "Primary subject of the page. Use industry for normal industry-section pages; target_context is reserved for at most two explicitly labeled pages.",
             "enum": ["industry", "industry_with_project_relevance", "target_context"]
           },
-          "page_question": { "type": "string" },
+          "page_question": {
+            "type": "string",
+            "description": "Internal editor prompt for the page thesis. It must not be rendered as a client-facing page label, visible question, or next-step prompt."
+          },
           "banker_judgment": {
             "type": "string",
             "description": "Industry-first banker judgment for this page. This is not a target profile; it should state what matters about the market, structure, economics, competition, or trends."
@@ -152,8 +155,7 @@
                   "peer_comparison",
                   "channel_flow",
                   "unit_economics_bridge",
-                  "sku_traction_table",
-                  "evidence_gap_matrix"
+                  "sku_traction_table"
                 ]
               },
               "why_this_exhibit": { "type": "string" },
@@ -251,7 +253,7 @@
           },
           "evidence_boundary_notes": {
             "type": "array",
-            "description": "Internal evidence-use limits or scope caveats. Do not write as a client-facing follow-up checklist.",
+            "description": "Internal evidence-use limits or scope caveats. Do not render as a client-facing page section, visible task, or pitch agenda.",
             "items": { "type": "string" }
           },
           "source_note": { "type": "string" }

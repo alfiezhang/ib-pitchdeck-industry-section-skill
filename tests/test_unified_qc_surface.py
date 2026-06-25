@@ -28,6 +28,8 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / "scripts/knowledge-repository/repository.py").exists()
     assert not (SKILL_DIR / "scripts/output/update_runs_index.py").exists()
     assert not (SKILL_DIR / "scripts/output/generate_replacement_dict.py").exists()
+    assert not (SKILL_DIR / "scripts/output/fill_ppt_tokens.py").exists()
+    assert not (SKILL_DIR / "scripts/output/clean_filled_ppt.py").exists()
     assert not (SKILL_DIR / "scripts/template/select_template.py").exists()
     assert not (SKILL_DIR / "scripts/template/extract_template_registry.py").exists()
     assert not (SKILL_DIR / "scripts/start_case_from_brief.py").exists()
@@ -35,11 +37,13 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / "scripts/knowledge-repository/export_research_pack_from_db.py").exists()
     assert not (SKILL_DIR / "scripts/generation/compile_banker_page_pack.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/compare_table_utils.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/gate_guard.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/gate_retry_state.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/issue_taxonomy.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/layout_config.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/material_extractors.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/slide_registry.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/template_contract_utils.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/unit_normalizer.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/validation_common.py").exists()
     assert not (SKILL_DIR / "scripts/template/template_fit.py").exists()
@@ -61,7 +65,7 @@ def test_runtime_python_surface_stays_small() -> None:
         path.relative_to(SKILL_DIR).as_posix()
         for path in (SKILL_DIR / "scripts").rglob("*.py")
     ]
-    assert len(scripts) <= 16
+    assert len(scripts) <= 12
 
 
 def test_pipeline_is_only_public_script_surface() -> None:
@@ -168,6 +172,11 @@ def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
         "客户关注点",
         "客户关注",
         "client concern",
+        "follow-up",
+        "diagnostic checklist",
+        "evidence_gap_matrix",
+        "evidence-gap matrix",
+        "validation point",
     ]
     paths = [SKILL_DIR / "SKILL.md"]
     paths.extend((SKILL_DIR / "references").glob("*.md"))

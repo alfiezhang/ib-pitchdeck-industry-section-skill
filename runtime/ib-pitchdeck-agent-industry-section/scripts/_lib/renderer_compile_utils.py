@@ -32,15 +32,16 @@ from typing import Any
 
 from deck_blueprint_utils import (
     FIXED_PAGE_ROLES,
+    active_body_fields,
     as_list,
     banker_page_id_for_slide,
     metric_ids_from_visual,
     proof_points_from_blueprint_slide,
+    required_body_fields,
     template_variants_by_slide,
     unique,
     visual_plan_from_blueprint_slide,
 )
-from template_contract_utils import active_body_fields, required_body_fields
 
 
 ROLE_FIELD_ALIASES = {
@@ -799,7 +800,7 @@ def build_renderer_spec_from_deck_blueprint(
             ),
             "evidence_ids": evidence_ids,
             "source_note": _source_note(slide, evidence_ids),
-            "pitch_relevance": str(slide.get("pitch_relevance") or slide.get("why_this_page_matters") or slide.get("page_question") or "").strip(),
+            "pitch_relevance": str(slide.get("pitch_relevance") or slide.get("why_this_page_matters") or "").strip(),
             "page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
             "caveats": [str(item).strip() for item in as_list(slide.get("caveats")) if str(item).strip()],
             "evidence_boundary_notes": [str(item).strip() for item in as_list(slide.get("evidence_boundary_notes")) if str(item).strip()],

@@ -39,12 +39,12 @@ from deck_blueprint_utils import (
     VALID_CLAIM_STRENGTHS,
     as_list,
     banker_page_id_for_slide,
+    required_body_fields,
     unique,
 )
 from json_utils import load_json_file
 from renderer_token_source import build_token_source
 from research_evidence_db import validate_db as validate_research_db
-from template_contract_utils import required_body_fields
 
 
 EV_RE = re.compile(r"^EV-\d{3}$")

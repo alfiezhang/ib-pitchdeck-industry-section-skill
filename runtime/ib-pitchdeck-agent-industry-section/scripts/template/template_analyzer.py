@@ -36,9 +36,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from deck_blueprint_utils import FIXED_PAGE_ROLES
+from deck_blueprint_utils import FIXED_PAGE_ROLES, active_body_fields
 from json_utils import load_json_file
-from template_contract_utils import active_body_fields
 
 try:
     from pptx import Presentation
