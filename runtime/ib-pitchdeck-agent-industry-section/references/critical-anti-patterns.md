@@ -68,7 +68,7 @@ Why it is wrong:
 
 Recognition test:
 - `main_takeaway` sounds like a body bullet.
-- `left_panel` contains target-context claims when it is meant for market facts.
+- `left_panel` contains project-context claims when it is meant for market facts.
 - A placeholder is populated with text from a different mapped role.
 
 Correct approach:

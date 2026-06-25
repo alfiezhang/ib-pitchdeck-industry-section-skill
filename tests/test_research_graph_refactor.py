@@ -231,13 +231,40 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     )
     state_evidence = first_unit["evidence"][0]
     state_metric, _ = normalize_metric_row(first_unit["metrics"][0])
-    research_db["evidence_ledger"][0].update(state_evidence)
-    research_db["metric_reconciliation"][0].update(state_metric)
-    research_db["metric_reconciliation"][0]["audit_note"] = "Fixture metric normalized and source-scoped."
+    source = research_db["source_materials"][0]
+    research_db["evidence_ledger"] = [
+        {
+            **state_evidence,
+            "evidence_id": "EV-001",
+            "source_review_id": source["source_review_id"],
+            "source_name": source["source_name"],
+            "source_url": source["source_url"],
+            "source_type": source["source_type"],
+            "source_locator": source["source_locator"],
+            "raw_excerpt": source["reviewed_excerpt"],
+            "reliability": source.get("source_reliability") or "reviewed_source",
+            "confidence": "high",
+        }
+    ]
+    research_db["metric_reconciliation"] = [
+        {
+            **state_metric,
+            "metric_id": "MET-001",
+            "source_review_id": source["source_review_id"],
+            "source_name": source["source_name"],
+            "source_url": source["source_url"],
+            "source_type": source["source_type"],
+            "source_locator": source["source_locator"],
+            "raw_excerpt": source["reviewed_excerpt"],
+            "audit_note": "Fixture metric normalized and source-scoped.",
+        }
+    ]
     for extract in research_db["formal_research_extracts"]:
-        if extract.get("promoted_evidence_ids"):
+        extract["promoted_evidence_ids"] = list(extract.get("candidate_evidence_ids") or [])
+        extract["promoted_metric_ids"] = list(extract.get("candidate_metric_ids") or [])
+        if extract.get("candidate_evidence_ids"):
             extract["extracted_fact_or_metric_candidate"] = state_evidence["claim_or_metric"]
-        elif extract.get("promoted_metric_ids"):
+        elif extract.get("candidate_metric_ids"):
             extract["extracted_fact_or_metric_candidate"] = state_metric["metric_name"]
         else:
             extract["extracted_fact_or_metric_candidate"] = "Context-only source reviewed; no promoted EV/MET row."

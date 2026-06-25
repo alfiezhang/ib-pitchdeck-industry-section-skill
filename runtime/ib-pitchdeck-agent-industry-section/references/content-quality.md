@@ -45,7 +45,7 @@ Charts and tables need professional structure:
 - keep chart titles presentation-ready, not execution notes;
 - include source rows for visible quantitative exhibits.
 
-## Target Context Discipline
+## Selective Project Context Discipline
 
 Watch for target drift. Terms such as `标的`, `目标公司`, `项目公司`,
 `target`, `GMV`, `净利润`, `控股权`, and `出售` are not forbidden, but they

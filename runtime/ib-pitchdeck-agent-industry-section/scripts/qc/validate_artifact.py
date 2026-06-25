@@ -4,7 +4,7 @@
 This script deliberately checks only mechanical conditions: files exist, JSON is
 parseable, IDs and cross-references are coherent, and renderer/PPT inputs can be
 used by deterministic tooling. Content quality, page density, source judgment,
-and pitch relevance are LLM responsibilities.
+and transaction relevance are LLM responsibilities.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ from deck_blueprint_utils import (
     unique,
 )
 from json_utils import load_json_file
-from renderer_token_source import build_token_source
+from renderer_compile_utils import build_token_source
 from research_evidence_db import validate_db as validate_research_db
 
 

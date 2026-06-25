@@ -135,16 +135,16 @@
         "chart_allowed": false,
         "body_copy_allowed": true
       },
-      "candidate_use_cases": ["value_chain", "barriers", "competitive_landscape", "strategic_timing", "pitch_relevance"]
+      "candidate_use_cases": ["value_chain", "barriers", "competitive_landscape", "strategic_timing", "transaction_relevance"]
     },
     {
       "analysis_id": "IA-004",
       "source_execution_result_ids": ["FR-004"],
-      "issue_area": "pitch_relevance_target_context",
-      "subissue": "evidence_limits",
-      "analysis_type": "evidence_gap",
-      "core_statement": "One pitch-relevant target-context claim remains unverified and should stay as a limitation.",
-      "analysis_text": "The available public evidence is too thin to turn this target-context claim into a conclusion. It can still help deck blueprint by defining a caveat or discussion boundary, but it must not become a confident headline, chart anchor, or investment highlight. The appropriate use is to remind the renderer that pre-mandate materials should separate sector credibility from target-specific assertions that require management or explicit verification.",
+      "issue_area": "transaction_relevance_context",
+      "subissue": "evidence_boundaries",
+      "analysis_type": "evidence_boundary",
+      "core_statement": "One project-context assertion remains unverified and should stay as a labeled boundary.",
+      "analysis_text": "The available public evidence is too thin to turn this project-context assertion into a conclusion. It can still help deck blueprint by defining a caveat or evidence boundary, but it must not become a confident headline, chart anchor, or investment highlight. The appropriate use is to keep pre-mandate materials focused on sector credibility while separating project-specific assertions that require external verification.",
       "supporting_points": [
         {
           "point": "Available public evidence is too thin to promote the claim as a conclusion.",
@@ -492,27 +492,27 @@
       "downstream_permission": "do_not_use_for_strong_claim"
     },
     {
-      "issue_area": "pitch_relevance_target_context",
-      "subissue": "why_sector_relevant",
-      "attempted_statement": "Sector relevance should be explained for pitch discussion.",
+      "issue_area": "transaction_relevance_context",
+      "subissue": "why_sector_matters",
+      "attempted_statement": "Sector relevance should be explained for the pre-mandate pitch.",
       "reason": "Fixture uses deck blueprint answers instead of a separate issue block.",
       "needed_evidence": ["Sector relevance synthesis"],
       "research_action": "run_targeted_search",
       "downstream_permission": "use_only_as_context"
     },
     {
-      "issue_area": "pitch_relevance_target_context",
-      "subissue": "target_context_fit",
-      "attempted_statement": "Target context fit should be separated from target advocacy.",
+      "issue_area": "transaction_relevance_context",
+      "subissue": "selective_project_readthrough",
+      "attempted_statement": "Selective project readthrough should be separated from target advocacy.",
       "reason": "Not needed for this minimal fixture.",
-      "needed_evidence": ["Target-context facts"],
+      "needed_evidence": ["Project-context facts"],
       "research_action": "request_user_or_management_input",
       "downstream_permission": "use_only_as_context"
     },
     {
-      "issue_area": "pitch_relevance_target_context",
-      "subissue": "discussion_implications",
-      "attempted_statement": "Discussion implications should be balanced.",
+      "issue_area": "transaction_relevance_context",
+      "subissue": "banker_angle",
+      "attempted_statement": "Banker angle should stay industry-led and balanced.",
       "reason": "Fixture uses Slide 8 deck blueprint for this.",
       "needed_evidence": ["Pitch discussion synthesis"],
       "research_action": "run_targeted_search",

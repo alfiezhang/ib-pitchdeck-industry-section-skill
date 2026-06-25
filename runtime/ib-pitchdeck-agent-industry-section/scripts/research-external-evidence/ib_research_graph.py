@@ -388,7 +388,7 @@ def build_coverage_map(plan: dict[str, Any]) -> dict[str, Any]:
         )
     return {
         "schema_version": "coverage_map_v1",
-        "coverage_mode": "canonical_taxonomy_vs_subissues",
+        "coverage_mode": "starter_threads_plus_llm_extensions",
         "language": "mixed",
         "scope": "industry_research_scope",
         "rows": rows,
@@ -547,7 +547,7 @@ def _industry_specific_research_threads(scope_pack: dict[str, Any]) -> list[dict
         elif any(token in topic_text for token in ("channel", "platform", "渠道", "平台", "gmv")):
             mapped_area = "demand_customer_logic"
         else:
-            mapped_area = "pitch_relevance_target_context"
+            mapped_area = "transaction_relevance_context"
         threads.append(
             {
                 "thread_id": f"IST-{idx:03d}",
@@ -617,25 +617,25 @@ def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, A
         },
         "coverage_requirement": {
             "coverage_menu_source": "configs/research_issue_taxonomy.json",
-            "configured_taxonomy_is_advisory": True,
+            "suggested_menu_is_advisory": True,
             "python_seed_mode": "starter_issue_pairs_only",
             "python_seed_row_count": len(issue_search_plan),
-            "canonical_issue_area_count": len(ISSUE_TOPICS_BY_AREA),
-            "canonical_subissue_count": sum(len(items) for items in ISSUE_TOPICS_BY_AREA.values()),
+            "suggested_issue_area_count": len(ISSUE_TOPICS_BY_AREA),
+            "suggested_subissue_count": sum(len(items) for items in ISSUE_TOPICS_BY_AREA.values()),
             "instruction": (
-                "Python seeds only starter issue rows. Treat allowed_issue_taxonomy as an LLM expansion menu, not as "
+                "Python seeds only starter issue rows. Treat suggested_issue_menu as an LLM expansion menu, not as "
                 "automatic backlog. Author executable query strings only in artifacts/executable_search_batch.json, "
                 "not in this coverage plan. Execute starter or LLM-added rows when material, and explicitly account "
                 "for not_material, not_executed, or unavailable rows in formal_research_execution_report.json."
             ),
         },
-        "allowed_issue_taxonomy": {area: sorted(subissues) for area, subissues in ISSUE_TOPICS_BY_AREA.items()},
+        "suggested_issue_menu": {area: sorted(subissues) for area, subissues in ISSUE_TOPICS_BY_AREA.items()},
         "planning_instruction": (
             "This plan starts from a small configured starter set so Python does not pre-fill the entire research universe. "
-            "The LLM Query Author may add, drop, or reprioritize rows from allowed_issue_taxonomy when the industry scope "
-            "makes them material. For each row, define the evidence need, source hint, and execution expectation only. "
-            "Use industry_specific_research_threads for material scope-specific evidence needs that do not fit cleanly "
-            "inside one canonical row. Executable queries belong in artifacts/executable_search_batch.json. Do not write "
+            "The LLM Query Author may add, drop, rewrite, or reprioritize rows when the industry scope makes them material. "
+            "Use suggested_issue_menu for banker coverage ideas and industry_specific_research_threads for custom evidence "
+            "needs; do not force every industry into the menu. For each row, define the evidence need, source hint, and "
+            "execution expectation only. Executable queries belong in artifacts/executable_search_batch.json. Do not write "
             "investment hypotheses, validated findings, slide conclusions, or page plans. A planned FS row is not evidence."
         ),
         "issue_search_plan": issue_search_plan,
@@ -1015,19 +1015,19 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
                 {
                     "evidence_id": ev_id,
                     "audit_level": _first_text(raw_ev.get("audit_level"), RESEARCH_CONTEXT_LEVEL),
-                    "claim_or_metric": _first_text(raw_ev.get("claim_or_metric"), raw_ev.get("claim"), raw_ev.get("metric"), "TODO_REPLACE_WITH_SOURCE_FAITHFUL_CLAIM"),
-                    "claim_scope": _first_text(raw_ev.get("claim_scope"), "TODO_REPLACE_WITH_CLAIM_SCOPE"),
+                    "claim_or_metric": _first_text(raw_ev.get("claim_or_metric"), raw_ev.get("claim"), raw_ev.get("metric"), "needs_knowledge_llm_source_faithful_extract"),
+                    "claim_scope": _first_text(raw_ev.get("claim_scope"), "needs_knowledge_llm_claim_scope"),
                     "source_review_id": src_id,
                     "source_name": _first_text(raw_ev.get("source_name"), source.get("title")),
                     "source_url": _first_text(raw_ev.get("source_url"), source.get("url")),
                     "source_type": normalize_source_type(raw_ev.get("source_type") or source.get("source_type") or "industry_report"),
-                    "evidence_status": _first_text(raw_ev.get("evidence_status"), "TODO_REPLACE_WITH_EVIDENCE_STATUS"),
+                    "evidence_status": _first_text(raw_ev.get("evidence_status"), "needs_knowledge_llm_evidence_status"),
                     "source_date": _text(raw_ev.get("source_date") or source.get("source_date")),
                     "data_period": _text(raw_ev.get("data_period")),
                     "source_locator": _first_text(raw_ev.get("source_locator"), raw_ev.get("locator"), source.get("source_locator")),
                     "raw_excerpt": _first_text(raw_ev.get("raw_excerpt"), raw_ev.get("reviewed_excerpt"), source.get("reviewed_excerpt")),
                     "reliability": _first_text(raw_ev.get("reliability"), source.get("reliability"), "reviewed_source"),
-                    "confidence": _first_text(raw_ev.get("confidence"), "TODO_REPLACE_WITH_CONFIDENCE"),
+                    "confidence": _first_text(raw_ev.get("confidence"), "needs_knowledge_llm_confidence"),
                 }
             )
 
@@ -1042,22 +1042,22 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
             src_id = requested_src_id if requested_src_id in source_ids else (source_ids[0] if source_ids else "")
             source = next((item for item in sources if item["source_review_id"] == src_id), sources[0] if sources else {})
             metric = {
-                "audit_level": _first_text(raw_metric.get("audit_level"), "TODO_REPLACE_WITH_AUDIT_LEVEL"),
+                "audit_level": _first_text(raw_metric.get("audit_level"), "needs_knowledge_llm_audit_level"),
                 "metric_group": _first_text(raw_metric.get("metric_group"), unit.get("issue_area")),
                 "metric_id": met_id,
-                "metric_name": _first_text(raw_metric.get("metric_name"), raw_metric.get("name"), raw_metric.get("claim_or_metric"), "TODO_REPLACE_WITH_METRIC_NAME"),
-                "metric_type": _first_text(raw_metric.get("metric_type"), "TODO_REPLACE_WITH_METRIC_TYPE"),
-                "market_definition": _first_text(raw_metric.get("market_definition"), "TODO_REPLACE_WITH_MARKET_DEFINITION"),
-                "channel_scope": _first_text(raw_metric.get("channel_scope"), "TODO_REPLACE_WITH_CHANNEL_SCOPE"),
+                "metric_name": _first_text(raw_metric.get("metric_name"), raw_metric.get("name"), raw_metric.get("claim_or_metric"), "needs_knowledge_llm_metric_name"),
+                "metric_type": _first_text(raw_metric.get("metric_type"), "needs_knowledge_llm_metric_type"),
+                "market_definition": _first_text(raw_metric.get("market_definition"), "needs_knowledge_llm_market_definition"),
+                "channel_scope": _first_text(raw_metric.get("channel_scope"), "needs_knowledge_llm_channel_scope"),
                 "geography": _first_text(raw_metric.get("geography"), meta.get("geography")),
-                "data_period": _first_text(raw_metric.get("data_period"), raw_metric.get("period"), "TODO_REPLACE_WITH_DATA_PERIOD"),
+                "data_period": _first_text(raw_metric.get("data_period"), raw_metric.get("period"), "needs_knowledge_llm_data_period"),
                 "value": raw_metric.get("value"),
                 "unit": _text(raw_metric.get("unit")),
                 "comparable_with": _text(raw_metric.get("comparable_with")),
                 "parent_metric_id": _text(raw_metric.get("parent_metric_id")),
                 "cagr_endpoint_ids": _text(raw_metric.get("cagr_endpoint_ids")),
-                "conflict_status": _first_text(raw_metric.get("conflict_status"), "TODO_REPLACE_WITH_CONFLICT_STATUS"),
-                "resolution": _first_text(raw_metric.get("resolution"), "TODO_REPLACE_WITH_RECONCILIATION_RESOLUTION"),
+                "conflict_status": _first_text(raw_metric.get("conflict_status"), "needs_knowledge_llm_conflict_status"),
+                "resolution": _first_text(raw_metric.get("resolution"), "needs_knowledge_llm_reconciliation_resolution"),
                 "chart_ready": raw_metric.get("chart_ready") if isinstance(raw_metric.get("chart_ready"), bool) else False,
                 "source_review_id": src_id,
                 "source_name": _first_text(raw_metric.get("source_name"), source.get("title")),
@@ -1067,7 +1067,7 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
                 "source_date": _first_text(raw_metric.get("source_date"), source.get("source_date")),
                 "source_locator": _first_text(raw_metric.get("source_locator"), raw_metric.get("locator"), source.get("source_locator")),
                 "raw_excerpt": _first_text(raw_metric.get("raw_excerpt"), raw_metric.get("reviewed_excerpt"), source.get("reviewed_excerpt")),
-                "audit_note": _first_text(raw_metric.get("audit_note"), raw_metric.get("remarks"), raw_metric.get("notes"), raw_metric.get("resolution"), "TODO_REPLACE_WITH_AUDIT_NOTE"),
+                "audit_note": _first_text(raw_metric.get("audit_note"), raw_metric.get("remarks"), raw_metric.get("notes"), raw_metric.get("resolution"), "needs_knowledge_llm_audit_note"),
             }
             normalized_metric, audit = normalize_metric_row(metric)
             unit_conversion_audit.append({"metric_id": met_id, **audit})

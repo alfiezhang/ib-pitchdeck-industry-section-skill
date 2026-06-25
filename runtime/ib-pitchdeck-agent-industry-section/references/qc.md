@@ -41,13 +41,13 @@ scripts/pipeline.py validate --artifact <artifact> --run-dir <run_dir>
 - evidence sufficiency;
 - boundary relevance;
 - reasoning quality;
-- page thinness, exhibit density, and pitch relevance;
-- target-context drift, unsupported target advocacy, and whether project relevance is appropriately selective;
+- page thinness, exhibit density, and transaction relevance;
+- project-context drift, unsupported target advocacy, and whether project relevance is appropriately selective;
 - chart/table professionalism, including mixed units, weak single-point visuals, sparse exhibits, and source-note specificity;
 - warning disposition and downstream limits.
 
 For banker-page quality review, read `references/content-quality.md` as
-LLM-only guidance. Treat its density prompts, target-context terms,
+LLM-only guidance. Treat its density prompts, project-context terms,
 generic-copy phrases, and slide-specific rules as review prompts, not
 deterministic gates.
 

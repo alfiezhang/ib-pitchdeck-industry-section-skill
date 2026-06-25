@@ -96,7 +96,6 @@
             }
           },
           "source_note": { "type": "string" },
-          "pitch_relevance": { "type": "string" },
           "page_role": { "type": "string" },
           "drilldown_role": { "type": "string" },
           "drill_down_from_slide": { "type": "integer" },

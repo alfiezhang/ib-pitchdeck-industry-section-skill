@@ -25,17 +25,17 @@
     ]
   },
   "builder_instruction": "Do not copy this template as a final plan. First run scripts/pipeline.py research-prepare to generate formal_search_plan.json, coverage_map.json, executable_search_batch.json, and research_graph_state.json together. formal_search_plan is the coverage/evidence-need plan; executable queries are authored only in executable_search_batch.json. Python seeds only starter rows; the configured taxonomy is an LLM expansion menu, and industry_specific_research_threads capture material custom evidence needs.",
-  "allowed_issue_taxonomy": {
-    "instruction": "Use only these issue_area/subissue pairs. Do not invent new subissue names; if a topic does not fit, choose the closest valid subissue and note the limitation in research_question.",
+  "suggested_issue_menu": {
+    "instruction": "Use these issue_area/subissue pairs as a banker coverage menu, not as a closed ontology. Add material industry-specific rows when the scope requires them; set plan_layer to industry_specific_research_thread and write a clear research_question/evidence_need/source_hint.",
     "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],
     "demand_customer_logic": ["customer_segments", "demand_drivers", "willingness_to_pay", "repeat_or_replacement", "channel_behavior", "unmet_needs"],
     "industry_structure": ["concentration", "value_chain", "profit_pool", "business_models", "barriers_to_entry", "supplier_customer_power"],
     "key_trends_drivers": ["secular_tailwinds", "headwinds_and_risks", "technology_disruption", "regulatory_developments", "channel_or_go_to_market_shift", "mna_and_consolidation"],
     "competitive_landscape": ["peer_universe", "competitor_profiles", "peer_financials", "strategic_positioning", "product_or_service_focus", "channel_footprint", "recent_developments", "valuation_snapshot_peer_fact"],
     "competitive_dynamics": ["basis_of_competition", "winners_losers", "new_entrants", "substitutes_or_adjacent_risk", "differentiation_durability", "consolidation_logic"],
-    "pitch_relevance_target_context": ["why_sector_relevant", "target_context_fit", "evidence_limits", "discussion_implications"]
+    "transaction_relevance_context": ["why_sector_matters", "selective_project_readthrough", "evidence_boundaries", "banker_angle"]
   },
-  "planning_instruction": "Start from the starter issue rows after reading industry_scope_pack.json. The LLM Query Author may add, drop, or reprioritize rows from allowed_issue_taxonomy when the industry scope makes them material. For each material entry, write the research question, evidence need, purpose, execution expectation, and source hint. Use industry_specific_research_threads for material industry-specific evidence needs mapped to the closest issue area. Do not put query/query_variants in this artifact; edit concrete Chinese/English/source-specific query strings only in executable_search_batch.json. Cover must_reconcile items and any boundary_validation_needed questions. Do not write investment hypotheses, validated findings, slide conclusions, target positioning, or page plans. Mark low-relevance rows as accounting/not material during execution rather than forcing equal-depth searches.",
+  "planning_instruction": "Start from the starter issue rows after reading industry_scope_pack.json. The LLM Query Author may add, drop, rewrite, or reprioritize rows when the industry scope makes them material. Use suggested_issue_menu for banker coverage ideas and industry_specific_research_threads for custom evidence needs; do not force every industry into the menu. For each material entry, write the research question, evidence need, purpose, execution expectation, and source hint. Do not put query/query_variants in this artifact; edit concrete Chinese/English/source-specific query strings only in executable_search_batch.json. Cover must_reconcile items and any boundary_validation_needed questions. Do not write investment hypotheses, validated findings, slide conclusions, target positioning, or page plans. Mark low-relevance rows as accounting/not material during execution rather than forcing equal-depth searches.",
   "issue_search_plan": [
     {
       "issue_area": "market_size_growth",
@@ -76,10 +76,10 @@
       "terminal_status": "pending"
     },
     {
-      "issue_area": "pitch_relevance_target_context",
-      "subissue": "why_sector_relevant",
+      "issue_area": "transaction_relevance_context",
+      "subissue": "why_sector_matters",
       "priority": "medium",
-      "research_question": "Why is this sector relevant to the pre-mandate project context without turning the industry section into target promotion?",
+      "research_question": "Why does this sector matter for a pre-mandate pitch without turning the industry section into target promotion?",
       "search_instructions": [
         {
           "instruction_id": "FS-003",

@@ -8,7 +8,7 @@
     "key_trends_drivers": "industry report, regulator/standard body, technology report, broker report, M&A news",
     "competitive_landscape": "company filings, industry report, peer disclosures, market data provider",
     "competitive_dynamics": "industry report, company disclosures, broker report, trade media with cited data",
-    "pitch_relevance_target_context": "company-provided materials, peer transactions, investor commentary, sector reports"
+    "transaction_relevance_context": "peer transactions, investor commentary, sector reports, selectively labeled project context"
   },
   "source_specific_hints": {
     "market_size_growth": "official statistics, industry associations, regulatory or sector reports",
@@ -17,7 +17,7 @@
     "key_trends_drivers": "industry report, regulator/standard body, M&A and company announcements",
     "competitive_landscape": "company filings, peer filings, transaction updates",
     "competitive_dynamics": "financial results, M&A databases, strategic announcements",
-    "pitch_relevance_target_context": "company disclosures, peer transactions, sector commentary"
+    "transaction_relevance_context": "peer transactions, sector commentary, selectively labeled project context"
   },
   "default_source_hint": "industry report, company disclosure, official or authoritative source",
   "default_expected_source_type": "public_search",
@@ -104,12 +104,12 @@
     "competitive_landscape/competitor_profiles": "deep_search",
     "competitive_landscape/strategic_positioning": "deep_search",
     "competitive_dynamics/consolidation_logic": "deep_search",
-    "pitch_relevance_target_context/why_sector_relevant": "deep_search",
-    "pitch_relevance_target_context/discussion_implications": "deep_search",
+    "transaction_relevance_context/why_sector_matters": "deep_search",
+    "transaction_relevance_context/banker_angle": "deep_search",
     "market_size_growth/market_cycle": "accounting_only",
     "key_trends_drivers/technology_disruption": "accounting_only",
     "key_trends_drivers/regulatory_developments": "accounting_only",
     "competitive_landscape/valuation_snapshot_peer_fact": "accounting_only",
-    "pitch_relevance_target_context/evidence_limits": "accounting_only"
+    "transaction_relevance_context/evidence_boundaries": "accounting_only"
   }
 }

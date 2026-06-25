@@ -11,7 +11,7 @@ This skill builds the industry section of a **pre-mandate client pitchbook**. It
 5. Banker judgment and page design converge in `banker_page_pack.json`: industry-first supported views, caveats, exhibit logic, dense copy, data bindings, and selective project relevance.
 6. Reasoning is a diagnostic support role when a judgment needs hypothesis resolution or an LLM-authored research request before it can enter the page pack.
 7. Template work comes after page logic: the template can compress, split, and fit content, but it cannot change the core judgment.
-8. QC owns validation. Python handles deterministic format, ID, provenance, and rendering checks. LLM QC handles quality, evidence sufficiency, source use, page thinness, and pitch relevance.
+8. QC owns validation. Python handles deterministic format, ID, provenance, and rendering checks. LLM QC handles quality, evidence sufficiency, source use, page thinness, and transaction relevance.
 9. Output is deterministic rendering only.
 10. Workflow scripts are dashboards and tool runners, not the engagement lead.
 

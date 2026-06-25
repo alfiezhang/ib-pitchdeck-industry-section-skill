@@ -95,6 +95,7 @@ PLACEHOLDER_MARKERS = (
     "LLM must",
     "LLM MUST",
     "replace with",
+    "needs_knowledge_llm",
     "placeholder",
     "skeleton",
     "占位",
@@ -494,8 +495,6 @@ def build_db(
             return result_source_ids[0]
         return ""
 
-    evidence_seen: set[str] = set()
-    metric_seen: set[str] = set()
     evidence_rows: list[dict[str, Any]] = []
     metric_rows: list[dict[str, Any]] = []
     context_rows: list[dict[str, Any]] = []
@@ -565,20 +564,30 @@ def build_db(
                 f"{terminal_status or text(result.get('status'))}; keep as contextual/gap unless stronger sources are reviewed."
             )
 
+        ready_candidate_ids: list[str] = []
         for src_id in source_review_ids:
             review = review_map.get(src_id, {})
             source_is_evidence_ready = evidence_ready_archive(review)
             archive_state = archive_status(review)
-            source_promoted_evidence_ids = [
+            source_candidate_evidence_ids = [
                 ev_id
                 for ev_id in evidence_ids
                 if source_for_evidence(ev_id, source_review_ids) == src_id
             ]
-            source_promoted_metric_ids = [
+            source_candidate_metric_ids = [
                 met_id
                 for met_id in metric_ids
                 if source_for_metric(met_id, source_review_ids) == src_id
             ]
+            source_candidate_ids = [*source_candidate_evidence_ids, *source_candidate_metric_ids]
+            if terminal_status == EVIDENCE_TERMINAL_STATUS and source_candidate_ids and source_is_evidence_ready:
+                ready_candidate_ids.extend(source_candidate_ids)
+            elif terminal_status == EVIDENCE_TERMINAL_STATUS and source_candidate_ids:
+                critical_gap_rows.append(
+                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                    f"source {src_id} archive_status={archive_state or 'missing'}; "
+                    "Research must complete full-page archive or secondary verification before Knowledge can promote EV/MET rows."
+                )
             formal_extracts.append(
                 {
                     "extract_id": f"FX-{len(formal_extracts) + 1:03d}",
@@ -595,101 +604,20 @@ def build_db(
                     "terminal_status": terminal_status,
                     "archive_status": archive_state,
                     "archive_eligibility": "evidence_ready" if source_is_evidence_ready else "research_verification_required",
-                    "promoted_evidence_ids": source_promoted_evidence_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
-                    "promoted_metric_ids": source_promoted_metric_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
+                    "candidate_evidence_ids": source_candidate_evidence_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
+                    "candidate_metric_ids": source_candidate_metric_ids if terminal_status == EVIDENCE_TERMINAL_STATUS and source_is_evidence_ready else [],
+                    "promoted_evidence_ids": [],
+                    "promoted_metric_ids": [],
                     "limitations": [text(item) for item in as_list(result.get("limitations")) if text(item)],
                 }
             )
         if terminal_status != EVIDENCE_TERMINAL_STATUS or not source_review_ids:
             continue
-        for ev_id in evidence_ids:
-            if ev_id in evidence_seen:
-                continue
-            src_id = source_for_evidence(ev_id, source_review_ids)
-            if not src_id:
-                critical_gap_rows.append(
-                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
-                    f"{ev_id} has no unambiguous source_review_id mapping; Knowledge cannot promote it."
-                )
-                continue
-            primary_review = review_map.get(src_id, {})
-            if not evidence_ready_archive(primary_review):
-                critical_gap_rows.append(
-                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
-                    f"source {src_id} archive_status={archive_status(primary_review) or 'missing'}; "
-                    "Research must complete full-page archive or secondary verification before Knowledge can promote EV/MET rows."
-                )
-                continue
-            evidence_seen.add(ev_id)
-            graph_ev = graph_evidence_by_id.get(ev_id, {})
-            evidence_rows.append(
-                {
-                    "evidence_id": ev_id,
-                    "claim_or_metric": text(graph_ev.get("claim_or_metric") or graph_ev.get("claim") or graph_ev.get("metric")) or "TODO_REPLACE_WITH_PROMOTED_CLAIM",
-                    "claim_scope": text(graph_ev.get("claim_scope")) or "TODO_REPLACE_WITH_CLAIM_SCOPE",
-                    "source_review_id": src_id,
-                    "source_name": text(graph_ev.get("source_name")) or review_title(primary_review),
-                    "source_url": text(graph_ev.get("source_url")) or review_url(primary_review),
-                    "source_type": text(graph_ev.get("source_type")) or text(primary_review.get("source_type")),
-                    "evidence_status": text(graph_ev.get("evidence_status")) or "TODO_REPLACE_WITH_EVIDENCE_STATUS",
-                    "source_date": text(graph_ev.get("source_date")) or text(primary_review.get("source_date")),
-                    "data_period": text(graph_ev.get("data_period")),
-                    "source_locator": text(graph_ev.get("source_locator") or graph_ev.get("locator")) or review_locator(primary_review),
-                    "raw_excerpt": text(graph_ev.get("raw_excerpt") or graph_ev.get("reviewed_excerpt")) or review_excerpt(primary_review),
-                    "reliability": text(graph_ev.get("reliability")) or text(primary_review.get("reliability") or primary_review.get("source_reliability")),
-                    "confidence": text(graph_ev.get("confidence")) or "TODO_REPLACE_WITH_CONFIDENCE",
-                }
-            )
-        for met_id in metric_ids:
-            if met_id in metric_seen:
-                continue
-            src_id = source_for_metric(met_id, source_review_ids)
-            if not src_id:
-                critical_gap_rows.append(
-                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
-                    f"{met_id} has no unambiguous source_review_id mapping; Knowledge cannot promote it."
-                )
-                continue
-            primary_review = review_map.get(src_id, {})
-            if not evidence_ready_archive(primary_review):
-                critical_gap_rows.append(
-                    f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
-                    f"source {src_id} archive_status={archive_status(primary_review) or 'missing'}; "
-                    "Research must complete full-page archive or secondary verification before Knowledge can promote EV/MET rows."
-                )
-                continue
-            metric_seen.add(met_id)
-            graph_met = graph_metric_by_id.get(met_id, {})
-            source_access_path = text(primary_review.get("source_access_path") or primary_review.get("archive_path"))
-            metric_rows.append(
-                {
-                    "audit_level": text(graph_met.get("audit_level")) or "TODO_REPLACE_WITH_AUDIT_LEVEL",
-                    "metric_group": text(graph_met.get("metric_group")) or text(result.get("issue_area")),
-                    "metric_id": met_id,
-                    "metric_name": text(graph_met.get("metric_name") or graph_met.get("name") or graph_met.get("claim_or_metric")) or "TODO_REPLACE_WITH_METRIC_NAME",
-                    "metric_type": text(graph_met.get("metric_type")) or "TODO_REPLACE_WITH_METRIC_TYPE",
-                    "market_definition": text(graph_met.get("market_definition")) or "TODO_REPLACE_WITH_MARKET_DEFINITION",
-                    "channel_scope": text(graph_met.get("channel_scope")) or "TODO_REPLACE_WITH_CHANNEL_SCOPE",
-                    "geography": text(graph_met.get("geography")) or meta.get("geography", ""),
-                    "data_period": text(graph_met.get("data_period") or graph_met.get("period")) or "TODO_REPLACE_WITH_DATA_PERIOD",
-                    "value": graph_met.get("value") if graph_met.get("value") is not None else "TODO_REPLACE_WITH_VALUE",
-                    "unit": text(graph_met.get("unit")) or "TODO_REPLACE_WITH_UNIT",
-                    "comparable_with": text(graph_met.get("comparable_with")),
-                    "parent_metric_id": text(graph_met.get("parent_metric_id")),
-                    "cagr_endpoint_ids": text(graph_met.get("cagr_endpoint_ids")),
-                    "conflict_status": text(graph_met.get("conflict_status")) or "single-source",
-                    "resolution": text(graph_met.get("resolution")) or "TODO_REPLACE_WITH_RESOLUTION",
-                    "chart_ready": graph_met.get("chart_ready") if isinstance(graph_met.get("chart_ready"), bool) else False,
-                    "source_review_id": src_id,
-                    "source_name": text(graph_met.get("source_name")) or review_title(primary_review),
-                    "source_url": text(graph_met.get("source_url")) or review_url(primary_review),
-                    "source_access_path": text(graph_met.get("source_access_path")) or source_access_path,
-                    "source_type": text(graph_met.get("source_type")) or text(primary_review.get("source_type")),
-                    "source_date": text(graph_met.get("source_date")) or text(primary_review.get("source_date")),
-                    "source_locator": text(graph_met.get("source_locator") or graph_met.get("locator")) or review_locator(primary_review),
-                    "raw_excerpt": text(graph_met.get("raw_excerpt") or graph_met.get("reviewed_excerpt")) or review_excerpt(primary_review),
-                    "audit_note": text(graph_met.get("audit_note") or graph_met.get("remarks") or graph_met.get("notes") or graph_met.get("resolution")) or "TODO_REPLACE_WITH_AUDIT_NOTE",
-                }
+        if ready_candidate_ids:
+            critical_gap_rows.append(
+                f"{result_id} {text(result.get('issue_area'))}/{text(result.get('subissue'))}: "
+                "Knowledge LLM must decide whether candidate IDs "
+                f"{', '.join(ready_candidate_ids)} should be promoted into evidence_ledger or metric_reconciliation."
             )
 
     results = result_by_pair(execution_report)
@@ -704,14 +632,20 @@ def build_db(
             )
             raw_evidence_ids = [text(item) for item in as_list(result.get("evidence_ids")) if text(item)]
             raw_metric_ids = [text(item) for item in as_list(result.get("metric_ids")) if text(item)]
-            effective_evidence_ids = raw_evidence_ids if result_sources_ready else []
-            effective_metric_ids = raw_metric_ids if result_sources_ready else []
-            if result and text(result.get("terminal_status")) == EVIDENCE_TERMINAL_STATUS and not result_sources_ready:
+            effective_evidence_ids: list[str] = []
+            effective_metric_ids: list[str] = []
+            if result and text(result.get("terminal_status")) == EVIDENCE_TERMINAL_STATUS:
                 fact_status = "insufficient"
-                notes = (
-                    f"{text(result.get('findings_summary'))} "
-                    "Source archive is not evidence-ready; Research secondary verification is required."
-                ).strip()
+                if result_sources_ready:
+                    notes = (
+                        f"{text(result.get('findings_summary'))} "
+                        "Candidate evidence exists, but Knowledge LLM must promote EV/MET rows before issue analysis can use it."
+                    ).strip()
+                else:
+                    notes = (
+                        f"{text(result.get('findings_summary'))} "
+                        "Source archive is not evidence-ready; Research secondary verification is required."
+                    ).strip()
             else:
                 fact_status = issue_fact_status(result) if result else "insufficient"
                 notes = text(result.get("findings_summary")) if result else "No formal result found; keep as research gap until searched."
@@ -721,6 +655,8 @@ def build_db(
                     "subissue": subissue,
                     "evidence_ids": effective_evidence_ids,
                     "metric_ids": effective_metric_ids,
+                    "candidate_evidence_ids": raw_evidence_ids if result_sources_ready else [],
+                    "candidate_metric_ids": raw_metric_ids if result_sources_ready else [],
                     "fact_status": fact_status,
                     "notes": notes,
                 }
@@ -750,7 +686,7 @@ def build_db(
         "evidence_ledger": evidence_rows,
         "metric_reconciliation": metric_rows,
         "issue_fact_inventory": inventory,
-        "known_pitch_relevant_observations": [],
+        "known_transaction_relevant_observations": [],
         "known_risks_or_limits": [],
         "management_provided_claims_to_verify": [],
         "peer_set": [],
@@ -760,7 +696,7 @@ def build_db(
             "no_client_ready_evidence_rationale": "",
             "deliverable_constraint": "",
             "critical_gaps": [
-                "Resolve before validation: replace TODO extracts, populate promoted evidence/metric fields, and update issue fact inventory from source-faithful evidence."
+                "Resolve before validation: Knowledge LLM must review candidate extracts, promote only supported EV/MET rows, and update issue fact inventory from source-faithful evidence."
             ]
             + critical_gap_rows,
             "optional_gaps": optional_gap_rows,
@@ -1451,8 +1387,8 @@ def export_markdown(db: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "## Known Pitch-Relevant Observations",
-            *[f"- {text(item)}" for item in as_list(db.get("known_pitch_relevant_observations"))],
+            "## Known Transaction-Relevant Observations",
+            *[f"- {text(item)}" for item in as_list(db.get("known_transaction_relevant_observations"))],
             "",
             "## Known Risks or Open Questions",
             *[f"- {text(item)}" for item in as_list(db.get("known_risks_or_limits"))],
@@ -1516,9 +1452,9 @@ def cli_build(args: argparse.Namespace) -> int:
                 "output": str(output_path),
                 "source_material_count": len(payload.get("source_materials") or []),
                 "formal_extract_count": len(payload.get("formal_research_extracts") or []),
-                "evidence_skeleton_count": len(payload.get("evidence_ledger") or []),
-                "metric_skeleton_count": len(payload.get("metric_reconciliation") or []),
-                "note": "Skeleton contains TODO markers. LLM must edit research_evidence_db.json, then validate and export industry_research_pack.md.",
+                "promoted_evidence_row_count": len(payload.get("evidence_ledger") or []),
+                "promoted_metric_row_count": len(payload.get("metric_reconciliation") or []),
+                "note": "Skeleton contains candidate extracts and TODO markers. Knowledge LLM must promote supported EV/MET rows, then validate and export industry_research_pack.md.",
             },
             ensure_ascii=False,
             indent=2,

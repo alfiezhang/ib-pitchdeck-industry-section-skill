@@ -86,4 +86,4 @@ Hand off to Knowledge with:
 - research-context notes that are not evidence;
 - actual search accounting;
 - rejected/thin sources;
-- unresolved evidence gaps.
+- unresolved evidence limits for Knowledge/Reasoning to handle internally.

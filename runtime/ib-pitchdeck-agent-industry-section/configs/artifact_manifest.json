@@ -149,7 +149,7 @@
   "artifacts": {
     "material_manifest": {
       "path": "artifacts/material_manifest.json",
-      "owner": "script_skeleton_llm_material_intake",
+      "owner": "pipeline_material_intake_record",
       "builder": "scripts/pipeline.py start-brief",
       "validator": "scripts/pipeline.py validate --artifact material_manifest",
       "validation": "artifacts/material_manifest_validation.json",
@@ -157,7 +157,7 @@
     },
     "material_extracts": {
       "path": "artifacts/material_extracts.json",
-      "owner": "script_content_capture_llm_fact_extraction_workspace",
+      "owner": "llm_fact_extraction_workspace",
       "builder": "scripts/pipeline.py start-brief",
       "validator": "scripts/pipeline.py validate --artifact material_extracts",
       "validation": "artifacts/material_extracts_validation.json",
@@ -167,7 +167,7 @@
     },
     "source_classification": {
       "path": "artifacts/source_classification.json",
-      "owner": "script_skeleton_llm_material_intake",
+      "owner": "pipeline_material_source_classification",
       "builder": "scripts/pipeline.py start-brief",
       "inputs": [
         "material_manifest"
@@ -200,7 +200,7 @@
     },
     "formal_search_plan": {
       "path": "artifacts/formal_search_plan.json",
-      "owner": "state_first_research_graph",
+      "owner": "llm_research_planning_workbench",
       "builder": "scripts/pipeline.py research-prepare",
       "validator": "scripts/pipeline.py validate --artifact formal_search_plan",
       "validation": "artifacts/formal_search_plan_validation.json",
@@ -211,7 +211,7 @@
     },
     "coverage_map": {
       "path": "artifacts/coverage_map.json",
-      "owner": "state_first_research_graph",
+      "owner": "deterministic_coverage_map",
       "builder": "scripts/pipeline.py research-prepare",
       "inputs": [
         "formal_search_plan"
@@ -219,7 +219,7 @@
     },
     "executable_search_batch": {
       "path": "artifacts/executable_search_batch.json",
-      "owner": "script_skeleton_llm_query_author",
+      "owner": "llm_query_author_workspace",
       "display_name": "executable_search_batch",
       "purpose": "Executable query workbench and the only editable query-authoring artifact.",
       "builder": "scripts/pipeline.py research-prepare",
@@ -241,14 +241,14 @@
     },
     "search_log": {
       "path": "artifacts/search_log.md",
-      "owner": "script_assisted_research_log",
+      "owner": "deterministic_research_log_export",
       "inputs": [
         "formal_search_plan"
       ]
     },
     "formal_research_execution_report": {
       "path": "artifacts/formal_research_execution_report.json",
-      "owner": "state_first_research_graph",
+      "owner": "deterministic_execution_report_export",
       "builder": "scripts/pipeline.py research-compile",
       "validator": "scripts/pipeline.py validate --artifact formal_research_execution",
       "validation": "artifacts/formal_research_execution_validation.json",
@@ -260,7 +260,7 @@
     },
     "coverage_accounting": {
       "path": "artifacts/coverage_accounting.json",
-      "owner": "state_first_research_graph",
+      "owner": "deterministic_coverage_accounting_export",
       "builder": "scripts/pipeline.py research-compile",
       "inputs": [
         "formal_research_execution_report"
@@ -268,7 +268,7 @@
     },
     "source_archive": {
       "path": "artifacts/source_archive/source_archive_index.json",
-      "owner": "research_archive_builder",
+      "owner": "deterministic_archive_capture_index",
       "validator": "scripts/pipeline.py validate --artifact source_archive",
       "validation": "artifacts/source_archive_validation.json",
       "inputs": [
@@ -277,7 +277,7 @@
     },
     "template_profile": {
       "path": "artifacts/template_profile.json",
-      "owner": "script",
+      "owner": "deterministic_template_profile",
       "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_selection"
@@ -294,7 +294,7 @@
     },
     "template_fit_validation": {
       "path": "artifacts/template_fit_validation.json",
-      "owner": "script",
+      "owner": "deterministic_template_fit_check",
       "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_profile",
@@ -303,7 +303,7 @@
     },
     "template_fit_plan": {
       "path": "artifacts/template_fit_plan.json",
-      "owner": "script",
+      "owner": "deterministic_template_fit_plan",
       "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_profile",
@@ -313,7 +313,7 @@
     },
     "pre_research_pack_gate": {
       "path": "artifacts/stage_gate_pre_research_pack_validation.json",
-      "owner": "script",
+      "owner": "deterministic_stage_gate",
       "validator": "scripts/pipeline.py validate --artifact pre_research_pack",
       "validation": "artifacts/stage_gate_pre_research_pack_validation.json",
       "inputs": [
@@ -341,7 +341,7 @@
     },
     "research_pack": {
       "path": "industry_research_pack.md",
-      "owner": "script_export_from_research_evidence_db",
+      "owner": "deterministic_export_from_research_evidence_db",
       "builder": "scripts/pipeline.py evidence-export",
       "validator": "scripts/pipeline.py validate --artifact research_pack",
       "validation": "artifacts/research_pack_validation.json",
@@ -351,7 +351,8 @@
     },
     "research_evidence_db": {
       "path": "artifacts/research_evidence_db.json",
-      "owner": "script_skeleton_llm_evidence_extraction",
+      "owner": "knowledge_llm_evidence_authoring",
+      "purpose": "Knowledge LLM-authored evidence database. evidence-build only creates candidate extracts; it does not promote EV/MET rows.",
       "builder": "scripts/pipeline.py evidence-build",
       "validator": "scripts/pipeline.py validate --artifact research_evidence_db",
       "validation": "artifacts/research_evidence_db_validation.json",
@@ -380,7 +381,7 @@
     },
     "template_registry": {
       "path": "template_registry.json",
-      "owner": "script",
+      "owner": "deterministic_template_registry",
       "builder": "scripts/pipeline.py template-registry",
       "validator": "scripts/pipeline.py validate --artifact template_registry",
       "validation": "artifacts/template_registry_validation.json",
@@ -388,7 +389,7 @@
     },
     "deck_blueprint": {
       "path": "deck_blueprint.json",
-      "owner": "script_derived_from_banker_page_pack",
+      "owner": "deterministic_derived_from_banker_page_pack",
       "builder": "scripts/pipeline.py compile",
       "validator": "scripts/pipeline.py validate --artifact deck_blueprint",
       "validation": "artifacts/deck_blueprint_validation.json",
@@ -398,7 +399,7 @@
     },
     "page_evidence_contract": {
       "path": "page_evidence_contract.json",
-      "owner": "script",
+      "owner": "deterministic_page_evidence_contract",
       "builder": "scripts/pipeline.py compile",
       "validator": "scripts/pipeline.py validate --artifact page_evidence_contract",
       "validation": "artifacts/page_evidence_contract_validation.json",
@@ -409,7 +410,7 @@
     },
     "renderer_spec": {
       "path": "renderer_spec.json",
-      "owner": "script",
+      "owner": "deterministic_renderer_spec",
       "builder": "scripts/pipeline.py compile",
       "validator": "scripts/pipeline.py validate --artifact renderer_spec",
       "validation": "artifacts/renderer_spec_validation.json",
@@ -428,13 +429,13 @@
     },
     "status_report": {
       "path": "artifacts/status_report.json",
-      "owner": "script_status_dashboard",
+      "owner": "pipeline_status_dashboard",
       "builder": "scripts/pipeline.py summary",
       "inputs": []
     },
     "pre_ppt_gate": {
       "path": "artifacts/stage_gate_pre_ppt_validation.json",
-      "owner": "script",
+      "owner": "deterministic_stage_gate",
       "validator": "scripts/pipeline.py validate --artifact pre_ppt",
       "validation": "artifacts/stage_gate_pre_ppt_validation.json",
       "inputs": [
@@ -456,7 +457,7 @@
     },
     "replacement_dict": {
       "path": "replacement_dict.json",
-      "owner": "script",
+      "owner": "deterministic_render_tokens",
       "builder": "scripts/pipeline.py render",
       "validator": "scripts/pipeline.py validate --artifact replacement_dict",
       "validation": "artifacts/replacement_dict_validation.json",
@@ -467,7 +468,7 @@
     },
     "filled_ppt": {
       "path": "industry_section_filled_clean.pptx",
-      "owner": "script",
+      "owner": "deterministic_ppt_render",
       "builder": "scripts/pipeline.py render",
       "validator": "scripts/pipeline.py validate --artifact filled_ppt",
       "validation": "filled_ppt_validation.json",
@@ -480,7 +481,7 @@
     },
     "final_delivery": {
       "path": "artifacts/final_delivery_validation.json",
-      "owner": "script",
+      "owner": "deterministic_final_delivery_check",
       "validator": "scripts/pipeline.py validate --artifact final_delivery",
       "validation": "artifacts/final_delivery_validation.json",
       "inputs": [

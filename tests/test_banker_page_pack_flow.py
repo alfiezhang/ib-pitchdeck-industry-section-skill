@@ -285,7 +285,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     assert "headline contains target/project terms" not in result.stdout
     qc_text = (SKILL_DIR / "references/qc.md").read_text(encoding="utf-8")
-    assert "target-context drift" in qc_text
+    assert "project-context drift" in qc_text
 
 
 def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
@@ -404,4 +404,4 @@ def test_banker_page_pack_validates_and_compiles(
     renderer = json.loads(renderer_spec.read_text(encoding="utf-8"))
     assert len(renderer["slides"]) == 8
     assert all(slide.get("source_note") for slide in renderer["slides"])
-    assert all(not slide.get("pitch_relevance") for slide in renderer["slides"][:6])
+    assert all("pitch_relevance" not in slide for slide in renderer["slides"])

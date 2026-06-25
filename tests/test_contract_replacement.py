@@ -25,7 +25,7 @@ class TestReplacementDict:
     def test_build_and_validate(self, compiled_artifacts, tmp_path):
         """Build replacement_dict from renderer_spec and validate against ppt_mapping."""
         from pipeline import build_replacement_dict
-        from renderer_token_source import build_token_source
+        from renderer_compile_utils import build_token_source
 
         renderer = json.loads(compiled_artifacts["renderer_spec"].read_text(encoding="utf-8"))
         ppt_mapping = json.loads((SKILL_DIR / "configs" / "ppt_mapping.json").read_text(encoding="utf-8"))

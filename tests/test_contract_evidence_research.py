@@ -60,6 +60,64 @@ class TestResearchEvidenceDB:
         # Fill extracts
         for extract in research_db["formal_research_extracts"]:
             extract["extracted_fact_or_metric_candidate"] = "Source-faithful contract-test extract with scope and limitation."
+            extract["promoted_evidence_ids"] = list(extract.get("candidate_evidence_ids") or [])
+            extract["promoted_metric_ids"] = list(extract.get("candidate_metric_ids") or [])
+        source_by_id = {source["source_review_id"]: source for source in research_db["source_materials"]}
+        ev_to_source = {}
+        met_to_source = {}
+        for extract in research_db["formal_research_extracts"]:
+            for ev_id in extract.get("candidate_evidence_ids") or []:
+                ev_to_source.setdefault(ev_id, extract["source_review_id"])
+            for met_id in extract.get("candidate_metric_ids") or []:
+                met_to_source.setdefault(met_id, extract["source_review_id"])
+        research_db["evidence_ledger"] = [
+            {
+                "evidence_id": ev_id,
+                "claim_or_metric": "Knowledge LLM promoted fixture claim.",
+                "claim_scope": "industry-level",
+                "source_review_id": src_id,
+                "source_name": source_by_id[src_id]["source_name"],
+                "source_url": source_by_id[src_id]["source_url"],
+                "source_type": source_by_id[src_id]["source_type"],
+                "evidence_status": "primary-reviewed",
+                "source_date": source_by_id[src_id].get("source_date", ""),
+                "data_period": "2026",
+                "source_locator": source_by_id[src_id]["source_locator"],
+                "raw_excerpt": source_by_id[src_id]["reviewed_excerpt"],
+                "reliability": source_by_id[src_id]["source_reliability"],
+                "confidence": "high",
+            }
+            for ev_id, src_id in sorted(ev_to_source.items())
+        ]
+        research_db["metric_reconciliation"] = [
+            {
+                "audit_level": "audited_metric",
+                "metric_group": "Market sizing",
+                "metric_id": met_id,
+                "metric_name": "Knowledge LLM promoted fixture metric",
+                "metric_type": "market_size",
+                "market_definition": "sample sector market",
+                "channel_scope": "all_channel",
+                "geography": "Samplestan",
+                "data_period": "2026",
+                "value": "100",
+                "unit": "RMB bn",
+                "comparable_with": "",
+                "parent_metric_id": "",
+                "cagr_endpoint_ids": "",
+                "conflict_status": "single-source",
+                "resolution": "Use as contract-test metric only.",
+                "chart_ready": True,
+                "source_review_id": src_id,
+                "source_name": source_by_id[src_id]["source_name"],
+                "source_url": source_by_id[src_id]["source_url"],
+                "source_type": source_by_id[src_id]["source_type"],
+                "source_locator": source_by_id[src_id]["source_locator"],
+                "raw_excerpt": source_by_id[src_id]["reviewed_excerpt"],
+                "audit_note": "Contract fixture audit note; source locator and excerpt are inherited from SRC review.",
+            }
+            for met_id, src_id in sorted(met_to_source.items())
+        ]
         # Fill evidence
         for ev in research_db["evidence_ledger"]:
             if ev["evidence_id"] == "EV-001":

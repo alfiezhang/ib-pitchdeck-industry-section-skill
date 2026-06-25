@@ -293,7 +293,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     "density_target": "Fill the formal layout with distinct evidence-backed modules.",
                     "evidence_limited_exhibit_plan": "Use caveated cards or an evidence-boundary grid; do not use a single-point chart.",
                 },
-                "why_this_page_matters": f"Slide {no} matters because it converts research into a pitch-relevant page argument.",
+                "why_this_page_matters": f"Slide {no} matters because it converts research into a transaction-relevant page argument.",
                 "selected_page_type": page_types[no],
                 "claim_strength": "supported_inference",
                 "headline": f"Slide {no}: conclusion-led industry view with distinct implication",
@@ -301,7 +301,6 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 "body_blocks": blocks, "visual_design": visual_design,
                 "chart_data": chart_data, "compare_table_data": compare_table_data,
                 "source_note": "Sources: " + "; ".join(evidence),
-                "pitch_relevance": "Sector credibility first; target context remains selective.",
                 "caveats": [], "evidence_boundary_notes": ["Keep target-specific fit as a caveated evidence-boundary item"] if no == 8 else [],
             })
     blueprint = {
@@ -1021,6 +1020,64 @@ def _pipeline_run_dir(tmp_path_factory):
         for item in unit.get("metrics", [])
         if isinstance(item, dict) and item.get("metric_id")
     }
+    source_by_id = {source["source_review_id"]: source for source in research_db["source_materials"]}
+    ev_to_source = {}
+    met_to_source = {}
+    for extract in research_db.get("formal_research_extracts", []):
+        extract["promoted_evidence_ids"] = list(extract.get("candidate_evidence_ids") or [])
+        extract["promoted_metric_ids"] = list(extract.get("candidate_metric_ids") or [])
+        for ev_id in extract["promoted_evidence_ids"]:
+            ev_to_source.setdefault(ev_id, extract["source_review_id"])
+        for met_id in extract["promoted_metric_ids"]:
+            met_to_source.setdefault(met_id, extract["source_review_id"])
+    research_db["evidence_ledger"] = [
+        {
+            "evidence_id": ev_id,
+            "claim_or_metric": state_evidence.get(ev_id, {}).get("claim_or_metric", "Knowledge LLM promoted fixture claim."),
+            "claim_scope": "industry-level",
+            "source_review_id": src_id,
+            "source_name": source_by_id[src_id]["source_name"],
+            "source_url": source_by_id[src_id]["source_url"],
+            "source_type": source_by_id[src_id]["source_type"],
+            "evidence_status": "primary-reviewed",
+            "source_date": source_by_id[src_id].get("source_date", ""),
+            "data_period": state_evidence.get(ev_id, {}).get("data_period", "2026"),
+            "source_locator": source_by_id[src_id]["source_locator"],
+            "raw_excerpt": source_by_id[src_id]["reviewed_excerpt"],
+            "reliability": source_by_id[src_id]["source_reliability"],
+            "confidence": "high",
+        }
+        for ev_id, src_id in sorted(ev_to_source.items())
+    ]
+    research_db["metric_reconciliation"] = [
+        {
+            "audit_level": "audited_metric",
+            "metric_group": "Market sizing",
+            "metric_id": met_id,
+            "metric_name": state_metrics.get(met_id, {}).get("metric_name", "Knowledge LLM promoted fixture metric"),
+            "metric_type": state_metrics.get(met_id, {}).get("metric_type", "market_size"),
+            "market_definition": state_metrics.get(met_id, {}).get("market_definition", "sample sector market"),
+            "channel_scope": state_metrics.get(met_id, {}).get("channel_scope", "all_channel"),
+            "geography": state_metrics.get(met_id, {}).get("geography", "Samplestan"),
+            "data_period": state_metrics.get(met_id, {}).get("data_period", "2026"),
+            "value": state_metrics.get(met_id, {}).get("value", "100"),
+            "unit": state_metrics.get(met_id, {}).get("unit", "RMB bn"),
+            "comparable_with": "",
+            "parent_metric_id": "",
+            "cagr_endpoint_ids": "",
+            "conflict_status": state_metrics.get(met_id, {}).get("conflict_status", "single-source"),
+            "resolution": state_metrics.get(met_id, {}).get("resolution", "Use as fixture metric only."),
+            "chart_ready": bool(state_metrics.get(met_id, {}).get("chart_ready", True)),
+            "source_review_id": src_id,
+            "source_name": source_by_id[src_id]["source_name"],
+            "source_url": source_by_id[src_id]["source_url"],
+            "source_type": source_by_id[src_id]["source_type"],
+            "source_locator": source_by_id[src_id]["source_locator"],
+            "raw_excerpt": source_by_id[src_id]["reviewed_excerpt"],
+            "audit_note": "Contract fixture audited metric row.",
+        }
+        for met_id, src_id in sorted(met_to_source.items())
+    ]
     for row in research_db.get("evidence_ledger", []):
         authored = state_evidence.get(row.get("evidence_id"), {})
         row.update({key: value for key, value in authored.items() if value not in (None, "")})

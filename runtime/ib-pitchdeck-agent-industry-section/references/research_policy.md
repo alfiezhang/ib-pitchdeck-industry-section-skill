@@ -111,7 +111,10 @@ For archive status:
 
 After execution/archive validation, use `scripts/pipeline.py evidence-build` to
 prepare a DB skeleton only when starting or intentionally refreshing Knowledge
-authoring. Then Knowledge LLM edits `artifacts/research_evidence_db.json`.
+authoring. This skeleton carries candidate extracts only; it must not be treated
+as a promoted EV/MET ledger. Then Knowledge LLM edits
+`artifacts/research_evidence_db.json`, promoting only supported candidates into
+`evidence_ledger` or `metric_reconciliation`.
 
 For each source, Knowledge should decide:
 

@@ -332,10 +332,11 @@ def test_build_db_keeps_multi_source_evidence_source_specific() -> None:
     )
 
     extracts = {row["source_review_id"]: row for row in db["formal_research_extracts"]}
-    assert extracts["SRC-A"]["promoted_evidence_ids"] == ["EV-001"], extracts
-    assert extracts["SRC-B"]["promoted_evidence_ids"] == ["EV-002"], extracts
-    evidence_sources = {row["evidence_id"]: row["source_review_id"] for row in db["evidence_ledger"]}
-    assert evidence_sources == {"EV-001": "SRC-A", "EV-002": "SRC-B"}
+    assert extracts["SRC-A"]["candidate_evidence_ids"] == ["EV-001"], extracts
+    assert extracts["SRC-B"]["candidate_evidence_ids"] == ["EV-002"], extracts
+    assert extracts["SRC-A"]["promoted_evidence_ids"] == []
+    assert extracts["SRC-B"]["promoted_evidence_ids"] == []
+    assert db["evidence_ledger"] == []
 
 
 def test_pipeline_run_flags_written_for_formal_package(tmp_path: Path) -> None:
@@ -432,7 +433,8 @@ def test_build_db_keeps_unexecuted_fs_rows_out_of_extracts_and_evidence() -> Non
         },
     )
     assert [row["result_id"] for row in db["formal_research_extracts"]] == ["FR-001"], db["formal_research_extracts"]
-    assert [row["evidence_id"] for row in db["evidence_ledger"]] == ["EV-001"], db["evidence_ledger"]
+    assert db["formal_research_extracts"][0]["candidate_evidence_ids"] == ["EV-001"]
+    assert db["evidence_ledger"] == []
     assert any("FR-002" in item and "not_executed" in item for item in db["research_gap_audit"]["critical_gaps"])
 
 

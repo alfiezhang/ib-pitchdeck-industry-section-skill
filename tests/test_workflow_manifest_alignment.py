@@ -100,6 +100,18 @@ def test_authoring_layer_contains_only_llm_editable_workbenches() -> None:
     assert not (authoring & must_stay_derived)
 
 
+def test_artifact_owners_do_not_present_scripts_as_content_owners() -> None:
+    manifest = _manifest()
+    bad = [
+        name
+        for name, artifact in manifest["artifacts"].items()
+        if str(artifact.get("owner") or "") == "script"
+        or str(artifact.get("owner") or "").startswith("script_")
+    ]
+
+    assert not bad
+
+
 def test_research_graph_prepare_is_operator_builder() -> None:
     manifest = _manifest()
     artifacts = manifest["artifacts"]

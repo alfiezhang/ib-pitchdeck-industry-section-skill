@@ -43,6 +43,7 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / "scripts/_lib/layout_config.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/material_extractors.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/slide_registry.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/renderer_token_source.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/template_contract_utils.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/unit_normalizer.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/validation_common.py").exists()
@@ -65,7 +66,7 @@ def test_runtime_python_surface_stays_small() -> None:
         path.relative_to(SKILL_DIR).as_posix()
         for path in (SKILL_DIR / "scripts").rglob("*.py")
     ]
-    assert len(scripts) <= 12
+    assert len(scripts) <= 11
 
 
 def test_pipeline_is_only_public_script_surface() -> None:

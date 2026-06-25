@@ -37,8 +37,7 @@ QC_DIR = SCRIPT_DIR / "qc"
 if str(QC_DIR) not in sys.path:
     sys.path.insert(0, str(QC_DIR))
 
-from renderer_compile_utils import compile_banker_page_pack
-from renderer_token_source import build_token_source
+from renderer_compile_utils import build_token_source, compile_banker_page_pack
 from validate_artifact import ARTIFACT_PATHS, VALIDATION_OUTPUTS, validate_artifact as run_artifact_validation
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(SCRIPT_DIR) not in sys.path:

@@ -27,6 +27,7 @@ for _ib_path in list(_IB_IMPORT_PATHS):
 for _ib_path in reversed(_IB_IMPORT_PATHS):
     _ib_sys.path.insert(0, _ib_path)
 
+import copy
 import re
 from typing import Any
 
@@ -42,6 +43,7 @@ from deck_blueprint_utils import (
     unique,
     visual_plan_from_blueprint_slide,
 )
+from json_utils import load_json_file
 
 
 ROLE_FIELD_ALIASES = {
@@ -65,6 +67,8 @@ ROLE_FIELD_ALIASES = {
     "pitch_implication": "bottom_right",
     "transaction_implication": "bottom_right",
 }
+
+DEFAULT_SLIDE_REGISTRY_PATH = _IB_RUNTIME_ROOT / "configs" / "slide_registry.json"
 
 
 def split_table_cells(text: str) -> list[str]:
@@ -183,7 +187,6 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
                 "compare_table_data": slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {},
                 "visible_metric_claims": [item for item in as_list(slide.get("visible_metric_claims")) if isinstance(item, dict)],
                 "source_note": _text(slide.get("source_note")),
-                "pitch_relevance": project_relevance_note,
                 "caveats": [_text(item) for item in as_list(slide.get("caveats")) if _text(item)],
                 "evidence_boundary_notes": [_text(item) for item in as_list(slide.get("evidence_boundary_notes")) if _text(item)],
                 "strategy_checks": {
@@ -800,7 +803,6 @@ def build_renderer_spec_from_deck_blueprint(
             ),
             "evidence_ids": evidence_ids,
             "source_note": _source_note(slide, evidence_ids),
-            "pitch_relevance": str(slide.get("pitch_relevance") or slide.get("why_this_page_matters") or "").strip(),
             "page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
             "caveats": [str(item).strip() for item in as_list(slide.get("caveats")) if str(item).strip()],
             "evidence_boundary_notes": [str(item).strip() for item in as_list(slide.get("evidence_boundary_notes")) if str(item).strip()],
@@ -830,4 +832,301 @@ def build_renderer_spec_from_deck_blueprint(
         "section_meta": section_meta,
         "slides": slides,
         "template_binding": template_binding,
+    }
+
+
+def load_slide_registry(path: _IbPath | None = None) -> dict[str, Any]:
+    registry_path = path or DEFAULT_SLIDE_REGISTRY_PATH
+    registry = load_json_file(registry_path)
+    if not isinstance(registry, dict) or not isinstance(registry.get("slides"), list):
+        raise ValueError(f"Invalid slide registry: {registry_path}")
+    return registry
+
+
+def slides_by_no(registry: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    result: dict[int, dict[str, Any]] = {}
+    for slide in registry.get("slides") or []:
+        slide_no = int(slide.get("slide_no") or 0)
+        if not slide_no:
+            raise ValueError("slide_registry contains a slide without slide_no")
+        if slide_no in result:
+            raise ValueError(f"slide_registry contains duplicate slide_no {slide_no}")
+        variants = slide.get("variants")
+        if not isinstance(variants, dict) or not variants:
+            raise ValueError(f"slide_registry slide {slide_no} must define variants")
+        result[slide_no] = slide
+    return result
+
+
+def variant_page_types(registry: dict[str, Any]) -> dict[int, tuple[str, set[str]]]:
+    variants: dict[int, tuple[str, set[str]]] = {}
+    for slide_no, slide in slides_by_no(registry).items():
+        if slide.get("selection_mode") != "controlled_choice":
+            continue
+        binding_key = str(slide.get("binding_key") or "")
+        if not binding_key:
+            raise ValueError(f"slide_registry slide {slide_no} is controlled_choice but has no binding_key")
+        variants[slide_no] = (binding_key, set((slide.get("variants") or {}).keys()))
+    return variants
+
+
+def controlled_layout_variants(registry: dict[str, Any]) -> dict[str, list[str]]:
+    variants: dict[str, list[str]] = {}
+    for slide in registry.get("slides") or []:
+        if slide.get("selection_mode") != "controlled_choice":
+            continue
+        slide_key = str(slide.get("slide_key") or "")
+        variants[slide_key] = list((slide.get("variants") or {}).keys())
+    return variants
+
+
+SLIDE_REGISTRY = load_slide_registry()
+
+
+def normalize_compare_table_payload(slide_data: dict[str, Any]) -> tuple[list[str], list[list[str]]]:
+    compare_table = slide_data.get("compare_table_data")
+    if isinstance(compare_table, dict):
+        headers = [str(item).strip() for item in compare_table.get("headers") or []]
+        rows: list[list[str]] = []
+        for row in compare_table.get("rows") or []:
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("label") or "").strip()
+            cells = [str(item).strip() for item in row.get("cells") or []]
+            rows.append([label] + cells)
+        return headers, rows
+    return [], []
+
+
+def _clean_source_footer(source_note: str) -> str:
+    if not source_note:
+        return source_note
+    cleaned = re.sub(r"^(?:Sources\s*[:：]?\s*)+", "", source_note, flags=re.IGNORECASE).strip()
+    return cleaned if cleaned else source_note
+
+
+SLIDE_KEY_MAP = {
+    "industry_overview": "industry_overview",
+    "market_size_segmentation": "market_size_segmentation",
+    "growth_drivers": "key_industry_drivers",
+    "value_chain_profit_pool": "value_chain_profit_pool",
+    "barriers_value_drivers": "key_barriers_value_drivers",
+    "competitive_landscape": "competitive_landscape",
+    "industry_trends_future_evolution": "industry_trends_future_evolution",
+    "industry_takeaways_for_project": "industry_takeaways_for_project",
+}
+
+CHART_PAGE_TYPES = {"industry_overview_dynamic_page", "chart_page", "chart_plus_mini_table_page"}
+
+EXPECTED_CONTENT_FIELDS = {
+    1: {"industry_overview_dynamic_page": ["bullet_1", "bullet_2", "bullet_3"]},
+    2: {
+        "chart_page": ["bullet_1", "bullet_2", "bullet_3"],
+        "chart_plus_mini_table_page": [
+            "bullet_1",
+            "bullet_2",
+            "table_header_1",
+            "table_header_2",
+            "table_row_1",
+            "table_row_2",
+            "table_row_3",
+        ],
+    },
+    3: {
+        "driver_card_page": ["card_1", "card_2", "card_3", "card_4"],
+        "driver_card_5_page": ["card_1", "card_2", "card_3", "card_4", "card_5"],
+        "driver_card_6_page": ["card_1", "card_2", "card_3", "card_4", "card_5", "card_6"],
+    },
+    4: {
+        "value_chain_page": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right",
+        ],
+    },
+    5: {"moat_page": ["card_1", "card_2", "card_3"]},
+    6: {
+        "compare_table_page": [
+            "table_header",
+            "table_row_1",
+            "table_row_2",
+            "table_row_3",
+            "table_row_4",
+            "table_row_5",
+            "table_row_6",
+            "right_top",
+            "right_mid",
+            "right_bottom",
+        ],
+        "matrix_page": [
+            "left_panel",
+            "matrix_title",
+            "matrix_label_x",
+            "matrix_label_y",
+            "right_top",
+            "right_mid",
+            "right_bottom",
+        ],
+    },
+    7: {
+        "trend_page": ["card_1", "card_2", "card_3"],
+        "timeline_page": ["stage_1", "stage_2", "stage_3", "stage_4", "timeline_note"],
+        "trend_4_card_page": ["card_1", "card_2", "card_3", "card_4"],
+        "trend_5_card_page": ["card_1", "card_2", "card_3", "card_4", "card_5"],
+        "trend_6_card_page": ["card_1", "card_2", "card_3", "card_4", "card_5", "card_6"],
+    },
+    8: {"summary_page": ["left_panel", "right_top", "right_mid", "right_bottom"]},
+}
+
+
+def convert_meta(renderer_spec: dict[str, Any]) -> dict[str, Any]:
+    meta = renderer_spec.get("section_meta", {})
+    return {
+        "target_company": meta.get("target_name", ""),
+        "transaction_type": "",
+        "industry": meta.get("industry", ""),
+        "subsector": "",
+        "geography": meta.get("geography", ""),
+        "language": "English" if meta.get("language") == "en" else "Chinese",
+    }
+
+
+def convert_slide(renderer_slide: dict[str, Any]) -> dict[str, Any]:
+    slide_role = renderer_slide.get("slide_role", "")
+    slide_key = SLIDE_KEY_MAP.get(slide_role, slide_role)
+    page_type = renderer_slide.get("selected_page_type", "")
+    chart_data = renderer_slide.get("chart_data") or {}
+    if chart_data.get("title"):
+        chart_title = chart_data["title"]
+    elif page_type in CHART_PAGE_TYPES:
+        chart_title = renderer_slide.get("visual_direction", "")
+    else:
+        chart_title = ""
+
+    content = copy.deepcopy(renderer_slide.get("body_copy", {}) or {})
+    if page_type == "compare_table_page":
+        headers, rows = normalize_compare_table_payload(renderer_slide)
+        if headers:
+            content["table_header"] = "｜".join(headers)
+        for idx, row_cells in enumerate(rows[:6], start=1):
+            content[f"table_row_{idx}"] = "｜".join(row_cells)
+
+    return {
+        "slide_no": renderer_slide.get("slide_no", 0),
+        "slide_key": slide_key,
+        "selected_page_type": page_type,
+        "slide_title": renderer_slide.get("headline", ""),
+        "main_takeaway": renderer_slide.get("main_message", ""),
+        "content": content,
+        "chart_title": chart_title,
+        "source_footer": _clean_source_footer(renderer_slide.get("source_note", "")),
+        "speaker_note": "",
+    }
+
+
+def convert_rules(template_binding: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "active_slide_keys_only": True,
+        "controlled_layout_variants": controlled_layout_variants(SLIDE_REGISTRY),
+        "slide_02_table_fields_only_active_for_chart_plus_mini_table_page": True,
+        "inactive_variant_fields_may_remain_blank": True,
+        "selected_page_type_required_for_variant_slides": True,
+        "title_should_be_conclusion_led": True,
+        "takeaway_one_sentence_only": True,
+        "content_fields_should_follow_slide_registry": True,
+        "content_fields_should_match_ppt_mapping_roles": True,
+        "source_footer_required": True,
+    }
+
+
+def validate_variant_consistency(slides: list[dict[str, Any]], template_binding: dict[str, Any]) -> tuple[list[str], dict[int, str]]:
+    warnings = []
+    normalized_page_types = {}
+    variant_map = {
+        slide_no: (binding_key, sorted(valid_types))
+        for slide_no, (binding_key, valid_types) in variant_page_types(SLIDE_REGISTRY).items()
+    }
+    for slide in slides:
+        slide_no = slide.get("slide_no", 0)
+        if slide_no not in variant_map:
+            continue
+        binding_key, valid_types = variant_map[slide_no]
+        expected = template_binding.get(binding_key, "")
+        actual = slide.get("selected_page_type", "")
+        if expected and expected not in valid_types:
+            raise ValueError(
+                f"Slide {slide_no}: template_binding.{binding_key}='{expected}' is invalid. "
+                f"Allowed values: {', '.join(valid_types)}."
+            )
+        if expected and actual and expected != actual:
+            warnings.append(
+                f"Slide {slide_no}: selected_page_type '{actual}' does not match "
+                f"template_binding.{binding_key} '{expected}'. Using template_binding value."
+            )
+            normalized_page_types[slide_no] = expected
+    return warnings, normalized_page_types
+
+
+def validate_content_fields(slides: list[dict[str, Any]]) -> list[str]:
+    warnings = []
+    for slide in slides:
+        slide_no = slide.get("slide_no", 0)
+        page_type = slide.get("selected_page_type", "")
+        body_copy = slide.get("content") or slide.get("body_copy") or {}
+        expected_by_type = EXPECTED_CONTENT_FIELDS.get(slide_no, {})
+        expected_fields = expected_by_type.get(page_type)
+        if expected_fields is None:
+            warnings.append(f"Slide {slide_no}: no expected content-field contract for page type '{page_type}'.")
+            continue
+        if slide_no == 6 and page_type == "compare_table_page":
+            populated_rows = [
+                field
+                for field in [f"table_row_{idx}" for idx in range(1, 7)]
+                if str(body_copy.get(field, "")).strip()
+            ]
+            if len(populated_rows) >= 3:
+                missing_row_fields = [
+                    field
+                    for field in [f"table_row_{idx}" for idx in range(1, 7)]
+                    if field not in populated_rows
+                ]
+                expected_fields = [field for field in expected_fields if field not in missing_row_fields]
+
+        missing_fields = [field for field in expected_fields if field not in body_copy]
+        empty_fields = [
+            field
+            for field in expected_fields
+            if field in body_copy and str(body_copy.get(field, "")).strip() == ""
+        ]
+        extra_fields = sorted(set(body_copy.keys()) - set(expected_fields))
+        if missing_fields:
+            warnings.append(f"Slide {slide_no} ({page_type}): missing active body_copy fields: {', '.join(missing_fields)}.")
+        if empty_fields:
+            warnings.append(f"Slide {slide_no} ({page_type}): empty active body_copy fields: {', '.join(empty_fields)}.")
+        if extra_fields:
+            warnings.append(f"Slide {slide_no} ({page_type}): extra body_copy fields ignored by active layout: {', '.join(extra_fields)}.")
+    return warnings
+
+
+def build_token_source(renderer_spec: dict[str, Any]) -> dict[str, Any]:
+    template_binding = renderer_spec.get("template_binding", {})
+    renderer_slides = renderer_spec.get("slides", [])
+    warnings, normalized_page_types = validate_variant_consistency(renderer_slides, template_binding)
+    normalized_slides = copy.deepcopy(renderer_slides)
+    for slide in normalized_slides:
+        slide_no = int(slide.get("slide_no", 0) or 0)
+        if slide_no in normalized_page_types:
+            slide["selected_page_type"] = normalized_page_types[slide_no]
+    converted_slides = [convert_slide(slide) for slide in normalized_slides]
+    warnings.extend(validate_content_fields(converted_slides))
+    return {
+        "token_source": {
+            "meta": convert_meta(renderer_spec),
+            "slides": converted_slides,
+            "rules": convert_rules(template_binding),
+        },
+        "warnings": warnings,
     }

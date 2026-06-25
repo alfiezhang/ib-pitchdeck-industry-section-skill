@@ -52,11 +52,11 @@
       "differentiation_durability",
       "consolidation_logic"
     ],
-    "pitch_relevance_target_context": [
-      "why_sector_relevant",
-      "target_context_fit",
-      "evidence_limits",
-      "discussion_implications"
+    "transaction_relevance_context": [
+      "why_sector_matters",
+      "selective_project_readthrough",
+      "evidence_boundaries",
+      "banker_angle"
     ]
   }
 }

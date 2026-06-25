@@ -52,6 +52,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage/evidence-need map, `executable_search_batch.json` is the only query workbench, and `research_graph_state.json` is the editable execution state. Python seeds only starter research rows; the LLM Query Author expands or narrows the plan based on the actual industry scope.
    - Treat search results as leads. A search snippet is not evidence.
    - Keep ordinary background as `research_context`; promote only hard facts and key numbers into EV/MET evidence.
+   - `scripts/pipeline.py evidence-build` creates candidate extracts only. Knowledge LLM decides which candidates become formal `evidence_ledger` or `metric_reconciliation` rows.
    - Open/archive or manually verify a source before using it for EV/MET evidence. Key numbers require audited metric fields.
    - If a page supports EV/MET but full-page archive fails, Research must perform secondary verification, record `verification_method`, and explicitly declare the Research Archive Status before Knowledge promotes the excerpt; QC only checks that the verification and status decision are clear and credible.
    - Separate coverage accounting from the evidence binder: unexecuted searches and research gaps belong in coverage/gap audit, not in the usable evidence body.
@@ -84,7 +85,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 
 9. Review quality before final output.
    - Use deterministic checks for file presence, JSON validity, IDs, template tokens, stale artifacts, and render mechanics.
-   - Use LLM review for source quality, evidence sufficiency, industry-boundary quality, reasoning strength, page density, pitch relevance, and template fit.
+   - Use LLM review for source quality, evidence sufficiency, industry-boundary quality, reasoning strength, page density, transaction relevance, and template fit.
    - When warnings appear, route the repair to the owner of the problem. Do not patch derived artifacts just to quiet a report.
 
 10. Render and report.
@@ -129,7 +130,7 @@ Use the same entrypoint for gate-style or repair-routing views:
 python3 scripts/pipeline.py gate --run-dir "<run_dir>" --output "<run_dir>/artifacts/status_report.json" --markdown-output "<run_dir>/artifacts/status_report.md"
 ```
 
-Use `scripts/pipeline.py validate --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, pitch relevance, and banker judgment. The default public Python surface is `scripts/pipeline.py`; role-specific scripts under `scripts/<role>/` are internal implementation details unless you are editing the skill itself.
+Use `scripts/pipeline.py validate --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, transaction relevance, and banker judgment. The default public Python surface is `scripts/pipeline.py`; role-specific scripts under `scripts/<role>/` are internal implementation details unless you are editing the skill itself.
 
 Use `scripts/pipeline.py template-registry --run-dir <run_dir>` to create or refresh `template_registry.json`.
 
