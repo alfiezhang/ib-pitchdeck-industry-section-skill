@@ -1,7 +1,7 @@
 {
   "schema_version": "industry_scope_pack_boundary_card",
   "_template_only": true,
-  "_template_only_note": "Do not copy this as final content. Write a brief boundary card, not a scoping memo or research plan.",
+  "_template_only_note": "Template for a brief boundary card. Keep final content short and focused on scope, not market findings.",
   "meta": {
     "target_company": "",
     "target_disclosure_status": "undisclosed",
@@ -33,7 +33,7 @@
     {
       "topic": "scope or metric definition conflict",
       "why_it_matters": "why comparability could break",
-      "research_instruction": "how Research must label or separate it"
+      "research_instruction": "how Research should label or separate it"
     }
   ],
   "boundary_validation_needed": [

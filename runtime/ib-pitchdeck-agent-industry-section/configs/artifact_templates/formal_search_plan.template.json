@@ -1,7 +1,7 @@
 {
   "schema_version": "formal_search_plan_v1",
   "_template_only": true,
-  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use scripts/pipeline.py research-prepare, then edit the executable query batch/state as needed.",
+  "_template_only_note": "Template for the research coverage map. Start with scripts/pipeline.py research-prepare, then let the LLM shape material evidence needs and executable queries.",
   "meta": {
     "target_company": "",
     "transaction_type": "",
@@ -24,9 +24,9 @@
       "handoff_to_research"
     ]
   },
-  "builder_instruction": "Do not copy this template as a final plan. First run scripts/pipeline.py research-prepare to generate formal_search_plan.json, coverage_map.json, executable_search_batch.json, and research_graph_state.json together. formal_search_plan is the coverage/evidence-need plan; executable queries are authored only in executable_search_batch.json. Python seeds only starter rows; the configured taxonomy is an LLM expansion menu, and industry_specific_research_threads capture material custom evidence needs.",
+  "builder_instruction": "Use scripts/pipeline.py research-prepare to create the starter plan, coverage map, executable query batch, and graph state together. Treat formal_search_plan as the coverage/evidence-need map. Concrete queries belong in executable_search_batch.json. The taxonomy is a menu for banker coverage, and industry_specific_research_threads are where the LLM adds material custom evidence needs.",
   "suggested_issue_menu": {
-    "instruction": "Use these issue_area/subissue pairs as a banker coverage menu, not as a closed ontology. Add material industry-specific rows when the scope requires them; set plan_layer to industry_specific_research_thread and write a clear research_question/evidence_need/source_hint.",
+    "instruction": "Use these issue_area/subissue pairs as a banker coverage menu, not a closed ontology. Add material industry-specific rows when the scope requires them, with clear research_question, evidence_need, and source_hint.",
     "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],
     "demand_customer_logic": ["customer_segments", "demand_drivers", "willingness_to_pay", "repeat_or_replacement", "channel_behavior", "unmet_needs"],
     "industry_structure": ["concentration", "value_chain", "profit_pool", "business_models", "barriers_to_entry", "supplier_customer_power"],
@@ -35,7 +35,7 @@
     "competitive_dynamics": ["basis_of_competition", "winners_losers", "new_entrants", "substitutes_or_adjacent_risk", "differentiation_durability", "consolidation_logic"],
     "transaction_relevance_context": ["why_sector_matters", "selective_project_readthrough", "evidence_boundaries", "banker_angle"]
   },
-  "planning_instruction": "Start from the starter issue rows after reading industry_scope_pack.json. The LLM Query Author may add, drop, rewrite, or reprioritize rows when the industry scope makes them material. Use suggested_issue_menu for banker coverage ideas and industry_specific_research_threads for custom evidence needs; do not force every industry into the menu. For each material entry, write the research question, evidence need, purpose, execution expectation, and source hint. Do not put query/query_variants in this artifact; edit concrete Chinese/English/source-specific query strings only in executable_search_batch.json. Cover must_reconcile items and any boundary_validation_needed questions. Do not write investment hypotheses, validated findings, slide conclusions, target positioning, or page plans. Mark low-relevance rows as accounting/not material during execution rather than forcing equal-depth searches.",
+  "planning_instruction": "Read industry_scope_pack.json, keep the material starter rows, add industry-specific evidence needs where the scope demands them, and drop or downgrade rows that are not material. Each row should explain the research question, evidence need, purpose, execution expectation, and source hint. Keep query strings out of this artifact; author Chinese, English, and source-specific searches in executable_search_batch.json. Cover material reconciliation and boundary-validation needs, but leave hypotheses, findings, slide conclusions, target positioning, and page plans for later roles.",
   "issue_search_plan": [
     {
       "issue_area": "market_size_growth",
@@ -108,8 +108,8 @@
   "research_discipline": {
     "do_not_generate_hypotheses": true,
     "formal_validation_lives_in": "artifacts/formal_research_execution_report.json",
-    "execution_report_inherits_plan_taxonomy": "In formal_research_execution_report.json, copy issue_area, subissue, and research_question from the issue_search_plan item associated with each executed FS-xxx. Do not reclassify taxonomy in the execution report.",
+    "execution_report_inherits_plan_taxonomy": "In formal_research_execution_report.json, keep issue_area, subissue, and research_question aligned with the associated FS-xxx plan row.",
     "fs_vs_s_id_discipline": "FS-xxx IDs are planned search instructions only. After writing this plan, run actual searches and log them as S-xxx entries in artifacts/search_log.md. In the execution report, search_instruction_ids uses FS-xxx and search_attempt_ids uses S-xxx.",
-    "if_evidence_is_insufficient": "Record the issue/subissue as thin, insufficient, or unavailable_after_research in the formal execution report and research pack; do not invent a page claim."
+    "if_evidence_is_insufficient": "Record the issue/subissue as thin, insufficient, or unavailable_after_research in the formal execution report and research pack; leave page claims for supported evidence."
   }
 }

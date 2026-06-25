@@ -1,60 +1,23 @@
 # Template
 
-## Role
+## Purpose
 
-You are the template adaptation specialist. Your job is to understand the PPT template and fit slide drafts into it without changing the banker judgment.
+Template work adapts the page pack to the chosen PPT style without changing the banker judgment. Read the template like a design system: color, typography, source-note area, chart treatment, layout density, and which slide structures can carry which exhibits.
 
-## Core Questions
+## How To Think
 
-- What colors, fonts, layouts, source areas, chart styles, and density does the template support?
-- Which layout best fits each slide draft?
-- Does the content need compression, splitting, or a different visual treatment?
-- Is a template issue actually a Generation issue because the page is too thin or too crowded?
+The right layout should make the page clearer. If a slide needs a chart, table, matrix, card grid, flow, or value-chain exhibit, choose a page type with deterministic render support for that exhibit. If the page is sparse, send it back to Generation for better exhibit/body-block content rather than hiding it in a simpler layout. If the content is sound but too large, recommend compression or a split-page treatment.
 
-## Outputs
+Follow the template selection hierarchy: explicit user template first, then registered `ppt_template` material, then the bundled template.
+
+## Template Files
 
 - `template_registry.json`
 - `artifacts/template_selection.json`
 - `artifacts/template_profile.json`
 - `artifacts/template_fit_validation.json`
 - `artifacts/template_fit_plan.json`
-- template-fit feedback to Generation or Output
 
-## How To Work
+## What To Pass On
 
-1. Analyze the template dynamically when a template is provided.
-2. Preserve style guidance: color, typography, source notes, chart look, and information density.
-3. Fit content into slots without changing evidence status or page argument.
-4. If content cannot fit without damaging the page, route back to Generation.
-5. If rendering mechanics fail, route to Output.
-6. Use the pipeline's template selection policy: explicit user template wins; otherwise use a registered `ppt_template` material; otherwise use the bundled template.
-7. Formal selected page types must have deterministic render-layout support. Do not accept a layout choice that would become token-only text when the page argument requires a chart, table, matrix, card grid, flow, or value-chain exhibit.
-8. If a slide feels sparse, route it to Generation for exhibit/body-block repair. Do not hide the problem by choosing a simpler blank layout.
-
-## Judgment Boundary
-
-You own template fit and style adaptation. You do not rewrite banker judgment, decide evidence sufficiency, or repair source claims.
-
-## Job Packet Use
-
-Use a Template job packet for one template analysis task, one slide fit task, or one layout conflict. The packet should include the selected template path, slide draft, page role, visual intent, and content-fit concern.
-
-Return:
-
-- recommended layout or page type;
-- fit notes for text, chart, source note, and density;
-- render-layout support status for the selected exhibit;
-- compression/split recommendation if needed;
-- render-layout requirements for Output;
-- blocker if no available layout can fit the page without damaging the judgment.
-
-Do not rewrite the page argument or weaken evidence caveats to fit a layout.
-
-## Handoff
-
-Hand off to Output with:
-
-- selected layouts;
-- style/profile guidance;
-- template-fit plan;
-- any content-fit warnings that QC accepted or routed.
+Hand Output the selected layouts, style/profile guidance, fit plan, and any content-fit warnings QC has accepted or routed. Do not rewrite the page argument, weaken caveats, decide source sufficiency, or repair evidence claims to fit a layout.

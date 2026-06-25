@@ -85,7 +85,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
             }
         if slide_no in {3, 5}:
             compare_table_data = {
-                "headers": ["Dimension", "Evidence-backed read", "Pitch implication"],
+                "headers": ["Dimension", "Evidence-backed read", "Pitch relevance"],
                 "rows": [
                     {"label": "Demand", "cells": ["Supported by EV/MET linkage", "Repeatability should be framed with evidence boundaries"]},
                     {"label": "Competition", "cells": ["Differentiation varies by capability", "Positioning should avoid unsupported share claims"]},
@@ -109,7 +109,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 "allowed_deck_usage": "headline_allowed",
                 "headline": slide["headline"],
                 "main_message": (
-                    f"Page {slide_no} connects sourced evidence, visible data, and industry implications so the page reads as banker judgment instead of a sparse research summary, "
+                    f"Page {slide_no} connects sourced evidence, visible data, and industry readthrough so the page reads as banker judgment instead of a sparse research summary, "
                     "with enough detail to support client discussion and enough caution to preserve evidence boundaries."
                 ),
                 "exhibit": {
@@ -146,7 +146,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
         "schema_version": "banker_page_pack",
         "section_meta": {"target_company": "Example Target", "industry": "Example sector"},
         "deck_storyline": (
-            "The section moves from industry scale and structure into competition, economics, and project implications, "
+            "The section moves from industry scale and structure into competition, economics, and selective project relevance, "
             "using traceable data and banker judgment to support a pre-mandate client conversation. It should make the bank's industry view visible through charts, tables, caveats, and selective project relevance rather than through generic summary language."
         ),
         "evidence_policy": {
@@ -239,7 +239,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
                 "page_primary_subject": "industry",
                 "page_question": "What industry point matters?",
                 "banker_judgment": "Industry judgment with source-backed market mechanism.",
-                "page_argument": "Industry page argument with evidence and implication.",
+                "page_argument": "Industry page argument with evidence and transaction readthrough.",
                 "selected_page_type": "summary_page",
                 "claim_strength": "supported_inference",
                 "allowed_deck_usage": "headline_allowed",
@@ -256,7 +256,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
                 "body_blocks": [
                     {
                         "role": f"point_{n}",
-                        "copy": "Industry mechanism with evidence and implication.",
+                        "copy": "Industry mechanism with evidence and transaction readthrough.",
                         "evidence_ids": ["EV-001"],
                         "metric_ids": [],
                         "claim_strength": "supported_inference",
@@ -301,7 +301,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
                 "page_primary_subject": "industry_with_project_relevance",
                 "page_question": "What industry point matters?",
                 "banker_judgment": "Industry judgment with source-backed market mechanism.",
-                "page_argument": "Industry page argument with evidence and implication.",
+                "page_argument": "Industry page argument with evidence and transaction readthrough.",
                 "selected_page_type": "summary_page",
                 "claim_strength": "supported_inference",
                 "allowed_deck_usage": "headline_allowed",
@@ -318,7 +318,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
                 "body_blocks": [
                     {
                         "role": f"point_{n}",
-                        "copy": "Industry mechanism with evidence and implication.",
+                        "copy": "Industry mechanism with evidence and transaction readthrough.",
                         "evidence_ids": ["EV-001"],
                         "metric_ids": [],
                         "claim_strength": "supported_inference",

@@ -59,11 +59,6 @@
       "user_curated_industry_report",
       "manual_url_ingestion"
     ],
-    "source_type_alias_terms": {
-      "manual_url_ingestion": ["manual", "url"],
-      "user_curated_industry_report": ["industry report", "user curated", "用户报告"],
-      "public_search": ["client", "confidential", "internal", "sensitive"]
-    },
     "default_source_type": "public_search",
     "statuses": [
       "pending_public_evidence",

@@ -214,6 +214,27 @@ def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
         "evidence_gap_matrix",
         "evidence-gap matrix",
         "validation point",
+        "project implication",
+        "target implication",
+        "pitch implication",
+        "transaction implication",
+        "implication",
+        "implications",
+        "to_test_in_project",
+        "industry_changes_to_test_in_project",
+        "your job is",
+        "how to work",
+        "core questions",
+        "judgment boundary",
+        "job packet use",
+        "visual qc checklist",
+        "recognition test",
+        "correct approach",
+        "why it is wrong",
+        "what happens",
+        "pairing constraints",
+        "candidate roles",
+        "selection logic",
     ]
     paths = [SKILL_DIR / "SKILL.md"]
     paths.extend((SKILL_DIR / "references").glob("*.md"))
@@ -250,6 +271,16 @@ def test_llm_facing_contracts_do_not_reintroduce_old_prompt_terms() -> None:
                 hits.append(f"{path.relative_to(SKILL_DIR)}: {term}")
 
     assert hits == []
+
+
+def test_research_request_policy_does_not_alias_private_terms_to_public_search() -> None:
+    policy = json.loads((SKILL_DIR / "configs/research_planning_policy.json").read_text(encoding="utf-8"))
+    queue_policy = policy.get("research_request_queue", {})
+    aliases = queue_policy.get("source_type_alias_terms", {})
+    public_aliases = {str(item).lower() for item in aliases.get("public_search", [])}
+    private_terms = {"client", "confidential", "internal", "sensitive", "private"}
+
+    assert public_aliases.isdisjoint(private_terms)
 
 
 def test_status_next_reports_missing_first_artifact(tmp_path: Path) -> None:

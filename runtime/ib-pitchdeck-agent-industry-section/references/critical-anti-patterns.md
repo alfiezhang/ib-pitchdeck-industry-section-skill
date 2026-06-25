@@ -1,151 +1,47 @@
 # Critical Anti-Patterns
 
-These are the most common failure modes when turning an industry-section draft into a populated pitchbook template.
+Use this file when a filled deck looks technically complete but still feels wrong. The point is to sharpen judgment, hierarchy, and visual finish.
 
-## Anti-Pattern 1: Treating a Placeholder Box as Final Formatting
+## Placeholder-Looking Pages
 
-What happens:
-- A token box or instruction area is treated as the final visual treatment.
-- Content is pasted into a visibly temporary area without checking whether it matches the production style.
+A replaced token box is not automatically a finished design. If the slide looks like text was dropped into temporary boxes, the hierarchy has failed. Titles, takeaways, body modules, exhibits, and source notes should read as different levels of information.
 
-Why it is wrong:
-- Placeholder formatting is a technical container, not a design instruction.
-- The output may look mechanically filled rather than client-ready.
+Respect the template's intended roles from `configs/ppt_mapping.json`; use them to preserve hierarchy, not to flatten the page into blocks of similar text.
 
-Recognition test:
-- The slide looks like text was dropped into boxes without regard for hierarchy, spacing, or readability.
-- The conclusion line, body boxes, and source footer do not read as separate levels of information.
+## Generic Bullet Flattening
 
-Correct approach:
-- Respect the template's intended roles from `configs/ppt_mapping.json`.
-- Keep `slide_title`, `main_takeaway`, body content, chart title, and source footer visually and logically distinct.
+Driver cards, barrier modules, value-chain stages, comparison rows, and left/right panels are not interchangeable containers. Each should carry a distinct role. If every box could swap places with every other box, the page has lost its banker structure.
 
-## Anti-Pattern 2: Flattening Structured Content into Generic Bullets
+Keep structured pages structured: drivers should be drivers, value-chain stages should be stages, profit-pool panels should show economics, and source notes should remain source notes.
 
-What happens:
-- Driver cards, barrier modules, value-chain stages, or right/left panels are rewritten into interchangeable bullets.
+## Repetition
 
-Why it is wrong:
-- It destroys the page logic defined in `layout_intent_by_slide`.
-- The slide loses the banker-style structured read and becomes a text dump.
+Repeated paraphrases make the slide feel padded. Adjacent cards or panels should move the argument forward: different mechanism, different evidence, different comparison, or different caveat.
 
-Recognition test:
-- Slide 3 no longer reads as distinct drivers.
-- Slide 4 no longer separates value chain from profit pool / barriers / target position.
-- Slide 6 mixes market facts and target judgment into one section.
+If two boxes say nearly the same thing, rewrite one or remove it.
 
-Correct approach:
-- Preserve content block distinctions from `configs/slide_registry.json` and `configs/ppt_mapping.json`.
-- Each card or panel should hold one distinct role.
+## Role Drift
 
-## Anti-Pattern 3: Reusing the Same Sentence Across Multiple Slots
+Do not move content into the wrong slot just because another placeholder has more room. A takeaway should not become a body bullet; a source footer should not become vague; project-context language should not sit inside a market-facts field.
 
-What happens:
-- Similar text is copied into several bullets/cards/panels because it fits multiple areas.
+If a slot overflows, rewrite within the same role or send the page back for compression/splitting.
 
-Why it is wrong:
-- It creates visible redundancy and weakens the slide's logic.
-- Adjacent boxes stop adding information.
+## Weak Source Footers
 
-Recognition test:
-- Two or more placeholders on the same slide carry near-identical language.
-- The slide reads like paraphrase repetition rather than progressive argument.
+Source footers are part of the argument. A page with market data or hard claims needs source specificity. `Source: public information` is not enough for load-bearing claims.
 
-Correct approach:
-- Ensure each slot contributes a different message.
-- Use QC to flag repeated content across adjacent placeholders.
+Keep the most important sources, preserve date/scope where material, and treat a missing or vague source footer as a quality problem.
 
-## Anti-Pattern 4: Moving Content Across Roles Because Another Box Has More Space
+## Silent Truncation
 
-What happens:
-- Target-positioning content gets moved into a market-facts box.
-- A takeaway is moved into a body field.
-- A source footer is shortened into ambiguity just to fit.
+Text that is cut off is not a small formatting issue; it can remove the caveat or source detail that makes the page defensible. If text is incomplete, rewrite and rerender. If repeated attempts still overflow, change the page design rather than accepting broken output.
 
-Why it is wrong:
-- It breaks the semantic contract between the slide registry, renderer spec, and template mapping.
-- The slide may still fit, but it becomes structurally wrong.
+## Fact, Inference, And Management View
 
-Recognition test:
-- `main_takeaway` sounds like a body bullet.
-- `left_panel` contains project-context claims when it is meant for market facts.
-- A placeholder is populated with text from a different mapped role.
+Sourced facts, banker inferences, and management-provided views should not sound equally certain. Target advantage, market structure, or transaction readthrough needs attribution and caveats when evidence is thin.
 
-Correct approach:
-- Follow `layout_binding_by_slide`.
-- If a slot overflows, rewrite within the same role rather than shifting content to another role.
+Keep factual claims sourced, keep inferences modest, and keep management-only claims clearly labeled.
 
-## Anti-Pattern 5: Source Footer Degradation
+## Sparse Exhibits
 
-What happens:
-- Source footers are omitted, made too vague, or silently dropped during compression.
-
-Why it is wrong:
-- Traceability is lost.
-- Numeric claims become much harder to defend in review.
-
-Recognition test:
-- A slide contains data or market claims but no source footer.
-- Footers say only `Source: public information` for load-bearing claims.
-
-Correct approach:
-- Keep 2-4 most load-bearing sources.
-- Preserve date information when materially relevant.
-- Treat missing source footers as a QC issue.
-
-## Anti-Pattern 6: Silent Overflow or Truncation
-
-What happens:
-- Text is cut off to fit the box.
-- Overflow is ignored because the placeholder was technically replaced.
-
-Why it is wrong:
-- The slide becomes visually broken or factually incomplete.
-- Silent truncation is especially dangerous for source footers and nuanced conclusions.
-
-Recognition test:
-- Text appears incomplete or abruptly cut.
-- A long source line or panel clearly exceeds the intended box.
-
-Correct approach:
-- Rewrite before replacing.
-- Log truncation or compression in QC.
-- Escalate if repeated fixes still cannot produce a clean result.
-
-## Anti-Pattern 7: Weak Distinction Between Fact, Inference, and Management View
-
-What happens:
-- Unsupported strategic conclusions are written with the same certainty as sourced market facts.
-
-Why it is wrong:
-- The deck becomes harder to defend.
-- Management hypotheses get presented as market truth.
-
-Recognition test:
-- Claims about target advantage or industry structure appear without evidence or attribution.
-- The slide tone becomes overly absolute despite weak sourcing.
-
-Correct approach:
-- Keep factual claims sourced.
-- Keep inference modest.
-- Flag management-only claims in QC when support is insufficient.
-
-## Anti-Pattern 8: Sparse or Single-Point Exhibits
-
-What happens:
-- A formal page uses a single oversized bar, empty chart area, or three short bullets where the page needs a real exhibit.
-- Evidence-limited pages become visually blank instead of showing a caveated table, KPI card set, or evidence-boundary grid.
-
-Why it is wrong:
-- The deck may pass token replacement but still look unfinished.
-- A single datapoint rarely supports a conclusion-led investment-banking page.
-
-Recognition test:
-- `banker_page_pack.slides[].exhibit` is missing or does not match the visible page.
-- `chart_data` has only one datapoint.
-- A structured page has fewer than three meaningful cards/rows/modules.
-
-Correct approach:
-- Design the exhibit before writing body copy.
-- Use at least two comparable datapoints for chart-led pages.
-- When data is thin, use a structured evidence-boundary exhibit and make limitations explicit.
+A formal page should not rely on one oversized bar, an empty chart area, or three short bullets when it needs a real exhibit. A single datapoint rarely carries an investment-banking page. When evidence is limited, use a caveated table, KPI card set, or source-boundary grid so the page still feels structured and honest.

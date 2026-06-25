@@ -1,73 +1,49 @@
-# IB Pitchdeck Agent Industry Section Operating Model
+# Operating Model
 
-This skill builds the industry section of a **pre-mandate client pitchbook**. It is not a CIM, signed-engagement workplan, buyer memo, target profile, or generic market report. The output should help a potential client believe that the bank understands the industry first, the transaction implications second, and only the selective project context needed to make the industry view relevant.
+This skill builds the industry section of a **pre-mandate client pitchbook**. The work should feel like a banker team moving from raw materials to industry judgment to editable slides, not like a generic report generator.
 
-## Design Principles
+The basic logic is simple:
 
-1. Engagement policy comes first: use only user-provided materials and public evidence unless the user explicitly supplies more.
-2. Calibrate the target industry boundary before doing broad research.
-3. Knowledge stores facts, metrics, sources, conflicts, and unknowns; it does not search or judge.
-4. Research collects public evidence and user-supplied reports; it does not turn hypotheses into conclusions.
-5. Banker judgment and page design converge in `banker_page_pack.json`: industry-first supported views, caveats, exhibit logic, dense copy, data bindings, and selective project relevance.
-6. Reasoning is a diagnostic support role when a judgment needs hypothesis resolution or an LLM-authored research request before it can enter the page pack.
-7. Template work comes after page logic: the template can compress, split, and fit content, but it cannot change the core judgment.
-8. QC owns validation. Python handles deterministic format, ID, provenance, and rendering checks. LLM QC handles quality, evidence sufficiency, source use, page thinness, and transaction relevance.
-9. Output is deterministic rendering only.
-10. Workflow scripts are dashboards and tool runners, not the engagement lead.
+1. Capture what the user provided.
+2. Define the right industry boundary.
+3. Collect public or user-curated evidence.
+4. Store facts and metrics with source limits.
+5. Turn evidence into banker page judgment.
+6. Fit the judgment to the chosen template.
+7. Review quality and render only when the package is honest.
 
-## Target Architecture
+## Principles
+
+- The deck is industry-led. Target facts are context, not the default storyline.
+- Public evidence and user-provided facts stay visibly separate.
+- Search results are leads until sources are opened or otherwise verified.
+- The evidence DB stores source-faithful facts; the page pack carries banker judgment.
+- Python handles deterministic mechanics. LLMs own research judgment, evidence use, page density, source quality, and client-readiness review.
+- Derived renderer artifacts carry judgment forward; they should not become places to invent or repair the story.
+
+## Flow
 
 ```text
-User materials / links / instructions
-  -> Engagement Context / Policy
+User materials
   -> Material Intake
-  -> Knowledge Repository
-  -> Target Industry Scoping
-  -> Boundary Validation Loop
-  -> Public Evidence Loop
+  -> Knowledge
+  -> Industry Scoping
+  -> Public Evidence Research
+  -> Knowledge Evidence DB
   -> Banker Page Pack
-      -> Judgment / Exhibit / Copy / EV-MET Bindings
-      -> Optional Reasoning / Research Request Loop
-  -> Deterministic Compile
-  -> Template Fit
-  -> QC Engine
+  -> Compile / Template Fit
+  -> QC
   -> Output
 ```
 
-## Role Ownership
+Reasoning is used when a page judgment needs sharpening, caveating, or a bounded research request. Focused job packets are used only for narrow work that benefits from isolation; the parent agent still integrates the result and remains responsible for the final answer.
 
-- Orchestrator agent: phase, owner, handoff, and repair routing.
-- Material Intake: source intake and project-fact extraction.
-- Knowledge Repository: evidence database, source provenance, conflicts, and limitations.
-- Industry Scoping: broad/core/adjacent/excluded boundary and boundary loop.
-- Research / External Evidence: public evidence collection, source archive, and execution accounting.
-- Reasoning: optional hypothesis handling, LLM-authored research requests, and judgment diagnostics.
-- Generation: banker page pack authoring, exhibit design, content density, and compile to renderer artifacts.
-- Template: template analysis and fit.
-- QC: all validators plus LLM quality review and repair briefs.
-- Output: replacement dictionary, PPT render, postprocess, and final package.
+## Passing Work Forward
 
-## Validator Ownership
+A good handoff tells the next step:
 
-Deterministic checks run through `scripts/pipeline.py validate`.
-
-- The unified validator is limited to deterministic checks and format red-lines.
-- QC decides how to interpret validator output.
-- The repair owner remains the role that owns the artifact.
-- Python does not decide source quality, evidence readiness, page quality, or client-readiness by itself.
-
-## Handoff Contract
-
-Every role handoff should identify:
-
-- current engagement context;
-- input artifacts used;
-- output artifacts written;
-- judgment decisions made;
-- evidence limits and unresolved hypotheses;
-- repair owner if blocked;
-- next role if ready.
-
-## Focused Delegation
-
-Use `references/role_job_packets.md` only when a task is narrow enough to delegate or isolate. Job packets are not a second workflow engine: the parent agent still owns context, integration, and final judgment.
+- what was read;
+- what was written;
+- which judgment was made;
+- what evidence limits remain;
+- what should be repaired before moving downstream.

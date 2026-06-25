@@ -1,7 +1,7 @@
 {
   "schema_version": "research_request_queue_v1",
   "_template_only": true,
-  "_template_only_note": "Reasoning LLM authors this artifact directly. Do not mechanically convert page evidence-boundary notes into research requests, and do not use a builder script.",
+  "_template_only_note": "Reasoning LLM authors this queue only when more evidence would change claim permission, page inclusion, or exhibit readiness.",
   "authoring_mode": "llm_authored",
   "policy_context": "pre_mandate_client_pitch",
   "requests": [
@@ -16,7 +16,7 @@
       "status": "pending_public_evidence",
       "reason_needed": "Why the current evidence is insufficient for client-facing promotion.",
       "success_criteria": "What source or metric would resolve the request.",
-      "forbidden_use": "Do not use this unresolved request as a deck claim."
+      "forbidden_use": "Unresolved requests are not deck claims."
     }
   ]
 }

@@ -1,51 +1,24 @@
 # Output
 
-## Role
+## Purpose
 
-You are the delivery operator. Your job is deterministic rendering and final package assembly. You do not make research, reasoning, or page-editor decisions.
+Output is deterministic delivery. Render from the current upstream artifacts, postprocess the PPT, validate the package, and report final status honestly. The output step should never become a place to rewrite evidence, page judgment, or deck copy.
 
-## Core Questions
+## Rendering Discipline
 
-- Are all upstream artifacts current and accepted by QC?
-- Can the replacement dictionary be generated from renderer spec and mapping?
-- Did token filling, exhibit/chart/table postprocess, and cleanup succeed?
-- Does final delivery validation say the package is client-ready?
+Render only after upstream evidence, page pack, template fit, and QC surfaces are ready. If rendering fails because of missing exhibit data, sparse visual payload, single-point chart misuse, or content fit, route the problem to Generation or Template. If upstream artifacts are missing, stale, or rejected, report the repair owner instead of creating a shortcut deck.
 
-## Outputs
+`scripts/pipeline.py render` records `artifacts/runtime_dependencies.json`. Missing search/PDF capability is a readiness warning by default; use `--strict-runtime-readiness` only when the operator wants runtime diagnostics to block rendering.
+
+Use the selected template from `artifacts/template_selection.json`; if it is absent, the pipeline selects a user-registered template or the bundled template. Avoid ad-hoc run-local render scripts such as `render_deck.py`.
+
+## Rendered Files
 
 - `replacement_dict.json`
 - `industry_section_filled.pptx`
 - `industry_section_filled_clean.pptx`
 - final delivery validation artifacts
 
-## How To Work
+## What To Pass On
 
-1. Render only from current upstream artifacts.
-2. Do not hand-edit deck copy, evidence, renderer spec, or replacement dictionary to mask upstream issues.
-3. If rendering fails because of missing exhibit, single-point charts, sparse visual payload, or content fit, route to Generation or Template.
-4. If final delivery is not client-ready, report the blocking repair owner instead of calling the PPT complete.
-5. `scripts/pipeline.py render` records `artifacts/runtime_dependencies.json`. Missing search/PDF capability is a readiness warning by default; use `--strict-runtime-readiness` only when the operator wants runtime diagnostics to block rendering.
-6. Use the selected template from `artifacts/template_selection.json`; if absent, the pipeline selects a user-registered template or the bundled template.
-7. Do not write ad-hoc run-local render scripts such as `render_deck.py`.
-8. Do not render a shortcut deck from raw notes, research pack prose, or hand-written replacement dictionaries. If upstream artifacts are not ready, return the owner role and repair target instead.
-
-## Judgment Boundary
-
-You own deterministic output mechanics. You do not decide source quality, page strength, evidence sufficiency, or client-readiness without QC.
-
-## Job Packet Use
-
-Use an Output job packet only for deterministic rendering or packaging tasks. The packet should include current upstream artifact paths, selected template, render mode, and expected output path.
-
-Return:
-
-- rendered file paths;
-- token/postprocess status;
-- final validation result;
-- blocker if upstream artifacts are missing, stale, or not accepted by QC.
-
-Do not edit upstream content or create ad-hoc rendering code in the run directory.
-
-## Handoff
-
-Hand off to the user only when final delivery is client-ready, or clearly state the upstream role that must repair the package first.
+Hand off only when final delivery is client-ready, or clearly state the upstream role and artifact that must be repaired first.

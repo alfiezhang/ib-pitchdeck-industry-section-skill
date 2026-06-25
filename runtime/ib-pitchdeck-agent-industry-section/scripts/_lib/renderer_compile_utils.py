@@ -63,9 +63,6 @@ ROLE_FIELD_ALIASES = {
     "margin_pool": "bottom_center",
     "economics": "bottom_center",
     "value_accrual": "bottom_center",
-    "target_implication": "bottom_right",
-    "pitch_implication": "bottom_right",
-    "transaction_implication": "bottom_right",
 }
 
 DEFAULT_SLIDE_REGISTRY_PATH = _IB_RUNTIME_ROOT / "configs" / "slide_registry.json"

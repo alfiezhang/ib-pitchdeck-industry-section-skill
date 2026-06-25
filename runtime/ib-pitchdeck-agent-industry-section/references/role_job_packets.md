@@ -1,55 +1,18 @@
 # Role Job Packets
 
-Use role job packets when a task is narrow enough to hand to a worker or isolate as a focused role pass. Do not use them to make the main agent disappear. The main agent remains the engagement lead: it chooses the job, supplies context, integrates the result, and decides the next role.
+Use a role job packet when one bounded task is easier to isolate than to keep in the main thread. The parent agent remains the engagement lead: it chooses the task, gives the worker only the context needed, inspects the result, and integrates usable work into the canonical artifact.
 
-## When To Use
+Good packet tasks include one source review, one boundary ambiguity, one small search batch, one page repair, one template-fit problem, or one QC repair brief.
 
-Good job-packet tasks:
+Avoid packets for broad requests such as "make the whole deck", "fix everything", or "decide whether the project is complete" without full context.
 
-- extract facts from one archived source or one user report;
-- review source quality for a defined claim scope;
-- check one industry-boundary ambiguity;
-- draft one page inside the approved banker page pack;
-- fit one slide draft to a specific template layout;
-- review one artifact and produce a repair brief.
+## Parent Guidance
 
-Poor job-packet tasks:
+A good packet is self-contained. Include the task, engagement context, relevant input files, source limits, output location or result format, and the shortcuts the worker should avoid. After the worker returns, inspect the result before integrating it. Preserve blockers instead of silently weakening quality.
 
-- "create the whole deck";
-- "run the whole workflow";
-- "fix everything";
-- "decide whether this project is complete" without the full context;
-- "edit global artifacts freely".
+The worker should not rely on conversation context that is not in the packet.
 
-## Parent Responsibilities
-
-The parent agent must:
-
-1. create a self-contained job packet;
-2. include all task-local context the worker needs;
-3. list exact input artifacts and source files;
-4. state the allowed output path or result format;
-5. state forbidden shortcuts;
-6. receive and inspect the result;
-7. integrate the result into the canonical artifact only when it is usable;
-8. record blockers instead of silently downgrading quality.
-
-The parent should not rely on conversation context the worker cannot see.
-
-## Worker Responsibilities
-
-The worker must:
-
-1. do only the assigned role task;
-2. read the packet and listed artifacts;
-3. avoid editing unrelated global artifacts;
-4. return a result, repair recommendation, or blocker;
-5. preserve evidence limits and uncertainty;
-6. never turn hypotheses, search snippets, or unreviewed sources into conclusions.
-
-## Packet Shape
-
-Use JSON for machine-readable jobs when possible:
+## Example Packet
 
 ```json
 {
@@ -73,9 +36,9 @@ Use JSON for machine-readable jobs when possible:
     "instructions": [
       "Run source-specific searches or ingest provided URLs.",
       "Open and archive useful sources.",
-      "Extract source locator, usable facts, metrics, scope, and limits."
+      "Extract locator, usable facts, metrics, scope, and limits."
     ],
-    "required_outputs": [
+    "expected_outputs": [
       "opened_sources",
       "source_archive_entries",
       "extracted_facts",
@@ -84,10 +47,10 @@ Use JSON for machine-readable jobs when possible:
     ]
   },
   "output_path": "artifacts/role_jobs/RJ-001.result.json",
-  "forbidden_actions": [
-    "Do not cite search snippets as evidence.",
-    "Do not edit derived deck_blueprint.json; repair banker_page_pack.json instead.",
-    "Do not claim client-readiness."
+  "avoid": [
+    "Citing search snippets as evidence.",
+    "Editing derived deck_blueprint.json instead of repairing banker_page_pack.json.",
+    "Calling the work client-ready."
   ],
   "blocker_format": {
     "reason": "",
@@ -97,35 +60,18 @@ Use JSON for machine-readable jobs when possible:
 }
 ```
 
-## Schema Boundary
-
-Job packets define delegation context, not canonical artifact schemas.
-
-- Do not copy field-level requirements from `schemas/*.json` into this file.
-- If a worker is asked to produce or repair a canonical artifact, cite the artifact path and its schema path.
-- Keep `required_outputs` at the work-product level, such as archived sources, extracted facts, repair notes, or a draft artifact path.
-- The parent or owning role is responsible for integrating worker output into the canonical artifact and then running the relevant deterministic format check.
-
-Examples:
-
-- source/archive results that the parent integrates into `artifacts/research_evidence_db.json`;
-- page draft fields that the parent integrates into `banker_page_pack.json`;
-- QC repair notes that name the owner artifact and the deterministic command to rerun.
-
-Workers do not hand-author derived artifacts such as `deck_blueprint.json`, `page_evidence_contract.json`, `renderer_spec.json`, `replacement_dict.json`, or the filled PPT.
-
-## Result Shape
+## Worker Result
 
 ```json
 {
   "job_id": "RJ-001",
   "role": "research_external_evidence",
-  "status": "completed",
+  "status": "completed_with_limits",
   "outputs": [
     "artifacts/source_archive/SRC-001.json"
   ],
   "decisions_or_notes": [
-    "KPMG source supports broader beauty context, not base makeup market size."
+    "The source supports broader beauty context, not base makeup market size."
   ],
   "evidence_limits": [
     "Market-size source uses online GMV sample, not all-channel retail sales."
@@ -135,20 +81,8 @@ Workers do not hand-author derived artifacts such as `deck_blueprint.json`, `pag
 }
 ```
 
-Allowed status values:
+Allowed status values: `completed`, `completed_with_limits`, `blocked`, `needs_parent_decision`.
 
-- `completed`
-- `completed_with_limits`
-- `blocked`
-- `needs_parent_decision`
+## Integration
 
-## Integration Rule
-
-Job results are not automatically canonical. The parent or owning role must integrate them into the current artifact:
-
-- source/archive results -> Knowledge evidence DB;
-- source-quality or evidence-limit results -> embedded source review fields in the evidence DB;
-- reasoning results -> banker_page_pack judgment fields or an LLM-authored research request queue after parent review;
-- generation results -> banker_page_pack page fields before deterministic compilation;
-- template results -> template fit plan or fit feedback;
-- QC results -> repair brief and owner routing.
+Job results are not automatically canonical. The parent or owning role integrates source/archive results into the evidence DB, page draft fields into `banker_page_pack.json`, template notes into the fit plan, and QC notes into a repair brief. Workers should not hand-author derived renderer artifacts or the final PPT.

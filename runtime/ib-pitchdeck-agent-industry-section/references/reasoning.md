@@ -2,37 +2,25 @@
 
 ## Role
 
-Reasoning is now a judgment-support role inside the `banker_page_pack.json` workflow. It sharpens industry judgment, caveat treatment, selective project relevance, and bounded research requests after Knowledge validates the evidence DB.
+Reasoning is the judgment desk behind `banker_page_pack.json`. Use it when a page thesis feels under-supported, a caveat may be overstated, a project relevance note is drifting into target promotion, or an evidence gap may change whether a claim belongs in the deck.
 
-## When To Use
+The goal is not to create another intermediate memo. The goal is to make the page pack sharper, more honest, and more useful for a pre-mandate banker conversation.
 
-- A potential page argument rests on thin or conflicting evidence.
-- A hypothesis might become an overstated headline.
-- A transaction angle or project relevance note needs a sharper logic chain.
-- The draft is drifting into target/company promotion instead of industry analysis.
-- Public evidence is insufficient and should become a research request.
-- The run needs an evidence-limited outline rather than a client-ready deck.
+## How To Judge
 
-## Default Output
+Start from `artifacts/research_evidence_db.json`, not from desired slide titles. Separate what is supported, what is directional, what is caveated, and what should stay out of the client-facing deck.
 
-Reasoning writes directly into the relevant `banker_page_pack.slides[]` fields. When a claim needs more evidence before promotion, Reasoning LLM may author `artifacts/research_request_queue.json` from `configs/artifact_templates/research_request_queue.template.json`.
+For each potential page point, decide:
 
-Do not run a builder script for the queue. Do not mechanically convert page evidence-boundary notes into research requests. A request exists only when Reasoning decides that resolving it would change claim permission, page inclusion, or exhibit readiness.
+- Is the judgment supported strongly enough for the selected page role?
+- Should it become a headline, body copy, supporting context, caveat, or no claim?
+- Does the exhibit have enough source-backed content to look credible?
+- Is the target/project context selective and source-labeled?
+- Would one more public source materially change the page permission or exhibit design?
 
-## How To Work
+Write the result directly into the relevant `banker_page_pack.slides[]` fields: page subject, banker judgment, page argument, claim strength, explicit deck usage, body blocks, project relevance note, caveats, and evidence-boundary notes. Evidence-boundary notes are use limits for the team; they should not appear as visible task language in a client page.
 
-1. Start from `artifacts/research_evidence_db.json`, not from desired page titles.
-2. Separate supported judgments, directional views, caveats, and evidence boundaries.
-3. If a hypothesis is unresolved, write a caveated judgment or author a bounded research request instead of promoting it.
-4. Decide whether the evidence supports a dense client-facing page, a caveated page, or no page.
-5. Feed the result into the relevant `banker_page_pack.slides[]` fields: `page_primary_subject`, `banker_judgment`, `page_argument`, `claim_strength`, explicit `allowed_deck_usage`, `body_blocks`, `project_relevance_note`, `caveats`, and `evidence_boundary_notes`. Treat evidence-boundary notes as internal use limits, not as visible task language.
-6. Decide `allowed_deck_usage` directly. Do not assume `supported_inference` automatically means headline permission; choose the allowed downstream use based on evidence strength, source limits, metric audit quality, and page role.
-7. Preserve the subject hierarchy: industry judgment is the default page subject; target/project context is a short relevance bridge or a labeled limitation unless the page is explicitly `target_context`.
-8. If creating `research_request_queue.json`, set `authoring_mode` to `llm_authored`, cite the origin artifact/ref, state the exact source type needed, and set unresolved downstream use conservatively.
-
-## Judgment Boundary
-
-You own the logic of the judgment. You do not search, archive sources, invent metric audit details, fit template slots, or render PPT files.
+If more evidence is needed before claim promotion, author `artifacts/research_request_queue.json` from the queue template. Keep requests bounded: name the source type needed, the originating page or evidence point, the success criteria, and the conservative downstream use while unresolved. Do not mechanically convert every caveat into a research request.
 
 ## Good Repair Target
 
@@ -40,6 +28,8 @@ If the deck feels empty, generic, or data-light, repair `banker_page_pack.json` 
 
 - add evidence-backed interpretation;
 - bind claims to EV/MET IDs;
-- add chart/table/card-ready exhibit content;
+- strengthen chart/table/card-ready exhibit content;
 - downgrade unsupported claims;
-- add a short project relevance note that explains why the industry point matters before a mandate, without turning the page into target promotion.
+- add a short project relevance bridge only where it clarifies the industry view.
+
+Do not search, archive sources, invent metric audit details, fit template slots, or render PPT files from this role.

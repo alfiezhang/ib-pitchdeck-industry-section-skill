@@ -1,129 +1,58 @@
 # Content Quality
 
-Use this file for LLM authoring and LLM QC of `banker_page_pack.json`.
-It is not a deterministic validator input. Do not turn these review prompts
-into Python gates.
+Use this as editorial guidance for writing or reviewing `banker_page_pack.json`. It is not validator logic. It should help the LLM make stronger page judgments, not turn review into another rule engine.
 
-## Review Standard
+## Standard
 
-The deck is a pre-mandate industry section. It should show industry
-understanding first, transaction relevance second, and only selective
-project context where it clarifies the industry view.
+The deck is a pre-mandate industry section. A good page makes an industry point the client can remember, explains the mechanism behind it, shows the evidence, and gives a short transaction readthrough where relevant.
 
-Each client-ready page should have:
+Client-ready pages usually have:
 
-- a clear industry-led headline, not a topic label;
-- a banker judgment with mechanism, evidence, and implication;
+- an industry-led headline with a real point of view;
+- a banker judgment that explains mechanism, not just trend direction;
 - a visible exhibit that carries the page;
-- multiple substantive body blocks;
-- traceable EV/MET references where available;
-- specific source notes, not generic source phrases;
-- caveats where evidence is thin or source scope is narrow.
-- no visible question-label, internal evidence-boundary prompt, or research-control language unless the user explicitly asks for a working appendix.
+- body blocks that add distinct information rather than repeating the headline;
+- EV/MET support where available, with specific source notes;
+- caveats when evidence is thin, narrow, or management-provided.
 
-Density targets are editorial prompts, not hard limits. A full page normally
-needs several body blocks, visible evidence, and enough chart/table/card
-structure to avoid looking empty. If evidence is too thin, mark the page
-evidence-limited instead of inventing numbers or padding with generic copy.
+If evidence is thin, keep the page structured and honest. Use caveated cards, a source-boundary table, or a carefully scoped qualitative exhibit. Do not invent numbers or pad with generic copy.
 
-## Evidence And Data Checks
+## Evidence And Data
 
-LLM QC should review:
+Review whether claim strength matches the evidence. Important visible numbers need audit rows; management-provided target metrics should remain unaudited project context unless externally verified. Source notes should name sources or EV/MET IDs rather than hiding behind "public sources" or "industry reports".
 
-- whether the page has enough EV/MET support for its claim strength;
-- whether important numbers have key data audit rows;
-- whether management-provided target metrics are labeled as unaudited project context;
-- whether project-specific metrics are kept out of industry charts unless clearly labeled;
-- whether source notes name sources or EV/MET IDs rather than saying "public sources";
-- whether conflicting market numbers are reconciled or caveated.
+Charts and tables should look like presentation exhibits, not placeholders. Use comparable units on a chart axis. Use cards or tables for mixed-unit data or target-vs-market context. A single data point is usually a KPI card, not a chart. Quantitative exhibits should have source rows for the visible numbers.
 
-Charts and tables need professional structure:
+When sources conflict, preserve the conflict and show how the working number was chosen. A caveated range is better than false certainty.
 
-- avoid mixing incomparable units on one axis;
-- avoid single-point charts unless the visual is clearly a KPI card;
-- use cards/tables for mixed units or target-vs-market context;
-- keep chart titles presentation-ready, not execution notes;
-- include source rows for visible quantitative exhibits.
+## Project Context
 
-## Selective Project Context Discipline
+Target facts can help the industry view feel relevant, but they should not take over the page. Terms such as `标的`, `目标公司`, `项目公司`, `target`, `GMV`, `净利润`, `控股权`, and `出售` are allowed only when source-labeled and secondary to the industry argument.
 
-Watch for target drift. Terms such as `标的`, `目标公司`, `项目公司`,
-`target`, `GMV`, `净利润`, `控股权`, and `出售` are not forbidden, but they
-should not make an industry page read like a target profile.
+Watch for target drift:
 
-Red flags:
+- every trend ends by saying it benefits the target;
+- the headline is about the target on a page whose subject is industry;
+- `project_relevance_note` becomes a sales paragraph;
+- target superiority appears without peer or market evidence;
+- target metrics are treated like audited industry data.
 
-- every driver or trend ends with "利好标的";
-- headline frames the target as the main subject on an industry page;
-- project relevance note becomes a target promotion paragraph;
-- target superiority is asserted without external benchmark evidence;
-- target metrics are used as if they were audited industry metrics.
+`project_relevance_note` should be one short bridge from industry finding to pre-mandate discussion. It is not an execution plan.
 
-Use `project_relevance_note` sparingly. It is a bridge from industry finding
-to pre-mandate discussion, not an execution workplan and not a sales paragraph.
+## Language Quality
 
-## Generic Copy To Rewrite
+Replace generic source phrases such as `public sources`, `industry reports`, `公开资料`, `行业报告`, or `多方来源` with named sources, EV/MET IDs, or an explicit evidence boundary.
 
-Rewrite generic source phrases such as:
+Replace generic market language such as `rapidly growing`, `large market potential`, `competitive market`, `市场空间广阔`, `发展迅速`, `政策利好`, and `行业领先` with market mechanisms, comparable benchmarks, source-backed data, or a clear caveat.
 
-- `industry reports`, `public sources`, `market research`, `various sources`;
-- `公开资料`, `行业报告`, `公开行业资料`, `多方来源`.
+Be careful with hard overclaims such as `certainty`, `guaranteed`, `irreversible`, `确定性`, `不可逆`, `绝对领先`, `唯一`, and `必然受益`. They require strong evidence and careful caveating.
 
-Rewrite generic market copy such as:
+## Slide Distinctness
 
-- `rapidly growing`, `large market potential`, `competitive market`;
-- `市场空间广阔`, `发展迅速`, `政策利好`, `行业领先`.
+Slides should build the argument rather than recycle it. Slide 3 is about current growth drivers; Slide 7 is about future evolution. Slide 4 is value chain and profit pool; Slide 5 is barriers and winner capabilities. Slide 1 establishes industry attractiveness; Slide 8 synthesizes transaction relevance and evidence boundaries.
 
-Replace them with source-specific evidence, market mechanisms, comparable
-benchmarks, or an explicit evidence boundary.
+Slide 2 should add a second-layer structural view rather than repeat Slide 1. Slide 6 should explain the competitive landscape, not simply prove target differentiation.
 
-Avoid hard overclaims unless source-backed and carefully caveated:
+## Review Disposition
 
-- `certainty`, `guaranteed`, `irreversible`, `impossible to replicate`;
-- `确定性`, `不可逆`, `绝对领先`, `唯一`, `必然受益`.
-
-Treat phrases such as `稀缺标的`, `制高点`, `均利好`, `天然契合`,
-`出售窗口`, and `稀缺平台` as caution phrases requiring evidence and careful
-transaction framing.
-
-## Cross-Slide Distinctness
-
-- Slide 3 explains current growth drivers; Slide 7 explains future industry
-  evolution. Do not reuse the same driver cards as trends.
-- Slide 4 covers value chain / profit pool; Slide 5 covers entry barriers /
-  winner capabilities. Do not repeat channel or brand wording as the main
-  point on both slides.
-- Slide 1 establishes industry attractiveness; Slide 8 synthesizes
-  transaction relevance and evidence boundaries. Do not reuse the same
-  market-size thesis as the transaction conclusion.
-
-## Slide-Specific Review
-
-- Slide 2: market size and segmentation. Use one clear segmentation axis.
-  Avoid a grab-bag mixing channel, category, and price band.
-- Slide 3: industry growth drivers. Cards should explain demand, consumer,
-  channel, product, or structural mechanisms before any target relevance.
-- Slide 4: value chain and profit pool. Keep the page industry-first; project
-  relevance is secondary.
-- Slide 5: industry barriers and value drivers. Do not make it a target-only
-  moat page.
-- Slide 6: competitive landscape and peer segmentation. Do not design the page
-  only to prove target differentiation.
-- Slide 7: industry trends and future evolution. Avoid blanket "all trends
-  benefit target" or sale-window conclusions without evidence.
-- Slide 8: transaction read-through, project relevance, and evidence
-  boundaries. Frame any evidence boundary as professional judgment, not as a
-  visible unresolved task list.
-
-## QC Disposition
-
-For every quality issue, decide one of:
-
-- accepted with caveat;
-- repair in `banker_page_pack.json`;
-- repair in `research_evidence_db.json`;
-- send a focused research request;
-- mark evidence-limited and stop formal client-ready rendering.
-
-Do not patch derived artifacts or the rendered PPT to hide a content-quality
-problem.
+For a quality issue, choose the honest route: accept with caveat, repair the page pack, repair the evidence DB, send a bounded research request, or mark the run evidence-limited. Do not patch derived renderer artifacts or the PPT to hide a content-quality problem.

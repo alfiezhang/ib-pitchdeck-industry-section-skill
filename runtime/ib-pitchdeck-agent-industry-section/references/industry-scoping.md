@@ -1,34 +1,20 @@
 # Industry Scoping
 
-## Role
+## Purpose
 
-You are the industry boundary specialist. Your job is to decide what industry should be researched for this pitch and what should be treated as parent market, broader market, adjacent theme, channel, supplier, customer, or excluded scope.
+Industry Scoping decides what market the team is actually researching. It should feel like a boundary card prepared at the start of a pitch, not like an industry memo.
 
-The scope pack is a boundary card, not a research memo. Target length is 1-2 screens. It defines the research boundary and reconciliation rules; it does not summarize the industry.
+The card answers:
 
-## Core Questions
-
-- What is the working market for this engagement?
-- What parent market and broader market provide context but should not be confused with the working market?
+- What is the working market?
+- What parent and broader markets provide context?
 - Which categories are core, broad, adjacent, or excluded?
-- Which source or metric definitions must be reconciled later?
-- Is a small boundary-check search needed before formal research?
+- Which data definitions will need reconciliation later?
+- Does any boundary need a small validation search before formal research?
 
-## Outputs
+Keep the output short, normally one or two screens. Scoping does not write market size, growth, share, rankings, valuation, competitive conclusions, transaction conclusions, or page-ready claims.
 
-- `artifacts/industry_scope_pack.json` using the current boundary-card schema
-- `artifacts/industry_boundary_qc.json` may include `boundary_validation_requests` only when the boundary is genuinely uncertain
-- updated boundary rationale after validation evidence arrives, if QC asks for repair
-
-## Boundary Card Rules
-
-- Keep it short. Do not write full paragraphs.
-- Do not fill every possible ambiguity. Only list material boundaries that can affect research scope, metric comparability, or page claims.
-- Do not write market size, growth, share, rankings, competitive landscape, valuation, transaction conclusions, or page-ready claims.
-- Do not write a research plan. `handoff_to_research` tells Research how to respect the boundary; formal search planning happens later.
-- `boundary_validation_needed` may be empty when no material boundary check is needed.
-
-## Artifact Shape
+## Boundary Card Shape
 
 ```json
 {
@@ -74,47 +60,12 @@ The scope pack is a boundary card, not a research memo. Target length is 1-2 scr
 }
 ```
 
-## Length Limits
+## Writing Style
 
-- `working_market`, `parent_market`, and `broader_market`: one line each.
-- `core`, `broad`, and `adjacent`: at most 6 items each.
-- `excluded`: at most 8 items.
-- `must_reconcile`: at most 5 items.
-- `boundary_validation_needed`: at most 5 items.
-- `handoff_to_research.research_scope`: at most 2 sentences.
-- Each list item should be close to 25 Chinese characters or 20 English words.
+Use short phrases, not paragraphs. `working_market`, `parent_market`, and `broader_market` should each be one line. Keep `core`, `broad`, and `adjacent` to the few categories that actually matter; `excluded` should name only scopes likely to cause drift. Use `must_reconcile` for definition or scope issues that would change market size, share, metric comparability, or page claims.
 
-## How To Work
+`boundary_validation_needed` may be empty. Add an item only when a small search would materially affect the research boundary.
 
-1. Start from the user materials and project context.
-2. Draft the working, parent, and broader market definitions.
-3. Classify categories into core, broad, adjacent, and excluded.
-4. List only material reconciliation topics.
-5. Request small boundary-check research only when needed by writing bounded items inside `industry_boundary_qc.boundary_validation_requests`; do not create a separate request-builder artifact.
+## What To Pass On
 
-## Judgment Boundary
-
-You own the industry definition. You do not own full industry research conclusions. Any market numbers, trend findings, competitor rankings, or transaction views encountered during scoping must stay out of `industry_scope_pack.json`.
-
-## Job Packet Use
-
-Use an Industry Scoping job packet when the boundary question is narrow: for example, whether a product belongs in the core market, whether a channel should be treated as market scope, or whether a metric belongs to parent vs core industry.
-
-Return:
-
-- working / parent / broader market treatment;
-- core / broad / adjacent / excluded treatment;
-- material reconciliation needs;
-- boundary checks if needed;
-- blocker if the brief is too ambiguous to define scope.
-
-Do not answer market attractiveness or write page arguments.
-
-## Handoff
-
-Hand off to Research with:
-
-- final working market definition;
-- exclusions and label-required broad/adjacent categories;
-- source/metric reconciliation needs;
-- boundary checks if unresolved.
+Research needs the final working market, the categories that require labels, the exclusions, and the reconciliation rules. If the brief is too ambiguous to define the market, say so and ask for boundary validation rather than filling the card with speculative categories.

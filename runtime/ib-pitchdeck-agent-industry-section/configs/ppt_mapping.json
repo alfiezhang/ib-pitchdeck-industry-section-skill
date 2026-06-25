@@ -123,7 +123,7 @@
     },
     "5": {
       "selected_page_type": "moat_page",
-      "structure_summary": "Three industry barrier / value-driver modules, each explaining why the capability matters and the project implication where source-labeled.",
+      "structure_summary": "Three industry barrier / value-driver modules, each explaining why the capability matters for the pre-mandate transaction framing where source-labeled.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
@@ -189,7 +189,7 @@
       "variants": {
         "trend_page": {
           "variant_key": "07a",
-          "structure_summary": "Three parallel trend cards with evidence and implication.",
+          "structure_summary": "Three parallel trend cards with evidence and industry readthrough.",
           "field_roles": {
             "slide_title": "conclusion_led_page_title",
             "main_takeaway": "page_conclusion",
@@ -259,7 +259,7 @@
     },
     "8": {
       "selected_page_type": "summary_page",
-      "structure_summary": "Synthesis page combining industry attractiveness, transaction relevance, project implications, and evidence boundaries.",
+      "structure_summary": "Synthesis page combining industry attractiveness, transaction relevance, selective project context, and evidence boundaries.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",

@@ -186,7 +186,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
         5: "Use barrier evidence to support defensibility without overclaiming.",
         6: "Compare competitive positions across practical operating dimensions.",
         7: "Use directional trend signals to frame near-term watch points.",
-        8: "Frame transaction relevance with caveated implications and evidence boundaries.",
+        8: "Frame transaction relevance with caveated industry readthrough and evidence boundaries.",
     }
     evidence_roles = {
         1: "thesis_anchor", 2: "supporting_evidence", 3: "supporting_evidence",
@@ -230,7 +230,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                      "copy": "Upstream inputs define cost exposure before operating capabilities take effect.",
                      "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
-                    {"role": "transaction_implication", "target_field": "bottom_right",
+                    {"role": "transaction_relevance", "target_field": "bottom_right",
                      "copy": "Transaction relevance should stay tied to sector economics, not target promotion.",
                      "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
                      "claim_strength": "supported_inference"},
@@ -275,7 +275,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
             if no == 6:
                 visual_design = {"required_capability": "table", "purpose": "Compare competitive dimensions."}
                 compare_table_data = {
-                    "headers": ["Dimension", "Evidence-backed read", "Pitch implication"],
+                    "headers": ["Dimension", "Evidence-backed read", "Pitch relevance"],
                     "rows": [
                         {"label": "Scale", "cells": ["Large enough to matter", "EV-003 supports capability lens", "Frame strategic interest"]},
                         {"label": "Capabilities", "cells": ["Execution matters", "EV-003 supports operating lens", "Assess repeatability"]},
@@ -300,7 +300,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 "why_this_page_matters": f"Slide {no} matters because it converts research into a transaction-relevant page argument.",
                 "selected_page_type": page_types[no],
                 "claim_strength": "supported_inference",
-                "headline": f"Slide {no}: conclusion-led industry view with distinct implication",
+                "headline": f"Slide {no}: conclusion-led industry view with distinct readthrough",
                 "main_message": f"Slide {no} connects evidence to the pitch without repeating the title.",
                 "body_blocks": blocks, "visual_design": visual_design,
                 "chart_data": chart_data, "compare_table_data": compare_table_data,
@@ -362,7 +362,7 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
         "schema_version": "banker_page_pack",
         "section_meta": deck_blueprint.get("section_meta", {}),
         "deck_storyline": (
-            "The section links sector structure, market evidence, competitive dynamics, and selective project implications "
+            "The section links sector structure, market evidence, competitive dynamics, and selective project relevance "
             "into a dense pre-mandate banker view with traceable evidence and page-level caveats."
         ),
         "deliverable_readiness": {
