@@ -96,6 +96,7 @@
           "page_argument",
           "selected_page_type",
           "claim_strength",
+          "allowed_deck_usage",
           "headline",
           "main_message",
           "exhibit",
@@ -125,6 +126,11 @@
           "claim_strength": {
             "type": "string",
             "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "research_required"]
+          },
+          "allowed_deck_usage": {
+            "type": "string",
+            "description": "LLM-authored downstream authorization for this page. Python must not infer this from claim_strength.",
+            "enum": ["headline_allowed", "body_only", "supporting_context", "caveat_only", "not_allowed"]
           },
           "headline": { "type": "string" },
           "main_message": { "type": "string" },

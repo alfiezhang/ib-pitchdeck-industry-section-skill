@@ -106,6 +106,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 "page_argument": slide["page_argument"],
                 "selected_page_type": slide["selected_page_type"],
                 "claim_strength": "supported_inference",
+                "allowed_deck_usage": "headline_allowed",
                 "headline": slide["headline"],
                 "main_message": (
                     f"Page {slide_no} connects sourced evidence, visible data, and industry implications so the page reads as banker judgment instead of a sparse research summary, "
@@ -207,6 +208,7 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
                 "page_argument": "thin",
                 "selected_page_type": "summary_page",
                 "claim_strength": "supported_inference",
+                "allowed_deck_usage": "headline_allowed",
                 "headline": "Thin page",
                 "main_message": "thin",
                 "exhibit": {"exhibit_type": "driver_cards", "data_or_evidence_inputs": ["EV-001"], "visual_structure": "thin"},
@@ -240,6 +242,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
                 "page_argument": "Industry page argument with evidence and implication.",
                 "selected_page_type": "summary_page",
                 "claim_strength": "supported_inference",
+                "allowed_deck_usage": "headline_allowed",
                 "headline": "标的公司具备强交易故事",
                 "main_message": "Industry message.",
                 "exhibit": {
@@ -301,6 +304,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
                 "page_argument": "Industry page argument with evidence and implication.",
                 "selected_page_type": "summary_page",
                 "claim_strength": "supported_inference",
+                "allowed_deck_usage": "headline_allowed",
                 "headline": "Industry structure is the primary page subject",
                 "main_message": "Industry message.",
                 "exhibit": {
@@ -368,6 +372,54 @@ def test_banker_page_pack_leaves_mixed_axis_units_to_llm_qc(
     assert result.returncode == 0, result.stdout + result.stderr
     assert "chart_data mixes units on one chart axis" not in result.stdout
     assert "mixed units" in (SKILL_DIR / "references/qc.md").read_text(encoding="utf-8")
+
+
+def test_banker_page_pack_requires_explicit_allowed_deck_usage(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    del pack["slides"][0]["allowed_deck_usage"]
+    path = tmp_path / "banker_page_pack.json"
+    _write_json(path, pack)
+
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
+
+    assert result.returncode != 0
+    assert "allowed_deck_usage must be one of" in result.stdout
+
+
+def test_compiler_uses_allowed_deck_usage_not_claim_strength(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    pack["slides"][0]["claim_strength"] = "supported_inference"
+    pack["slides"][0]["allowed_deck_usage"] = "body_only"
+    pack_path = tmp_path / "banker_page_pack.json"
+    _write_json(pack_path, pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "compile", "--run-dir", str(tmp_path)],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    contract = json.loads((tmp_path / "page_evidence_contract.json").read_text(encoding="utf-8"))
+    first_slide = contract["slides"][0]
+    assert first_slide["claim_strength"] == "supported_inference"
+    assert first_slide["allowed_deck_usage"] == "body_only"
+    assert "evidence_status" not in first_slide
+    assert first_slide["headline_allowed"] is False
+    assert first_slide["downstream_permission"]["body_copy_allowed"] is True
 
 
 def test_banker_page_pack_validates_and_compiles(

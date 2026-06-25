@@ -35,8 +35,8 @@
       "source_access_path": "file path, internal path, or URL",
       "source_date": "",
       "geography": "",
-      "fact_type": "factual | directional | contextual | comparison_metric | methodology",
-      "confidence": "low | medium | high",
+      "fact_type": "user_provided_context | factual | directional | contextual | comparison_metric | methodology",
+      "confidence": "user_provided_unverified | unreviewed | low | medium | high",
       "scope": "industry-level | target-level | transaction-inference",
       "notes": ""
     }

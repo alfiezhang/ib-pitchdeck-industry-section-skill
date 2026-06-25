@@ -820,18 +820,16 @@ def _normalize_source(
         "source_access_path": _first_text(source.get("source_access_path"), source.get("archive_path"), url),
         "source_date": _text(source.get("source_date")),
         "geography": _first_text(source.get("geography"), meta.get("geography")),
-        "source_reliability": _first_text(source.get("source_reliability"), source.get("reliability"), "reviewed_source"),
-        "reliability": _first_text(source.get("reliability"), source.get("source_reliability"), "reviewed_source"),
-        "confidence": _first_text(source.get("confidence"), "medium"),
+        "source_reliability": _first_text(source.get("source_reliability"), source.get("reliability"), "needs_knowledge_llm_source_reliability"),
+        "reliability": _first_text(source.get("reliability"), source.get("source_reliability"), "needs_knowledge_llm_source_reliability"),
+        "confidence": _first_text(source.get("confidence"), "needs_knowledge_llm_source_confidence"),
         "fact_type": _first_text(source.get("fact_type"), unit.get("issue_area")),
         "scope": _first_text(source.get("scope"), unit.get("research_question")),
         "audit_level": audit_level,
-        "evidence_use_tier": _first_text(source.get("evidence_use_tier"), "core_evidence" if usable_as_evidence else "candidate"),
+        "evidence_use_tier": _first_text(source.get("evidence_use_tier"), "candidate"),
         "claim_use_scope": _first_text(
             source.get("claim_use_scope"),
-            "Use only for source-scoped claims captured in the graph state."
-            if usable_as_evidence
-            else "Research context only; cannot support key numbers, charts, or slide claims unless promoted to EV/MET.",
+            "LLM must review exact claim-use scope before promotion; default source rows are candidate/context only.",
         ),
         "usable_as_evidence": usable_as_evidence,
         "source_url": url,
@@ -882,7 +880,7 @@ def _normalize_research_context(
         "summary": _first_text(context.get("summary"), context.get("note"), context.get("finding"), unit.get("findings_summary")),
         "source_review_ids": linked_sources,
         "search_attempt_ids": [_text(item) for item in _as_list(context.get("search_attempt_ids")) if _text(item)] or attempt_ids,
-        "confidence": _first_text(context.get("confidence"), "medium"),
+        "confidence": _first_text(context.get("confidence"), "unreviewed"),
         "limitations": _first_text(
             context.get("limitations"),
             "Context-only research note; do not use for key figures, charts, or hard claims without EV/MET promotion.",
@@ -1026,7 +1024,7 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
                     "data_period": _text(raw_ev.get("data_period")),
                     "source_locator": _first_text(raw_ev.get("source_locator"), raw_ev.get("locator"), source.get("source_locator")),
                     "raw_excerpt": _first_text(raw_ev.get("raw_excerpt"), raw_ev.get("reviewed_excerpt"), source.get("reviewed_excerpt")),
-                    "reliability": _first_text(raw_ev.get("reliability"), source.get("reliability"), "reviewed_source"),
+                    "reliability": _first_text(raw_ev.get("reliability"), source.get("reliability"), "needs_knowledge_llm_source_reliability"),
                     "confidence": _first_text(raw_ev.get("confidence"), "needs_knowledge_llm_confidence"),
                 }
             )
@@ -1240,6 +1238,9 @@ def _write_archive_index(
                 "evidence_ids": _as_list(source.get("evidence_ids")),
                 "metric_ids": _as_list(source.get("metric_ids")),
                 "audit_level": _text(source.get("audit_level")),
+                "source_reliability": _text(source.get("source_reliability")),
+                "reliability": _text(source.get("reliability")),
+                "confidence": _text(source.get("confidence")),
                 "evidence_use_tier": _text(source.get("evidence_use_tier")),
                 "usable_as_evidence": source.get("usable_as_evidence") is True,
                 "review_status": _text(source.get("review_status")),

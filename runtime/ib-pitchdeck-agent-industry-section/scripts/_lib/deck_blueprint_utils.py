@@ -66,6 +66,8 @@ FIXED_PAGE_ROLES = _load_fixed_page_roles()
 
 VALID_CLAIM_STRENGTHS = set(_generation_list("valid_claim_strengths"))
 
+VALID_ALLOWED_DECK_USAGES = set(_generation_list("valid_allowed_deck_usages"))
+
 PAGE_PRIMARY_SUBJECTS = set(_generation_list("page_primary_subjects"))
 
 METRIC_VISUAL_CAPABILITIES = set(_generation_list("metric_visual_capabilities"))

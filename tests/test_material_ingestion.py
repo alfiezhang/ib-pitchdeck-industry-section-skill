@@ -175,7 +175,7 @@ def test_ingest_materials_end_to_end_from_multiple_sources(tmp_path: Path) -> No
         assert Path(entry["extracted_text_path"]).exists()
         assert entry["extracted_text_path"].startswith(str(tmp_path))
         assert entry["extraction_status"] == "complete"
-        assert isinstance(entry["can_be_used_as_evidence"], bool)
+        assert entry["evidence_authorization_status"] == "not_authorized_intake_only"
         assert entry["extraction_limitations"] == "none"
 
     source_classification_payload = source_classification["materials"]
@@ -185,7 +185,7 @@ def test_ingest_materials_end_to_end_from_multiple_sources(tmp_path: Path) -> No
 
     assert {m["material_id"] for m in materials} == {e["material_id"] for e in extract_entries}
 
-    previews = [entry.get("evidence_snapshot", "") for entry in extract_entries]
+    previews = [entry.get("raw_text_preview", "") for entry in extract_entries]
     assert any("PDF extraction smoke" in value for value in previews)
     assert any("PPTX extraction smoke" in value for value in previews)
     assert any("Industry" in value for value in previews)
@@ -225,3 +225,7 @@ def test_ingest_materials_start_brief_runs_from_arbitrary_cwd_without_pythonpath
     assert (run_dir / "input_card.json").exists()
     assert (run_dir / "artifacts" / "material_manifest.json").exists()
     assert (run_dir / "artifacts" / "material_extracts.json").exists()
+    input_card = json.loads((run_dir / "input_card.json").read_text(encoding="utf-8"))
+    source_material = input_card["source_materials"][0]
+    assert source_material["fact_type"] == "user_provided_context"
+    assert source_material["confidence"] == "user_provided_unverified"

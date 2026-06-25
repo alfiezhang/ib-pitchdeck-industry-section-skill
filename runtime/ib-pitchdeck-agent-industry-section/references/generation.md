@@ -32,7 +32,7 @@ Treat those files as deterministic renderer artifacts. Do not hand-author them i
 
 1. Read `artifacts/research_evidence_db.json`, `artifacts/industry_scope_pack.json`, and `template_registry.json`.
 2. Write one page per `configs/slide_registry.json` slide role in `banker_page_pack.json`.
-3. Each page must have `page_primary_subject`, `page_question`, banker judgment, page argument, headline, main message, exhibit, body blocks, evidence IDs, metric IDs when available, and source note. `page_question` is internal editorial scaffolding; never write it as a client-facing label, visible question, or next-step prompt.
+3. Each page must have `page_primary_subject`, `page_question`, banker judgment, page argument, `claim_strength`, explicit `allowed_deck_usage`, headline, main message, exhibit, body blocks, evidence IDs, metric IDs when available, and source note. `page_question` is internal editorial scaffolding; never write it as a client-facing label, visible question, or next-step prompt.
 4. Use the evidence DB as the source of truth for EV/MET IDs and source limitations. Search snippets and unverified leads are not evidence.
 5. Important data needs audit-grade fields in the evidence DB; normal prose claims need standard source IDs and caveats.
 6. Fill the page like a banker page, not a memo stub: each body block should carry an industry mechanism, proof point, comparable, transaction angle, or quantified limitation. Avoid short generic labels.
@@ -45,6 +45,8 @@ Treat those files as deterministic renderer artifacts. Do not hand-author them i
 13. Treat management-provided target metrics as unaudited project context unless independently verified. Do not use them as audited/chart-ready MET rows or mix them into industry charts.
 14. If a claim cannot be supported, downgrade it to a caveated industry judgment or internal evidence-boundary note. If resolving the gap would change page permission or exhibit readiness, ask Reasoning to author `artifacts/research_request_queue.json`; do not display research requests as client-facing page content.
 15. If the evidence DB is thin, do not make a sparse eight-page client deck. Mark `deliverable_readiness.evidence_limited_pitch_outline` or `research_first_required`, write the minimum useful evidence-limited handoff, and route the missing evidence back to Research/Knowledge.
+
+Set `allowed_deck_usage` yourself for every page: `headline_allowed`, `body_only`, `supporting_context`, `caveat_only`, or `not_allowed`. The compiler only expands this field into renderer permissions; it must not infer permission from `claim_strength`.
 
 ## Compile
 

@@ -394,7 +394,7 @@ def _build_material_entry(
         "material_kind": infer_material_kind(source, source_type),
         "extraction_status": "pending",
         "extraction_limitations": "not_processed",
-        "can_be_used_as_evidence": False,
+        "evidence_authorization_status": "not_authorized_intake_only",
     }
     if brief_excerpt:
         material["brief_excerpt"] = clean_text_block(brief_excerpt)
@@ -459,7 +459,7 @@ def _extract_one(material: dict[str, Any], material_texts_dir: Path) -> dict[str
             "PPT template registered for Template Layer analysis/rendering; "
             "not treated as project or industry evidence."
         )
-        material["can_be_used_as_evidence"] = False
+        material["evidence_authorization_status"] = "not_authorized_template_only"
         material["extracted_text_preview"] = ""
         return material
 
@@ -503,7 +503,7 @@ def _extract_one(material: dict[str, Any], material_texts_dir: Path) -> dict[str
     material["extraction_limitations"] = "; ".join(limitations) if limitations else "none"
     # Raw text capture is not evidence review. A role LLM must extract facts,
     # metrics, quotes, unknowns, and use limits before downstream evidence use.
-    material["can_be_used_as_evidence"] = False
+    material["evidence_authorization_status"] = "not_authorized_intake_only"
     material["extracted_text_preview"] = clean_text_block(extracted_text)[:320]
     return material
 
@@ -613,7 +613,7 @@ def ingest_materials(
                     if extracted["raw_text_available"]
                     else "blocked_no_readable_text"
                 ),
-                "can_be_used_as_evidence": False,
+                "evidence_authorization_status": "not_authorized_intake_only",
                 "extracted_facts": [],
                 "extracted_metrics": [],
                 "quoted_excerpts": [],
@@ -628,7 +628,7 @@ def ingest_materials(
                         else extracted["extraction_limitations"]
                     )
                 ),
-                "evidence_snapshot": extracted["extracted_text_preview"],
+                "raw_text_preview": extracted["extracted_text_preview"],
             }
         )
 
@@ -702,7 +702,7 @@ def _mark_inline_brief_transcribed(extracts: dict[str, Any]) -> dict[str, Any]:
             continue
         if item.get("file_path_or_url") == "inline_user_text":
             item["llm_extraction_status"] = "project_brief_transcribed_to_input_card"
-            item["can_be_used_as_evidence"] = False
+            item["evidence_authorization_status"] = "not_authorized_project_context_only"
             item["claim_use_limitations"] = (
                 "Project-specific brief transcribed into input_card.json. "
                 "Do not use as external industry evidence."
@@ -773,8 +773,8 @@ def _build_input_card(
                 "source_access_path": "inline_user_text",
                 "source_date": "",
                 "geography": geography,
-                "fact_type": "factual",
-                "confidence": "high",
+                "fact_type": "user_provided_context",
+                "confidence": "user_provided_unverified",
                 "scope": "target-level",
                 "notes": "Exact user-provided brief saved in materials/user_brief.md and artifacts/material_texts/MAT-001.txt.",
             }

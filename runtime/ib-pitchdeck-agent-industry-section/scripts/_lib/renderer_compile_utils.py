@@ -117,32 +117,12 @@ def _metric_ids_from_visible_claims(slide: dict[str, Any]) -> list[str]:
     return values
 
 
-def _evidence_status(claim_strength: str) -> str:
-    if claim_strength in {"hard_fact", "supported_inference"}:
-        return "supported"
-    if claim_strength in {"directional_inference", "management_claim"}:
-        return "thin"
-    if claim_strength == "hypothesis":
-        return "caveat_only"
-    return "not_researched"
-
-
-def _allowed_usage(claim_strength: str) -> str:
-    if claim_strength in {"hard_fact", "supported_inference"}:
-        return "headline_allowed"
-    if claim_strength in {"directional_inference", "management_claim"}:
-        return "body_only"
-    if claim_strength == "hypothesis":
-        return "caveat_only"
-    return "not_allowed"
-
-
 def _permission(usage: str) -> dict[str, bool]:
     return {
         "headline_allowed": usage == "headline_allowed",
         "main_message_allowed": usage == "headline_allowed",
         "chart_allowed": usage in {"headline_allowed", "body_only"},
-        "body_copy_allowed": usage in {"headline_allowed", "body_only", "supporting_context", "context_only", "caveat_only"},
+        "body_copy_allowed": usage in {"headline_allowed", "body_only", "supporting_context", "caveat_only"},
     }
 
 
@@ -178,6 +158,7 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
                 "why_this_page_matters": project_relevance_note,
                 "selected_page_type": _text(slide.get("selected_page_type")),
                 "claim_strength": _text(slide.get("claim_strength")),
+                "allowed_deck_usage": _text(slide.get("allowed_deck_usage")),
                 "headline": _text(slide.get("headline")),
                 "main_message": _text(slide.get("main_message")),
                 "body_blocks": blocks,
@@ -227,7 +208,7 @@ def _evidence_ids_for_slide(slide: dict[str, Any]) -> list[str]:
     )
 
 
-def _proof_standard(claim_strength: str, usage: str) -> str:
+def _proof_standard(usage: str) -> str:
     if usage == "headline_allowed":
         return "Headline, main message, body copy, and material visuals may use this page's EV/MET IDs."
     if usage == "body_only":
@@ -245,7 +226,7 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
         slide_no = int(slide.get("slide_no") or len(contract_slides) + 1)
         banker_page_id = banker_page_id_for_slide(slide) or f"BP-{slide_no:03d}"
         claim_strength = _text(slide.get("claim_strength"))
-        usage = _allowed_usage(claim_strength)
+        usage = _text(slide.get("allowed_deck_usage")) or "not_allowed"
         permission = _permission(usage)
         proof_points = proof_points_from_blueprint_slide(slide)
         body_evidence_ids = unique(
@@ -276,11 +257,11 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
                 "page_role": _text(slide.get("fixed_page_role") or slide.get("page_role")) or FIXED_PAGE_ROLES.get(slide_no, ""),
                 "page_question": _text(slide.get("page_question")),
                 "headline_claim": _text(slide.get("headline")),
-                "proof_standard": _proof_standard(claim_strength, usage),
+                "proof_standard": _proof_standard(usage),
+                "allowed_deck_usage": usage,
                 "headline_allowed": permission["headline_allowed"],
                 "main_message_allowed": permission["main_message_allowed"],
                 "downstream_permission": permission,
-                "evidence_status": _evidence_status(claim_strength),
                 "chart_allowed": permission["chart_allowed"],
                 "visual_metric_allowed": permission["chart_allowed"] and bool(visual_metric_ids),
                 "chart_metric_ids": chart_metric_ids,

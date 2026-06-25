@@ -36,6 +36,7 @@ for path in [
 from deck_blueprint_utils import (
     FIXED_PAGE_ROLES,
     PAGE_PRIMARY_SUBJECTS,
+    VALID_ALLOWED_DECK_USAGES,
     VALID_CLAIM_STRENGTHS,
     as_list,
     banker_page_id_for_slide,
@@ -419,6 +420,8 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
             errors.append(f"slide {slide_no}: banker_page_id must be {expected_id}")
         if text(slide.get("claim_strength")) not in VALID_CLAIM_STRENGTHS:
             errors.append(f"slide {slide_no}: invalid claim_strength")
+        if text(slide.get("allowed_deck_usage")) not in VALID_ALLOWED_DECK_USAGES:
+            errors.append(f"slide {slide_no}: allowed_deck_usage must be one of {sorted(VALID_ALLOWED_DECK_USAGES)}")
         subject = text(slide.get("page_primary_subject"))
         if subject not in PAGE_PRIMARY_SUBJECTS:
             errors.append(f"slide {slide_no}: page_primary_subject must be one of {sorted(PAGE_PRIMARY_SUBJECTS)}")
@@ -587,8 +590,6 @@ def validate_filled_ppt(path: Path, run_dir: Path, errors: list[str], warnings: 
         bad = sorted(char for char in BAD_PPT_GLYPHS if char in slide_text)
         if bad:
             errors.append(f"slide {idx}: PPT text contains missing-glyph/tofu characters: {' '.join(bad)}")
-        if idx <= 8 and len(slide_text.strip()) < 260:
-            warnings.append(f"slide {idx}: rendered PPT text appears sparse; inspect page density visually")
     postprocess_log = run_dir / "artifacts/postprocess_ppt_visuals.log.json"
     if postprocess_log.exists():
         log = _json(postprocess_log, [])

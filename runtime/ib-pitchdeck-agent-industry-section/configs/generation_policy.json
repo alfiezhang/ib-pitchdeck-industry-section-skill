@@ -9,6 +9,13 @@
     "hypothesis",
     "research_required"
   ],
+  "valid_allowed_deck_usages": [
+    "headline_allowed",
+    "body_only",
+    "supporting_context",
+    "caveat_only",
+    "not_allowed"
+  ],
   "page_primary_subjects": [
     "industry",
     "industry_with_project_relevance",

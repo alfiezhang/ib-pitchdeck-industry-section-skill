@@ -36,6 +36,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 
 3. Build the current-project knowledge base.
    - Extract target facts, transaction context, source provenance, metrics, unknowns, conflicts, and access level only to support scope, research prioritization, and selective project relevance.
+   - Material-intake raw text previews are capture records, not evidence authorization.
    - Keep user-provided claims separate from externally verified evidence.
    - Do not search from the knowledge layer. New public evidence enters through the research layer, then returns to knowledge.
 
@@ -61,6 +62,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - After Knowledge validates `artifacts/research_evidence_db.json`, write `banker_page_pack.json` as the single LLM-authored page artifact.
    - This pack is the only default LLM-authored page-judgment artifact.
    - Each page must be industry-first: the headline, main message, banker judgment, page argument, exhibit, and body blocks should primarily explain market structure, growth, demand, economics, competition, or trends.
+   - Each page must explicitly set `allowed_deck_usage`; Python must not infer headline/chart/body permission from `claim_strength`.
    - Each page should show `page_primary_subject`, `page_question`, banker judgment, page argument, substantive headline/main message, exhibit, multiple body blocks, traceable EV/MET bindings where available, and source note.
    - Use `project_relevance_note` only as a short bridge from an industry finding to the pre-mandate discussion. It is optional on pages where the industry point is self-evident, and it must not become a target profile paragraph.
    - Pages should look banker-dense, not empty: use specific industry mechanisms, quantitative evidence, competitive comparisons, profit-pool logic, transaction framing angles, and proof points. Prefer metric-supported pages and chart/table-grade exhibits when evidence supports them; use evidence-boundary exhibits when it does not.

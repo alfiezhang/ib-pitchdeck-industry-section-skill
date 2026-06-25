@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 import hashlib
 from typing import Any
@@ -141,24 +140,6 @@ def file_fingerprint(path: Path) -> str:
         return digest.hexdigest()
     except Exception:
         return ""
-
-
-@dataclass
-class ExtractionResult:
-    text: str
-    source_locator: str
-    status: str
-    limitations: list[str]
-    can_be_used_as_evidence: bool
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "text": self.text,
-            "source_locator": self.source_locator,
-            "extraction_status": self.status,
-            "extraction_limitations": "; ".join(self.limitations),
-            "can_be_used_as_evidence": self.can_be_used_as_evidence,
-        }
 
 
 def read_text_file(path: str | Path) -> str:

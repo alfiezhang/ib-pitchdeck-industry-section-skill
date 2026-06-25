@@ -216,6 +216,8 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     archive_entry = archive_index["entries"][0]
     context_archive_entry = archive_index["entries"][1]
     assert archive_entry["archive_status"] == "manual_verified_excerpt"
+    assert archive_entry["source_reliability"] == "needs_knowledge_llm_source_reliability"
+    assert archive_entry["confidence"] == "needs_knowledge_llm_source_confidence"
     assert archive_entry["raw_archive_path"].startswith("artifacts/source_archive/raw/")
     assert (run_dir / archive_entry["raw_archive_path"]).exists()
     assert context_archive_entry["archive_status"] == "research_context"
@@ -232,6 +234,8 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     state_evidence = first_unit["evidence"][0]
     state_metric, _ = normalize_metric_row(first_unit["metrics"][0])
     source = research_db["source_materials"][0]
+    assert source["source_reliability"] == "needs_knowledge_llm_source_reliability"
+    assert source["confidence"] == "needs_knowledge_llm_source_confidence"
     research_db["evidence_ledger"] = [
         {
             **state_evidence,
@@ -242,7 +246,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
             "source_type": source["source_type"],
             "source_locator": source["source_locator"],
             "raw_excerpt": source["reviewed_excerpt"],
-            "reliability": source.get("source_reliability") or "reviewed_source",
+            "reliability": "reviewed_source",
             "confidence": "high",
         }
     ]
@@ -296,6 +300,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     assert metric["audit_level"] == "audited_metric"
     assert metric["source_locator"] == "Section 2, market-size table and methodology paragraph"
     assert research_db["research_context"][0]["audit_level"] == "research_context"
+    assert research_db["research_context"][0]["confidence"] == "unreviewed"
 
     (run_dir / "industry_research_pack.md").write_text(export_research_pack_from_db(research_db), encoding="utf-8")
     pack = (run_dir / "industry_research_pack.md").read_text(encoding="utf-8")
