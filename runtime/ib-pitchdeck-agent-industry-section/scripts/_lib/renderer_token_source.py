@@ -25,9 +25,58 @@ replacement dictionary directly from `renderer_spec.json`.
 import copy
 import json
 from pathlib import Path
+from typing import Any
 
 from json_utils import load_json_file
-from slide_registry import controlled_layout_variants, load_slide_registry, variant_page_types
+
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+DEFAULT_REGISTRY_PATH = ROOT_DIR / "configs" / "slide_registry.json"
+
+
+def load_slide_registry(path: Path | None = None) -> dict[str, Any]:
+    registry_path = path or DEFAULT_REGISTRY_PATH
+    registry = load_json_file(registry_path)
+    if not isinstance(registry, dict) or not isinstance(registry.get("slides"), list):
+        raise ValueError(f"Invalid slide registry: {registry_path}")
+    return registry
+
+
+def slides_by_no(registry: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    result: dict[int, dict[str, Any]] = {}
+    for slide in registry.get("slides") or []:
+        slide_no = int(slide.get("slide_no") or 0)
+        if not slide_no:
+            raise ValueError("slide_registry contains a slide without slide_no")
+        if slide_no in result:
+            raise ValueError(f"slide_registry contains duplicate slide_no {slide_no}")
+        variants = slide.get("variants")
+        if not isinstance(variants, dict) or not variants:
+            raise ValueError(f"slide_registry slide {slide_no} must define variants")
+        result[slide_no] = slide
+    return result
+
+
+def variant_page_types(registry: dict[str, Any]) -> dict[int, tuple[str, set[str]]]:
+    variants: dict[int, tuple[str, set[str]]] = {}
+    for slide_no, slide in slides_by_no(registry).items():
+        if slide.get("selection_mode") != "controlled_choice":
+            continue
+        binding_key = str(slide.get("binding_key") or "")
+        if not binding_key:
+            raise ValueError(f"slide_registry slide {slide_no} is controlled_choice but has no binding_key")
+        variants[slide_no] = (binding_key, set((slide.get("variants") or {}).keys()))
+    return variants
+
+
+def controlled_layout_variants(registry: dict[str, Any]) -> dict[str, list[str]]:
+    variants: dict[str, list[str]] = {}
+    for slide in registry.get("slides") or []:
+        if slide.get("selection_mode") != "controlled_choice":
+            continue
+        slide_key = str(slide.get("slide_key") or "")
+        variants[slide_key] = list((slide.get("variants") or {}).keys())
+    return variants
 
 
 SLIDE_REGISTRY = load_slide_registry()

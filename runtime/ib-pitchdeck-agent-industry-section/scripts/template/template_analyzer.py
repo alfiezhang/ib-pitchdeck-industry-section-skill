@@ -29,6 +29,7 @@ for _ib_path in reversed(_IB_IMPORT_PATHS):
 
 import argparse
 import json
+import math
 import re
 from collections import Counter
 from datetime import datetime, timezone
@@ -38,7 +39,6 @@ from typing import Any
 from deck_blueprint_utils import FIXED_PAGE_ROLES
 from json_utils import load_json_file
 from template_contract_utils import active_body_fields
-from validation_common import display_units, estimate_lines, layout_rules_for
 
 try:
     from pptx import Presentation
@@ -48,6 +48,51 @@ except Exception:
 
 ROOT = _IB_RUNTIME_ROOT
 TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
+SPACE_UNIT = 0.3
+PUNCTUATION_UNIT = 0.35
+ASCII_UNIT = 0.55
+FULLWIDTH_PUNCTUATION_UNIT = 0.55
+DEFAULT_CHAR_UNIT = 1.0
+
+
+def display_units(text: str) -> float:
+    """Approximate rendered line width in CJK-character units."""
+    units = 0.0
+    for ch in re.sub(r"\[\[/?(?:b|hl)\]\]", "", text or ""):
+        code = ord(ch)
+        if ch in "\n\r":
+            continue
+        if ch.isspace():
+            units += SPACE_UNIT
+        elif ch in ",.;:!?()[]{}<>/\\|-_+=~'\"":
+            units += PUNCTUATION_UNIT
+        elif code < 128:
+            units += ASCII_UNIT
+        elif 0xFF61 <= code <= 0xFF9F:
+            units += FULLWIDTH_PUNCTUATION_UNIT
+        else:
+            units += DEFAULT_CHAR_UNIT
+    return units
+
+
+def estimate_lines(text: str, max_line_units: float) -> int:
+    if not text or max_line_units <= 0:
+        return 0
+    return sum(
+        max(1, math.ceil(display_units(segment) / max_line_units))
+        for segment in re.split(r"\r?\n", text)
+    )
+
+
+def layout_rules_for(slide_no: int, page_type: str, layout_budget: dict[str, Any] | None) -> dict[str, Any]:
+    if not layout_budget:
+        return {}
+    slide_key = f"{slide_no}:{page_type}"
+    slide_rules = layout_budget.get("slide_budgets", {}).get(slide_key)
+    if isinstance(slide_rules, dict):
+        return slide_rules
+    page_rules = layout_budget.get("page_type_budgets", {}).get(page_type)
+    return page_rules if isinstance(page_rules, dict) else {}
 
 
 def _profile_path(path: Path | str) -> str:

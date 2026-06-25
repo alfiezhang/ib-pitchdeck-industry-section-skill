@@ -34,6 +34,7 @@ if str(QC_DIR) not in sys.path:
     sys.path.insert(0, str(QC_DIR))
 
 from renderer_compile_utils import compile_banker_page_pack
+from renderer_token_source import build_token_source
 from validate_artifact import ARTIFACT_PATHS, VALIDATION_OUTPUTS, validate_artifact as run_artifact_validation
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -75,6 +76,27 @@ CLEAN_PPT = "industry_section_filled_clean.pptx"
 FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
 TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
 PYTHON_COMMAND_TEMPLATE = "$PYTHON_CMD"
+REPLACEMENT_TOP_LEVEL_FIELDS = {
+    "selected_page_type",
+    "slide_title",
+    "main_takeaway",
+    "chart_title",
+    "source_footer",
+    "speaker_note",
+}
+BULLET_PREFIX = "• "
+REQUIRED_IMPORTS = [
+    {"module": "pptx", "package": "python-pptx"},
+    {"module": "lxml.etree", "package": "lxml"},
+]
+SEARCH_MODULE_GROUPS = {
+    "tavily": ["tavily"],
+    "duckduckgo": ["ddgs", "duckduckgo_search"],
+    "searxng": [],
+}
+SEARXNG_ENV_VARS = ("SEARXNG_BASE_URL", "SEARXNG_URL", "SEARXNG_ENDPOINT")
+PDF_EXTRACTION_MODULES = {"pdfplumber": "pdfplumber", "pypdf": "pypdf"}
+PDF_EXTRACTION_COMMANDS = ("pdftotext",)
 MAIN_STATUS_PATH = [
     "input_card",
     "material_extracts",
@@ -336,6 +358,152 @@ def _write_template_token_report(template_path: Path, ppt_mapping_path: Path, ou
         raise PipelineError("template tokens and ppt_mapping.json are inconsistent")
 
 
+def should_prefix_bullet(field_name: str) -> bool:
+    lowered = field_name.lower()
+    if lowered in REPLACEMENT_TOP_LEVEL_FIELDS:
+        return False
+    if any(key in lowered for key in ("table_", "matrix_label", "matrix_title", "chart_", "source")):
+        return False
+    return True
+
+
+def ensure_bullet_prefix(value: str, field_name: str) -> str:
+    text_value = value.strip()
+    if not text_value or not should_prefix_bullet(field_name):
+        return value
+    if text_value.startswith(("•", "-", "–", "—")):
+        return text_value
+    return BULLET_PREFIX + text_value
+
+
+def get_slide_lookup(token_source: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    lookup: dict[int, dict[str, Any]] = {}
+    for slide in token_source.get("slides", []):
+        if not isinstance(slide, dict):
+            continue
+        slide_no = slide.get("slide_no")
+        if slide_no is not None:
+            lookup[int(slide_no)] = slide
+    return lookup
+
+
+def resolve_replacement_field(slide: dict[str, Any] | None, field_name: str) -> Any:
+    if not slide:
+        return ""
+    if field_name in REPLACEMENT_TOP_LEVEL_FIELDS:
+        return slide.get(field_name, "")
+    content = slide.get("content") if isinstance(slide.get("content"), dict) else {}
+    return content.get(field_name, "")
+
+
+def stringify_replacement_value(value: Any) -> str:
+    if isinstance(value, list):
+        return "; ".join(str(item) for item in value if item not in (None, ""))
+    if isinstance(value, dict):
+        return "; ".join(
+            f"{key}: {item}" for key, item in value.items() if item not in (None, "", [], {})
+        )
+    if value is None:
+        return ""
+    return str(value)
+
+
+def determine_selected_page_type(slide: dict[str, Any] | None) -> str:
+    if slide and slide.get("selected_page_type"):
+        return str(slide["selected_page_type"])
+    return ""
+
+
+def add_tokens_for_variant(
+    replacements: dict[str, str],
+    tokens: list[dict[str, Any]],
+    slide: dict[str, Any] | None,
+    keep_unmapped_empty: bool,
+    *,
+    force_include: bool = False,
+) -> None:
+    for token in tokens:
+        placeholder = str(token["placeholder"])
+        field_name = str(token["field_name"])
+        value = stringify_replacement_value(resolve_replacement_field(slide, field_name))
+        value = ensure_bullet_prefix(value, field_name)
+        if force_include or value or keep_unmapped_empty:
+            replacements[placeholder] = value
+
+
+def build_replacement_dict(
+    token_source: dict[str, Any],
+    ppt_mapping: dict[str, Any],
+    keep_unmapped_empty: bool,
+    *,
+    renderer_spec_path: Path,
+    ppt_mapping_path: Path,
+) -> dict[str, str]:
+    slide_lookup = get_slide_lookup(token_source)
+    replacements: dict[str, str] = {}
+
+    for mapping_slide in ppt_mapping.get("slides", []):
+        slide_no = int(mapping_slide["slide_no"])
+        slide = slide_lookup.get(slide_no)
+
+        if "tokens" in mapping_slide:
+            add_tokens_for_variant(
+                replacements,
+                mapping_slide["tokens"],
+                slide,
+                keep_unmapped_empty,
+                force_include=True,
+            )
+            continue
+
+        controlled_variants = mapping_slide.get("controlled_variants", {})
+        selected_page_type = determine_selected_page_type(slide)
+
+        if controlled_variants and not selected_page_type:
+            raise ValueError(
+                f"Missing selected_page_type for slide_no={slide_no}, slide_key={mapping_slide.get('slide_key', '')}. "
+                f"Expected one of: {', '.join(controlled_variants.keys())}. "
+                f"Checked renderer_spec={renderer_spec_path}."
+            )
+        if selected_page_type and selected_page_type not in controlled_variants:
+            allowed = ", ".join(controlled_variants.keys())
+            raise ValueError(
+                f"Invalid selected_page_type in slide_no={slide_no}, slide_key={mapping_slide.get('slide_key', '')}. "
+                f"Found '{selected_page_type}' in renderer-spec-derived token source={renderer_spec_path}. "
+                f"Allowed values: {allowed}. Mapping file: {ppt_mapping_path}."
+            )
+
+        for page_type, variant in controlled_variants.items():
+            is_active = page_type == selected_page_type
+            if is_active:
+                add_tokens_for_variant(
+                    replacements,
+                    variant.get("tokens", []),
+                    slide,
+                    keep_unmapped_empty,
+                    force_include=True,
+                )
+            else:
+                for token in variant.get("tokens", []):
+                    replacements[str(token["placeholder"])] = ""
+
+    return replacements
+
+
+def build_token_source_from_renderer_spec(renderer_spec: dict[str, Any]) -> dict[str, Any]:
+    result = build_token_source(renderer_spec)
+    warnings = result.get("warnings") or []
+    blocking = [
+        warning for warning in warnings
+        if "missing active body_copy fields" in warning
+        or "empty active body_copy fields" in warning
+        or "extra body_copy fields ignored" in warning
+    ]
+    if blocking:
+        raise ValueError("renderer_spec cannot be converted into token source: " + "; ".join(blocking))
+    return result["token_source"]
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -399,20 +567,128 @@ def _preflight(run_dir: Path) -> None:
         )
 
 
+def _python_import_check(python_cmd: str, module_name: str) -> dict[str, Any]:
+    code = (
+        "import importlib, json\n"
+        f"module_name = {module_name!r}\n"
+        "try:\n"
+        "    module = importlib.import_module(module_name)\n"
+        "    print(json.dumps({'module': module_name, 'available': True, 'version': str(getattr(module, '__version__', '')), 'error': ''}))\n"
+        "except Exception as exc:\n"
+        "    print(json.dumps({'module': module_name, 'available': False, 'version': '', 'error': type(exc).__name__ + ': ' + str(exc)}))\n"
+    )
+    completed = subprocess.run([str(python_cmd), "-c", code], cwd=str(ROOT_DIR), text=True, capture_output=True, check=False)
+    try:
+        payload = json.loads(completed.stdout or "{}")
+    except JSONDecodeError:
+        payload = {"module": module_name, "available": False, "version": "", "error": completed.stderr.strip() or completed.stdout.strip()}
+    if completed.returncode != 0 and not payload.get("error"):
+        payload["error"] = completed.stderr.strip() or f"{python_cmd} returned {completed.returncode}"
+    return payload
+
+
+def _searxng_config() -> tuple[bool, str]:
+    for env_var in SEARXNG_ENV_VARS:
+        value = str(os.environ.get(env_var, "")).strip()
+        if value:
+            return True, value
+    registry = _json(ROOT_DIR / "configs" / "source_registry.json")
+    connectors = registry.get("search_connectors") if isinstance(registry.get("search_connectors"), dict) else {}
+    searxng = connectors.get("searxng") if isinstance(connectors, dict) else {}
+    configured_url = str(searxng.get("default_url") or "").strip() if isinstance(searxng, dict) else ""
+    return bool(configured_url), configured_url
+
+
+def _runtime_dependency_payload(python_cmd: str) -> tuple[dict[str, Any], list[str]]:
+    required_checks: dict[str, Any] = {}
+    missing_required: list[str] = []
+    for item in REQUIRED_IMPORTS:
+        result = _python_import_check(python_cmd, item["module"])
+        required_checks[item["package"]] = result
+        if not result.get("available"):
+            missing_required.append(item["package"])
+
+    search_providers: dict[str, bool] = {}
+    search_provider_details: dict[str, Any] = {}
+    searxng_configured, searxng_url = _searxng_config()
+    for provider, module_names in SEARCH_MODULE_GROUPS.items():
+        checks = [_python_import_check(python_cmd, module_name) for module_name in module_names]
+        search_provider_details[provider] = checks
+        search_providers[provider] = any(item.get("available") for item in checks)
+    search_provider_details["searxng"] = {
+        "configured": searxng_configured,
+        "url": searxng_url,
+        "module_checks": [],
+        "env_ready": searxng_configured,
+    }
+    search_providers["searxng"] = searxng_configured
+
+    pdf_module_checks = {
+        name: _python_import_check(python_cmd, module_name)
+        for name, module_name in PDF_EXTRACTION_MODULES.items()
+    }
+    pdf_command_checks = {
+        name: {"command": name, "available": bool(shutil.which(name)), "path": shutil.which(name) or ""}
+        for name in PDF_EXTRACTION_COMMANDS
+    }
+    has_pdf_extraction = any(item.get("available") for item in pdf_module_checks.values()) or any(
+        item.get("available") for item in pdf_command_checks.values()
+    )
+    has_search_provider = any(search_providers.values())
+    is_ready_for_ppt_pipeline = not missing_required
+    payload = {
+        "python": python_cmd,
+        "required": required_checks,
+        "search_providers": search_providers,
+        "search_provider_details": search_provider_details,
+        "pdf_extraction": {
+            "modules": pdf_module_checks,
+            "commands": pdf_command_checks,
+        },
+        "has_pdf_extraction": has_pdf_extraction,
+        "manual_source_mode_supported": True,
+        "manual_source_mode_is_fallback": False,
+        "paid_search_optional": True,
+        "paid_search_available": search_providers.get("tavily", False) or search_providers.get("duckduckgo", False),
+        "is_ready_for_ppt_pipeline": is_ready_for_ppt_pipeline,
+        "is_ready_for_e2e_research": is_ready_for_ppt_pipeline and has_search_provider and has_pdf_extraction,
+        "has_search_provider": has_search_provider,
+        "has_fallback_search": has_search_provider,
+    }
+    return payload, missing_required
+
+
+def _runtime_readiness_stderr(payload: dict[str, Any], missing_required: list[str]) -> str:
+    lines: list[str] = []
+    if missing_required:
+        lines.append("ERROR: Required import(s) failed: " + ", ".join(missing_required))
+    if not payload.get("has_search_provider"):
+        lines.append(
+            "ERROR: No configured web-search provider is available for formal E2E research. "
+            "Manual source intake remains available for user-provided URLs/files, but it is not a substitute for required public-search execution."
+        )
+        search_providers = payload.get("search_providers") if isinstance(payload.get("search_providers"), dict) else {}
+        if not search_providers.get("searxng"):
+            lines.append("Set SEARXNG_BASE_URL or source_registry search_connectors.searxng.default_url to enable formal search execution.")
+    if not payload.get("has_pdf_extraction"):
+        lines.append(
+            "ERROR: No PDF extraction capability found. Install pdfplumber or pypdf, or provide pdftotext, "
+            "before relying on public filings/prospectuses/annual reports in formal E2E research."
+        )
+    return "\n".join(lines)
+
+
 def _check_runtime_readiness(run_dir: Path, python_cmd: str, *, strict: bool = False) -> bool:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
-    check_script = _internal_script("bootstrap_runtime.py")
-    cmd = [str(python_cmd), str(check_script), "check"]
-    printable = " ".join(cmd)
-    print(f"[pipeline] {printable}")
-    completed = subprocess.run(cmd, cwd=str(ROOT_DIR), text=True, capture_output=True, check=False)
-    (artifacts / "runtime_dependencies.json").write_text(completed.stdout or "{}\n", encoding="utf-8")
-    if completed.stderr:
-        (artifacts / "runtime_dependencies.stderr.txt").write_text(completed.stderr, encoding="utf-8")
+    payload, missing_required = _runtime_dependency_payload(str(python_cmd))
+    stderr = _runtime_readiness_stderr(payload, missing_required)
+    (artifacts / "runtime_dependencies.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if stderr:
+        (artifacts / "runtime_dependencies.stderr.txt").write_text(stderr + "\n", encoding="utf-8")
     else:
         (artifacts / "runtime_dependencies.stderr.txt").unlink(missing_ok=True)
-    if completed.returncode != 0:
+    if not payload.get("is_ready_for_e2e_research"):
         message = (
             "runtime readiness diagnostics found missing formal E2E research capabilities. "
             f"See {artifacts / 'runtime_dependencies.json'} and {artifacts / 'runtime_dependencies.stderr.txt'}."
@@ -673,18 +949,14 @@ def render(
     try:
         validate_pre_ppt(run_dir, python_cmd, template_path=template_path)
         _write_template_token_report(template_path, PPT_MAPPING, artifacts / "template_token_check.json")
-        _run(
-            [
-                python_cmd,
-                _internal_script("output/generate_replacement_dict.py"),
-                "--renderer-spec",
-                run_dir / "renderer_spec.json",
-                "--ppt-mapping",
-                PPT_MAPPING,
-                "--output",
-                run_dir / "replacement_dict.json",
-            ]
+        replacements = build_replacement_dict(
+            build_token_source_from_renderer_spec(_json(run_dir / "renderer_spec.json")),
+            _json(PPT_MAPPING),
+            False,
+            renderer_spec_path=run_dir / "renderer_spec.json",
+            ppt_mapping_path=PPT_MAPPING,
         )
+        _write_json(run_dir / "replacement_dict.json", replacements)
         _validate_artifact(run_dir, python_cmd, "replacement_dict", artifacts / "replacement_dict_validation.json")
         _run(
             [

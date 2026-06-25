@@ -6,11 +6,10 @@ from pathlib import Path
 import pytest
 
 from conftest import _minimal_scope_pack, _rewrite_plan_queries_for_contract_test
-from ib_research_graph import build_formal_search_plan, compile_graph_state, init_graph_state
+from ib_research_graph import build_formal_search_plan, compile_graph_state, init_graph_state, normalize_metric_row
 from research_evidence_db import build_db as build_research_evidence_db
 from research_evidence_db import export_markdown as export_research_pack_from_db
 from research_evidence_db import validate_db as validate_research_evidence_db
-from unit_normalizer import normalize_metric_row
 from validate_artifact import validate_artifact
 
 

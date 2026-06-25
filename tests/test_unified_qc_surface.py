@@ -21,11 +21,13 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / ("scripts/qc/gate_" + "report.py")).exists()
     assert not (SKILL_DIR / ("scripts/qc/qc_" + "router.py")).exists()
     assert not (SKILL_DIR / ("scripts/qc/" + "validators")).exists()
+    assert not (SKILL_DIR / "scripts/bootstrap_runtime.py").exists()
     assert not (SKILL_DIR / "scripts/status.py").exists()
     assert not (SKILL_DIR / "scripts/qc/check_runtime_dependencies.py").exists()
     assert not (SKILL_DIR / "scripts/industry-scoping/boundary_loop.py").exists()
     assert not (SKILL_DIR / "scripts/knowledge-repository/repository.py").exists()
     assert not (SKILL_DIR / "scripts/output/update_runs_index.py").exists()
+    assert not (SKILL_DIR / "scripts/output/generate_replacement_dict.py").exists()
     assert not (SKILL_DIR / "scripts/template/select_template.py").exists()
     assert not (SKILL_DIR / "scripts/template/extract_template_registry.py").exists()
     assert not (SKILL_DIR / "scripts/start_case_from_brief.py").exists()
@@ -33,8 +35,13 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / "scripts/knowledge-repository/export_research_pack_from_db.py").exists()
     assert not (SKILL_DIR / "scripts/generation/compile_banker_page_pack.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/compare_table_utils.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/gate_retry_state.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/issue_taxonomy.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/layout_config.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/material_extractors.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/slide_registry.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/unit_normalizer.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/validation_common.py").exists()
     assert not (SKILL_DIR / "scripts/template/template_fit.py").exists()
     assert not (SKILL_DIR / "schemas/issue_analysis_schema.json").exists()
     assert not (SKILL_DIR / "schemas/industry_scope_pack_v2_schema.json").exists()
@@ -47,6 +54,14 @@ def test_old_qc_entrypoints_are_removed() -> None:
 def test_schema_surface_stays_small_and_purposeful() -> None:
     schemas = {path.name for path in (SKILL_DIR / "schemas").glob("*.json")}
     assert schemas == {"banker_page_pack_schema.json", "renderer_spec_schema.json"}
+
+
+def test_runtime_python_surface_stays_small() -> None:
+    scripts = [
+        path.relative_to(SKILL_DIR).as_posix()
+        for path in (SKILL_DIR / "scripts").rglob("*.py")
+    ]
+    assert len(scripts) <= 16
 
 
 def test_pipeline_is_only_public_script_surface() -> None:
@@ -145,6 +160,10 @@ def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
         "client_question",
         "investor_question",
         "open_questions",
+        "open_question",
+        "fallback_if_data_limited",
+        "fallback_if_data_insufficient",
+        "default_visual_fallback",
         "后续验证点",
         "客户关注点",
         "客户关注",
@@ -159,6 +178,29 @@ def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
         text = path.read_text(encoding="utf-8").lower()
         for term in forbidden_terms:
             if term.lower() in text:
+                hits.append(f"{path.relative_to(SKILL_DIR)}: {term}")
+
+    assert hits == []
+
+
+def test_llm_facing_contracts_do_not_reintroduce_old_prompt_terms() -> None:
+    forbidden_terms = [
+        "open_question",
+        "fallback_if_data_limited",
+        "fallback_if_data_insufficient",
+        "default_visual_fallback",
+    ]
+    paths = [
+        SKILL_DIR / "schemas/banker_page_pack_schema.json",
+        SKILL_DIR / "schemas/renderer_spec_schema.json",
+        SKILL_DIR / "configs/generation_policy.json",
+    ]
+
+    hits: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for term in forbidden_terms:
+            if term in text:
                 hits.append(f"{path.relative_to(SKILL_DIR)}: {term}")
 
     assert hits == []

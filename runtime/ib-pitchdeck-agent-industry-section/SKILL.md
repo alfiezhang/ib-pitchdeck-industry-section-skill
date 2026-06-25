@@ -69,7 +69,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - Keep target context selective: the default page subject is `industry`; `target_context` pages and target-specific terms should be exceptional and clearly source-labeled.
    - If evidence is thin, make the page structured and caveated; do not render empty pages or invent numbers.
    - Management-provided target metrics from the brief are unaudited project context unless externally verified; do not treat them as audited/chart-ready industry MET data.
-   - If a page needs more public evidence before claim promotion or exhibit readiness, have Reasoning LLM author `artifacts/research_request_queue.json` directly from the queue template. Do not run a script that mechanically converts every open question into a research request.
+   - If a page needs more public evidence before claim promotion or exhibit readiness, have Reasoning LLM author `artifacts/research_request_queue.json` directly from the queue template. Do not run a script that mechanically converts every unresolved note into a research request.
 
 7. Compile the page pack.
    - Run `scripts/pipeline.py compile` to create derived `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`.

@@ -4,13 +4,69 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 from pathlib import Path
 
 from json_utils import load_json_file
-from gate_retry_state import DEFAULT_MAX_REPAIR_CYCLES, check_gate, load_state
 
 
 DEBUG_MARKER = "DEBUG_OUTPUT_ONLY.txt"
+
+
+def _runtime_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "configs").is_dir() and (parent / "scripts").is_dir():
+            return parent
+    raise RuntimeError("Cannot locate runtime root for workflow policy")
+
+
+def _default_max_repair_cycles() -> int:
+    path = _runtime_root() / "configs" / "workflow_policy.json"
+    try:
+        payload = load_json_file(path)
+        gate_retry = payload.get("gate_retry") if isinstance(payload, dict) else {}
+        return int(gate_retry.get("default_max_repair_cycles") or 3) if isinstance(gate_retry, dict) else 3
+    except Exception:
+        return 3
+
+
+DEFAULT_MAX_REPAIR_CYCLES = _default_max_repair_cycles()
+
+
+def _gate_state_path(run_dir: Path) -> Path:
+    return run_dir / "artifacts" / "gate_retry_state.json"
+
+
+def load_state(run_dir: Path) -> dict[str, Any]:
+    path = _gate_state_path(run_dir)
+    if not path.exists():
+        return {"schema_version": "gate_retry_state_v1", "gates": {}}
+    data = load_json_file(path)
+    if not isinstance(data, dict):
+        return {"schema_version": "gate_retry_state_v1", "gates": {}}
+    data.setdefault("schema_version", "gate_retry_state_v1")
+    data.setdefault("gates", {})
+    return data
+
+
+def check_gate(
+    run_dir: Path,
+    gate: str,
+    *,
+    max_repair_cycles: int = DEFAULT_MAX_REPAIR_CYCLES,
+) -> dict[str, Any]:
+    state = load_state(run_dir)
+    gate_state = (state.get("gates") or {}).get(gate) or {}
+    failed_count = int(gate_state.get("failed_validation_count") or 0)
+    blocked = gate_state.get("status") == "blocked" or failed_count > max_repair_cycles
+    return {
+        "is_blocked": blocked,
+        "gate": gate,
+        "run_dir": str(run_dir),
+        "failed_validation_count": failed_count,
+        "max_repair_cycles": max_repair_cycles,
+        "state": gate_state,
+    }
 
 
 def mark_ungated_debug_run(run_dir: Path) -> None:

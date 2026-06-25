@@ -148,4 +148,4 @@ Recognition test:
 Correct approach:
 - Design the exhibit before writing body copy.
 - Use at least two comparable datapoints for chart-led pages.
-- When data is thin, use a structured fallback and make limitations explicit.
+- When data is thin, use a structured evidence-boundary exhibit and make limitations explicit.

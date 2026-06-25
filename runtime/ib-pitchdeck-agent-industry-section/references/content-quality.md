@@ -59,7 +59,7 @@ Red flags:
 - target metrics are used as if they were audited industry metrics.
 
 Use `project_relevance_note` sparingly. It is a bridge from industry finding
-to pre-mandate discussion, not a diligence list and not a sales paragraph.
+to pre-mandate discussion, not an execution checklist and not a sales paragraph.
 
 ## Generic Copy To Rewrite
 

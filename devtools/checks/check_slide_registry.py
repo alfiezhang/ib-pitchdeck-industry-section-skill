@@ -31,9 +31,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from slide_registry import load_slide_registry, page_type_to_slide_entries, slides_by_no, variant_page_types
-
-
 ROOT_DIR = _IB_RUNTIME_ROOT
 
 
@@ -43,6 +40,56 @@ def load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return payload
+
+
+def load_slide_registry(path: Path) -> dict[str, Any]:
+    registry = load_json(path)
+    if not isinstance(registry.get("slides"), list):
+        raise ValueError(f"Invalid slide registry: {path}")
+    return registry
+
+
+def slides_by_no(registry: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    result: dict[int, dict[str, Any]] = {}
+    for slide in registry.get("slides") or []:
+        slide_no = int(slide.get("slide_no") or 0)
+        if not slide_no:
+            raise ValueError("slide_registry contains a slide without slide_no")
+        if slide_no in result:
+            raise ValueError(f"slide_registry contains duplicate slide_no {slide_no}")
+        variants = slide.get("variants")
+        if not isinstance(variants, dict) or not variants:
+            raise ValueError(f"slide_registry slide {slide_no} must define variants")
+        result[slide_no] = slide
+    return result
+
+
+def variant_page_types(registry: dict[str, Any]) -> dict[int, tuple[str, set[str]]]:
+    variants: dict[int, tuple[str, set[str]]] = {}
+    for slide_no, slide in slides_by_no(registry).items():
+        if slide.get("selection_mode") != "controlled_choice":
+            continue
+        binding_key = str(slide.get("binding_key") or "")
+        if not binding_key:
+            raise ValueError(f"slide_registry slide {slide_no} is controlled_choice but has no binding_key")
+        variants[slide_no] = (binding_key, set((slide.get("variants") or {}).keys()))
+    return variants
+
+
+def page_type_to_slide_entries(registry: dict[str, Any]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for slide_no, slide in sorted(slides_by_no(registry).items()):
+        entries.append(
+            {
+                "slide_no": slide_no,
+                "slide_key": slide.get("slide_key", ""),
+                "page_type_to_slide": {
+                    page_type: variant.get("physical_slide", "")
+                    for page_type, variant in (slide.get("variants") or {}).items()
+                },
+            }
+        )
+    return entries
 
 
 def check_page_type_rules(registry: dict[str, Any], errors: list[str]) -> None:

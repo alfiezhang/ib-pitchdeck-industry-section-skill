@@ -7,7 +7,7 @@
     "directional_inference",
     "management_claim",
     "hypothesis",
-    "open_question"
+    "research_required"
   ],
   "page_primary_subjects": [
     "industry",
@@ -77,5 +77,5 @@
     "summary_page": "cards"
   },
   "default_visual_capability": "text",
-  "default_visual_fallback_if_data_insufficient": "Downgrade to a caveated text/table page if evidence is insufficient."
+  "default_evidence_limited_exhibit_plan": "Use a structured evidence-boundary grid, caveated table, or metric cards; do not make a single-point chart or empty page."
 }

@@ -121,7 +121,7 @@
           "selected_page_type": { "type": "string" },
           "claim_strength": {
             "type": "string",
-            "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "open_question"]
+            "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "research_required"]
           },
           "headline": { "type": "string" },
           "main_message": { "type": "string" },
@@ -133,7 +133,7 @@
               "data_or_evidence_inputs",
               "visual_structure",
               "density_target",
-              "fallback_if_data_limited"
+              "evidence_limited_exhibit_plan"
             ],
             "properties": {
               "exhibit_type": {
@@ -164,7 +164,10 @@
               },
               "visual_structure": { "type": "string" },
               "density_target": { "type": "string" },
-              "fallback_if_data_limited": { "type": "string" }
+              "evidence_limited_exhibit_plan": {
+                "type": "string",
+                "description": "How to keep the exhibit structured and honest when evidence is limited. This is not a license to create a sparse page."
+              }
             },
             "additionalProperties": true
           },
@@ -188,7 +191,7 @@
                 },
                 "claim_strength": {
                   "type": "string",
-                  "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "open_question"]
+                  "enum": ["hard_fact", "supported_inference", "directional_inference", "management_claim", "hypothesis", "research_required"]
                 }
               },
               "additionalProperties": true

@@ -291,7 +291,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     "data_or_evidence_inputs": [*evidence, *metrics],
                     "visual_structure": f"{exhibit_types[no]} using the selected evidence and active template fields.",
                     "density_target": "Fill the formal layout with distinct evidence-backed modules.",
-                    "fallback_if_data_limited": "Use caveated cards or an evidence-boundary grid; do not use a single-point chart.",
+                    "evidence_limited_exhibit_plan": "Use caveated cards or an evidence-boundary grid; do not use a single-point chart.",
                 },
                 "why_this_page_matters": f"Slide {no} matters because it converts research into a pitch-relevant page argument.",
                 "selected_page_type": page_types[no],

@@ -24,7 +24,7 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
 class TestReplacementDict:
     def test_build_and_validate(self, compiled_artifacts, tmp_path):
         """Build replacement_dict from renderer_spec and validate against ppt_mapping."""
-        from generate_replacement_dict import build_replacement_dict
+        from pipeline import build_replacement_dict
         from renderer_token_source import build_token_source
 
         renderer = json.loads(compiled_artifacts["renderer_spec"].read_text(encoding="utf-8"))

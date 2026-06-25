@@ -285,9 +285,9 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
                 "body_metric_ids": body_metric_ids if permission["body_copy_allowed"] else [],
                 "proof_points": proof_points if permission["body_copy_allowed"] else [],
                 "claim_strength": claim_strength,
-                "evidence_gap_handling": _text(
-                    visual_plan.get("fallback_if_data_insufficient")
-                    or slide.get("evidence_gap_handling")
+                "evidence_limited_exhibit_plan": _text(
+                    visual_plan.get("evidence_limited_exhibit_plan")
+                    or slide.get("evidence_limited_exhibit_plan")
                     or "Route back to banker_page_pack if evidence is insufficient."
                 ),
                 "caveats": [_text(item) for item in as_list(slide.get("caveats")) if _text(item)],

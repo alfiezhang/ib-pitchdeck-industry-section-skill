@@ -248,7 +248,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
                     "data_or_evidence_inputs": ["EV-001"],
                     "visual_structure": "Four industry cards.",
                     "density_target": "Dense.",
-                    "fallback_if_data_limited": "Use evidence-gap matrix.",
+                    "evidence_limited_exhibit_plan": "Use evidence-gap matrix.",
                 },
                 "body_blocks": [
                     {
@@ -309,7 +309,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
                     "data_or_evidence_inputs": ["EV-001"],
                     "visual_structure": "Four industry cards.",
                     "density_target": "Dense.",
-                    "fallback_if_data_limited": "Use evidence-gap matrix.",
+                    "evidence_limited_exhibit_plan": "Use evidence-gap matrix.",
                 },
                 "body_blocks": [
                     {

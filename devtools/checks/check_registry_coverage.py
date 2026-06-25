@@ -33,9 +33,6 @@ from zipfile import ZipFile
 from typing import Any
 
 from json_utils import load_json_file
-from slide_registry import load_slide_registry, slides_by_no
-
-
 ROOT_DIR = _IB_RUNTIME_ROOT
 KNOWN_RENDERERS = {
     "overview_dynamic",
@@ -70,6 +67,28 @@ def _layout_config_paths(path: Path | str) -> dict[str, Path]:
         candidate = Path(str(raw))
         resolved[key] = candidate if candidate.is_absolute() else ROOT_DIR / candidate
     return resolved
+
+
+def load_slide_registry(path: Path) -> dict[str, Any]:
+    registry = load_json_file(path)
+    if not isinstance(registry, dict) or not isinstance(registry.get("slides"), list):
+        raise ValueError(f"Invalid slide registry: {path}")
+    return registry
+
+
+def slides_by_no(registry: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    result: dict[int, dict[str, Any]] = {}
+    for slide in registry.get("slides") or []:
+        slide_no = int(slide.get("slide_no") or 0)
+        if not slide_no:
+            raise ValueError("slide_registry contains a slide without slide_no")
+        if slide_no in result:
+            raise ValueError(f"slide_registry contains duplicate slide_no {slide_no}")
+        variants = slide.get("variants")
+        if not isinstance(variants, dict) or not variants:
+            raise ValueError(f"slide_registry slide {slide_no} must define variants")
+        result[slide_no] = slide
+    return result
 
 
 def _ppt_slide_names(template_path: Path) -> set[str]:

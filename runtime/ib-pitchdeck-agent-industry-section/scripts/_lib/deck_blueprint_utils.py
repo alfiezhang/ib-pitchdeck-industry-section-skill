@@ -128,11 +128,11 @@ def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
         "required_capability": capability,
         "preferred_template_variant": selected_page_type,
         "visual_metric_ids": unique(metric_ids),
-        "fallback_if_data_insufficient": str(
-            visual.get("fallback_if_data_insufficient")
-            or exhibit.get("fallback_if_data_limited")
-            or slide.get("evidence_gap_handling")
-            or _generation_text("default_visual_fallback_if_data_insufficient")
+        "evidence_limited_exhibit_plan": str(
+            visual.get("evidence_limited_exhibit_plan")
+            or exhibit.get("evidence_limited_exhibit_plan")
+            or slide.get("evidence_limited_exhibit_plan")
+            or _generation_text("default_evidence_limited_exhibit_plan")
         ).strip(),
     }
 

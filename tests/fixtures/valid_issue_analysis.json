@@ -172,7 +172,7 @@
         "chart_allowed": false,
         "body_copy_allowed": false
       },
-      "candidate_use_cases": ["open_question"]
+      "candidate_use_cases": ["research_required"]
     }
   ],
   "research_backlog": [

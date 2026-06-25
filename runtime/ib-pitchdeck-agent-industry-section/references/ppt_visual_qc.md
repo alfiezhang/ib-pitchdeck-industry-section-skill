@@ -38,7 +38,7 @@ This checklist complements deterministic validation. `pipeline.py validate --art
 - If the slide is chart-led, does it contain an actual chart / visual object rather than prose describing the intended chart?
 - Does the slide's `exhibit` match what is visible on the page?
 - Does a chart have at least two comparable datapoints? A single large bar is not a finished exhibit.
-- If evidence is limited, did the page use a structured fallback such as KPI cards, an evidence-boundary grid, an evidence-gap matrix, or caveated table?
+- If evidence is limited, did the page use a structured exhibit such as KPI cards, an evidence-boundary grid, an evidence-gap matrix, or caveated table?
 - Are the key datapoints visible, or buried in prose?
 - Does the slide still feel complete if the visual were presented to a client?
 
