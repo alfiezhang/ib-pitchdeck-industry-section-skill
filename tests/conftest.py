@@ -277,9 +277,9 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 compare_table_data = {
                     "headers": ["Dimension", "Evidence-backed read", "Pitch relevance"],
                     "rows": [
-                        {"label": "Scale", "cells": ["Large enough to matter", "EV-003 supports capability lens", "Frame strategic interest"]},
-                        {"label": "Capabilities", "cells": ["Execution matters", "EV-003 supports operating lens", "Assess repeatability"]},
-                        {"label": "Competition", "cells": ["Differentiation varies", "EV-003 supports peer lens", "Avoid target advocacy"]},
+                        {"label": "Scale", "cells": ["Large enough to matter", "Frame strategic interest"]},
+                        {"label": "Capabilities", "cells": ["Execution matters", "Assess repeatability"]},
+                        {"label": "Competition", "cells": ["Differentiation varies", "Avoid target advocacy"]},
                     ],
                     "comparison_basis_note": "Illustrative peer dimensions from selected issue analysis.",
                 }
@@ -300,8 +300,8 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 "why_this_page_matters": f"Slide {no} matters because it converts research into a transaction-relevant page argument.",
                 "selected_page_type": page_types[no],
                 "claim_strength": "supported_inference",
-                "headline": f"Slide {no}: conclusion-led industry view with distinct readthrough",
-                "main_message": f"Slide {no} connects evidence to the pitch without repeating the title.",
+                "headline": f"Slide {no} industry read",
+                "main_message": f"Evidence links sector structure to transaction framing for slide {no}.",
                 "body_blocks": blocks, "visual_design": visual_design,
                 "chart_data": chart_data, "compare_table_data": compare_table_data,
                 "source_note": "Sources: " + "; ".join(evidence),

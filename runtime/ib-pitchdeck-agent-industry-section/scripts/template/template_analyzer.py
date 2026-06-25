@@ -970,9 +970,9 @@ def _fit_check_text_capacity(slide: dict[str, Any], layout_budget: dict[str, Any
         field_limit = float(field_limits.get(field_name, default_limit))
         actual = display_units(value)
         if actual > field_limit:
-            blocking.append(
+            warnings.append(
                 f"slide {slide_no}: '{field_name}' is {actual:.1f} layout units, "
-                f"template budget is {field_limit:.1f}; edit Generation output or reduce copy"
+                f"template guidance is {field_limit:.1f}; compress if rendered page looks crowded"
             )
         if field_name.startswith("table_") and "|" in value:
             for idx, cell in enumerate(value.split("|"), start=1):
@@ -1150,8 +1150,7 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
             actual = display_units(value)
             if actual > limit:
                 over_by = round(actual - limit, 1)
-                conflicts.append(_fit_capacity_conflict(slide_no, f"body_copy.{field_name}", f"body_copy.{field_name} exceeds template capacity by {over_by:.1f} layout units", "Return to Generation and compress/restructure this field; do not silently truncate."))
-                recommendations.append({"slide_no": slide_no, "field_path": f"body_copy.{field_name}", "recommendation_type": "copy_compression", "current_units": actual, "max_units": limit, "message": f"Compress or split copy before rendering; over budget by {over_by:.1f} units."})
+                recommendations.append({"slide_no": slide_no, "field_path": f"body_copy.{field_name}", "recommendation_type": "copy_compression_advisory", "current_units": actual, "max_units": limit, "message": f"Body copy is above template guidance by {over_by:.1f} units; compress only if the rendered page looks crowded."})
         supports = variant.get("supports") if isinstance(variant.get("supports"), dict) else {}
         if _fit_has_payload(slide.get("chart_data")) and not supports.get("chart"):
             conflicts.append(_fit_capacity_conflict(slide_no, "chart_data", "renderer_spec contains chart_data but selected template variant has no chart slot", "Choose a chart-capable page type or revise visual plan in Generation."))

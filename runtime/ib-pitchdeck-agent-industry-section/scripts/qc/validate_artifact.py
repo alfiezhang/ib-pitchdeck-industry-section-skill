@@ -27,6 +27,7 @@ RUNTIME_ROOT = next(
 for path in [
     RUNTIME_ROOT / "scripts",
     RUNTIME_ROOT / "scripts" / "_lib",
+    RUNTIME_ROOT / "scripts" / "template",
     RUNTIME_ROOT / "scripts" / "knowledge-repository",
 ]:
     text = str(path)
@@ -38,14 +39,17 @@ from deck_blueprint_utils import (
     PAGE_PRIMARY_SUBJECTS,
     VALID_ALLOWED_DECK_USAGES,
     VALID_CLAIM_STRENGTHS,
+    active_body_fields,
     as_list,
     banker_page_id_for_slide,
     required_body_fields,
+    template_variants_by_slide,
     unique,
 )
 from runtime_utils import load_json_file
-from renderer_compile_utils import build_token_source
+from renderer_compile_utils import _body_copy_from_blocks, build_token_source
 from research_evidence_db import validate_db as validate_research_db
+from template_analyzer import display_units, estimate_lines, layout_rules_for
 
 
 EV_RE = re.compile(r"^EV-\d{3}$")
@@ -175,6 +179,218 @@ def _slide_index(payload: dict[str, Any]) -> dict[int, dict[str, Any]]:
         int(slide.get("slide_no")): slide
         for slide in as_list(payload.get("slides"))
         if isinstance(slide, dict) and isinstance(slide.get("slide_no"), int)
+    }
+
+
+def _load_config_json(relative_path: str) -> dict[str, Any]:
+    try:
+        payload = load_json_file(RUNTIME_ROOT / relative_path)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _int_value(value: Any) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return 0
+
+
+def _visual_payload(slide: dict[str, Any], key: str) -> dict[str, Any]:
+    if isinstance(slide.get(key), dict):
+        return slide[key]
+    visual_design = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    if isinstance(visual_design.get(key), dict):
+        return visual_design[key]
+    visual_plan = slide.get("visual_plan") if isinstance(slide.get("visual_plan"), dict) else {}
+    if isinstance(visual_plan.get(key), dict):
+        return visual_plan[key]
+    return {}
+
+
+def _body_field_limits(layout_budget: dict[str, Any], slide_no: int, page_type: str) -> dict[str, float]:
+    rules = layout_rules_for(slide_no, page_type, layout_budget)
+    limits = rules.get("body_fields_max_units") if isinstance(rules.get("body_fields_max_units"), dict) else {}
+    result: dict[str, float] = {}
+    for key, value in limits.items():
+        try:
+            result[str(key)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _default_body_limit(layout_budget: dict[str, Any]) -> float:
+    global_body = layout_budget.get("global", {}).get("body_copy", {})
+    try:
+        return float(global_body.get("max_bullet_units_default", 88))
+    except (TypeError, ValueError):
+        return 88.0
+
+
+def _text_fit_rule(text_fit_rules: dict[str, Any], slide_no: int, page_type: str, field: str) -> dict[str, Any]:
+    aliases = text_fit_rules.get("renderer_field_aliases") if isinstance(text_fit_rules.get("renderer_field_aliases"), dict) else {}
+    fields = text_fit_rules.get("fields") if isinstance(text_fit_rules.get("fields"), dict) else {}
+    alias = str(aliases.get(field, field))
+    rule = fields.get(f"{slide_no}:{page_type}:{alias}")
+    return rule if isinstance(rule, dict) else {}
+
+
+def _compare_table_data_from_slide(slide: dict[str, Any]) -> dict[str, Any]:
+    return _visual_payload(slide, "compare_table_data")
+
+
+def _validate_compare_table_shape(slide_no: int, data: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
+    headers = data.get("headers")
+    columns = data.get("columns")
+    header_values: list[str] = []
+    if not isinstance(headers, list) or not [text(item) for item in headers if text(item)]:
+        if isinstance(columns, list) and [text(item) for item in columns if text(item)]:
+            header_values = [text(item) for item in columns if text(item)]
+            warnings.append(
+                f"slide {slide_no}: compare_table_data uses columns; compiler accepts it, but canonical key is headers"
+            )
+        else:
+            errors.append("slide {slide_no}: compare_table_data requires non-empty headers list".format(slide_no=slide_no))
+    else:
+        header_values = [text(item) for item in headers if text(item)]
+    rows = data.get("rows")
+    if not isinstance(rows, list) or not rows:
+        errors.append(f"slide {slide_no}: compare_table_data requires non-empty rows list")
+        return
+    valid_rows = 0
+    header_count = len(header_values)
+    for idx, row in enumerate(rows, start=1):
+        if isinstance(row, dict):
+            cells = row.get("cells")
+            has_label = bool(text(row.get("label") or row.get("name")))
+            scalar_cells = [
+                value
+                for key, value in row.items()
+                if key not in {"label", "name", "metric_ids", "evidence_ids", "source_banker_page_ids"}
+                and not isinstance(value, (dict, list))
+                and text(value)
+            ]
+            if not has_label and not cells and not scalar_cells:
+                errors.append(f"slide {slide_no}: compare_table_data row {idx} needs label plus cells")
+                continue
+            if cells is not None and not isinstance(cells, list):
+                errors.append(f"slide {slide_no}: compare_table_data row {idx}.cells must be a list")
+                continue
+            if isinstance(cells, list) and header_count:
+                expected_cells = max(header_count - 1, 0) if has_label else header_count
+                if len(cells) != expected_cells:
+                    errors.append(
+                        f"slide {slide_no}: compare_table_data row {idx} has label plus {len(cells)} cells, "
+                        f"but {header_count} headers require {expected_cells} cells after label"
+                    )
+                    continue
+            if cells is None and scalar_cells:
+                expected_cells = max(header_count - 1, 0) if has_label else header_count
+                if header_count and len(scalar_cells) != expected_cells:
+                    errors.append(
+                        f"slide {slide_no}: compare_table_data row {idx} has {len(scalar_cells)} scalar columns, "
+                        f"but {header_count} headers require {expected_cells} columns after label"
+                    )
+                    continue
+                warnings.append(
+                    f"slide {slide_no}: compare_table_data row {idx} uses scalar columns; canonical row shape is {{label, cells}}"
+                )
+            valid_rows += 1
+        elif isinstance(row, list) and row:
+            if header_count and len(row) != header_count:
+                errors.append(
+                    f"slide {slide_no}: compare_table_data row {idx} has {len(row)} cells, "
+                    f"but {header_count} headers require exactly {header_count} cells"
+                )
+                continue
+            warnings.append(
+                f"slide {slide_no}: compare_table_data row {idx} is a list; compiler accepts it, but canonical row shape is {{label, cells}}"
+            )
+            valid_rows += 1
+        elif isinstance(row, str) and row.strip():
+            warnings.append(
+                f"slide {slide_no}: compare_table_data row {idx} is a string; compiler accepts it, but canonical row shape is {{label, cells}}"
+            )
+            valid_rows += 1
+        else:
+            errors.append(f"slide {slide_no}: compare_table_data row {idx} must be an object with label/cells")
+    if not valid_rows:
+        errors.append(f"slide {slide_no}: compare_table_data has no usable rows")
+
+
+def banker_page_pack_template_diagnostics(run_dir: Path, path: Path | None = None) -> dict[str, Any]:
+    target = path or run_dir / ARTIFACT_PATHS["banker_page_pack"]
+    pack: dict[str, Any] = {}
+    try:
+        pack = load_json_file(target)
+    except Exception:
+        pack = {}
+    if not isinstance(pack, dict):
+        pack = {}
+    template = {}
+    template_path = run_dir / "template_registry.json"
+    if template_path.exists():
+        try:
+            template = load_json_file(template_path)
+        except Exception:
+            template = {}
+    template = template if isinstance(template, dict) else {}
+    variants = template_variants_by_slide(template) if template else {}
+    layout_budget = _load_config_json("configs/layout_budget.json")
+    text_fit_rules = _load_config_json("configs/text_fit_rules.json")
+    slides = pack.get("slides") if isinstance(pack.get("slides"), list) else []
+    diagnostics: list[dict[str, Any]] = []
+    for raw_slide in slides:
+        if not isinstance(raw_slide, dict):
+            continue
+        slide_no = _int_value(raw_slide.get("slide_no"))
+        page_type = text(raw_slide.get("selected_page_type"))
+        allowed_page_types = sorted(variants.get(slide_no, {}).keys())
+        required_fields = required_body_fields(template, slide_no, page_type) if template and page_type else []
+        active_fields = active_body_fields(required_fields, page_type, raw_slide) if required_fields else []
+        field_limits = _body_field_limits(layout_budget, slide_no, page_type)
+        text_rules: dict[str, Any] = {}
+        for field in ("headline", "main_message"):
+            rule = _text_fit_rule(text_fit_rules, slide_no, page_type, field)
+            if rule:
+                text_rules[field] = {
+                    "max_line_units": rule.get("max_line_units"),
+                    "target_lines": rule.get("target_lines"),
+                    "max_lines": rule.get("max_lines"),
+                    "placeholder": rule.get("placeholder"),
+                }
+        diagnostics.append(
+            {
+                "slide_no": slide_no,
+                "expected_fixed_page_role": FIXED_PAGE_ROLES.get(slide_no, ""),
+                "selected_page_type": page_type,
+                "allowed_page_types": allowed_page_types,
+                "required_body_fields_from_template": required_fields,
+                "active_body_fields": active_fields,
+                "inactive_when_compare_table_data_present": (
+                    [field for field in required_fields if field not in active_fields]
+                    if page_type == "compare_table_page" and _compare_table_data_from_slide(raw_slide)
+                    else []
+                ),
+                "body_field_unit_limits": field_limits,
+                "default_body_field_unit_limit": _default_body_limit(layout_budget),
+                "headline_main_message_line_rules": text_rules,
+                "compare_table_data_contract": (
+                    "Use compare_table_data.headers and rows=[{label, cells}]. Table header/row content does not belong in body_copy when compare_table_data is present."
+                    if page_type == "compare_table_page"
+                    else ""
+                ),
+            }
+        )
+    return {
+        "schema_version": "banker_page_pack_template_diagnostics_v1",
+        "banker_page_pack": str(target),
+        "template_registry": str(template_path) if template_path.exists() else "",
+        "has_template_registry": bool(template),
+        "slides": diagnostics,
     }
 
 
@@ -406,18 +622,45 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
     if not isinstance(slides, list) or len(slides) != expected_slide_count:
         errors.append(f"banker_page_pack must contain exactly {expected_slide_count} slides from slide_registry.json")
         return
+    slide_numbers = [_int_value(slide.get("slide_no")) for slide in slides if isinstance(slide, dict)]
+    expected_numbers = sorted(FIXED_PAGE_ROLES)
+    missing_numbers = [number for number in expected_numbers if number not in slide_numbers]
+    duplicate_numbers = sorted({number for number in slide_numbers if number and slide_numbers.count(number) > 1})
+    invalid_numbers = [number for number in slide_numbers if number not in FIXED_PAGE_ROLES]
+    if missing_numbers:
+        errors.append(f"banker_page_pack missing slide_no values required by template: {missing_numbers}")
+    if duplicate_numbers:
+        errors.append(f"banker_page_pack contains duplicate slide_no values: {duplicate_numbers}")
+    if invalid_numbers:
+        errors.append(f"banker_page_pack contains slide_no values not in slide_registry.json: {invalid_numbers}")
     db_path = run_dir / "artifacts/research_evidence_db.json"
     db = _json(db_path, []) if db_path.exists() else {}
     ev_ids = _ids(db, "evidence_ledger", ("evidence_id", "id"))
     met_ids = _ids(db, "metric_reconciliation", ("metric_id", "id"))
+    template_path = run_dir / "template_registry.json"
+    template = _json(template_path, []) if template_path.exists() else {}
+    template_variants = template_variants_by_slide(template) if template else {}
+    if not template:
+        warnings.append(
+            "banker_page_pack template-specific checks were limited because template_registry.json is missing; "
+            "run scripts/pipeline.py template-registry or scripts/pipeline.py render to generate it"
+        )
+    layout_budget = _load_config_json("configs/layout_budget.json")
+    text_fit_rules = _load_config_json("configs/text_fit_rules.json")
     for idx, slide in enumerate(slides, start=1):
         if not isinstance(slide, dict):
             errors.append(f"slide {idx}: must be an object")
             continue
-        slide_no = int(slide.get("slide_no") or 0)
+        slide_no = _int_value(slide.get("slide_no"))
         expected_id = f"BP-{slide_no:03d}" if slide_no else ""
         if text(slide.get("banker_page_id") or expected_id) != expected_id:
             errors.append(f"slide {slide_no}: banker_page_id must be {expected_id}")
+        expected_role = FIXED_PAGE_ROLES.get(slide_no)
+        if expected_role and text(slide.get("fixed_page_role")) != expected_role:
+            errors.append(
+                f"slide {slide_no}: fixed_page_role must be '{expected_role}' for this template position; "
+                f"do not move page roles by changing slide_no"
+            )
         if text(slide.get("claim_strength")) not in VALID_CLAIM_STRENGTHS:
             errors.append(f"slide {slide_no}: invalid claim_strength")
         if text(slide.get("allowed_deck_usage")) not in VALID_ALLOWED_DECK_USAGES:
@@ -433,6 +676,102 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
         body_blocks = as_list(slide.get("body_blocks"))
         if not body_blocks:
             errors.append(f"slide {slide_no}: body_blocks is required")
+        selected_page_type = text(slide.get("selected_page_type"))
+        active_fields: list[str] = []
+        body_copy_for_checks: dict[str, str] = {}
+        if template and selected_page_type:
+            allowed_page_types = sorted(template_variants.get(slide_no, {}).keys())
+            if allowed_page_types and selected_page_type not in allowed_page_types:
+                errors.append(
+                    f"slide {slide_no}: selected_page_type '{selected_page_type}' is not available for "
+                    f"fixed_page_role '{expected_role or '?'}'; allowed page types: {allowed_page_types}"
+                )
+            required_fields = required_body_fields(template, slide_no, selected_page_type)
+            active_fields = active_body_fields(required_fields, selected_page_type, slide)
+            if selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
+                inactive = [field for field in required_fields if field not in active_fields]
+                if inactive:
+                    warnings.append(
+                        f"slide {slide_no}: compare_table_page table fields are supplied through compare_table_data; "
+                        f"inactive body fields when compare_table_data is present: {inactive}; active body fields: {active_fields}"
+                    )
+            explicit_body_copy = slide.get("body_copy") if isinstance(slide.get("body_copy"), dict) else {}
+            if explicit_body_copy:
+                body_copy_for_checks = {str(key): str(value or "").strip() for key, value in explicit_body_copy.items()}
+                extra_fields = sorted(set(body_copy_for_checks) - set(active_fields))
+                if extra_fields:
+                    errors.append(
+                        f"slide {slide_no}: body_copy contains fields not active for {selected_page_type}: {extra_fields}. "
+                        f"Active body fields: {active_fields or ['(none)']}"
+                    )
+                missing_fields = [field for field in active_fields if not text(body_copy_for_checks.get(field))]
+                if missing_fields:
+                    errors.append(
+                        f"slide {slide_no}: body_copy missing active fields for {selected_page_type}: {missing_fields}. "
+                        f"Active body fields: {active_fields or ['(none)']}"
+                    )
+            elif body_blocks:
+                try:
+                    body_copy_for_checks = _body_copy_from_blocks(slide, required_fields, selected_page_type)
+                except Exception as exc:
+                    errors.append(f"slide {slide_no}: body_blocks cannot map to active template fields: {exc}")
+            if selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
+                for block_idx, block in enumerate(body_blocks, start=1):
+                    if not isinstance(block, dict):
+                        continue
+                    target_or_role = text(
+                        block.get("target_field")
+                        or block.get("template_field")
+                        or block.get("body_field")
+                        or block.get("field")
+                        or block.get("role")
+                    )
+                    if target_or_role == "table_header" or target_or_role.startswith("table_row_"):
+                        errors.append(
+                            f"slide {slide_no}: body block {block_idx} uses '{target_or_role}', but compare_table_page "
+                            "takes table content from compare_table_data; use active body fields "
+                            f"{active_fields or ['right_top', 'right_mid', 'right_bottom']}"
+                        )
+            field_limits = _body_field_limits(layout_budget, slide_no, selected_page_type)
+            default_limit = _default_body_limit(layout_budget)
+            for field_name, value in body_copy_for_checks.items():
+                if field_name not in active_fields:
+                    continue
+                limit = field_limits.get(field_name, default_limit)
+                actual = display_units(value)
+                if actual > limit:
+                    warnings.append(
+                        f"slide {slide_no}: body_copy.{field_name} is {actual:.1f} layout units vs template guidance {limit:.1f}; "
+                        "compress if the rendered page looks crowded, but this body budget is advisory"
+                    )
+            for text_field in ("headline", "main_message"):
+                value = text(slide.get(text_field))
+                rule = _text_fit_rule(text_fit_rules, slide_no, selected_page_type, text_field)
+                if not value or not rule:
+                    continue
+                max_line_units = float(rule.get("max_line_units") or 0)
+                target_lines = int(rule.get("target_lines") or 0)
+                max_lines = int(rule.get("max_lines") or 0)
+                estimated = estimate_lines(value, max_line_units)
+                placeholder = text(rule.get("placeholder"))
+                if target_lines and estimated > target_lines:
+                    warnings.append(
+                        f"slide {slide_no}: {text_field} estimates to {estimated} lines for {placeholder}; target is {target_lines}"
+                    )
+                if max_lines and estimated > max_lines and rule.get("block_if_exceeds_max_lines") is not False:
+                    errors.append(
+                        f"slide {slide_no}: {text_field} exceeds template max lines for {placeholder}: "
+                        f"estimated {estimated}, max {max_lines}; shorten before render"
+                    )
+        if selected_page_type == "compare_table_page":
+            compare_table_data = _compare_table_data_from_slide(slide)
+            if not compare_table_data:
+                errors.append(
+                    f"slide {slide_no}: compare_table_page requires compare_table_data with headers and rows; "
+                    "do not put peer-table content in body_blocks"
+                )
+            else:
+                _validate_compare_table_shape(slide_no, compare_table_data, errors, warnings)
         slide_ev_ids = _scan_ids(slide, {"evidence_id", "evidence_ids"})
         slide_met_ids = _scan_ids(slide, {"metric_id", "metric_ids"})
         for ev_id in slide_ev_ids:
@@ -714,6 +1053,12 @@ def main() -> int:
         "warnings": warnings,
         "validation_policy": "mechanical_only",
     }
+    if args.artifact == "banker_page_pack":
+        diagnostics = banker_page_pack_template_diagnostics(run_dir, path)
+        result["template_diagnostics"] = diagnostics
+        diagnostics_path = run_dir / "artifacts" / "banker_page_pack_template_diagnostics.json"
+        diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
+        diagnostics_path.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     output = json.dumps(result, ensure_ascii=False, indent=2)
     output_path = Path(args.output) if args.output else run_dir / VALIDATION_OUTPUTS.get(args.artifact, f"artifacts/{args.artifact}_validation.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)

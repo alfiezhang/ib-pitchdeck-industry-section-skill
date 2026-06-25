@@ -7,13 +7,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-from conftest import ROLE_SCRIPT_DIRS, SCRIPT_IMPORT_PATHS, SKILL_DIR, SLIDE_NUMBERS, _write_json
+from conftest import FIXED_PAGE_ROLES, ROLE_SCRIPT_DIRS, SCRIPT_IMPORT_PATHS, SKILL_DIR, SLIDE_NUMBERS, _write_json
 
 
 def _body_copy_for(slide_no: int, page_type: str, template_registry: dict, blocks: list[dict]) -> dict[str, str]:
-    from deck_blueprint_utils import required_body_fields
+    from deck_blueprint_utils import active_body_fields, required_body_fields
 
-    fields = required_body_fields(template_registry, slide_no, page_type)
+    slide_data = {"slide_no": slide_no, "selected_page_type": page_type}
+    if page_type == "compare_table_page":
+        slide_data["compare_table_data"] = {"headers": ["Dimension"], "rows": [{"label": "Sample", "cells": ["Sample"]}]}
+    fields = active_body_fields(required_body_fields(template_registry, slide_no, page_type), page_type, slide_data)
     result: dict[str, str] = {}
     for idx, field in enumerate(fields):
         result[field] = blocks[idx % len(blocks)]["copy"]
@@ -83,15 +86,6 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                     {"label": "2024", "value": 108.0 + slide_no, "metric_id": metric_id},
                 ],
             }
-        if slide_no in {3, 5}:
-            compare_table_data = {
-                "headers": ["Dimension", "Evidence-backed read", "Pitch relevance"],
-                "rows": [
-                    {"label": "Demand", "cells": ["Supported by EV/MET linkage", "Repeatability should be framed with evidence boundaries"]},
-                    {"label": "Competition", "cells": ["Differentiation varies by capability", "Positioning should avoid unsupported share claims"]},
-                    {"label": "Economics", "cells": ["Profit pool evidence remains central", "Transaction story must connect to margin control"]},
-                ],
-            }
         slides.append(
             {
                 "slide_no": slide_no,
@@ -107,10 +101,9 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 "selected_page_type": slide["selected_page_type"],
                 "claim_strength": "supported_inference",
                 "allowed_deck_usage": "headline_allowed",
-                "headline": slide["headline"],
+                "headline": f"Page {slide_no} industry read",
                 "main_message": (
-                    f"Page {slide_no} connects sourced evidence, visible data, and industry readthrough so the page reads as banker judgment instead of a sparse research summary, "
-                    "with enough detail to support client discussion and enough caution to preserve evidence boundaries."
+                    f"Evidence links sector structure to transaction framing for page {slide_no}."
                 ),
                 "exhibit": {
                     **slide["exhibit"],
@@ -201,7 +194,7 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
         "slides": [
             {
                 "slide_no": idx,
-                "fixed_page_role": "industry_overview",
+                "fixed_page_role": FIXED_PAGE_ROLES[idx],
                 "page_primary_subject": "industry",
                 "page_question": "Question?",
                 "banker_judgment": "thin",
@@ -235,7 +228,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
         slides.append(
             {
                 "slide_no": idx,
-                "fixed_page_role": "industry_overview",
+                "fixed_page_role": FIXED_PAGE_ROLES[idx],
                 "page_primary_subject": "industry",
                 "page_question": "What industry point matters?",
                 "banker_judgment": "Industry judgment with source-backed market mechanism.",
@@ -243,7 +236,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
                 "selected_page_type": "summary_page",
                 "claim_strength": "supported_inference",
                 "allowed_deck_usage": "headline_allowed",
-                "headline": "标的公司具备强交易故事",
+                "headline": "标的交易故事强",
                 "main_message": "Industry message.",
                 "exhibit": {
                     "exhibit_type": "driver_cards",
@@ -297,7 +290,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
         slides.append(
             {
                 "slide_no": idx,
-                "fixed_page_role": "industry_overview",
+                "fixed_page_role": FIXED_PAGE_ROLES[idx],
                 "page_primary_subject": "industry_with_project_relevance",
                 "page_question": "What industry point matters?",
                 "banker_judgment": "Industry judgment with source-backed market mechanism.",
@@ -305,7 +298,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
                 "selected_page_type": "summary_page",
                 "claim_strength": "supported_inference",
                 "allowed_deck_usage": "headline_allowed",
-                "headline": "Industry structure is the primary page subject",
+                "headline": "Industry structure leads",
                 "main_message": "Industry message.",
                 "exhibit": {
                     "exhibit_type": "driver_cards",
@@ -457,3 +450,115 @@ def test_banker_page_pack_validates_and_compiles(
     assert len(renderer["slides"]) == 8
     assert all(slide.get("source_note") for slide in renderer["slides"])
     assert all("pitch_relevance" not in slide for slide in renderer["slides"])
+
+
+def test_compare_table_body_blocks_cannot_use_table_fields(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    slide_6 = pack["slides"][5]
+    slide_6["body_blocks"][0]["target_field"] = "table_row_1"
+    pack_path = tmp_path / "banker_page_pack.json"
+    _write_json(pack_path, pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
+
+    assert result.returncode != 0
+    assert "takes table content from compare_table_data" in result.stdout
+    assert "active body fields" in result.stdout
+    diagnostics = json.loads((tmp_path / "artifacts/banker_page_pack_template_diagnostics.json").read_text(encoding="utf-8"))
+    slide_6_diagnostics = next(item for item in diagnostics["slides"] if item["slide_no"] == 6)
+    assert slide_6_diagnostics["active_body_fields"] == ["right_top", "right_mid", "right_bottom"]
+    assert "table_row_1" in slide_6_diagnostics["inactive_when_compare_table_data_present"]
+
+
+def test_compare_table_columns_alias_compiles_with_canonical_warning(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    pack["slides"][5]["compare_table_data"] = {
+        "columns": ["Dimension", "Evidence read", "Pitch use"],
+        "rows": [
+            ["Demand", "Evidence-backed demand signal", "Support market framing"],
+            ["Competition", "Peer variation visible", "Frame positioning"],
+        ],
+    }
+    pack_path = tmp_path / "banker_page_pack.json"
+    _write_json(pack_path, pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    validation = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
+    assert validation.returncode == 0, validation.stdout + validation.stderr
+    assert "uses columns; compiler accepts it" in validation.stdout
+    assert "row 1 is a list; compiler accepts it" in validation.stdout
+
+    result = subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "compile", "--run-dir", str(tmp_path)],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    renderer = json.loads((tmp_path / "renderer_spec.json").read_text(encoding="utf-8"))
+    slide_6 = next(slide for slide in renderer["slides"] if slide["slide_no"] == 6)
+    assert slide_6["compare_table_data"]["headers"] == ["Dimension", "Evidence read", "Pitch use"]
+    assert slide_6["compare_table_data"]["rows"][0]["label"] == "Demand"
+
+
+def test_compare_table_dict_rows_match_header_width(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    pack["slides"][5]["compare_table_data"] = {
+        "headers": ["Dimension", "Evidence read", "Pitch use"],
+        "rows": [
+            {"label": "Demand", "cells": ["Evidence-backed demand signal", "Support market framing", "Extra repeated column"]},
+            {"label": "Competition", "cells": ["Peer variation visible", "Frame positioning"]},
+            {"label": "Economics", "cells": ["Profit-pool evidence", "Frame margin quality"]},
+        ],
+    }
+    pack_path = tmp_path / "banker_page_pack.json"
+    _write_json(pack_path, pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
+
+    assert result.returncode != 0
+    assert "3 headers require 2 cells after label" in result.stdout
+
+
+def test_render_auto_refreshes_template_and_compiled_artifacts(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    _write_json(tmp_path / "banker_page_pack.json", pack)
+
+    result = subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "render", "--run-dir", str(tmp_path)],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp_path / "template_registry.json").exists()
+    assert (tmp_path / "deck_blueprint.json").exists()
+    assert (tmp_path / "page_evidence_contract.json").exists()
+    assert (tmp_path / "renderer_spec.json").exists()
+    assert (tmp_path / "industry_section_filled_clean.pptx").exists()
+    assert (tmp_path / "artifacts/banker_page_pack_template_diagnostics.json").exists()

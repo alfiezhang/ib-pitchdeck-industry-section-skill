@@ -38,7 +38,12 @@ if str(QC_DIR) not in sys.path:
     sys.path.insert(0, str(QC_DIR))
 
 from renderer_compile_utils import build_token_source, compile_banker_page_pack
-from validate_artifact import ARTIFACT_PATHS, VALIDATION_OUTPUTS, validate_artifact as run_artifact_validation
+from validate_artifact import (
+    ARTIFACT_PATHS,
+    VALIDATION_OUTPUTS,
+    banker_page_pack_template_diagnostics,
+    validate_artifact as run_artifact_validation,
+)
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
@@ -1092,6 +1097,12 @@ def validate_artifact_entry(
         "warnings": warnings,
         "validation_policy": "mechanical_only",
     }
+    if artifact == "banker_page_pack":
+        diagnostics = banker_page_pack_template_diagnostics(run_dir, path)
+        result["template_diagnostics"] = diagnostics
+        diagnostics_path = run_dir / "artifacts" / "banker_page_pack_template_diagnostics.json"
+        diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
+        diagnostics_path.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     output_path = output or run_dir / VALIDATION_OUTPUTS.get(artifact, f"artifacts/{artifact}_validation.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -1314,6 +1325,9 @@ def render(
     artifacts.mkdir(exist_ok=True)
     _clear_draft_state(run_dir)
     _check_runtime_readiness(run_dir, python_cmd, strict=strict_runtime_readiness)
+    if (run_dir / "banker_page_pack.json").exists():
+        build_template_registry(run_dir, python_cmd, template_path=template_path)
+        compile_page_pack(run_dir, python_cmd)
     if not skip_preflight:
         _preflight(run_dir)
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render", preflight_skipped=skip_preflight)
@@ -1605,6 +1619,8 @@ def _rebuild_compiled_deck(run_dir: Path, python_cmd: str) -> None:
 
 def compile_page_pack(run_dir: Path, python_cmd: str) -> None:
     run_dir = _ensure_run_dir(run_dir)
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(exist_ok=True)
     missing = [
         rel
         for rel in ("banker_page_pack.json", "template_registry.json")
@@ -1612,6 +1628,8 @@ def compile_page_pack(run_dir: Path, python_cmd: str) -> None:
     ]
     if missing:
         raise PipelineError(f"cannot compile page pack: missing {', '.join(missing)}")
+    _validate_artifact(run_dir, python_cmd, "banker_page_pack", artifacts / "banker_page_pack_validation.json")
+    _validate_artifact(run_dir, python_cmd, "template_registry", artifacts / "template_registry_validation.json")
     print(f"[pipeline] compile banker_page_pack.json -> deck_blueprint/page_evidence_contract/renderer_spec")
     deck_blueprint, page_contract, renderer_spec = compile_banker_page_pack(
         _json(run_dir / "banker_page_pack.json"),

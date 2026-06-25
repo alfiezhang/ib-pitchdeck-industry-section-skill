@@ -652,6 +652,8 @@ def _normalize_compare_table_data(raw: dict[str, Any]) -> dict[str, Any]:
         return {}
     table = dict(raw)
     headers = [str(item).strip() for item in table.get("headers") or [] if str(item).strip()]
+    if not headers and isinstance(table.get("columns"), list):
+        headers = [str(item).strip() for item in table.get("columns") or [] if str(item).strip()]
     if not headers and str(table.get("table_header") or "").strip():
         headers = split_table_cells(str(table.get("table_header") or ""))
 

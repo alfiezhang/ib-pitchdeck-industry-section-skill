@@ -148,7 +148,7 @@ def test_template_analyzer_extracts_inventory_from_arbitrary_pptx(tmp_path: Path
     assert profile["dynamic_slots"]["slides"][0]["slot_count"] >= 3
 
 
-def test_template_fit_outputs_plan_and_blocks_capacity_conflict(tmp_path: Path) -> None:
+def test_template_fit_outputs_body_copy_advisory_without_blocking(tmp_path: Path) -> None:
     profile_path = tmp_path / "template_profile.json"
     renderer_path = tmp_path / "renderer_spec.json"
     validation_path = tmp_path / "template_fit_validation.json"
@@ -172,15 +172,15 @@ def test_template_fit_outputs_plan_and_blocks_capacity_conflict(tmp_path: Path) 
         ],
     )
 
-    assert result.returncode == 1
+    assert result.returncode == 0, result.stderr or result.stdout
     validation = json.loads(validation_path.read_text(encoding="utf-8"))
     fit_plan = json.loads(plan_path.read_text(encoding="utf-8"))
-    assert validation["is_valid"] is False
-    assert validation["template_capacity_conflict"] is True
-    assert fit_plan["fit_decision"] == "template_capacity_conflict"
-    assert fit_plan["capacity_conflicts"][0]["conflict_type"] == "template_capacity_conflict"
-    assert fit_plan["capacity_conflicts"][0]["repair_owner"] == "generation"
-    assert fit_plan["copy_compression_recommendations"]
+    assert validation["is_valid"] is True
+    assert validation["template_capacity_conflict"] is False
+    assert validation["warnings"]
+    assert fit_plan["fit_decision"] == "template_ready"
+    assert fit_plan["capacity_conflicts"] == []
+    assert any(item["recommendation_type"] == "copy_compression_advisory" for item in fit_plan["copy_compression_recommendations"])
 
 
 def test_template_fit_plan_records_slot_assignments_for_compatible_content(tmp_path: Path) -> None:
