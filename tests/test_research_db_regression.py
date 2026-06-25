@@ -495,41 +495,6 @@ def test_build_db_does_not_promote_unverified_excerpt_to_evidence() -> None:
     assert inventory_row["evidence_ids"] == []
 
 
-def test_build_db_imports_repository_sources_as_material_candidates_only() -> None:
-    repository_sources = [
-        {
-            "source_id": "R-REPO-001",
-            "source_title": "Historical Industry Report",
-            "source_type": "industry_report",
-            "source_path": "https://example.com/repo/report",
-            "text_snapshot_path": "/tmp/report.txt",
-            "industry_tags": ["renewables", "energy"],
-            "geography": "CN",
-            "time_period": "2025",
-            "source_quality": "medium",
-            "reuse_limitations": ["requires re-review"],
-            "snapshot_excerpt": "Historical report summary used for context only.",
-        }
-    ]
-
-    db = build_db(
-        input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "CN"},
-        scope_pack={"scope_summary": {"working_market": "sample market"}},
-        formal_search_plan={"issue_search_plan": []},
-        execution_report={"issue_results": []},
-        source_reviews={"source_reviews": []},
-        repository_sources=repository_sources,
-    )
-
-    source_rows = db["source_materials"]
-    assert len(source_rows) == 1
-    row = source_rows[0]
-    assert row["source_review_id"] == "R-REPO-001"
-    assert row["source_access"] == "repository_retrieval"
-    assert row["usable_as_evidence"] is False
-    assert row["fact_type"] == "repository_import"
-
-
 def test_build_db_preserves_new_material_manifest_fields() -> None:
     db = build_db(
         input_card={"target_company": "Sample Target", "industry": "sample sector", "geography": "CN"},

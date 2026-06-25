@@ -42,16 +42,20 @@
     "allowed_source_types": [
       "public_search",
       "user_curated_industry_report",
-      "manual_url_ingestion",
-      "repository_retrieval"
+      "manual_url_ingestion"
     ],
     "source_type_alias_terms": {
-      "repository_retrieval": ["repo", "repository"],
       "manual_url_ingestion": ["manual", "url"],
       "user_curated_industry_report": ["industry report", "user curated", "用户报告"],
       "public_search": ["client", "confidential", "internal", "sensitive"]
     },
     "default_source_type": "public_search",
+    "statuses": [
+      "pending_public_evidence",
+      "in_research",
+      "resolved",
+      "cancelled"
+    ],
     "downstream_permissions": [
       "headline_disallowed",
       "caveat_or_evidence_boundary_only",
@@ -69,7 +73,8 @@
     "default_minimum_actual_searches": 1,
     "default_status": "pending_public_evidence",
     "default_allowed_use_before_resolution": "not_allowed_in_headline",
-    "build_rule": "Requests are generated only from banker_page_pack.research_requests and internal slide open_questions; unresolved requests stay caveat/evidence-boundary-only until formal execution creates evidence."
+    "authoring_rule": "Reasoning LLM writes research_request_queue.json directly only for evidence that is required before promoting a claim. Do not generate requests mechanically from every open question.",
+    "build_rule": "No builder script owns this artifact. Use LLM authoring plus validate_artifact.py for mechanical structure only."
   },
   "issue_execution_policy": {
     "market_size_growth/current_market_size": "deep_search",

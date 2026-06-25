@@ -17,7 +17,7 @@ The scope pack is a boundary card, not a research memo. Target length is 1-2 scr
 ## Outputs
 
 - `artifacts/industry_scope_pack.json` using the current boundary-card schema
-- boundary validation requests only when the boundary is genuinely uncertain
+- `artifacts/industry_boundary_qc.json` may include `boundary_validation_requests` only when the boundary is genuinely uncertain
 - updated boundary rationale after validation evidence arrives, if QC asks for repair
 
 ## Boundary Card Rules
@@ -90,7 +90,7 @@ The scope pack is a boundary card, not a research memo. Target length is 1-2 scr
 2. Draft the working, parent, and broader market definitions.
 3. Classify categories into core, broad, adjacent, and excluded.
 4. List only material reconciliation topics.
-5. Request small boundary-check research only when needed.
+5. Request small boundary-check research only when needed by writing bounded items inside `industry_boundary_qc.boundary_validation_requests`; do not create a separate request-builder artifact.
 
 ## Judgment Boundary
 

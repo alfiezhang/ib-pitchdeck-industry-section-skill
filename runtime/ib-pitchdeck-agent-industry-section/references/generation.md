@@ -43,7 +43,7 @@ Treat those files as deterministic renderer artifacts. Do not hand-author them i
 11. Use `project_relevance_note` sparingly: it is a one-sentence bridge from the industry point to the pre-mandate project, not a target promotion paragraph. It may be blank when the page is purely industry context. The default `page_primary_subject` is `industry`; `target_context` should be exceptional and source-labeled.
 12. Keep target/company facts out of headlines unless the page is explicitly `target_context` and the fact is source-labeled. In normal industry pages, target facts can appear only in caveats, evidence-boundary notes, or the short `project_relevance_note`.
 13. Treat management-provided target metrics as unaudited project context unless independently verified. Do not use them as audited/chart-ready MET rows or mix them into industry charts.
-14. If a claim cannot be supported, downgrade it to a caveated judgment, evidence-boundary note, or research request. Do not invent numbers or fill IDs just to pass validation.
+14. If a claim cannot be supported, downgrade it to a caveated judgment or evidence-boundary note. If resolving the gap would change page permission or exhibit readiness, ask Reasoning to author `artifacts/research_request_queue.json`; do not display research requests as a client-facing checklist.
 15. If the evidence DB is thin, do not make a sparse eight-page client deck. Mark `deliverable_readiness.evidence_limited_pitch_outline` or `research_first_required`, write the minimum useful evidence-limited handoff, and route the missing evidence back to Research/Knowledge.
 
 ## Compile

@@ -333,7 +333,6 @@ def ingest_materials(
             "project_specific_material": "user_provided user input and uploaded files; candidate until extraction and review",
             "user_curated_industry_report": "curated report candidate; subject to formal evidence extraction/review",
             "manual_url_ingestion": "public source candidate; requires source locator and archive for formal evidence",
-            "repository_retrieval": "retrieved source candidate from shared repository",
             "ppt_template": "user-provided presentation template; use for Template Layer selection/analysis, not evidence",
         },
     }

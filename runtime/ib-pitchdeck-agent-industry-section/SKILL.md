@@ -27,7 +27,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
 2. Ingest the material.
    - Preserve the user's brief exactly before summarizing it.
    - Register user-provided PDFs, PPTs, Excel files, URLs, industry reports, notes, and templates.
-   - Classify each source as project-specific material, user-curated industry report, public web result, company material, market data, or reusable repository material.
+   - Classify each source as project-specific material, user-curated industry report, public web result, company material, market data, or template material.
    - For a short text brief, use the bundled intake helper rather than hand-building intake files:
 
    ```bash
@@ -69,6 +69,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - Keep target context selective: the default page subject is `industry`; `target_context` pages and target-specific terms should be exceptional and clearly source-labeled.
    - If evidence is thin, make the page structured and caveated; do not render empty pages or invent numbers.
    - Management-provided target metrics from the brief are unaudited project context unless externally verified; do not treat them as audited/chart-ready industry MET data.
+   - If a page needs more public evidence before claim promotion or exhibit readiness, have Reasoning LLM author `artifacts/research_request_queue.json` directly from the queue template. Do not run a script that mechanically converts every open question into a research request.
 
 7. Compile the page pack.
    - Run `scripts/generation/compile_banker_page_pack.py` to create derived `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`.
@@ -108,6 +109,8 @@ Banker Page Pack -> Research Request Queue -> Research -> Knowledge -> Banker Pa
 ```
 
 Use this when a page argument, caveat, transaction framing angle, or exhibit needs more public evidence before it can be used.
+
+`Research Request Queue` is an LLM-authored control artifact. Validate its structure with `scripts/qc/validate_artifact.py --artifact research_request_queue`, but do not generate it with a builder script.
 
 ## Practical Dashboard Commands
 
@@ -163,7 +166,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 ## Failure Modes To Avoid
 
 - Treating a planned search, query, or search snippet as evidence.
-- Letting the main agent hand-write every artifact instead of using role references and helper scripts.
+- Hand-writing deterministic derived artifacts instead of repairing the LLM-owned source artifact and recompiling.
 - Creating fake S/SRC/EV/MET IDs to satisfy a format check.
 - Moving unexecuted or not-material research coverage into the evidence binder.
 - Turning hypotheses into headlines.

@@ -331,6 +331,82 @@ def validate_material_like(artifact: str, path: Path, run_dir: Path, errors: lis
         warnings.append("input_card has no obvious raw brief or explicit facts")
 
 
+def _research_request_queue_policy() -> dict[str, Any]:
+    try:
+        payload = load_json_file(RUNTIME_ROOT / "configs" / "research_planning_policy.json")
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    policy = payload.get("research_request_queue")
+    return policy if isinstance(policy, dict) else {}
+
+
+def _policy_values(policy: dict[str, Any], key: str) -> set[str]:
+    return {text(item) for item in as_list(policy.get(key)) if text(item)}
+
+
+def validate_research_request_queue(path: Path, errors: list[str], warnings: list[str]) -> None:
+    payload = _json(path, errors)
+    if not payload:
+        return
+    if payload.get("schema_version") != "research_request_queue_v1":
+        errors.append("research_request_queue must use schema_version research_request_queue_v1")
+    if payload.get("authoring_mode") != "llm_authored":
+        errors.append("research_request_queue.authoring_mode must be llm_authored; do not generate this artifact with a builder script")
+
+    requests = payload.get("requests")
+    if not isinstance(requests, list):
+        errors.append("research_request_queue.requests must be a list")
+        return
+    if not requests:
+        warnings.append("research_request_queue has no active requests")
+
+    policy = _research_request_queue_policy()
+    allowed_source_types = _policy_values(policy, "allowed_source_types")
+    downstream_permissions = _policy_values(policy, "downstream_permissions")
+    statuses = _policy_values(policy, "statuses")
+    if not statuses:
+        statuses = {text(policy.get("default_status")), "pending_public_evidence", "in_research", "resolved", "cancelled"}
+
+    seen: set[str] = set()
+    for idx, request in enumerate(requests, start=1):
+        if not isinstance(request, dict):
+            errors.append(f"research_request_queue.requests[{idx}] must be an object")
+            continue
+        request_id = text(request.get("request_id") or request.get("research_request_id"))
+        if not re.fullmatch(r"RQ-\d{3}", request_id):
+            errors.append(f"research_request_queue.requests[{idx}].request_id must look like RQ-001")
+        elif request_id in seen:
+            errors.append(f"duplicate research request id: {request_id}")
+        seen.add(request_id)
+        if not text(request.get("research_question")):
+            errors.append(f"{request_id or f'request {idx}'} missing research_question")
+        if not (
+            text(request.get("origin_artifact"))
+            or text(request.get("origin_ref_id"))
+            or text(request.get("origin_issue_id"))
+            or text(request.get("origin_page_argument_id"))
+            or text(request.get("boundary_request_id"))
+        ):
+            errors.append(f"{request_id or f'request {idx}'} must cite its origin artifact or source ref")
+
+        required_source_type = text(request.get("required_source_type"))
+        if allowed_source_types and required_source_type not in allowed_source_types:
+            errors.append(f"{request_id or f'request {idx}'} required_source_type is not allowed: {required_source_type}")
+        minimum = request.get("minimum_actual_searches")
+        if not isinstance(minimum, int) or minimum < 0:
+            errors.append(f"{request_id or f'request {idx}'} minimum_actual_searches must be a non-negative integer")
+        permission = text(request.get("downstream_permission_if_unresolved"))
+        if downstream_permissions and permission not in downstream_permissions:
+            errors.append(f"{request_id or f'request {idx}'} downstream_permission_if_unresolved is not allowed: {permission}")
+        status = text(request.get("status"))
+        if statuses and status not in statuses:
+            errors.append(f"{request_id or f'request {idx}'} status is not allowed: {status}")
+        if not text(request.get("success_criteria")):
+            warnings.append(f"{request_id or f'request {idx}'} has no success_criteria")
+
+
 def validate_scope(path: Path, errors: list[str], warnings: list[str]) -> None:
     payload = _json(path, errors)
     if not payload:
@@ -832,8 +908,10 @@ def validate_artifact(artifact: str, run_dir: Path, path: Path | None = None) ->
     errors: list[str] = []
     warnings: list[str] = []
     target = path or run_dir / ARTIFACT_PATHS.get(artifact, "")
-    if artifact in {"material_manifest", "material_extracts", "input_card", "research_request_queue"}:
+    if artifact in {"material_manifest", "material_extracts", "input_card"}:
         validate_material_like(artifact, target, run_dir, errors, warnings)
+    elif artifact == "research_request_queue":
+        validate_research_request_queue(target, errors, warnings)
     elif artifact == "industry_scope_pack":
         validate_scope(target, errors, warnings)
     elif artifact == "formal_search_plan":

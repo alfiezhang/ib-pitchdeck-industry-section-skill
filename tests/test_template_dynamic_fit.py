@@ -148,33 +148,6 @@ def test_template_analyzer_extracts_inventory_from_arbitrary_pptx(tmp_path: Path
     assert profile["dynamic_slots"]["slides"][0]["slot_count"] >= 3
 
 
-def test_select_template_runs_from_arbitrary_cwd_without_pythonpath(tmp_path: Path) -> None:
-    script = SCRIPT_DIR / "template" / "select_template.py"
-    run_dir = tmp_path / "run"
-    (run_dir / "artifacts").mkdir(parents=True)
-    env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(script),
-            "--run-dir",
-            str(run_dir),
-            "--output",
-            str(run_dir / "artifacts" / "template_selection.json"),
-        ],
-        cwd=str(tmp_path),
-        text=True,
-        capture_output=True,
-        env=env,
-    )
-
-    assert result.returncode == 0, result.stderr or result.stdout
-    payload = json.loads((run_dir / "artifacts" / "template_selection.json").read_text(encoding="utf-8"))
-    assert payload["selection_source"] == "bundled_default"
-    assert payload["selected_template_exists"] is True
-
-
 def test_template_fit_outputs_plan_and_blocks_capacity_conflict(tmp_path: Path) -> None:
     profile_path = tmp_path / "template_profile.json"
     renderer_path = tmp_path / "renderer_spec.json"

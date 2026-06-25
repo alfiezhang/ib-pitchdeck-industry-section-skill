@@ -2,7 +2,7 @@
 
 ## Role
 
-Reasoning is now a judgment-support role inside the `banker_page_pack.json` workflow. It sharpens industry judgment, caveat treatment, selective project relevance, and research requests after Knowledge validates the evidence DB.
+Reasoning is now a judgment-support role inside the `banker_page_pack.json` workflow. It sharpens industry judgment, caveat treatment, selective project relevance, and bounded research requests after Knowledge validates the evidence DB.
 
 ## When To Use
 
@@ -15,16 +15,19 @@ Reasoning is now a judgment-support role inside the `banker_page_pack.json` work
 
 ## Default Output
 
-Reasoning writes directly into the relevant `banker_page_pack.slides[]` fields or creates a bounded research request. Do not create separate diagnostic reasoning artifacts for the main workflow.
+Reasoning writes directly into the relevant `banker_page_pack.slides[]` fields. When a claim needs more evidence before promotion, Reasoning LLM may author `artifacts/research_request_queue.json` from `configs/artifact_templates/research_request_queue.template.json`.
+
+Do not run a builder script for the queue. Do not mechanically convert every `open_questions` item into a research request. A request exists only when Reasoning decides that resolving it would change claim permission, page inclusion, or exhibit readiness.
 
 ## How To Work
 
 1. Start from `artifacts/research_evidence_db.json`, not from desired page titles.
 2. Separate supported judgments, directional views, caveats, and evidence boundaries.
-3. If a hypothesis is unresolved, write a caveated judgment or route a Research request instead of promoting it.
+3. If a hypothesis is unresolved, write a caveated judgment or author a bounded research request instead of promoting it.
 4. Decide whether the evidence supports a dense client-facing page, a caveated page, or no page.
 5. Feed the result into the relevant `banker_page_pack.slides[]` fields: `page_primary_subject`, `banker_judgment`, `page_argument`, `claim_strength`, `body_blocks`, `project_relevance_note`, `caveats`, and `open_questions`.
 6. Preserve the subject hierarchy: industry judgment is the default page subject; target/project context is a short relevance bridge or a labeled limitation unless the page is explicitly `target_context`.
+7. If creating `research_request_queue.json`, set `authoring_mode` to `llm_authored`, cite the origin artifact/ref, state the exact source type needed, and set unresolved downstream use conservatively.
 
 ## Judgment Boundary
 

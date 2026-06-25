@@ -9,7 +9,7 @@ This skill builds the industry section of a **pre-mandate client pitchbook**. It
 3. Knowledge stores facts, metrics, sources, conflicts, and unknowns; it does not search or judge.
 4. Research collects public evidence and user-supplied reports; it does not turn hypotheses into conclusions.
 5. Banker judgment and page design converge in `banker_page_pack.json`: industry-first supported views, caveats, exhibit logic, dense copy, data bindings, and selective project relevance.
-6. Reasoning is a diagnostic support role when a judgment needs hypothesis resolution or a research request before it can enter the page pack.
+6. Reasoning is a diagnostic support role when a judgment needs hypothesis resolution or an LLM-authored research request before it can enter the page pack.
 7. Template work comes after page logic: the template can compress, split, and fit content, but it cannot change the core judgment.
 8. QC owns validation. Python handles deterministic format, ID, provenance, and rendering checks. LLM QC handles quality, evidence sufficiency, source use, page thinness, and pitch relevance.
 9. Output is deterministic rendering only.
@@ -41,7 +41,7 @@ User materials / links / instructions
 - Knowledge Repository: evidence database and reusable source repository.
 - Industry Scoping: broad/core/adjacent/excluded boundary and boundary loop.
 - Research / External Evidence: public evidence collection, source archive, and execution accounting.
-- Reasoning: optional hypothesis handling, research requests, and judgment diagnostics.
+- Reasoning: optional hypothesis handling, LLM-authored research requests, and judgment diagnostics.
 - Generation: banker page pack authoring, exhibit design, content density, and compile to renderer artifacts.
 - Template: template analysis and fit.
 - QC: all validators plus LLM quality review and repair briefs.

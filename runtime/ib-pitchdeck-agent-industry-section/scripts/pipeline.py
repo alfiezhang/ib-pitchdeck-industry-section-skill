@@ -13,13 +13,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
+from collections import defaultdict
 from datetime import datetime, timezone
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 LIB_DIR = SCRIPT_DIR / "_lib"
@@ -65,6 +69,7 @@ TEMPLATE_PROFILE = LAYOUT_PATHS["template_profile"]
 FILLED_PPT = "industry_section_filled.pptx"
 CLEAN_PPT = "industry_section_filled_clean.pptx"
 FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
+TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
 
 
 class PipelineError(RuntimeError):
@@ -82,6 +87,113 @@ def _json(path: Path) -> dict[str, Any]:
         raise PipelineError(f"Failed to read JSON file: {path}. {exc}") from exc
     except JSONDecodeError as exc:
         raise PipelineError(f"Invalid JSON in file: {path}. {exc}") from exc
+
+
+def _collect_template_tokens(pptx_path: Path) -> dict[str, list[str]]:
+    token_locations: dict[str, list[str]] = defaultdict(list)
+    try:
+        archive = ZipFile(pptx_path)
+    except FileNotFoundError as exc:
+        raise PipelineError(f"PPTX template not found: {pptx_path}") from exc
+    except Exception as exc:
+        raise PipelineError(f"Failed to open PPTX template {pptx_path}: {exc}") from exc
+    with archive:
+        for name in archive.namelist():
+            if not (name.startswith("ppt/slides/slide") and name.endswith(".xml")):
+                continue
+            root = ET.fromstring(archive.read(name))
+            for elem in root.iter():
+                if not elem.tag.endswith("}p"):
+                    continue
+                paragraph_text = "".join(
+                    child.text for child in elem.iter() if child.tag.endswith("}t") and child.text
+                )
+                for token in TOKEN_PATTERN.findall(paragraph_text):
+                    token_locations[token].append(name)
+    return dict(token_locations)
+
+
+def _collect_mapping_tokens(mapping: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    tokens: dict[str, dict[str, Any]] = {}
+    for slide in mapping.get("slides", []):
+        if not isinstance(slide, dict):
+            continue
+        slide_no = slide.get("slide_no")
+        slide_key = slide.get("slide_key")
+        if "tokens" in slide:
+            for token in slide.get("tokens", []):
+                if not isinstance(token, dict):
+                    continue
+                placeholder = str(token.get("placeholder") or "").strip()
+                if placeholder:
+                    tokens[placeholder] = {
+                        "slide_no": slide_no,
+                        "slide_key": slide_key,
+                        "field_name": token.get("field_name", ""),
+                        "selected_page_type": slide.get("selected_page_type", ""),
+                        "variant_key": "",
+                    }
+            continue
+        variants = slide.get("controlled_variants") if isinstance(slide.get("controlled_variants"), dict) else {}
+        for page_type, variant in variants.items():
+            if not isinstance(variant, dict):
+                continue
+            for token in variant.get("tokens", []):
+                if not isinstance(token, dict):
+                    continue
+                placeholder = str(token.get("placeholder") or "").strip()
+                if placeholder:
+                    tokens[placeholder] = {
+                        "slide_no": slide_no,
+                        "slide_key": slide_key,
+                        "field_name": token.get("field_name", ""),
+                        "selected_page_type": page_type,
+                        "variant_key": variant.get("variant_key", ""),
+                    }
+    return tokens
+
+
+def build_template_token_report(template_path: Path, ppt_mapping_path: Path) -> dict[str, Any]:
+    template_tokens = _collect_template_tokens(template_path)
+    mapping_tokens = _collect_mapping_tokens(_json(ppt_mapping_path))
+    template_set = set(template_tokens)
+    mapping_set = set(mapping_tokens)
+    missing_in_mapping = sorted(template_set - mapping_set)
+    missing_in_template = sorted(mapping_set - template_set)
+    matched = sorted(template_set & mapping_set)
+    return {
+        "summary": {
+            "template_token_count": len(template_set),
+            "mapping_token_count": len(mapping_set),
+            "matched_token_count": len(matched),
+            "missing_in_mapping_count": len(missing_in_mapping),
+            "missing_in_template_count": len(missing_in_template),
+            "is_consistent": not missing_in_mapping and not missing_in_template,
+        },
+        "missing_in_mapping": [
+            {"placeholder": token, "template_locations": template_tokens[token]}
+            for token in missing_in_mapping
+        ],
+        "missing_in_template": [
+            {"placeholder": token, "mapping_entry": mapping_tokens[token]}
+            for token in missing_in_template
+        ],
+        "matched_tokens": [
+            {
+                "placeholder": token,
+                "template_locations": template_tokens[token],
+                "mapping_entry": mapping_tokens[token],
+            }
+            for token in matched
+        ],
+    }
+
+
+def _write_template_token_report(template_path: Path, ppt_mapping_path: Path, output_path: Path) -> None:
+    report = build_template_token_report(template_path, ppt_mapping_path)
+    output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if not report.get("summary", {}).get("is_consistent"):
+        raise PipelineError("template tokens and ppt_mapping.json are inconsistent")
 
 
 def _run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
@@ -262,43 +374,77 @@ def _write_run_flags(run_dir: Path, *, entrypoint: str, preflight_skipped: bool 
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _resolve_template_path(path_text: str, run_dir: Path) -> Path:
+    path = Path(path_text).expanduser()
+    if path.is_absolute():
+        return path
+    candidate = (run_dir / path).resolve()
+    if candidate.exists():
+        return candidate
+    if path.exists():
+        return path.resolve()
+    return (ROOT_DIR / path).resolve()
+
+
+def _registered_template_material(run_dir: Path) -> tuple[Path | None, str]:
+    manifest = _json(run_dir / "artifacts/material_manifest.json")
+    for item in manifest.get("materials") or []:
+        if not isinstance(item, dict):
+            continue
+        source_type = str(item.get("source_type") or "").strip().lower()
+        material_kind = str(item.get("material_kind") or "").strip().lower()
+        path_text = str(item.get("file_path_or_url") or "").strip()
+        if not path_text.lower().endswith((".pptx", ".potx", ".ppt")):
+            continue
+        if source_type == "ppt_template" or material_kind == "ppt_template":
+            path = _resolve_template_path(path_text, run_dir)
+            if path.exists():
+                return path, str(item.get("material_id") or "")
+    return None, ""
+
+
 def _select_template_for_run(run_dir: Path, python_cmd: str, explicit_template: Path | None = None) -> Path:
     """Resolve the effective PPT template for this run.
 
-    User-provided templates are selected through artifacts/template_selection.json.
-    If no user template was registered, the bundled template is selected. This
-    keeps Template and Output aligned and prevents agents from silently ignoring
-    a user-supplied template.
+    This is deterministic bookkeeping inside the render controller, not a
+    separate role step.
     """
 
+    del python_cmd
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
     selection_path = artifacts / "template_selection.json"
-    cmd = [
-        python_cmd,
-        ROLE_SCRIPT_DIRS["select_template.py"],
-        "--run-dir",
-        run_dir,
-        "--output",
-        selection_path,
-        "--bundled-template",
-        TEMPLATE,
-        "--ppt-mapping",
-        PPT_MAPPING,
-    ]
+    selected_material_id = ""
     if explicit_template is not None:
-        cmd.extend(["--template", explicit_template])
-    elif selection_path.exists():
-        payload = _json(selection_path)
-        selected = payload.get("selected_template_path")
-        if selected:
-            return Path(selected)
-    _run(cmd)
-    payload = _json(selection_path)
-    selected = payload.get("selected_template_path")
-    if not selected:
-        raise PipelineError("template selection did not produce selected_template_path")
-    return Path(selected)
+        selected = explicit_template.expanduser().resolve()
+        source = "explicit_user_template"
+        reason = "explicit --template value provided"
+    else:
+        registered, selected_material_id = _registered_template_material(run_dir)
+        if registered is not None:
+            selected = registered.resolve()
+            source = "user_provided_template_material"
+            reason = "first registered ppt_template material"
+        else:
+            selected = TEMPLATE.resolve()
+            source = "bundled_default"
+            reason = "no user-provided PPT template was registered"
+    payload = {
+        "schema_version": "template_selection_v1",
+        "selected_template_path": str(selected),
+        "selection_source": source,
+        "selected_material_id": selected_material_id,
+        "bundled_template_path": str(TEMPLATE.resolve()),
+        "selection_rule": "explicit_user_template > registered ppt_template material > bundled_default",
+        "reason": reason,
+        "selected_template_exists": selected.exists(),
+        "created_by": "scripts/pipeline.py",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    selection_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if not selected.exists():
+        raise PipelineError(f"selected template does not exist: {selected}")
+    return selected
 
 
 def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) -> None:
@@ -361,19 +507,7 @@ def render(
 
     try:
         validate_pre_ppt(run_dir, python_cmd, template_path=template_path)
-        _run(
-            [
-                python_cmd,
-                ROLE_SCRIPT_DIRS["check_template_tokens.py"],
-                "--template",
-                template_path,
-                "--ppt-mapping",
-                PPT_MAPPING,
-                "--output",
-                artifacts / "template_token_check.json",
-                "--fail-on-diff",
-            ]
-        )
+        _write_template_token_report(template_path, PPT_MAPPING, artifacts / "template_token_check.json")
         _run(
             [
                 python_cmd,
@@ -497,7 +631,6 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
     if run_dir.name.startswith("attempt_"):
         runs_dir = run_dir.parent
         (runs_dir / "ACTIVE_ATTEMPT.txt").write_text(run_dir.name + "\n", encoding="utf-8")
-        _run([python_cmd, SCRIPT_DIR / "output" / "update_runs_index.py", "--runs-dir", runs_dir])
 
 
 def _run_if_inputs_exist(run_dir: Path, required: list[str]) -> tuple[bool, list[str]]:
@@ -766,7 +899,7 @@ def main() -> int:
         template_parser.add_argument(
             "--template",
             default="",
-            help="Optional explicit user PPTX/POTX template. If omitted, artifacts/template_selection.json or bundled template is used.",
+            help="Optional explicit user PPTX/POTX template. If omitted, pipeline selects a registered ppt_template material or the bundled template.",
         )
     render_parser.add_argument(
         "--skip-preflight",

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +12,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
 SCRIPT_DIR = SKILL_DIR / "scripts"
 DEVTOOLS_CHECKS = REPO_ROOT / "devtools" / "checks"
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from pipeline import build_template_token_report  # noqa: E402
 
 
 def _run(args: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -49,14 +52,9 @@ class TestJsonLint:
 
 
 class TestTemplateTokenCheck:
-    def test_template_tokens_match_ppt_mapping(self, tmp_path):
-        result = _run([
-            sys.executable, "scripts/template/check_template_tokens.py",
-            "--template", "assets/industry_section_template_master.pptx",
-            "--ppt-mapping", "configs/ppt_mapping.json",
-            "--fail-on-diff",
-            "--output", str(tmp_path / "template_token_check.json"),
-        ])
-        assert result.returncode == 0, result.stdout + result.stderr
-        output = json.loads((tmp_path / "template_token_check.json").read_text(encoding="utf-8"))
-        assert output.get("mismatched_tokens", []) == [], output
+    def test_template_tokens_match_ppt_mapping(self):
+        output = build_template_token_report(
+            SKILL_DIR / "assets/industry_section_template_master.pptx",
+            SKILL_DIR / "configs/ppt_mapping.json",
+        )
+        assert output["summary"]["is_consistent"] is True, output

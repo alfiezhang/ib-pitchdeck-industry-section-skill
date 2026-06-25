@@ -14,7 +14,6 @@ CANONICAL_SOURCE_TYPES = (
     "web_search_result",
     "company_material",
     "market_data_source",
-    "repository_retrieval",
     "manual_url_ingestion",
     "ppt_template",
     "official_filing",
@@ -34,9 +33,6 @@ SOURCE_TYPE_ALIASES = {
     "management": "project_specific_material",
     "company/user-provided": "project_specific_material",
     "company user": "company_material",
-    "repository": "repository_retrieval",
-    "repository_retrieval": "repository_retrieval",
-    "repo_retrieval": "repository_retrieval",
     "search_result": "web_search_result",
     "search result": "web_search_result",
     "web_search": "web_search_result",
@@ -63,7 +59,6 @@ USER_MATERIAL_SOURCE_TYPES = {
     "project_specific_material",
     "user_curated_industry_report",
     "company_material",
-    "repository_retrieval",
     "manual_url_ingestion",
     "ppt_template",
 }
@@ -134,8 +129,6 @@ def normalize_source_type_hint(path_or_url: str, provided_type: str | None) -> s
 
 def classify_access(source_type: str, source_path: str | None = None) -> str:
     normalized = normalize_source_type(source_type)
-    if normalized == "repository_retrieval":
-        return "repository_retrieval"
     if is_url(source_path or "") or normalized == "web_search_result":
         return "public_search"
     return "user_provided"

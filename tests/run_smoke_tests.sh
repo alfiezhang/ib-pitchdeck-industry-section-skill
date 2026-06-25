@@ -55,10 +55,5 @@ fi
 "$PYTHON_CMD" "$ROOT_DIR/devtools/checks/check_artifact_manifest.py" >/dev/null
 "$PYTHON_CMD" "$ROOT_DIR/devtools/checks/check_slide_registry.py" >/dev/null
 "$PYTHON_CMD" "$ROOT_DIR/devtools/checks/check_registry_coverage.py" >/dev/null
-"$PYTHON_CMD" scripts/template/check_template_tokens.py \
-  --template assets/industry_section_template_master.pptx \
-  --ppt-mapping configs/ppt_mapping.json \
-  --fail-on-diff \
-  --output "$TMP_DIR/template_token_check.json" >/dev/null
 
 echo "Smoke tests passed."

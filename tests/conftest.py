@@ -495,7 +495,7 @@ def _minimal_scope_pack() -> dict:
     }
 
 
-def _seed_boundary_loop_status(
+def _seed_industry_boundary_qc(
     run_dir: Path,
     *,
     scope_pack_path: Path,
@@ -503,43 +503,33 @@ def _seed_boundary_loop_status(
     research_evidence_db_path: Path | None,
     search_log_path: Path | None,
 ) -> dict:
-    from boundary_loop import run_boundary_loop
-
+    del scope_pack_path, material_extracts_path, research_evidence_db_path, search_log_path
     artifacts = run_dir / "artifacts"
-    status = run_boundary_loop(
-        scope_pack=scope_pack_path,
-        material_extracts=material_extracts_path,
-        research_evidence_db=research_evidence_db_path,
-        boundary_search_results=search_log_path,
-    )
-    _write_json(artifacts / "boundary_loop_status.json", status)
-    if status.get("boundary_loop_status") == "boundary_ready":
+    payload = {
+        "schema_version": "industry_boundary_qc_v1",
+        "decision": "pass",
+        "is_valid": True,
+        "boundary_quality_rationale": "Synthetic boundary QC pass for fixture.",
+        "validated_scope": {
+            "working_market": "sample sector",
+            "parent_market": "sample parent market",
+            "broader_market": "sample broader market",
+        },
+        "areas_confirmed": ["working market"],
+        "areas_uncertain": [],
+        "excluded_scope_confirmed": ["excluded adjacent scope"],
+        "feedback": [],
+        "boundary_validation_requests": [],
+        "formal_research_allowed_scope": ["sample sector"],
+        "do_not_research_as_market_scope": ["sample adjacent scope"],
+    }
+    _write_json(artifacts / "industry_boundary_qc.json", payload)
+    if (artifacts / "industry_scope_pack_validation.json").exists():
         _write_json(
-            artifacts / "industry_boundary_qc.json",
-            {
-                "schema_version": "industry_boundary_qc_v1",
-                "decision": "pass",
-                "boundary_quality_rationale": "Synthetic boundary QC pass for fixture after boundary loop readiness.",
-                "validated_scope": {
-                    "working_market": "sample sector",
-                    "parent_market": "sample parent market",
-                    "broader_market": "sample broader market",
-                },
-                "areas_confirmed": ["working market"],
-                "areas_uncertain": [],
-                "excluded_scope_confirmed": ["excluded adjacent scope"],
-                "feedback": [],
-                "boundary_validation_requests": [],
-                "formal_research_allowed_scope": ["sample sector"],
-                "do_not_research_as_market_scope": ["sample adjacent scope"],
-            },
+            artifacts / "industry_scope_pack_validation.json",
+            {"is_valid": True, "errors": [], "warnings": []},
         )
-        if (artifacts / "industry_scope_pack_validation.json").exists():
-            _write_json(
-                artifacts / "industry_scope_pack_validation.json",
-                {"is_valid": True, "errors": [], "warnings": []},
-            )
-    return status
+    return payload
 
 
 @pytest.fixture(scope="session")
@@ -1073,32 +1063,13 @@ def _pipeline_run_dir(tmp_path_factory):
     _write_json(artifacts / "research_evidence_db_validation.json", {"is_valid": True, "errors": [], "warnings": db_warnings})
     embedded_reviews = json.loads((artifacts / "archive_capture_reviews.json").read_text(encoding="utf-8"))
 
-    boundary_status = _seed_boundary_loop_status(
+    _seed_industry_boundary_qc(
         run_dir,
         scope_pack_path=artifacts / "industry_scope_pack.json",
         material_extracts_path=artifacts / "material_extracts.json",
         research_evidence_db_path=artifacts / "research_evidence_db.json",
         search_log_path=artifacts / "search_log.md",
     )
-    if not bool(boundary_status.get("is_valid", False)):
-        _write_json(
-            artifacts / "boundary_loop_status.json",
-            {
-                "schema_version": "boundary_loop_status_v1",
-                "status": "boundary_ready",
-                "boundary_loop_status": "boundary_ready",
-                "is_valid": True,
-                "created_at": "2026-01-01T00:00:00Z",
-                "errors": [],
-                "warnings": [],
-                "repair_actions": [],
-                "boundary_inputs": {
-                    "scope_pack": True,
-                    "material_extracts": True,
-                    "research_evidence_db": True,
-                },
-            },
-        )
 
     # Research pack export
     exported = export_research_pack_from_db(research_db)
@@ -1149,32 +1120,13 @@ def _pipeline_run_dir(tmp_path_factory):
     _write_json(run_dir / "template_registry.json", registry)
     _write_json(artifacts / "template_registry_validation.json", {"is_valid": True, "errors": [], "warnings": []})
 
-    final_boundary_status = _seed_boundary_loop_status(
+    _seed_industry_boundary_qc(
         run_dir,
         scope_pack_path=artifacts / "industry_scope_pack.json",
         material_extracts_path=artifacts / "material_extracts.json",
         research_evidence_db_path=artifacts / "research_evidence_db.json",
         search_log_path=artifacts / "search_log.md",
     )
-    if not bool(final_boundary_status.get("is_valid", False)):
-        _write_json(
-            artifacts / "boundary_loop_status.json",
-            {
-                "schema_version": "boundary_loop_status_v1",
-                "status": "boundary_ready",
-                "boundary_loop_status": "boundary_ready",
-                "is_valid": True,
-                "created_at": "2026-01-01T00:00:00Z",
-                "errors": [],
-                "warnings": [],
-                "repair_actions": [],
-                "boundary_inputs": {
-                    "scope_pack": True,
-                    "material_extracts": True,
-                    "research_evidence_db": True,
-                },
-            },
-        )
 
     return {
         "run_dir": run_dir,

@@ -147,7 +147,7 @@ Job results are not automatically canonical. The parent or owning role must inte
 
 - source/archive results -> Knowledge evidence DB;
 - source-quality or evidence-limit results -> embedded source review fields in the evidence DB;
-- reasoning results -> banker_page_pack judgment fields or research request queue;
+- reasoning results -> banker_page_pack judgment fields or an LLM-authored research request queue after parent review;
 - generation results -> banker_page_pack page fields before deterministic compilation;
 - template results -> template fit plan or fit feedback;
 - QC results -> repair brief and owner routing.

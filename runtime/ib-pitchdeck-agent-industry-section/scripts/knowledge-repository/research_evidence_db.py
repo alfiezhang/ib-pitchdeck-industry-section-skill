@@ -339,7 +339,6 @@ def build_db(
     source_archive_index: dict[str, Any] | None = None,
     material_manifest: dict[str, Any] | None = None,
     material_extracts: dict[str, Any] | None = None,
-    repository_sources: list[dict[str, Any]] | None = None,
     research_graph_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     meta = meta_from_inputs(input_card, scope_pack)
@@ -445,8 +444,6 @@ def build_db(
             }
         )
 
-    for item in _repository_sources_to_source_material_rows(repository_sources or [], source_ids={item["source_review_id"] for item in source_materials}):
-        source_materials.append(item)
     source_ids_by_evidence: dict[str, set[str]] = {}
     source_ids_by_metric: dict[str, set[str]] = {}
     for source in source_materials:
@@ -764,49 +761,6 @@ def build_db(
     }
 
 
-def _repository_sources_to_source_material_rows(
-    repository_sources: list[dict[str, Any]], source_ids: set[str]
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for item in repository_sources:
-        source_id = text(item.get("source_id")) or text(item.get("normalized_key"))
-        if not source_id:
-            continue
-        if source_id in source_ids:
-            continue
-        source_ids.add(source_id)
-        rows.append(
-            {
-                "source_review_id": source_id,
-                "material_id": source_id,
-                "source_name": text(item.get("source_title") or item.get("source_path") or item.get("normalized_key")),
-                "source_type": normalize_source_type(item.get("source_type") or "repository_retrieval"),
-                "source_access": "repository_retrieval",
-                "source_access_path": text(item.get("source_path") or item.get("normalized_key")),
-                "source_date": text(item.get("time_period") or item.get("source_date")),
-                "geography": text(item.get("geography")),
-                "fact_type": "repository_import",
-                "confidence": "unreviewed",
-                "scope": text(item.get("scope") or ""),
-                "source_reliability": text(item.get("source_quality") or item.get("source_reliability")),
-                "evidence_use_tier": "repository_candidate",
-                "audit_level": RESEARCH_CONTEXT_LEVEL,
-                "claim_use_scope": "Needs re-review in current project",
-                "usable_as_evidence": False,
-                "source_url": text(item.get("source_path") or item.get("normalized_key")),
-                "source_locator": text(item.get("source_path") or ""),
-                "reviewed_excerpt": text(item.get("reviewed_excerpt") or item.get("snapshot_excerpt")),
-                "limitations": text(
-                    "; ".join(item.get("reuse_limitations", []))
-                    if isinstance(item.get("reuse_limitations"), list)
-                    else item.get("reuse_limitations")
-                )
-                or "repository retrieval; re-review required for current project",
-            }
-        )
-    return rows
-
-
 def contains_placeholder(value: Any) -> bool:
     return any(marker in str(value or "") for marker in PLACEHOLDER_MARKERS)
 
@@ -853,8 +807,8 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             warnings.append(
                 f"{src_id}: source_type '{source_type}' normalized to 'other'; use one of {sorted(CANONICAL_SOURCE_TYPES)} if possible"
             )
-        if text(source.get("source_access")) not in {"", "user_provided", "public_search", "repository_retrieval"}:
-            warnings.append(f"{src_id}: source_materials.source_access should be one of user_provided/public_search/repository_retrieval")
+        if text(source.get("source_access")) not in {"", "user_provided", "public_search"}:
+            warnings.append(f"{src_id}: source_materials.source_access should be one of user_provided/public_search")
         for field in ("source_url", "source_locator", "reviewed_excerpt", "source_name"):
             if not text(source.get(field)):
                 warnings.append(f"{src_id}: source_materials.{field} is empty")

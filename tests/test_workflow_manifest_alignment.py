@@ -21,10 +21,8 @@ def test_artifact_manifest_covers_main_mental_path() -> None:
     required_path = [
         "material_manifest",
         "material_extracts",
-        "repository_retrieval",
         "research_evidence_db",
         "industry_scope_pack",
-        "boundary_loop_status",
         "formal_search_plan",
         "search_log",
         "source_archive",

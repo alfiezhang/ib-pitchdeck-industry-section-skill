@@ -18,14 +18,9 @@
         "material_manifest",
         "material_extracts",
         "source_classification",
-        "repository_retrieval",
-        "repository_index",
-        "repository_fingerprints",
-        "repository_validation",
         "input_card",
         "industry_scope_pack",
         "industry_boundary_qc",
-        "boundary_research_requests",
         "formal_search_plan",
         "coverage_map",
         "executable_search_batch",
@@ -67,8 +62,7 @@
       "description": "Optional helper artifacts for debugging or role handoff. They are not part of the main workflow path and should not be required for delivery.",
       "artifacts": [
         "failure_memory",
-        "status_report",
-        "boundary_loop_status"
+        "status_report"
       ]
     }
   },
@@ -86,9 +80,7 @@
       "description": "Target industry definition, boundary validation, excluded scope, and scope risk mapping.",
       "artifacts": [
         "industry_scope_pack",
-        "industry_boundary_qc",
-        "boundary_research_requests",
-        "boundary_loop_status"
+        "industry_boundary_qc"
       ]
     },
     "research-external-evidence": {
@@ -109,11 +101,7 @@
       "description": "Evidence database, facts, metrics, conflicts, gaps, and readable research-pack export.",
       "artifacts": [
         "research_evidence_db",
-        "research_pack",
-        "repository_retrieval",
-        "repository_index",
-        "repository_fingerprints",
-        "repository_validation"
+        "research_pack"
       ]
     },
     "reasoning": {
@@ -185,39 +173,6 @@
         "material_manifest"
       ]
     },
-    "repository_retrieval": {
-      "path": "artifacts/repository_retrieval.json",
-      "owner": "script_repository_lookup",
-      "builder": "scripts/knowledge-repository/repository.py retrieve",
-      "inputs": []
-    },
-    "repository_index": {
-      "path": "$REPOSITORY_ROOT/index/research_repository.jsonl",
-      "owner": "script_repository_ingest",
-      "builder": "scripts/knowledge-repository/repository.py ingest",
-      "inputs": [
-        "material_manifest",
-        "material_extracts"
-      ]
-    },
-    "repository_fingerprints": {
-      "path": "$REPOSITORY_ROOT/index/source_fingerprints.json",
-      "owner": "script_repository_ingest",
-      "builder": "scripts/knowledge-repository/repository.py ingest",
-      "inputs": [
-        "material_manifest",
-        "material_extracts"
-      ]
-    },
-    "repository_validation": {
-      "path": "artifacts/repository_validation.json",
-      "owner": "script_repository_validation",
-      "builder": "scripts/knowledge-repository/repository.py validate",
-      "validation": "artifacts/repository_validation.json",
-      "inputs": [
-        "repository_retrieval"
-      ]
-    },
     "input_card": {
       "path": "input_card.json",
       "owner": "llm_transcription",
@@ -241,25 +196,6 @@
       "owner": "llm_qc_boundary_review",
       "inputs": [
         "industry_scope_pack"
-      ]
-    },
-    "boundary_loop_status": {
-      "path": "artifacts/boundary_loop_status.json",
-      "owner": "script_boundary_loop_compatibility",
-      "builder": "scripts/industry-scoping/boundary_loop.py",
-      "inputs": [
-        "industry_scope_pack",
-        "material_extracts",
-        "research_evidence_db",
-        "search_log"
-      ]
-    },
-    "boundary_research_requests": {
-      "path": "artifacts/boundary_research_requests.json",
-      "owner": "script_from_boundary_qc",
-      "builder": "scripts/industry-scoping/build_boundary_research_requests.py",
-      "inputs": [
-        "industry_boundary_qc"
       ]
     },
     "formal_search_plan": {
@@ -349,8 +285,8 @@
     },
     "template_selection": {
       "path": "artifacts/template_selection.json",
-      "owner": "script",
-      "builder": "scripts/template/select_template.py",
+      "owner": "pipeline_template_selection_record",
+      "builder": "scripts/pipeline.py render",
       "inputs": [
         "material_manifest",
         "source_classification"
@@ -394,12 +330,13 @@
     },
     "research_request_queue": {
       "path": "artifacts/research_request_queue.json",
-      "owner": "llm_or_script_from_banker_page_pack_research_requests",
-      "builder": "scripts/reasoning/build_research_request_queue.py",
+      "owner": "reasoning_llm_research_request_author",
+      "purpose": "LLM-authored bounded request queue for evidence that must be researched before a claim can be promoted.",
       "validator": "scripts/qc/validate_artifact.py --artifact research_request_queue",
       "validation": "artifacts/research_request_queue_validation.json",
       "inputs": [
-        "banker_page_pack"
+        "banker_page_pack",
+        "industry_boundary_qc"
       ]
     },
     "research_pack": {
