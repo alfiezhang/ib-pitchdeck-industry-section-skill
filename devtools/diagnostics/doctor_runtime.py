@@ -19,7 +19,7 @@ for path in (
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-import check_runtime_dependencies
+import bootstrap_runtime
 
 
 def script_exists(relative_path: str) -> bool:
@@ -30,17 +30,17 @@ def runtime_diagnostic_payload() -> dict[str, object]:
     python_version = sys.version_info
     required_checks: dict[str, object] = {}
     missing_required = []
-    for item in check_runtime_dependencies.REQUIRED_IMPORTS:
-        result = check_runtime_dependencies.import_check(item["module"])
+    for item in bootstrap_runtime.REQUIRED_IMPORTS:
+        result = bootstrap_runtime.import_check(item["module"])
         required_checks[item["package"]] = result
         if not result["available"]:
             missing_required.append(item["package"])
 
-    provider_payload = check_runtime_dependencies.get_search_provider_payload()
+    provider_payload = bootstrap_runtime.get_search_provider_payload()
     search_provider_details = provider_payload["search_provider_details"]
     search_providers = provider_payload["search_providers"]
     paid_search_available = provider_payload["paid_search_available"]
-    pdf_payload = check_runtime_dependencies.get_pdf_extraction_payload()
+    pdf_payload = bootstrap_runtime.get_pdf_extraction_payload()
     has_search_provider = any(search_providers.values())
     is_ready_for_ppt_pipeline = not missing_required
     is_ready_for_e2e_research = is_ready_for_ppt_pipeline and has_search_provider and bool(pdf_payload["has_pdf_extraction"])
@@ -65,7 +65,7 @@ def runtime_diagnostic_payload() -> dict[str, object]:
             "bootstrap_runtime": script_exists("scripts/bootstrap_runtime.py"),
             "python_pipeline": script_exists("scripts/pipeline.py"),
             "legacy_run_pipeline": script_exists("run_pipeline.sh"),
-            "status_dashboard": script_exists("scripts/status.py"),
+            "status_dashboard": script_exists("scripts/pipeline.py"),
             "validate_artifact": script_exists("scripts/qc/validate_artifact.py"),
         },
         "nonexistent_entrypoints_do_not_use": [
@@ -73,7 +73,7 @@ def runtime_diagnostic_payload() -> dict[str, object]:
         ],
         "recommended_commands": [
             "python3 scripts/bootstrap_runtime.py --print-python",
-            "\"$PYTHON_CMD\" scripts/status.py next --run-dir <run>",
+            "\"$PYTHON_CMD\" scripts/pipeline.py next --run-dir <run>",
             "\"$PYTHON_CMD\" scripts/qc/validate_artifact.py --artifact pre_ppt --run-dir <run>",
             "\"$PYTHON_CMD\" scripts/pipeline.py render --run-dir <run>",
         ],

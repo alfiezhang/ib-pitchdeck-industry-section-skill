@@ -20,17 +20,53 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / ("scripts/qc/gate_" + "report.py")).exists()
     assert not (SKILL_DIR / ("scripts/qc/qc_" + "router.py")).exists()
     assert not (SKILL_DIR / ("scripts/qc/" + "validators")).exists()
+    assert not (SKILL_DIR / "scripts/status.py").exists()
+    assert not (SKILL_DIR / "scripts/qc/check_runtime_dependencies.py").exists()
     assert not (SKILL_DIR / "scripts/industry-scoping/boundary_loop.py").exists()
     assert not (SKILL_DIR / "scripts/knowledge-repository/repository.py").exists()
     assert not (SKILL_DIR / "scripts/output/update_runs_index.py").exists()
     assert not (SKILL_DIR / "scripts/template/select_template.py").exists()
+    assert not (SKILL_DIR / "scripts/template/extract_template_registry.py").exists()
+    assert not (SKILL_DIR / "scripts/start_case_from_brief.py").exists()
+    assert not (SKILL_DIR / "scripts/knowledge-repository/build_research_evidence_db.py").exists()
+    assert not (SKILL_DIR / "scripts/knowledge-repository/export_research_pack_from_db.py").exists()
+
+
+def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
+    forbidden_terms = [
+        "repository retrieval",
+        "repository reuse",
+        "source repository",
+        "reusable source repository",
+        "issue analysis",
+        "issue_analysis",
+        "hypothesis_store",
+        "page_argument_pack",
+        "diligence implication",
+        "后续验证点",
+        "客户关注点",
+        "客户关注",
+        "client concern",
+    ]
+    paths = [SKILL_DIR / "SKILL.md"]
+    paths.extend((SKILL_DIR / "references").glob("*.md"))
+    paths.extend((SKILL_DIR / "configs").glob("*.json"))
+
+    hits: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8").lower()
+        for term in forbidden_terms:
+            if term.lower() in text:
+                hits.append(f"{path.relative_to(SKILL_DIR)}: {term}")
+
+    assert hits == []
 
 
 def test_status_next_reports_missing_first_artifact(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()
 
-    result = _run([sys.executable, "scripts/status.py", "next", "--run-dir", str(run_dir)])
+    result = _run([sys.executable, "scripts/pipeline.py", "next", "--run-dir", str(run_dir)])
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)

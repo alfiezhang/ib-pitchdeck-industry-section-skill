@@ -21,7 +21,7 @@
     },
     {
       "dimension": "distinctiveness_from_slide_1",
-      "description": "How different the metrics and issue analysis are from what Slide 1 already shows",
+      "description": "How different the metrics and page judgment are from what Slide 1 already shows",
       "scale": "1 (mostly redundant) to 5 (entirely new structural insight)"
     },
     {

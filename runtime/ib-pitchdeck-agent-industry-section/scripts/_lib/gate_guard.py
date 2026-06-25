@@ -111,7 +111,7 @@ def _reject_debug_on_formal_run_if_needed(run_dir: Path) -> None:
         raise RuntimeError(
             "ungated debug output is not allowed for this formal run package because "
             f"gate(s) are blocked after repeated failures: {', '.join(blocked)}. "
-            "Run scripts/status.py next and report the blocker instead of generating downstream artifacts."
+            "Run scripts/pipeline.py next and report the blocker instead of generating downstream artifacts."
         )
     if not _pre_ppt_gate_is_passing(run_dir):
         raise RuntimeError(

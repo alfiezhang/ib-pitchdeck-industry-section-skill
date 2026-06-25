@@ -100,9 +100,9 @@ A useful QC repair brief tells the next role:
 ## Public QC Tools
 
 ```bash
-"$PYTHON_CMD" scripts/status.py next --run-dir "$RUN_DIR"
-"$PYTHON_CMD" scripts/status.py gate --run-dir "$RUN_DIR" --output "$RUN_DIR/artifacts/status_report.json" --markdown-output "$RUN_DIR/artifacts/status_report.md"
+"$PYTHON_CMD" scripts/pipeline.py next --run-dir "$RUN_DIR"
+"$PYTHON_CMD" scripts/pipeline.py gate --run-dir "$RUN_DIR" --output "$RUN_DIR/artifacts/status_report.json" --markdown-output "$RUN_DIR/artifacts/status_report.md"
 "$PYTHON_CMD" scripts/qc/validate_artifact.py --artifact banker_page_pack --run-dir "$RUN_DIR"
 ```
 
-Use `status.py` for multi-artifact triage. Use `validate_artifact.py` for deterministic checks, not as a substitute for LLM quality review.
+Use `pipeline.py next/gate` for multi-artifact triage. Use `validate_artifact.py` for deterministic checks, not as a substitute for LLM quality review.

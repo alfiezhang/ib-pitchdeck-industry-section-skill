@@ -7,11 +7,11 @@ description: Build pre-mandate investment banking pitchbook industry sections fr
 
 ## Overview
 
-This skill helps create the **industry section of a pre-mandate client pitchbook**. The user may provide only a short target brief, a PDF/PPT, a link, an industry report, or a rough project lead. Your job is to behave like the banker/editor responsible for the section: understand the material, define the right industry boundary, collect public evidence, form defensible page arguments, and produce an editable PPT.
+This skill helps create the **industry section of a pre-mandate client pitchbook**. The user may provide only a short target brief, a PDF/PPT, a link, an industry report, or a rough project lead. Your job is to behave like the banker/editor responsible for the section: understand the material, define the right industry boundary, collect public evidence, form defensible banker page judgments, and produce an editable PPT.
 
 The default engagement setting is **pre-mandate client pitch**. The output is an **industry section**, not a target marketing section: it should prove that the bank understands the industry first, the transaction logic second, and only the selective target context needed to make the industry view relevant. Do not write it like a CIM, signed-engagement report, investor memo, target profile, diagnostic checklist, or execution workplan unless the user explicitly changes the deliverable.
 
-Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. `scripts/status.py` and `scripts/qc/validate_artifact.py` are instruments, not autopilots.
+Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. `scripts/pipeline.py next` and `scripts/qc/validate_artifact.py` are instruments, not autopilots.
 
 When a task is narrow enough to delegate or isolate, use a role job packet: the parent agent prepares the packet, the worker handles only that packet, and the parent integrates the result. Do not hand off the whole workflow.
 
@@ -31,7 +31,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - For a short text brief, use the bundled intake helper rather than hand-building intake files:
 
    ```bash
-   python3 scripts/start_case_from_brief.py --case-name "<case>" --run-dir "<run_dir>" --brief-text "<exact user brief>"
+   python3 scripts/material-intake/ingest_materials.py start-brief --case-name "<case>" --run-dir "<run_dir>" --brief-text "<exact user brief>"
    ```
 
 3. Build the current-project knowledge base.
@@ -47,7 +47,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - Do not start formal research planning or formal search execution until Industry Boundary QC has passed or routed a repair.
 
 5. Collect public evidence.
-   - Use the host's web search, SearXNG/manual URL ingestion, user-provided reports, or repository retrieval as available.
+   - Use the host's web search, SearXNG/manual URL ingestion, or user-provided reports as available.
    - If formal search or PDF extraction capability is unavailable, do not continue to a formal client-ready PPT; route to runtime setup or an evidence-limited outline.
    - Prepare the research graph in one operator-facing step: `formal_search_plan.json` remains the coverage/evidence-need map, `executable_search_batch.json` is the only query workbench, and `research_graph_state.json` is the editable execution state.
    - Treat search results as leads. A search snippet is not evidence.
@@ -119,13 +119,13 @@ Run bundled scripts from the skill root, or resolve them relative to this `SKILL
 Use the status dashboard when you need a snapshot of what exists and what looks mechanically invalid:
 
 ```bash
-python3 scripts/status.py next --run-dir "<run_dir>"
+python3 scripts/pipeline.py next --run-dir "<run_dir>"
 ```
 
 Use the same entrypoint for gate-style or repair-routing views:
 
 ```bash
-python3 scripts/status.py gate --run-dir "<run_dir>" --output "<run_dir>/artifacts/status_report.json" --markdown-output "<run_dir>/artifacts/status_report.md"
+python3 scripts/pipeline.py gate --run-dir "<run_dir>" --output "<run_dir>/artifacts/status_report.json" --markdown-output "<run_dir>/artifacts/status_report.md"
 ```
 
 Use `scripts/qc/validate_artifact.py --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, pitch relevance, and banker judgment.
@@ -161,7 +161,7 @@ Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` co
 - Buyer perspective and transaction relevance are visible where appropriate.
 - A user-provided PPT template is honored; otherwise the bundled template is used.
 - Final output status is honest: client-ready or blocked/not client-ready.
-- If output is not final client-ready, the handoff includes the current `status.py next` stage and the owner role that must repair the run.
+- If output is not final client-ready, the handoff includes the current `pipeline.py next` stage and the owner role that must repair the run.
 
 ## Failure Modes To Avoid
 

@@ -87,7 +87,7 @@ def test_industry_scope_pack_is_v2_boundary_card() -> None:
 
 
 def test_status_and_manifest_use_unified_validator() -> None:
-    workflow_text = (RUNTIME / "scripts" / "status.py").read_text(encoding="utf-8")
+    workflow_text = (RUNTIME / "scripts" / "pipeline.py").read_text(encoding="utf-8")
     manifest = _manifest()
 
     assert "scripts/qc/validate_artifact.py" in workflow_text

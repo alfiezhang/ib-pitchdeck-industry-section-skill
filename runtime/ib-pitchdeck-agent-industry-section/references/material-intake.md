@@ -29,7 +29,7 @@ You are the intake analyst. Your job is to capture what the user gave the team a
 6. If the user provided only a short brief, use the official one-command starter:
 
 ```bash
-"$PYTHON_CMD" scripts/start_case_from_brief.py --case-name "<case>" --run-dir "$RUN_DIR" --brief-text "<exact user brief>"
+"$PYTHON_CMD" scripts/material-intake/ingest_materials.py start-brief --case-name "<case>" --run-dir "$RUN_DIR" --brief-text "<exact user brief>"
 ```
 
 Add `--template-file "<path/to/template.pptx>"` when the user supplies a PPT/POTX template. The template is registered for Template/Output use only, not as evidence.

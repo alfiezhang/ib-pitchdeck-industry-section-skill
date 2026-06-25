@@ -1435,7 +1435,7 @@ def compile_graph_state(
             "metric_rows": sum(len(_as_list(unit.get("metrics"))) for unit in units),
             "research_context_rows": sum(len(_as_list(unit.get("research_context"))) for unit in units),
         },
-        "next_step": "Run build_research_evidence_db.py to create the Knowledge skeleton, then have Knowledge LLM author research_evidence_db.json and export industry_research_pack.md.",
+        "next_step": "Run research_evidence_db.py build to create the Knowledge skeleton, then have Knowledge LLM author research_evidence_db.json and run research_evidence_db.py export.",
         "normalization_meta": normalization_meta,
     }
 

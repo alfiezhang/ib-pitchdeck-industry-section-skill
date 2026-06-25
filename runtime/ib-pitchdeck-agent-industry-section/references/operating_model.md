@@ -38,7 +38,7 @@ User materials / links / instructions
 
 - Orchestrator agent: phase, owner, handoff, and repair routing.
 - Material Intake: source intake and project-fact extraction.
-- Knowledge Repository: evidence database and reusable source repository.
+- Knowledge Repository: evidence database, source provenance, conflicts, and limitations.
 - Industry Scoping: broad/core/adjacent/excluded boundary and boundary loop.
 - Research / External Evidence: public evidence collection, source archive, and execution accounting.
 - Reasoning: optional hypothesis handling, LLM-authored research requests, and judgment diagnostics.

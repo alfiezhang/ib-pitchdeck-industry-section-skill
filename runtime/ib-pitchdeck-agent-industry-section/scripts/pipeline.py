@@ -29,13 +29,15 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 LIB_DIR = SCRIPT_DIR / "_lib"
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
+QC_DIR = SCRIPT_DIR / "qc"
+if str(QC_DIR) not in sys.path:
+    sys.path.insert(0, str(QC_DIR))
 
 from layout_config import layout_config_paths
+from validate_artifact import ARTIFACT_PATHS, VALIDATION_OUTPUTS
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
-
-from status import build_status as build_run_status
 
 
 def _load_role_script_paths() -> dict[str, Path]:
@@ -70,6 +72,44 @@ FILLED_PPT = "industry_section_filled.pptx"
 CLEAN_PPT = "industry_section_filled_clean.pptx"
 FAILURE_MEMORY = "artifacts/failure_memory.jsonl"
 TOKEN_PATTERN = re.compile(r"\{\{[^{}]+\}\}")
+PYTHON_COMMAND_TEMPLATE = "$PYTHON_CMD"
+MAIN_STATUS_PATH = [
+    "input_card",
+    "material_extracts",
+    "industry_scope_pack",
+    "formal_search_plan",
+    "executable_search_batch",
+    "formal_research_execution",
+    "source_archive",
+    "research_evidence_db",
+    "research_pack",
+    "template_registry",
+    "banker_page_pack",
+    "deck_blueprint",
+    "page_evidence_contract",
+    "renderer_spec",
+    "pre_ppt",
+    "replacement_dict",
+    "filled_ppt",
+    "final_delivery",
+]
+BUILD_HINTS = {
+    "material_extracts": "scripts/material-intake/ingest_materials.py",
+    "formal_search_plan": "scripts/research-external-evidence/ib_research_graph.py prepare",
+    "executable_search_batch": "LLM Query Author edits artifacts/executable_search_batch.json",
+    "formal_research_execution": "scripts/research-external-evidence/ib_research_graph.py compile",
+    "source_archive": "scripts/research-external-evidence/ib_research_graph.py compile",
+    "research_evidence_db": "scripts/knowledge-repository/research_evidence_db.py build, then Knowledge LLM authoring",
+    "research_pack": "scripts/knowledge-repository/research_evidence_db.py export",
+    "template_registry": "scripts/template/template_analyzer.py registry",
+    "banker_page_pack": "Generation LLM authors banker_page_pack.json",
+    "deck_blueprint": "scripts/generation/compile_banker_page_pack.py",
+    "page_evidence_contract": "scripts/generation/compile_banker_page_pack.py",
+    "renderer_spec": "scripts/generation/compile_banker_page_pack.py",
+    "replacement_dict": "scripts/output/generate_replacement_dict.py",
+    "filled_ppt": "scripts/pipeline.py render",
+    "final_delivery": "scripts/qc/validate_artifact.py --artifact final_delivery",
+}
 
 
 class PipelineError(RuntimeError):
@@ -87,6 +127,104 @@ def _json(path: Path) -> dict[str, Any]:
         raise PipelineError(f"Failed to read JSON file: {path}. {exc}") from exc
     except JSONDecodeError as exc:
         raise PipelineError(f"Invalid JSON in file: {path}. {exc}") from exc
+
+
+def _load_json_lenient(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def artifact_path(run_dir: Path, artifact: str) -> Path:
+    return run_dir / ARTIFACT_PATHS[artifact]
+
+
+def validation_path(run_dir: Path, artifact: str) -> Path:
+    return run_dir / VALIDATION_OUTPUTS.get(artifact, f"artifacts/{artifact}_validation.json")
+
+
+def validate_command(run_dir: Path, artifact: str) -> str:
+    return (
+        f"{PYTHON_COMMAND_TEMPLATE} scripts/qc/validate_artifact.py "
+        f"--artifact {artifact} --run-dir {run_dir} --output {validation_path(run_dir, artifact)}"
+    )
+
+
+def artifact_status(run_dir: Path, artifact: str) -> dict[str, Any]:
+    path = artifact_path(run_dir, artifact)
+    validation = validation_path(run_dir, artifact)
+    exists = path.exists()
+    validation_payload = _load_json_lenient(validation) if validation.exists() else {}
+    is_valid = validation_payload.get("is_valid")
+    if not exists:
+        state = "missing"
+    elif is_valid is False:
+        state = "invalid"
+    elif is_valid is True:
+        state = "valid"
+    else:
+        state = "unvalidated"
+    return {
+        "artifact": artifact,
+        "path": str(path),
+        "exists": exists,
+        "validation": str(validation),
+        "validation_exists": validation.exists(),
+        "state": state,
+        "error_count": validation_payload.get("error_count", 0),
+        "errors": validation_payload.get("errors", []),
+        "validate_command": validate_command(run_dir, artifact),
+        "builder_or_owner_action": BUILD_HINTS.get(artifact, ""),
+    }
+
+
+def build_run_status(run_dir: Path) -> dict[str, Any]:
+    rows = [artifact_status(run_dir, artifact) for artifact in MAIN_STATUS_PATH]
+    current = next((row for row in rows if row["state"] in {"missing", "invalid", "unvalidated"}), rows[-1] if rows else {})
+    commands: list[str] = []
+    if current:
+        artifact = str(current.get("artifact") or "")
+        hint = str(current.get("builder_or_owner_action") or "")
+        if hint and hint.endswith(".py"):
+            commands.append(f"{PYTHON_COMMAND_TEMPLATE} {hint} --run-dir {run_dir}")
+        commands.append(str(current.get("validate_command") or ""))
+    return {
+        "schema_version": "status_report_v1",
+        "run_dir": str(run_dir),
+        "status": "complete" if all(row["state"] == "valid" for row in rows) else "needs_work",
+        "current_stage": current.get("artifact", ""),
+        "current_state": current.get("state", ""),
+        "current_owner_action": current.get("builder_or_owner_action", ""),
+        "recommended_next_commands": [command for command in commands if command],
+        "artifacts": rows,
+        "policy": "mechanical_status_only_llm_owns_content_quality",
+    }
+
+
+def write_status_markdown(report: dict[str, Any], path: Path) -> None:
+    lines = [
+        "# Status Report",
+        "",
+        f"- Run: `{report.get('run_dir')}`",
+        f"- Status: `{report.get('status')}`",
+        f"- Current stage: `{report.get('current_stage')}`",
+        "",
+        "## Artifact States",
+        "",
+    ]
+    for row in report.get("artifacts", []):
+        lines.append(f"- `{row['artifact']}`: {row['state']}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_status_json(report: dict[str, Any], path: Path | None) -> None:
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _collect_template_tokens(pptx_path: Path) -> dict[str, list[str]]:
@@ -250,15 +388,15 @@ def _preflight(run_dir: Path) -> None:
         raise PipelineError(
             "run is not ready for deterministic PPT rendering. "
             f"missing={missing}. current_stage={state.get('current_stage')} status={state.get('status')}. "
-            "Run scripts/status.py next --run-dir <run_dir> and repair the upstream artifact first."
+            "Run scripts/pipeline.py next --run-dir <run_dir> and repair the upstream artifact first."
         )
 
 
 def _check_runtime_readiness(run_dir: Path, python_cmd: str, *, strict: bool = False) -> bool:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
-    check_script = ROLE_SCRIPT_DIRS["check_runtime_dependencies.py"]
-    cmd = [str(python_cmd), str(check_script)]
+    check_script = ROLE_SCRIPT_DIRS["bootstrap_runtime.py"]
+    cmd = [str(python_cmd), str(check_script), "check"]
     printable = " ".join(cmd)
     print(f"[pipeline] {printable}")
     completed = subprocess.run(cmd, cwd=str(ROOT_DIR), text=True, capture_output=True, check=False)
@@ -627,7 +765,9 @@ def finalize(run_dir: Path, python_cmd: str, *, require_client_ready: bool) -> N
         command=" ".join(str(part) for part in cmd),
         details={"require_client_ready": require_client_ready, "return_code": final_returncode},
     )
-    _run([python_cmd, ROLE_SCRIPT_DIRS["status.py"], "summary", "--run-dir", run_dir, "--output", artifacts / "status_report.json"])
+    summary = build_run_status(run_dir)
+    summary["view"] = "summary"
+    write_status_json(summary, artifacts / "status_report.json")
     if run_dir.name.startswith("attempt_"):
         runs_dir = run_dir.parent
         (runs_dir / "ACTIVE_ATTEMPT.txt").write_text(run_dir.name + "\n", encoding="utf-8")
@@ -680,7 +820,8 @@ def _rebuild_research_pack_export(run_dir: Path, python_cmd: str) -> None:
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["export_research_pack_from_db.py"],
+            ROLE_SCRIPT_DIRS["research_evidence_db.py"],
+            "export",
             "--research-evidence-db",
             run_dir / "artifacts/research_evidence_db.json",
             "--output",
@@ -806,7 +947,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
         else:
             raise PipelineError(
                 f"rebuild-stale does not auto-rebuild stage {stage}. "
-                "This stage likely needs LLM judgment or authoring repair; run status.py next and follow owner guidance."
+                "This stage likely needs LLM judgment or authoring repair; run pipeline.py next and follow owner guidance."
             )
     except Exception:
         _append_failure_memory(
@@ -829,12 +970,17 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
     print(json.dumps({"is_valid": True, "before_stage": stage, "after_stage": new_state.get("current_stage")}, ensure_ascii=False, indent=2))
 
 
-def status(run_dir: Path) -> None:
-    print(json.dumps(build_run_status(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
-
-
-def next_action(run_dir: Path) -> None:
-    print(json.dumps(build_run_status(_ensure_run_dir(run_dir)), ensure_ascii=False, indent=2))
+def status_view(run_dir: Path, view: str, output: Path | None = None, markdown_output: Path | None = None) -> None:
+    run_dir = _ensure_run_dir(run_dir)
+    report = build_run_status(run_dir)
+    if view in {"gate", "route", "summary", "status"}:
+        report["view"] = view
+    if output is None and view == "next":
+        output = run_dir / "artifacts/status_report.json"
+    write_status_json(report, output)
+    if markdown_output:
+        write_status_markdown(report, markdown_output)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 def _check_tool_integrity() -> None:
@@ -875,10 +1021,13 @@ def main() -> int:
     render_parser = None
     rebuild_stale_parser = None
     finalize_parser = None
-    for name in ("status", "next", "validate-pre-ppt", "rebuild-stale", "render", "finalize"):
+    status_parsers = []
+    for name in ("status", "next", "gate", "route", "summary", "validate-pre-ppt", "rebuild-stale", "render", "finalize"):
         p = sub.add_parser(name)
         p.add_argument("--run-dir", required=True)
-        if name == "validate-pre-ppt":
+        if name in {"status", "next", "gate", "route", "summary"}:
+            status_parsers.append(p)
+        elif name == "validate-pre-ppt":
             validate_pre_ppt_parser = p
         elif name == "rebuild-stale":
             rebuild_stale_parser = p
@@ -901,6 +1050,9 @@ def main() -> int:
             default="",
             help="Optional explicit user PPTX/POTX template. If omitted, pipeline selects a registered ppt_template material or the bundled template.",
         )
+    for status_parser in status_parsers:
+        status_parser.add_argument("--output")
+        status_parser.add_argument("--markdown-output")
     render_parser.add_argument(
         "--skip-preflight",
         action="store_true",
@@ -917,10 +1069,13 @@ def main() -> int:
     try:
         _check_tool_integrity()
         run_dir = Path(args.run_dir)
-        if args.command == "status":
-            status(run_dir)
-        elif args.command == "next":
-            next_action(run_dir)
+        if args.command in {"status", "next", "gate", "route", "summary"}:
+            status_view(
+                run_dir,
+                args.command,
+                output=Path(args.output) if args.output else None,
+                markdown_output=Path(args.markdown_output) if args.markdown_output else None,
+            )
         elif args.command == "validate-pre-ppt":
             validate_pre_ppt(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template) if args.template else None)
         elif args.command == "rebuild-stale":

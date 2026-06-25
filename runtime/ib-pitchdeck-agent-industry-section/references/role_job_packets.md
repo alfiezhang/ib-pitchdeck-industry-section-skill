@@ -9,7 +9,7 @@ Good job-packet tasks:
 - extract facts from one archived source or one user report;
 - review source quality for a defined claim scope;
 - check one industry-boundary ambiguity;
-- draft one page from approved page arguments;
+- draft one page inside the approved banker page pack;
 - fit one slide draft to a specific template layout;
 - review one artifact and produce a repair brief.
 

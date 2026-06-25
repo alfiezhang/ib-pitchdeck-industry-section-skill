@@ -4,7 +4,7 @@ This reference keeps the skill aligned with the role-based workflow. It is not a
 
 ## Core Rule
 
-The main agent is the engagement lead. `status.py`, `validate_artifact.py`, and pipeline commands are tools. They do not decide the banker story, evidence readiness, or page quality.
+The main agent is the engagement lead. `pipeline.py next/gate`, `validate_artifact.py`, and render commands are tools. They do not decide the banker story, evidence readiness, or page quality.
 
 ## Role-First Execution
 
@@ -15,8 +15,8 @@ Work in role handoffs:
 3. Industry Scoping defines broad/core/adjacent/excluded scope.
 4. Research collects public or user-supplied evidence.
 5. Knowledge updates the evidence database.
-6. Reasoning forms supported judgments, hypotheses, research requests, deliverable depth, and page arguments.
-7. Generation edits page arguments into slide drafts and deck blueprint.
+6. Reasoning sharpens supported judgments, caveats, research requests, and deliverable depth.
+7. Generation authors the single `banker_page_pack.json` and compiles it into renderer artifacts.
 8. Template fits content to the PPT template without changing judgment.
 9. QC runs format validators and LLM quality review, then routes repairs.
 10. Output renders and finalizes the package.
@@ -49,7 +49,7 @@ Warnings are not silent permission to proceed. Every material warning needs one 
 - `accepted_with_limits` with downstream-use limits;
 - `repair_before_downstream` with owner and repair action.
 
-Use `scripts/status.py gate` when failures are numerous or root cause is unclear.
+Use `scripts/pipeline.py gate` when failures are numerous or root cause is unclear.
 
 ## Repair Discipline
 

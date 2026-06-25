@@ -342,7 +342,7 @@
     "research_pack": {
       "path": "industry_research_pack.md",
       "owner": "script_export_from_research_evidence_db",
-      "builder": "scripts/knowledge-repository/export_research_pack_from_db.py",
+      "builder": "scripts/knowledge-repository/research_evidence_db.py export",
       "validator": "scripts/qc/validate_artifact.py --artifact research_pack",
       "validation": "artifacts/research_pack_validation.json",
       "inputs": [
@@ -352,7 +352,7 @@
     "research_evidence_db": {
       "path": "artifacts/research_evidence_db.json",
       "owner": "script_skeleton_llm_evidence_extraction",
-      "builder": "scripts/knowledge-repository/build_research_evidence_db.py",
+      "builder": "scripts/knowledge-repository/research_evidence_db.py build",
       "validator": "scripts/qc/validate_artifact.py --artifact research_evidence_db",
       "validation": "artifacts/research_evidence_db_validation.json",
       "inputs": [
@@ -381,7 +381,7 @@
     "template_registry": {
       "path": "template_registry.json",
       "owner": "script",
-      "builder": "scripts/template/extract_template_registry.py",
+      "builder": "scripts/template/template_analyzer.py registry",
       "validator": "scripts/qc/validate_artifact.py --artifact template_registry",
       "validation": "artifacts/template_registry_validation.json",
       "inputs": []
@@ -429,7 +429,7 @@
     "status_report": {
       "path": "artifacts/status_report.json",
       "owner": "script_status_dashboard",
-      "builder": "scripts/status.py",
+      "builder": "scripts/pipeline.py summary",
       "inputs": []
     },
     "pre_ppt_gate": {

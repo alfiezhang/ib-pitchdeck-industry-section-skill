@@ -28,8 +28,8 @@ PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
   boundary checks.
 - Formal research execution is the research gate. The search plan itself is not
   a hypothesis gate; it should start from the configured issue taxonomy and add
-  industry-specific evidence needs so downstream issue analysis is not starved
-  of source material.
+  industry-specific evidence needs so the downstream banker page pack is not
+  starved of source material.
 - Taxonomy coverage is a coverage audit, not proof that every row has been
   searched. Planned `FS-xxx` rows and planned query strings are not evidence.
   Evidence can only flow from actual `S-xxx` searches, reviewed `SRC-xxx`
@@ -65,7 +65,7 @@ configured graph worker or explicitly supplied source URLs/files and record the 
 memory into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
 
 A formal client-ready PPT requires a runtime that can support formal public
-research and source review. If `scripts/qc/check_runtime_dependencies.py`
+research and source review. If `scripts/bootstrap_runtime.py check`
 reports no configured search provider or no PDF extraction capability, stop
 before formal rendering and route to runtime setup or an evidence-limited
 outline. Manual source mode is useful when the user supplies exact sources, but
@@ -354,7 +354,7 @@ handoff for evidence extraction, build the machine-readable evidence database
 first:
 
 ```bash
-"$PYTHON_CMD" scripts/knowledge-repository/build_research_evidence_db.py \
+"$PYTHON_CMD" scripts/knowledge-repository/research_evidence_db.py build \
   --input-card "$RUN_DIR/input_card.json" \
   --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
   --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
@@ -368,7 +368,7 @@ first:
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
 
-"$PYTHON_CMD" scripts/knowledge-repository/export_research_pack_from_db.py \
+"$PYTHON_CMD" scripts/knowledge-repository/research_evidence_db.py export \
   --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
   --output "$RUN_DIR/industry_research_pack.md"
 
@@ -420,7 +420,7 @@ batch-convert missing values to true merely to pass validation.
 Before setting the boolean in the evidence DB, assign a source-use tier:
 
 - `core_evidence`: source can support a formal EV/MET row and may feed a chart
-  or headline if the linked issue analysis permits it.
+  or headline if the linked banker page judgment permits it.
 - `contextual_evidence`: source can support body-copy context or caveated
   implications, but should not be the sole basis for a headline or chart.
 - `directional_only`: source can guide research or provide directional color,

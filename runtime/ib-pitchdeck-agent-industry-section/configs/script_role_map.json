@@ -1,10 +1,7 @@
 {
-  "build_research_evidence_db.py": "scripts/knowledge-repository/build_research_evidence_db.py",
-  "check_runtime_dependencies.py": "scripts/qc/check_runtime_dependencies.py",
+  "bootstrap_runtime.py": "scripts/bootstrap_runtime.py",
   "clean_filled_ppt.py": "scripts/output/clean_filled_ppt.py",
   "compile_banker_page_pack.py": "scripts/generation/compile_banker_page_pack.py",
-  "export_research_pack_from_db.py": "scripts/knowledge-repository/export_research_pack_from_db.py",
-  "extract_template_registry.py": "scripts/template/extract_template_registry.py",
   "fill_ppt_tokens.py": "scripts/output/fill_ppt_tokens.py",
   "generate_replacement_dict.py": "scripts/output/generate_replacement_dict.py",
   "ib_research_graph.py": "scripts/research-external-evidence/ib_research_graph.py",
@@ -12,8 +9,6 @@
   "pipeline.py": "scripts/pipeline.py",
   "postprocess_ppt_visuals.py": "scripts/output/postprocess_ppt_visuals.py",
   "research_evidence_db.py": "scripts/knowledge-repository/research_evidence_db.py",
-  "start_case_from_brief.py": "scripts/start_case_from_brief.py",
-  "status.py": "scripts/status.py",
   "template_analyzer.py": "scripts/template/template_analyzer.py",
   "template_fit.py": "scripts/template/template_fit.py",
   "validate_artifact.py": "scripts/qc/validate_artifact.py"

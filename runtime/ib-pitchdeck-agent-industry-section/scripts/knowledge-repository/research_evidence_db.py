@@ -30,6 +30,8 @@ for _ib_path in list(_IB_IMPORT_PATHS):
 for _ib_path in reversed(_IB_IMPORT_PATHS):
     _ib_sys.path.insert(0, _ib_path)
 
+import argparse
+import json
 import re
 from datetime import date
 from pathlib import Path
@@ -1486,3 +1488,83 @@ def export_markdown(db: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def cli_build(args: argparse.Namespace) -> int:
+    payload = build_db(
+        input_card=load_optional_json(args.input_card),
+        scope_pack=load_optional_json(args.scope_pack),
+        formal_search_plan=load_optional_json(args.formal_search_plan),
+        execution_report=load_optional_json(args.formal_research_execution_report),
+        source_reviews={},
+        source_archive_index=load_optional_json(args.source_archive_index),
+        research_graph_state=load_optional_json(args.research_graph_state),
+        material_manifest=load_optional_json(args.material_manifest),
+        material_extracts=load_optional_json(args.material_extracts),
+    )
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(
+        json.dumps(
+            {
+                "is_valid": True,
+                "output": str(output_path),
+                "source_material_count": len(payload.get("source_materials") or []),
+                "formal_extract_count": len(payload.get("formal_research_extracts") or []),
+                "evidence_skeleton_count": len(payload.get("evidence_ledger") or []),
+                "metric_skeleton_count": len(payload.get("metric_reconciliation") or []),
+                "note": "Skeleton contains TODO markers. LLM must edit research_evidence_db.json, then validate and export industry_research_pack.md.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def cli_export(args: argparse.Namespace) -> int:
+    db_path = Path(args.research_evidence_db)
+    payload = load_json_file(db_path)
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(export_markdown(payload), encoding="utf-8")
+    print(
+        json.dumps(
+            {"is_valid": True, "research_evidence_db": str(db_path), "output": str(output_path)},
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Build or export the Knowledge evidence database. These commands are deterministic; LLM authors the final DB content."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    build_parser = subparsers.add_parser("build", help="Build research_evidence_db.json skeleton from formal research artifacts.")
+    build_parser.add_argument("--input-card", required=True)
+    build_parser.add_argument("--scope-pack", required=True)
+    build_parser.add_argument("--formal-search-plan", required=True)
+    build_parser.add_argument("--formal-research-execution-report", required=True)
+    build_parser.add_argument("--source-archive-index", required=True)
+    build_parser.add_argument("--research-graph-state", required=True)
+    build_parser.add_argument("--material-manifest")
+    build_parser.add_argument("--material-extracts")
+    build_parser.add_argument("--output", required=True)
+    build_parser.set_defaults(func=cli_build)
+
+    export_parser = subparsers.add_parser("export", help="Export industry_research_pack.md from research_evidence_db.json.")
+    export_parser.add_argument("--research-evidence-db", required=True)
+    export_parser.add_argument("--output", required=True)
+    export_parser.set_defaults(func=cli_export)
+
+    args = parser.parse_args()
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

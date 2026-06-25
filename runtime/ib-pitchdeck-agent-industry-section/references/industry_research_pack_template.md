@@ -81,7 +81,7 @@ Formal Research Execution Results:
 ## Formal Research Extracts
 > Preserve the raw research substrate before synthesis. This section is not page strategy and not slide copy.
 > For every material `FR-xxx` and `SRC-xxx`, include the reviewed locator/excerpt, extracted fact, metric candidates, limitations, and whether the item is promoted to EV/MET. This prevents the research pack from becoming an over-compressed memo.
-> This Markdown file is generated from `artifacts/research_evidence_db.json` with `scripts/knowledge-repository/export_research_pack_from_db.py`. Edit the database, not this export. Do not delete thin or insufficient rows to make the file shorter.
+> This Markdown file is generated from `artifacts/research_evidence_db.json` with `scripts/knowledge-repository/research_evidence_db.py export`. Edit the database, not this export. Do not delete thin or insufficient rows to make the file shorter.
 
 | Result ID | Source Review ID | Search Attempt IDs | Source URL | Locator | Reviewed Excerpt / Paraphrase | Extracted Fact Or Metric Candidate | Status | Promoted EV/MET IDs | Limitations |
 |---|---|---|---|---|---|---|---|---|---|
@@ -93,8 +93,8 @@ Audit, not in this table.
 
 ---
 
-## IB Issue Fact Inventory
-> This is the factual input map for issue analysis generation. It is not a slide map and does not decide page order. Record whether the research pack has enough EV/MET support for common IB industry subissues. Use `insufficient` when evidence is not strong enough; do not convert insufficient topics into confident analysis blocks.
+## IB Page-Judgment Fact Inventory
+> This is the factual input map for banker page pack authoring. It is not a slide map and does not decide page order. Record whether the research pack has enough EV/MET support for common IB industry subissues. Use `insufficient` when evidence is not strong enough; do not convert insufficient topics into confident page judgments.
 
 | Issue Area | Subissue | Evidence IDs | Metric IDs | Fact Status | Notes |
 |---|---|---|---|---|---|
@@ -199,7 +199,7 @@ Notes:
 ## Evidence Promotion Gate
 > Search-result snippets, search-engine descriptions, AI summaries, reposts,
 > aggregator pages, and secondary pages quoting another source are discovery
-> leads only. They must not enter the Evidence Ledger, Metric Reconciliation, issue analysis, deck blueprint, page evidence contract, or renderer spec.
+> leads only. They must not enter the Evidence Ledger, Metric Reconciliation, banker page pack, deck blueprint, page evidence contract, or renderer spec.
 
 A source can be promoted into the Evidence Ledger only after:
 1. the underlying webpage, report, filing, or PDF has been opened and reviewed;

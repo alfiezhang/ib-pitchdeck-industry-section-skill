@@ -192,8 +192,8 @@ def test_ingest_materials_end_to_end_from_multiple_sources(tmp_path: Path) -> No
     assert any("URL extraction smoke" in value for value in previews)
 
 
-def test_start_case_from_brief_runs_from_arbitrary_cwd_without_pythonpath(tmp_path: Path) -> None:
-    script = SCRIPT_DIR / "start_case_from_brief.py"
+def test_ingest_materials_start_brief_runs_from_arbitrary_cwd_without_pythonpath(tmp_path: Path) -> None:
+    script = SCRIPT_DIR / "material-intake" / "ingest_materials.py"
     run_dir = tmp_path / "work" / "runs" / "sample_case"
     env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
 
@@ -201,6 +201,7 @@ def test_start_case_from_brief_runs_from_arbitrary_cwd_without_pythonpath(tmp_pa
         [
             sys.executable,
             str(script),
+            "start-brief",
             "--case-name",
             "sample_case",
             "--run-dir",

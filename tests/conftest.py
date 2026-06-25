@@ -103,7 +103,7 @@ def run_script():
 
 def _build_template_registry(tmp_path: Path) -> Path:
     """Build template_registry.json into tmp_path."""
-    from extract_template_registry import build_registry
+    from template_analyzer import build_registry
 
     registry = build_registry(
         template=SKILL_DIR / "assets" / "industry_section_template_master.pptx",
@@ -1108,7 +1108,7 @@ def _pipeline_run_dir(tmp_path_factory):
     _write_json(artifacts / "banker_page_pack_validation.json", {"is_valid": True, "errors": [], "warnings": []})
 
     # Template registry (copy from session fixture)
-    from extract_template_registry import build_registry
+    from template_analyzer import build_registry
     registry = build_registry(
         template=SKILL_DIR / "assets" / "industry_section_template_master.pptx",
         slide_registry_path=SKILL_DIR / "configs" / "slide_registry.json",
