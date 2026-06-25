@@ -68,32 +68,6 @@ Every role handoff should identify:
 - repair owner if blocked;
 - next role if ready.
 
-## Role Job Packet Contract
+## Focused Delegation
 
-Use `references/role_job_packets.md` when a task is narrow enough to delegate or isolate. This is the preferred pattern for focused source extraction, QC review, page drafting, template fit review, or other bounded role work.
-
-The parent agent owns:
-
-- creating a self-contained job packet;
-- giving the worker all task-local context;
-- limiting the worker's write scope;
-- inspecting the returned result;
-- integrating usable output into the canonical artifact.
-
-The worker owns:
-
-- one role task only;
-- returning result, limits, and blocker status;
-- avoiding unrelated global edits.
-
-Job packets are not a second workflow engine. They are a cleaner handoff format for role work.
-
-## Refactor Execution Plan
-
-1. Rewrite role instructions so each skill reads like a role brief, not a script manual.
-2. Move all validators into QC-owned validator folders.
-3. Keep production scripts inside the role that creates the artifact.
-4. Keep root scripts limited to public orchestration, packaging, shared utilities, and dashboards.
-5. Update workflow/pipeline/script maps to call the new entrypoints.
-6. Make QC output a repair brief with owner, action, and rerun target.
-7. Run compile, JSON, manifest, registry, and full pytest checks after structural changes.
+Use `references/role_job_packets.md` only when a task is narrow enough to delegate or isolate. Job packets are not a second workflow engine: the parent agent still owns context, integration, and final judgment.

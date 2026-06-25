@@ -460,7 +460,7 @@ def _build_input_card(
         },
         "target_business_summary": brief,
         "user_provided_target_facts": [],
-        "known_risks_or_open_questions": [],
+        "known_risks_or_limits": [],
         "source_materials": [
             {
                 "source_name": "User inline brief",

@@ -141,7 +141,7 @@ Why it is wrong:
 - A single datapoint rarely supports a conclusion-led investment-banking page.
 
 Recognition test:
-- `deck_blueprint.slides[].exhibit` is missing or does not match the visible page.
+- `banker_page_pack.slides[].exhibit` is missing or does not match the visible page.
 - `chart_data` has only one datapoint.
 - A structured page has fewer than three meaningful cards/rows/modules.
 

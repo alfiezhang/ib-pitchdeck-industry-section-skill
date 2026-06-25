@@ -60,7 +60,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - After Knowledge validates `artifacts/research_evidence_db.json`, write `banker_page_pack.json` as the single LLM-authored page artifact.
    - This pack is the only default LLM-authored page-judgment artifact.
    - Each page must be industry-first: the headline, main message, banker judgment, page argument, exhibit, and body blocks should primarily explain market structure, growth, demand, economics, competition, or trends.
-   - Each page should show `page_primary_subject`, a client question, banker judgment, page argument, substantive headline/main message, exhibit, multiple body blocks, traceable EV/MET bindings where available, and source note.
+   - Each page should show `page_primary_subject`, `page_question`, banker judgment, page argument, substantive headline/main message, exhibit, multiple body blocks, traceable EV/MET bindings where available, and source note.
    - Use `project_relevance_note` only as a short bridge from an industry finding to the pre-mandate discussion. It is optional on pages where the industry point is self-evident, and it must not become a target profile paragraph.
    - Pages should look banker-dense, not empty: use specific industry mechanisms, quantitative evidence, competitive comparisons, profit-pool logic, transaction framing angles, and proof points. Prefer metric-supported pages and chart/table-grade exhibits when evidence supports them; use evidence-boundary exhibits when it does not.
    - Important numbers require `key_data_audit` rows with indicator, value, unit, period, geography, source type/name, original locator, short excerpt, and deck usage. Normal prose needs standard EV/source linkage but does not need audit-grade treatment.
@@ -154,7 +154,7 @@ Read only the reference that matches the current work.
 - `references/critical-anti-patterns.md`: common formatting and content failure modes for final review.
 - `references/ppt_visual_qc.md`: visual review expectations for PPT output.
 
-Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` contains deterministic registries, layout configuration, script mappings, and artifact templates. LLM judgment guidance belongs in `references/`. `assets/` contains the bundled PPT template and other output resources.
+Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` contains deterministic registries, layout configuration, and artifact templates. LLM judgment guidance belongs in `references/`. `assets/` contains the bundled PPT template and other output resources.
 
 ## Acceptance Criteria
 

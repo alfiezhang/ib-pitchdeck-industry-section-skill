@@ -97,7 +97,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 "slide_no": slide_no,
                 "fixed_page_role": slide["fixed_page_role"],
                 "page_primary_subject": "industry" if slide_no <= 6 else "industry_with_project_relevance",
-                "client_question": f"What should the client understand from page {slide_no} before signing a mandate?",
+                "page_question": f"What industry point must page {slide_no} prove for the pitch?",
                 "banker_judgment": (
                     f"Page {slide_no} should communicate a banker judgment about market structure, transaction framing, "
                     "and sector economics using evidence rather than broad industry commentary, while also explaining "
@@ -138,7 +138,7 @@ def _banker_page_pack(deck_blueprint_data: dict, template_registry: dict) -> dic
                 ),
                 "source_note": "Sources: " + "; ".join(evidence_ids),
                 "caveats": [],
-                "open_questions": [],
+                "evidence_boundary_notes": [],
             }
         )
     return {
@@ -202,7 +202,7 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
                 "slide_no": idx,
                 "fixed_page_role": "industry_overview",
                 "page_primary_subject": "industry",
-                "client_question": "Question?",
+                "page_question": "Question?",
                 "banker_judgment": "thin",
                 "page_argument": "thin",
                 "selected_page_type": "summary_page",
@@ -235,7 +235,7 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
                 "slide_no": idx,
                 "fixed_page_role": "industry_overview",
                 "page_primary_subject": "industry",
-                "client_question": "What industry point matters?",
+                "page_question": "What industry point matters?",
                 "banker_judgment": "Industry judgment with source-backed market mechanism.",
                 "page_argument": "Industry page argument with evidence and implication.",
                 "selected_page_type": "summary_page",
@@ -296,7 +296,7 @@ def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
                 "slide_no": idx,
                 "fixed_page_role": "industry_overview",
                 "page_primary_subject": "industry_with_project_relevance",
-                "client_question": "What industry point matters?",
+                "page_question": "What industry point matters?",
                 "banker_judgment": "Industry judgment with source-backed market mechanism.",
                 "page_argument": "Industry page argument with evidence and implication.",
                 "selected_page_type": "summary_page",

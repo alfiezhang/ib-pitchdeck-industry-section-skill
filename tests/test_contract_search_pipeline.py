@@ -84,4 +84,4 @@ def test_validate_artifact_scope_pack_requires_v2(tmp_path: Path) -> None:
 
     errors, _ = validate_artifact("industry_scope_pack", run_dir)
 
-    assert any("industry_scope_pack_v2" in error for error in errors), errors
+    assert any("industry_scope_pack_boundary_card" in error for error in errors), errors

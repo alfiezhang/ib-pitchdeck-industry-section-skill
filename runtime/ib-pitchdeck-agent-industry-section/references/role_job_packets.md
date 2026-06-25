@@ -108,10 +108,11 @@ Job packets define delegation context, not canonical artifact schemas.
 
 Examples:
 
-- `banker_page_pack.json`, conforming to `schemas/banker_page_pack_schema.json`
-- derived `deck_blueprint.json`, conforming to `schemas/deck_blueprint_schema.json`
-- `artifacts/formal_search_plan.json`, conforming to `schemas/formal_search_plan_schema.json`
-- `artifacts/page_evidence_contract.json`, conforming to `schemas/page_evidence_contract_schema.json`
+- source/archive results that the parent integrates into `artifacts/research_evidence_db.json`;
+- page draft fields that the parent integrates into `banker_page_pack.json`;
+- QC repair notes that name the owner artifact and the deterministic command to rerun.
+
+Workers do not hand-author derived artifacts such as `deck_blueprint.json`, `page_evidence_contract.json`, `renderer_spec.json`, `replacement_dict.json`, or the filled PPT.
 
 ## Result Shape
 

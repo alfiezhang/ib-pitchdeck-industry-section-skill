@@ -108,7 +108,7 @@
             "type": "array",
             "items": { "type": "string" }
           },
-          "open_questions": {
+          "evidence_boundary_notes": {
             "type": "array",
             "items": { "type": "string" }
           }

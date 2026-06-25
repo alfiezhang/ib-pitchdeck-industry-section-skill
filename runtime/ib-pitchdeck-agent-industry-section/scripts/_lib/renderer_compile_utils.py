@@ -164,7 +164,7 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
                 "banker_page_id": banker_page_id,
                 "fixed_page_role": _text(slide.get("fixed_page_role")) or FIXED_PAGE_ROLES.get(slide_no, ""),
                 "page_primary_subject": _text(slide.get("page_primary_subject")),
-                "investor_question": _text(slide.get("client_question")),
+                "page_question": _text(slide.get("page_question")),
                 "page_thesis": _text(slide.get("banker_judgment")),
                 "page_argument": _text(slide.get("page_argument")),
                 "visual_intent": _text(slide.get("visual_intent") or slide.get("exhibit", {}).get("why_this_exhibit")),
@@ -184,7 +184,7 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
                 "source_note": _text(slide.get("source_note")),
                 "pitch_relevance": project_relevance_note,
                 "caveats": [_text(item) for item in as_list(slide.get("caveats")) if _text(item)],
-                "open_questions": [_text(item) for item in as_list(slide.get("open_questions")) if _text(item)],
+                "evidence_boundary_notes": [_text(item) for item in as_list(slide.get("evidence_boundary_notes")) if _text(item)],
                 "strategy_checks": {
                     "new_information_added": [
                         _text(slide.get("banker_judgment")),
@@ -270,7 +270,7 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
                 "slide_no": slide_no,
                 "banker_page_id": banker_page_id,
                 "page_role": _text(slide.get("fixed_page_role") or slide.get("page_role")) or FIXED_PAGE_ROLES.get(slide_no, ""),
-                "page_question": _text(slide.get("investor_question") or slide.get("client_question")),
+                "page_question": _text(slide.get("page_question")),
                 "headline_claim": _text(slide.get("headline")),
                 "proof_standard": _proof_standard(claim_strength, usage),
                 "headline_allowed": permission["headline_allowed"],
@@ -291,7 +291,7 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
                     or "Route back to banker_page_pack if evidence is insufficient."
                 ),
                 "caveats": [_text(item) for item in as_list(slide.get("caveats")) if _text(item)],
-                "open_questions": [_text(item) for item in as_list(slide.get("open_questions")) if _text(item)],
+                "evidence_boundary_notes": [_text(item) for item in as_list(slide.get("evidence_boundary_notes")) if _text(item)],
             }
         )
     return {"schema_version": "page_evidence_contract_v1", "slides": sorted(contract_slides, key=lambda item: int(item.get("slide_no") or 0))}
@@ -799,10 +799,10 @@ def build_renderer_spec_from_deck_blueprint(
             ),
             "evidence_ids": evidence_ids,
             "source_note": _source_note(slide, evidence_ids),
-            "pitch_relevance": str(slide.get("pitch_relevance") or slide.get("why_this_page_matters") or slide.get("investor_question") or "").strip(),
+            "pitch_relevance": str(slide.get("pitch_relevance") or slide.get("why_this_page_matters") or slide.get("page_question") or "").strip(),
             "page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
             "caveats": [str(item).strip() for item in as_list(slide.get("caveats")) if str(item).strip()],
-            "open_questions": [str(item).strip() for item in as_list(slide.get("open_questions")) if str(item).strip()],
+            "evidence_boundary_notes": [str(item).strip() for item in as_list(slide.get("evidence_boundary_notes")) if str(item).strip()],
         }
         strategy_checks = slide.get("strategy_checks") if isinstance(slide.get("strategy_checks"), dict) else {}
         if str(strategy_checks.get("drilldown_role") or "").strip():

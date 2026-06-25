@@ -64,7 +64,6 @@ def runtime_diagnostic_payload() -> dict[str, object]:
         "required_entrypoints": {
             "bootstrap_runtime": script_exists("scripts/bootstrap_runtime.py"),
             "python_pipeline": script_exists("scripts/pipeline.py"),
-            "legacy_run_pipeline": script_exists("run_pipeline.sh"),
             "status_dashboard": script_exists("scripts/pipeline.py"),
             "pipeline_validate": script_exists("scripts/pipeline.py"),
         },

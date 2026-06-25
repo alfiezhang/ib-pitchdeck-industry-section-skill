@@ -91,7 +91,7 @@
           "slide_no",
           "fixed_page_role",
           "page_primary_subject",
-          "client_question",
+          "page_question",
           "banker_judgment",
           "page_argument",
           "selected_page_type",
@@ -112,7 +112,7 @@
             "description": "Primary subject of the page. Use industry for normal industry-section pages; target_context is reserved for at most two explicitly labeled pages.",
             "enum": ["industry", "industry_with_project_relevance", "target_context"]
           },
-          "client_question": { "type": "string" },
+          "page_question": { "type": "string" },
           "banker_judgment": {
             "type": "string",
             "description": "Industry-first banker judgment for this page. This is not a target profile; it should state what matters about the market, structure, economics, competition, or trends."
@@ -246,8 +246,9 @@
             "type": "array",
             "items": { "type": "string" }
           },
-          "open_questions": {
+          "evidence_boundary_notes": {
             "type": "array",
+            "description": "Internal evidence-use limits or scope caveats. Do not write as a client-facing follow-up checklist.",
             "items": { "type": "string" }
           },
           "source_note": { "type": "string" }

@@ -23,7 +23,6 @@ REQUIRED_PATHS = [
     "references",
     "requirements.txt",
     "setup.sh",
-    "run_pipeline.sh",
 ]
 
 FORBIDDEN_PARTS = {

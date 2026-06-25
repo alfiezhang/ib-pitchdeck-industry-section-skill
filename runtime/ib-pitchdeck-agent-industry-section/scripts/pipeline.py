@@ -1268,7 +1268,7 @@ def main() -> int:
     research_prepare_parser.add_argument(
         "--allow-missing-scope-bootstrap",
         action="store_true",
-        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_v2 and boundary QC pass.",
+        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_boundary_card and boundary QC pass.",
     )
     validate_parser.add_argument("--artifact", required=True, choices=sorted(ARTIFACT_PATHS))
     validate_parser.add_argument("--path", help="Optional explicit artifact path.")

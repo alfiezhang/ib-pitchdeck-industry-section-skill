@@ -257,13 +257,13 @@ def normalize_deck_blueprint_for_page_plan(deck_blueprint: dict[str, Any]) -> di
                 "slide_no": slide_no,
                 "banker_page_id": banker_page_id,
                 "fixed_page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(int(slide_no or 0), ""),
-                "investor_question": slide.get("investor_question", ""),
+                "page_question": slide.get("page_question", ""),
                 "page_answer": slide.get("page_thesis") or slide.get("page_answer") or slide.get("headline") or "",
                 "proof_points": proof_points_from_blueprint_slide(slide),
                 "visual_plan": visual_plan_from_blueprint_slide(slide),
                 "claim_strength": slide.get("claim_strength", ""),
                 "caveats": slide.get("caveats", []),
-                "open_questions": slide.get("open_questions", []),
+                "evidence_boundary_notes": slide.get("evidence_boundary_notes", []),
                 "strategy_checks": slide.get("strategy_checks", {}),
             }
         )

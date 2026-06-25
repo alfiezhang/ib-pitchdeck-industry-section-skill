@@ -1,7 +1,7 @@
 {
   "schema_version": "research_request_queue_v1",
   "_template_only": true,
-  "_template_only_note": "Reasoning LLM authors this artifact directly. Do not copy unresolved slide open_questions mechanically, and do not use a builder script.",
+  "_template_only_note": "Reasoning LLM authors this artifact directly. Do not mechanically convert page evidence-boundary notes into research requests, and do not use a builder script.",
   "authoring_mode": "llm_authored",
   "policy_context": "pre_mandate_client_pitch",
   "requests": [

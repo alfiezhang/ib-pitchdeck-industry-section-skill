@@ -32,7 +32,7 @@ Treat those files as deterministic renderer artifacts. Do not hand-author them i
 
 1. Read `artifacts/research_evidence_db.json`, `artifacts/industry_scope_pack.json`, and `template_registry.json`.
 2. Write one page per `configs/slide_registry.json` slide role in `banker_page_pack.json`.
-3. Each page must have `page_primary_subject`, client question, banker judgment, page argument, headline, main message, exhibit, body blocks, evidence IDs, metric IDs when available, and source note.
+3. Each page must have `page_primary_subject`, `page_question`, banker judgment, page argument, headline, main message, exhibit, body blocks, evidence IDs, metric IDs when available, and source note.
 4. Use the evidence DB as the source of truth for EV/MET IDs and source limitations. Search snippets and unverified leads are not evidence.
 5. Important data needs audit-grade fields in the evidence DB; normal prose claims need standard source IDs and caveats.
 6. Fill the page like a banker page, not a memo stub: each body block should carry an industry mechanism, proof point, comparable, transaction angle, or quantified limitation. Avoid short generic labels.

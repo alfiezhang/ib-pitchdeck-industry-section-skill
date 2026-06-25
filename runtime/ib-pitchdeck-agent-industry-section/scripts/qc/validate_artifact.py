@@ -271,8 +271,8 @@ def validate_scope(path: Path, errors: list[str], warnings: list[str]) -> None:
     payload = _json(path, errors)
     if not payload:
         return
-    if payload.get("schema_version") != "industry_scope_pack_v2":
-        errors.append("industry_scope_pack must use schema_version industry_scope_pack_v2")
+    if payload.get("schema_version") != "industry_scope_pack_boundary_card":
+        errors.append("industry_scope_pack must use schema_version industry_scope_pack_boundary_card")
     if payload.get("do_not_use_as_claims") is not True:
         errors.append("industry_scope_pack.do_not_use_as_claims must be true")
     summary = payload.get("scope_summary") if isinstance(payload.get("scope_summary"), dict) else {}
@@ -424,7 +424,7 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
             errors.append(f"slide {slide_no}: page_primary_subject must be one of {sorted(PAGE_PRIMARY_SUBJECTS)}")
         if text(slide.get("transaction_readthrough")):
             errors.append(f"slide {slide_no}: transaction_readthrough is deprecated; use project_relevance_note")
-        for field in ("fixed_page_role", "client_question", "banker_judgment", "page_argument", "headline", "main_message", "selected_page_type", "source_note"):
+        for field in ("fixed_page_role", "page_question", "banker_judgment", "page_argument", "headline", "main_message", "selected_page_type", "source_note"):
             if not text(slide.get(field)):
                 errors.append(f"slide {slide_no}: {field} is required")
         body_blocks = as_list(slide.get("body_blocks"))

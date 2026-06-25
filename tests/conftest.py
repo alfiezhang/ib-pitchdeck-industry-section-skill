@@ -281,7 +281,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 }
             slides.append({
                 "slide_no": no, "banker_page_id": banker_page_id, "fixed_page_role": roles[no],
-                "investor_question": f"What should an investor learn from slide {no}?",
+                "page_question": f"What industry point must slide {no} prove for the pitch?",
                 "page_thesis": f"Slide {no} answers a distinct industry question with evidence-backed judgment.",
                 "page_argument": page_arguments[no], "visual_intent": visual_intents[no],
                 "evidence_role": evidence_roles[no],
@@ -302,7 +302,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                 "chart_data": chart_data, "compare_table_data": compare_table_data,
                 "source_note": "Sources: " + "; ".join(evidence),
                 "pitch_relevance": "Sector credibility first; target context remains selective.",
-                "caveats": [], "open_questions": ["Keep target-specific fit as a caveated evidence-boundary item"] if no == 8 else [],
+                "caveats": [], "evidence_boundary_notes": ["Keep target-specific fit as a caveated evidence-boundary item"] if no == 8 else [],
             })
     blueprint = {
         "schema_version": "deck_blueprint_v1",
@@ -325,7 +325,7 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
                 "banker_page_id": slide.get("banker_page_id") or f"BP-{slide_no:03d}",
                 "fixed_page_role": slide["fixed_page_role"],
                 "page_primary_subject": "industry" if slide_no <= 6 else "industry_with_project_relevance",
-                "client_question": slide["investor_question"],
+                "page_question": slide["page_question"],
                 "banker_judgment": (
                     f"Slide {slide_no} should communicate a banker judgment about sector structure, evidence quality, "
                     "transaction framing priorities, and market economics before a mandate is signed."
@@ -351,7 +351,7 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
                 ),
                 "source_note": slide.get("source_note", "Sources: EV-001"),
                 "caveats": slide.get("caveats", []),
-                "open_questions": slide.get("open_questions", []),
+                "evidence_boundary_notes": slide.get("evidence_boundary_notes", []),
             }
         )
     return {
@@ -450,7 +450,7 @@ def compiled_artifacts(_session_tmp, template_registry_path, banker_page_pack_pa
 
 def _minimal_scope_pack() -> dict:
     return {
-        "schema_version": "industry_scope_pack_v2",
+        "schema_version": "industry_scope_pack_boundary_card",
         "meta": {
             "target_company": "example target",
             "target_disclosure_status": "disclosed",

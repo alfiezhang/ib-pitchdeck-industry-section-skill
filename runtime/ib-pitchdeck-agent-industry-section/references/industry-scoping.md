@@ -32,7 +32,7 @@ The scope pack is a boundary card, not a research memo. Target length is 1-2 scr
 
 ```json
 {
-  "schema_version": "industry_scope_pack_v2",
+  "schema_version": "industry_scope_pack_boundary_card",
   "meta": {
     "target_company": "",
     "transaction_type": "",

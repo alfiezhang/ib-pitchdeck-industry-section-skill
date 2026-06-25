@@ -163,9 +163,9 @@ def _assert_scope_ready_for_prepare(run_dir: Path, scope_pack: dict[str, Any], *
             "research prepare requires artifacts/industry_scope_pack.json. "
             "Use --allow-missing-scope-bootstrap only for diagnostic/bootstrap runs."
         )
-    if scope_pack.get("schema_version") != "industry_scope_pack_v2":
+    if scope_pack.get("schema_version") != "industry_scope_pack_boundary_card":
         raise ValueError(
-            "research prepare requires industry_scope_pack_v2 before formal planning. "
+            "research prepare requires industry_scope_pack_boundary_card before formal planning. "
             "Run industry scoping and boundary QC first."
         )
     qc_path = run_dir / "artifacts" / "industry_boundary_qc.json"
@@ -1535,7 +1535,7 @@ def main() -> int:
     prepare_parser.add_argument(
         "--allow-missing-scope-bootstrap",
         action="store_true",
-        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_v2 and boundary QC pass.",
+        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_boundary_card and boundary QC pass.",
     )
 
     compile_parser = subparsers.add_parser("compile", help="Compile research_graph_state.json into canonical research artifacts.")

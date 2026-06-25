@@ -126,7 +126,6 @@ def test_validate_skill_package_rejects_unsafe_zip_paths(tmp_path: Path) -> None
         zf.writestr("ib-pitchdeck-agent-industry-section/references/r.md", "ref")
         zf.writestr("ib-pitchdeck-agent-industry-section/requirements.txt", "")
         zf.writestr("ib-pitchdeck-agent-industry-section/setup.sh", "echo setup")
-        zf.writestr("ib-pitchdeck-agent-industry-section/run_pipeline.sh", "echo run")
         zf.writestr("ib-pitchdeck-agent-industry-section/../escape.txt", "bad")
 
     validation = _run("validate_skill_package.py", ["--package", str(package)])
