@@ -33,7 +33,7 @@ The final output should look like a finished investment-banking presentation, no
    - Prefer compact body phrasing, but body length is an editorial scanability prompt rather than a hard validation limit. Title and subtitle fields are the hard-fit fields.
    - If copy looks like research pack prose, compress it.
    - If copy is a single generic sentence, expand it with evidence, industry mechanism, comparison, and only a short project implication where needed.
-   - See `configs/content_quality_rules.json` for per-field density targets.
+   - See `references/content-quality.md` for LLM density review prompts.
 
 5. **Comparisons must read like structured comparisons.**
    Comparison pages should not feel like long descriptive sentences stacked vertically.
@@ -49,7 +49,7 @@ The final output should look like a finished investment-banking presentation, no
 
 ## Content Density by Field Type
 
-The following are target density ranges for body_copy fields. They are LLM authoring and review guidance, not a Python gate. Title and subtitle fit remain hard layout constraints. See `configs/content_quality_rules.json` and `configs/layout_budget.json` for canonical guidance.
+The following are target density ranges for body_copy fields. They are LLM authoring and review guidance, not a Python gate. Title and subtitle fit remain hard layout constraints. See `references/content-quality.md` and `configs/layout_budget.json` for canonical guidance.
 
 | Field Type | Target Range | Description |
 |---|---|---|

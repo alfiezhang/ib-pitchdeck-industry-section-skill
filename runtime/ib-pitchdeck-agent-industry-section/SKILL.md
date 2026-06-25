@@ -11,7 +11,7 @@ This skill helps create the **industry section of a pre-mandate client pitchbook
 
 The default engagement setting is **pre-mandate client pitch**. The output is an **industry section**, not a target marketing section: it should prove that the bank understands the industry first, the transaction logic second, and only the selective target context needed to make the industry view relevant. Do not write it like a CIM, signed-engagement report, investor memo, target profile, diagnostic checklist, or execution workplan unless the user explicitly changes the deliverable.
 
-Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. `scripts/pipeline.py next` and `scripts/pipeline.py validate` are instruments, not autopilots.
+Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. Treat `scripts/pipeline.py` as the main public controller; internal scripts are implementation details, not alternate workflow routes.
 
 When a task is narrow enough to delegate or isolate, use a role job packet: the parent agent prepares the packet, the worker handles only that packet, and the parent integrates the result. Do not hand off the whole workflow.
 
@@ -31,7 +31,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - For a short text brief, use the bundled intake helper rather than hand-building intake files:
 
    ```bash
-   python3 scripts/material-intake/ingest_materials.py start-brief --case-name "<case>" --run-dir "<run_dir>" --brief-text "<exact user brief>"
+   python3 scripts/pipeline.py start-brief --case-name "<case>" --run-dir "<run_dir>" --brief-text "<exact user brief>"
    ```
 
 3. Build the current-project knowledge base.
@@ -80,6 +80,7 @@ When a task is narrow enough to delegate or isolate, use a role job packet: the 
    - If the user provides a PPT/POTX template, use it.
    - If not, use the bundled template in `assets/`.
    - Analyze colors, fonts, layouts, source-note zones, chart style, and information density before fitting slides.
+   - Build the template registry through `scripts/pipeline.py template-registry`; do not call internal template analyzers as role workflow steps.
 
 9. Review quality before final output.
    - Use deterministic checks for file presence, JSON validity, IDs, template tokens, stale artifacts, and render mechanics.
@@ -128,7 +129,9 @@ Use the same entrypoint for gate-style or repair-routing views:
 python3 scripts/pipeline.py gate --run-dir "<run_dir>" --output "<run_dir>/artifacts/status_report.json" --markdown-output "<run_dir>/artifacts/status_report.md"
 ```
 
-Use `scripts/pipeline.py validate --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, pitch relevance, and banker judgment.
+Use `scripts/pipeline.py validate --artifact <artifact>` for one mechanical artifact check. LLM review owns source quality, page density, pitch relevance, and banker judgment. The default public Python surface is `scripts/pipeline.py`; role-specific scripts under `scripts/<role>/` are internal implementation details unless you are editing the skill itself.
+
+Use `scripts/pipeline.py template-registry --run-dir <run_dir>` to create or refresh `template_registry.json`.
 
 ## Reference Map
 
@@ -140,15 +143,18 @@ Read only the reference that matches the current work.
 - `references/research-external-evidence.md`: plan searches, archive sources, extract public evidence, and account for coverage.
 - `references/reasoning.md`: sharpen banker judgments inside `banker_page_pack.json` and route bounded research requests.
 - `references/generation.md`: author the banker page pack and compile it into renderer artifacts.
+- `references/content-quality.md`: LLM-only page-density, target-drift, exhibit, and slide-quality review guidance.
+- `references/drilldown-roles.md`: select the Slide 2 drilldown role without hard-coding by industry.
 - `references/template.md`: analyze and fit PPT templates without changing the page judgment.
 - `references/qc.md`: run deterministic checks, perform LLM quality review, and route repairs.
 - `references/output.md`: create replacement dictionaries, render PPT, postprocess, and finalize.
 - `references/role_job_packets.md`: standard packet/result shape for narrow role work and subagent-style delegation.
 - `references/research_policy.md`: evidence discipline and public research handling.
 - `references/operating_model.md`: full role-based architecture and artifact flow.
+- `references/critical-anti-patterns.md`: common formatting and content failure modes for final review.
 - `references/ppt_visual_qc.md`: visual review expectations for PPT output.
 
-Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` contains script mappings, rules, registries, layout configuration, and artifact templates. `assets/` contains the bundled PPT template and other output resources.
+Directory note: `schemas/` contains machine-readable JSON schemas. `configs/` contains deterministic registries, layout configuration, script mappings, and artifact templates. LLM judgment guidance belongs in `references/`. `assets/` contains the bundled PPT template and other output resources.
 
 ## Acceptance Criteria
 

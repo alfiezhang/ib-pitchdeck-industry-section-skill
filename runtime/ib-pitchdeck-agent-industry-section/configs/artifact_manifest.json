@@ -150,7 +150,7 @@
     "material_manifest": {
       "path": "artifacts/material_manifest.json",
       "owner": "script_skeleton_llm_material_intake",
-      "builder": "scripts/material-intake/ingest_materials.py",
+      "builder": "scripts/pipeline.py start-brief",
       "validator": "scripts/pipeline.py validate --artifact material_manifest",
       "validation": "artifacts/material_manifest_validation.json",
       "inputs": []
@@ -158,7 +158,7 @@
     "material_extracts": {
       "path": "artifacts/material_extracts.json",
       "owner": "script_content_capture_llm_fact_extraction_workspace",
-      "builder": "scripts/material-intake/ingest_materials.py",
+      "builder": "scripts/pipeline.py start-brief",
       "validator": "scripts/pipeline.py validate --artifact material_extracts",
       "validation": "artifacts/material_extracts_validation.json",
       "inputs": [
@@ -168,7 +168,7 @@
     "source_classification": {
       "path": "artifacts/source_classification.json",
       "owner": "script_skeleton_llm_material_intake",
-      "builder": "scripts/material-intake/ingest_materials.py",
+      "builder": "scripts/pipeline.py start-brief",
       "inputs": [
         "material_manifest"
       ]
@@ -201,7 +201,7 @@
     "formal_search_plan": {
       "path": "artifacts/formal_search_plan.json",
       "owner": "state_first_research_graph",
-      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
+      "builder": "scripts/pipeline.py research-prepare",
       "validator": "scripts/pipeline.py validate --artifact formal_search_plan",
       "validation": "artifacts/formal_search_plan_validation.json",
       "inputs": [
@@ -212,7 +212,7 @@
     "coverage_map": {
       "path": "artifacts/coverage_map.json",
       "owner": "state_first_research_graph",
-      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
+      "builder": "scripts/pipeline.py research-prepare",
       "inputs": [
         "formal_search_plan"
       ]
@@ -222,7 +222,7 @@
       "owner": "script_skeleton_llm_query_author",
       "display_name": "executable_search_batch",
       "purpose": "Executable query workbench and the only editable query-authoring artifact.",
-      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
+      "builder": "scripts/pipeline.py research-prepare",
       "validator": "scripts/pipeline.py validate --artifact executable_search_batch",
       "validation": "artifacts/executable_search_batch_validation.json",
       "inputs": [
@@ -233,7 +233,7 @@
       "path": "artifacts/research_graph_state.json",
       "owner": "research_execution_workbench",
       "purpose": "Editable execution state for actual attempts, reviewed sources, and source-specific EV/MET capture.",
-      "builder": "scripts/research-external-evidence/ib_research_graph.py prepare",
+      "builder": "scripts/pipeline.py research-prepare",
       "inputs": [
         "formal_search_plan",
         "executable_search_batch"
@@ -249,7 +249,7 @@
     "formal_research_execution_report": {
       "path": "artifacts/formal_research_execution_report.json",
       "owner": "state_first_research_graph",
-      "builder": "scripts/research-external-evidence/ib_research_graph.py compile",
+      "builder": "scripts/pipeline.py research-compile",
       "validator": "scripts/pipeline.py validate --artifact formal_research_execution",
       "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": [
@@ -261,7 +261,7 @@
     "coverage_accounting": {
       "path": "artifacts/coverage_accounting.json",
       "owner": "state_first_research_graph",
-      "builder": "scripts/research-external-evidence/ib_research_graph.py compile",
+      "builder": "scripts/pipeline.py research-compile",
       "inputs": [
         "formal_research_execution_report"
       ]
@@ -278,7 +278,7 @@
     "template_profile": {
       "path": "artifacts/template_profile.json",
       "owner": "script",
-      "builder": "scripts/template/template_analyzer.py",
+      "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_selection"
       ]
@@ -295,7 +295,7 @@
     "template_fit_validation": {
       "path": "artifacts/template_fit_validation.json",
       "owner": "script",
-      "builder": "scripts/template/template_analyzer.py fit",
+      "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_profile",
         "renderer_spec"
@@ -304,7 +304,7 @@
     "template_fit_plan": {
       "path": "artifacts/template_fit_plan.json",
       "owner": "script",
-      "builder": "scripts/template/template_analyzer.py fit",
+      "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_profile",
         "renderer_spec",
@@ -342,7 +342,7 @@
     "research_pack": {
       "path": "industry_research_pack.md",
       "owner": "script_export_from_research_evidence_db",
-      "builder": "scripts/knowledge-repository/research_evidence_db.py export",
+      "builder": "scripts/pipeline.py evidence-export",
       "validator": "scripts/pipeline.py validate --artifact research_pack",
       "validation": "artifacts/research_pack_validation.json",
       "inputs": [
@@ -352,7 +352,7 @@
     "research_evidence_db": {
       "path": "artifacts/research_evidence_db.json",
       "owner": "script_skeleton_llm_evidence_extraction",
-      "builder": "scripts/knowledge-repository/research_evidence_db.py build",
+      "builder": "scripts/pipeline.py evidence-build",
       "validator": "scripts/pipeline.py validate --artifact research_evidence_db",
       "validation": "artifacts/research_evidence_db_validation.json",
       "inputs": [
@@ -381,7 +381,7 @@
     "template_registry": {
       "path": "template_registry.json",
       "owner": "script",
-      "builder": "scripts/template/template_analyzer.py registry",
+      "builder": "scripts/pipeline.py template-registry",
       "validator": "scripts/pipeline.py validate --artifact template_registry",
       "validation": "artifacts/template_registry_validation.json",
       "inputs": []

@@ -227,7 +227,7 @@ def test_banker_page_pack_rejects_sparse_page(tmp_path: Path) -> None:
     assert "body_blocks is required" in result.stdout
 
 
-def test_banker_page_pack_warns_target_drift(tmp_path: Path) -> None:
+def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
     slides = []
     for idx in SLIDE_NUMBERS:
         slides.append(
@@ -283,10 +283,12 @@ def test_banker_page_pack_warns_target_drift(tmp_path: Path) -> None:
 
     result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "headline contains target/project terms" in result.stdout
+    assert "headline contains target/project terms" not in result.stdout
+    qc_text = (SKILL_DIR / "references/qc.md").read_text(encoding="utf-8")
+    assert "target-context drift" in qc_text
 
 
-def test_banker_page_pack_warns_industry_majority(tmp_path: Path) -> None:
+def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
     slides = []
     for idx in SLIDE_NUMBERS:
         slides.append(
@@ -342,11 +344,12 @@ def test_banker_page_pack_warns_industry_majority(tmp_path: Path) -> None:
 
     result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "fewer industry-primary pages than the advisory target" in result.stdout
-    assert "more project_relevance_note pages than the advisory target" in result.stdout
+    assert "fewer industry-primary pages than the advisory target" not in result.stdout
+    assert "more project_relevance_note pages than the advisory target" not in result.stdout
+    assert "references/content-quality.md" in (SKILL_DIR / "references/qc.md").read_text(encoding="utf-8")
 
 
-def test_banker_page_pack_warns_mixed_axis_units(
+def test_banker_page_pack_leaves_mixed_axis_units_to_llm_qc(
     tmp_path: Path,
     deck_blueprint_data: dict,
     template_registry_path: Path,
@@ -363,7 +366,8 @@ def test_banker_page_pack_warns_mixed_axis_units(
     result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(path)])
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "chart_data mixes units on one chart axis" in result.stdout
+    assert "chart_data mixes units on one chart axis" not in result.stdout
+    assert "mixed units" in (SKILL_DIR / "references/qc.md").read_text(encoding="utf-8")
 
 
 def test_banker_page_pack_validates_and_compiles(

@@ -36,14 +36,12 @@ for path in [
 from deck_blueprint_utils import (
     FIXED_PAGE_ROLES,
     PAGE_PRIMARY_SUBJECTS,
-    STRUCTURED_EXHIBIT_TYPES,
     VALID_CLAIM_STRENGTHS,
     as_list,
     banker_page_id_for_slide,
     unique,
 )
 from json_utils import load_json_file
-from material_intake_common import normalize_source_type
 from renderer_token_source import build_token_source
 from research_evidence_db import validate_db as validate_research_db
 from template_contract_utils import required_body_fields
@@ -110,57 +108,6 @@ def text(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _quality_rules() -> dict[str, Any]:
-    path = RUNTIME_ROOT / "configs" / "content_quality_rules.json"
-    try:
-        payload = load_json_file(path)
-    except Exception:
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def _quality_list(key: str) -> list[str]:
-    values = _quality_rules().get(key)
-    return [text(item) for item in as_list(values) if text(item)]
-
-
-def _advisory_target(key: str) -> int:
-    targets = _quality_rules().get("qc_advisory_targets")
-    if not isinstance(targets, dict):
-        return 0
-    try:
-        return int(targets.get(key) or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _min_chars(field_type: str) -> int:
-    values = _quality_rules().get("min_chars_by_field_type")
-    if not isinstance(values, dict):
-        return 0
-    try:
-        return int(values.get(field_type) or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _project_specific_source_types() -> set[str]:
-    return set(_quality_list("project_specific_source_types"))
-
-
-def _axis_chart_types() -> set[str]:
-    return set(_quality_list("axis_chart_types"))
-
-
-def _contains_target_context_terms(value: Any) -> bool:
-    if isinstance(value, dict):
-        return any(_contains_target_context_terms(item) for item in value.values())
-    if isinstance(value, list):
-        return any(_contains_target_context_terms(item) for item in value)
-    value_text = text(value).lower()
-    return any(term.lower() in value_text for term in _quality_list("target_context_terms"))
-
-
 def _json(path: Path, errors: list[str]) -> dict[str, Any]:
     if not path.exists():
         errors.append(f"missing required file: {path}")
@@ -206,93 +153,6 @@ def _scan_ids(value: Any, key_names: set[str]) -> list[str]:
         for item in value:
             found.extend(_scan_ids(item, key_names))
     return unique(found)
-
-
-def _project_specific_source(source: dict[str, Any] | None) -> bool:
-    if not isinstance(source, dict):
-        return False
-    project_specific_types = _project_specific_source_types()
-    source_type = normalize_source_type(source.get("source_type"))
-    source_access = text(source.get("source_access"))
-    source_name = text(source.get("source_name")).lower()
-    source_url = text(source.get("source_url")).lower()
-    if source_type in project_specific_types:
-        return True
-    if source_access == "user_provided" and source_type not in {"user_curated_industry_report", "industry_report", "official_filing", "database", "regulator"}:
-        return True
-    return source_url in {"", "user-provided"} and any(
-        token.lower() in source_name for token in _quality_list("project_specific_source_name_tokens")
-    )
-
-
-def _metric_source_index(db: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    sources = {
-        text(row.get("source_review_id")): row
-        for row in as_list(db.get("source_materials"))
-        if isinstance(row, dict) and text(row.get("source_review_id"))
-    }
-    result: dict[str, dict[str, Any]] = {}
-    for row in as_list(db.get("metric_reconciliation")):
-        if not isinstance(row, dict):
-            continue
-        metric_id = text(row.get("metric_id"))
-        if metric_id:
-            result[metric_id] = {
-                "metric": row,
-                "source": sources.get(text(row.get("source_review_id")), {}),
-            }
-    return result
-
-
-def _chart_type(slide: dict[str, Any]) -> str:
-    chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
-    exhibit = slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
-    return text(chart_data.get("chart_type") or exhibit.get("exhibit_type")).lower()
-
-
-def _chart_units(slide: dict[str, Any]) -> set[str]:
-    chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
-    units: set[str] = set()
-    if text(chart_data.get("unit")):
-        units.add(text(chart_data.get("unit")))
-    for row in as_list(chart_data.get("source_rows")):
-        if isinstance(row, dict):
-            unit = text(row.get("unit") or row.get("value_unit"))
-            if unit:
-                units.add(unit)
-    for row in as_list(chart_data.get("data_series")):
-        if isinstance(row, dict):
-            unit = text(row.get("unit") or row.get("value_unit"))
-            if unit:
-                units.add(unit)
-    return units
-
-
-def _slide_text_chars(slide: dict[str, Any]) -> int:
-    parts = [
-        text(slide.get("headline")),
-        text(slide.get("main_message")),
-        text(slide.get("page_argument")),
-        text(slide.get("banker_judgment")),
-        text(slide.get("source_note")),
-    ]
-    for block in as_list(slide.get("body_blocks")):
-        if isinstance(block, dict):
-            parts.append(text(block.get("copy")))
-    body_copy = slide.get("body_copy")
-    if isinstance(body_copy, dict):
-        parts.extend(text(value) for value in body_copy.values())
-    return sum(len(part) for part in parts if part)
-
-
-def _structured_exhibit(slide: dict[str, Any]) -> bool:
-    exhibit = slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
-    chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
-    compare_table = slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {}
-    exhibit_type = text(exhibit.get("exhibit_type")).lower()
-    if chart_data or compare_table:
-        return True
-    return exhibit_type in STRUCTURED_EXHIBIT_TYPES
 
 
 def _ppt_slide_texts(pptx_path: Path) -> list[str]:
@@ -487,14 +347,6 @@ def validate_execution(path: Path, run_dir: Path, errors: list[str], warnings: l
             + ", ".join(below_minimum[:12])
             + (f"; plus {len(below_minimum) - 12} more" if len(below_minimum) > 12 else "")
         )
-    executed_with_evidence = int(coverage.get("fs_rows_executed_with_evidence") or 0)
-    minimum_evidence_rows = _advisory_target("formal_execution_evidence_rows")
-    if minimum_evidence_rows and executed_with_evidence < minimum_evidence_rows:
-        warnings.append(
-            f"formal research execution has only {executed_with_evidence} evidence-bearing FS rows; "
-            f"advisory target is {minimum_evidence_rows}. QC should decide whether to continue, repair research, "
-            "or mark the output evidence-limited."
-        )
 
 
 def validate_source_archive(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
@@ -557,16 +409,6 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
     db = _json(db_path, []) if db_path.exists() else {}
     ev_ids = _ids(db, "evidence_ledger", ("evidence_id", "id"))
     met_ids = _ids(db, "metric_reconciliation", ("metric_id", "id"))
-    metric_sources = _metric_source_index(db)
-    readiness = payload.get("deliverable_readiness") if isinstance(payload.get("deliverable_readiness"), dict) else {}
-    client_ready_intended = readiness.get("enough_for_client_pitch") is not False
-    industry_subject_slides = 0
-    target_context_slides = 0
-    project_relevance_slides = 0
-    unique_ev_refs: set[str] = set()
-    unique_met_refs: set[str] = set()
-    metric_slide_count = 0
-    structured_exhibit_count = 0
     for idx, slide in enumerate(slides, start=1):
         if not isinstance(slide, dict):
             errors.append(f"slide {idx}: must be an object")
@@ -580,80 +422,16 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
         subject = text(slide.get("page_primary_subject"))
         if subject not in PAGE_PRIMARY_SUBJECTS:
             errors.append(f"slide {slide_no}: page_primary_subject must be one of {sorted(PAGE_PRIMARY_SUBJECTS)}")
-        if subject == "industry":
-            industry_subject_slides += 1
-        if subject == "target_context":
-            target_context_slides += 1
-        if text(slide.get("project_relevance_note")):
-            project_relevance_slides += 1
         if text(slide.get("transaction_readthrough")):
             errors.append(f"slide {slide_no}: transaction_readthrough is deprecated; use project_relevance_note")
         for field in ("fixed_page_role", "client_question", "banker_judgment", "page_argument", "headline", "main_message", "selected_page_type", "source_note"):
             if not text(slide.get(field)):
                 errors.append(f"slide {slide_no}: {field} is required")
-        if client_ready_intended:
-            min_headline_chars = _min_chars("title")
-            min_message_chars = _min_chars("main_takeaway")
-            if min_headline_chars and len(text(slide.get("headline"))) < min_headline_chars:
-                warnings.append(f"slide {slide_no}: headline is shorter than advisory banker-page target")
-            if min_message_chars and len(text(slide.get("main_message"))) < min_message_chars:
-                warnings.append(f"slide {slide_no}: main_message is shorter than advisory banker-page target")
-        note = text(slide.get("project_relevance_note"))
-        max_project_note_chars = _advisory_target("project_relevance_note_chars")
-        if max_project_note_chars and len(note) > max_project_note_chars:
-            warnings.append(f"slide {slide_no}: project_relevance_note is longer than advisory target")
-        if note and subject == "industry":
-            warnings.append(f"slide {slide_no}: project_relevance_note appears on an industry-primary page; QC should verify this is intentional")
-        if subject != "target_context":
-            for field in ("headline", "main_message"):
-                if _contains_target_context_terms(slide.get(field)):
-                    warnings.append(f"slide {slide_no}: {field} contains target/project terms while page_primary_subject is {subject}")
-            for block_idx, block in enumerate(as_list(slide.get("body_blocks")), start=1):
-                if isinstance(block, dict) and _contains_target_context_terms(block.get("copy")):
-                    warnings.append(f"slide {slide_no} body block {block_idx}: target/project terms appear outside a target_context page")
         body_blocks = as_list(slide.get("body_blocks"))
         if not body_blocks:
             errors.append(f"slide {slide_no}: body_blocks is required")
-        elif client_ready_intended:
-            min_blocks = _advisory_target("body_blocks_per_slide")
-            if min_blocks and len(body_blocks) < min_blocks:
-                warnings.append(f"slide {slide_no}: fewer body_blocks than advisory target")
-        if client_ready_intended:
-            min_body_chars = _min_chars("bullet")
-            for block_idx, block in enumerate(body_blocks, start=1):
-                if min_body_chars and isinstance(block, dict) and len(text(block.get("copy"))) < min_body_chars:
-                    warnings.append(f"slide {slide_no} body block {block_idx}: copy is shorter than advisory density target")
-            min_slide_chars = _advisory_target("slide_text_chars")
-            if min_slide_chars and _slide_text_chars(slide) < min_slide_chars:
-                warnings.append(f"slide {slide_no}: total page text is below advisory density target")
         slide_ev_ids = _scan_ids(slide, {"evidence_id", "evidence_ids"})
         slide_met_ids = _scan_ids(slide, {"metric_id", "metric_ids"})
-        unique_ev_refs.update(ev_id for ev_id in slide_ev_ids if EV_RE.fullmatch(ev_id))
-        unique_met_refs.update(metric_id for metric_id in slide_met_ids if MET_RE.fullmatch(metric_id))
-        if slide_met_ids:
-            metric_slide_count += 1
-        if _structured_exhibit(slide):
-            structured_exhibit_count += 1
-        chart_type = _chart_type(slide)
-        chart_units = _chart_units(slide)
-        if chart_type in _axis_chart_types() and len(chart_units) > 1:
-            warnings.append(
-                f"slide {slide_no}: chart_data mixes units on one chart axis ({', '.join(sorted(chart_units))}); "
-                "QC should decide whether to use metric cards, a table, or separate charts"
-            )
-        chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
-        chart_metric_ids = _scan_ids(chart_data, {"metric_id", "metric_ids"})
-        if chart_type in _axis_chart_types() and len(chart_metric_ids) < 2:
-            warnings.append(f"slide {slide_no}: axis chart has fewer than two linked MET IDs; verify chart is not a weak single-point visual")
-        for metric_id in slide_met_ids:
-            metric_info = metric_sources.get(metric_id, {})
-            metric = metric_info.get("metric") if isinstance(metric_info.get("metric"), dict) else {}
-            source = metric_info.get("source") if isinstance(metric_info.get("source"), dict) else {}
-            if _project_specific_source(source) or normalize_source_type(metric.get("source_type")) in _project_specific_source_types():
-                warnings.append(
-                    f"slide {slide_no}: metric {metric_id} comes from project-specific / management-provided material; "
-                    "QC should verify it is labeled as unaudited project context before client use"
-                )
         for ev_id in slide_ev_ids:
             if not EV_RE.fullmatch(ev_id):
                 errors.append(f"slide {slide_no}: invalid evidence id {ev_id}")
@@ -664,40 +442,6 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
                 errors.append(f"slide {slide_no}: invalid metric id {metric_id}")
             elif met_ids and metric_id not in met_ids:
                 errors.append(f"slide {slide_no}: metric id {metric_id} not found in research_evidence_db")
-    max_target_pages = _advisory_target("target_context_slides")
-    min_industry_pages = _advisory_target("industry_subject_slides")
-    max_project_notes = _advisory_target("project_relevance_note_slides")
-    if max_target_pages and target_context_slides > max_target_pages:
-        warnings.append("banker_page_pack has more target_context pages than the advisory target")
-    if min_industry_pages and industry_subject_slides < min_industry_pages:
-        warnings.append("banker_page_pack has fewer industry-primary pages than the advisory target")
-    if max_project_notes and project_relevance_slides > max_project_notes:
-        warnings.append("banker_page_pack has more project_relevance_note pages than the advisory target")
-    if client_ready_intended:
-        min_ev_refs = _advisory_target("unique_ev_refs")
-        min_met_refs = _advisory_target("unique_met_refs")
-        min_metric_slides = _advisory_target("metric_supported_slides")
-        min_structured_exhibits = _advisory_target("structured_exhibit_slides")
-        if min_ev_refs and len(unique_ev_refs) < min_ev_refs:
-            warnings.append(
-                f"client-ready banker_page_pack uses only {len(unique_ev_refs)} unique EV IDs; "
-                f"advisory target is {min_ev_refs}. QC should decide whether to continue or mark evidence-limited."
-            )
-        if min_met_refs and len(unique_met_refs) < min_met_refs:
-            warnings.append(
-                f"client-ready banker_page_pack uses only {len(unique_met_refs)} unique MET IDs; "
-                f"advisory target is {min_met_refs}. QC should decide whether to continue or mark evidence-limited."
-            )
-        if min_metric_slides and metric_slide_count < min_metric_slides:
-            warnings.append(
-                f"client-ready banker_page_pack has metrics on only {metric_slide_count} slides; "
-                f"advisory target is {min_metric_slides} metric-supported slides."
-            )
-        if min_structured_exhibits and structured_exhibit_count < min_structured_exhibits:
-            warnings.append(
-                f"client-ready banker_page_pack has only {structured_exhibit_count} structured exhibit slides; "
-                f"advisory target is {min_structured_exhibits}."
-            )
 
 
 def validate_template_registry(path: Path, errors: list[str], warnings: list[str]) -> None:

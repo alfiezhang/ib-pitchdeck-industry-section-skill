@@ -70,6 +70,25 @@ NON_EVIDENCE_ARCHIVE_STATUSES = {"needs_research_verification", "search_snippet_
 RESEARCH_CONTEXT_ARCHIVE_STATUSES = {"research_context"}
 AUDITED_METRIC_LEVEL = "audited_metric"
 RESEARCH_CONTEXT_LEVEL = "research_context"
+PROJECT_SPECIFIC_SOURCE_TYPES = {"project_specific_material", "company_material"}
+PROJECT_SPECIFIC_METRIC_NAME_TOKENS = {
+    "gmv",
+    "profit",
+    "net income",
+    "sales volume",
+    "target",
+    "标的",
+    "净利润",
+    "销量",
+}
+PROJECT_SPECIFIC_METRIC_TYPE_TOKENS = {
+    "target",
+    "traction",
+    "management",
+    "company_claim",
+    "user_provided",
+    "management_provided",
+}
 PLACEHOLDER_MARKERS = (
     "TODO",
     "TODO_REPLACE",
@@ -98,30 +117,6 @@ def load_optional_json(path: str | Path | None) -> dict[str, Any]:
         return {}
     data = load_json_file(p)
     return data if isinstance(data, dict) else {}
-
-
-def quality_rules() -> dict[str, Any]:
-    path = _IB_RUNTIME_ROOT / "configs" / "content_quality_rules.json"
-    try:
-        payload = load_json_file(path)
-    except Exception:
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def quality_list(key: str) -> list[str]:
-    values = quality_rules().get(key)
-    return [text(item) for item in as_list(values) if text(item)]
-
-
-def advisory_target(key: str) -> int:
-    targets = quality_rules().get("qc_advisory_targets")
-    if not isinstance(targets, dict):
-        return 0
-    try:
-        return int(targets.get(key) or 0)
-    except (TypeError, ValueError):
-        return 0
 
 
 def pipe(value: Any) -> str:
@@ -238,21 +233,20 @@ def source_requires_evidence_ready_archive(source: dict[str, Any]) -> bool:
 
 
 def project_specific_metric_source(source: dict[str, Any], metric_row: dict[str, Any]) -> bool:
-    project_specific_types = set(quality_list("project_specific_source_types"))
     source_type = normalize_source_type(source.get("source_type") or metric_row.get("source_type"))
     source_access = text(source.get("source_access"))
     source_url = text(source.get("source_url")).lower()
     metric_type = text(metric_row.get("metric_type")).lower()
     metric_name = text(metric_row.get("metric_name")).lower()
-    if source_type in project_specific_types:
+    if source_type in PROJECT_SPECIFIC_SOURCE_TYPES:
         return True
     if source_access == "user_provided" and source_type not in {"user_curated_industry_report", "industry_report", "official_filing", "database", "regulator"}:
         return True
     if source_url in {"", "user-provided"} and any(
-        token.lower() in metric_name for token in quality_list("project_specific_metric_name_tokens")
+        token.lower() in metric_name for token in PROJECT_SPECIFIC_METRIC_NAME_TOKENS
     ):
         return True
-    return any(token.lower() in metric_type for token in quality_list("project_specific_metric_type_tokens"))
+    return any(token.lower() in metric_type for token in PROJECT_SPECIFIC_METRIC_TYPE_TOKENS)
 
 
 def merged_reviews(
@@ -1126,15 +1120,6 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
     ):
         if not text(metric_check.get(label)):
             errors.append(f"research_gap_audit.metric_consistency_check.{label} is required")
-
-    min_ev_rows = advisory_target("research_db_ev_rows")
-    min_met_rows = advisory_target("research_db_met_rows")
-    if (min_ev_rows and len(ev_ids) < min_ev_rows) or (min_met_rows and len(met_ids) < min_met_rows):
-        warnings.append(
-            f"research_evidence_db has {len(ev_ids)} EV rows and {len(met_ids)} MET rows; "
-            f"advisory target is {min_ev_rows or 'n/a'} EV and {min_met_rows or 'n/a'} MET rows. "
-            "QC should decide whether to continue, mark evidence-limited, or request more research."
-        )
 
     metrics = {
         "source_material_count": len(source_ids),

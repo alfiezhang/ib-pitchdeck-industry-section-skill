@@ -40,26 +40,6 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 
-def _load_role_script_paths() -> dict[str, Path]:
-    path = ROOT_DIR / "configs" / "script_role_map.json"
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    if not isinstance(payload, dict):
-        return {}
-    paths: dict[str, Path] = {}
-    for script_name, entrypoint in payload.items():
-        script = str(script_name)
-        path_text = str(entrypoint)
-        if script.endswith(".py") and path_text:
-            paths[script] = ROOT_DIR / path_text
-    return paths
-
-
-ROLE_SCRIPT_DIRS = _load_role_script_paths()
-
-
 def _layout_config_paths(path: Path | str | None = None) -> dict[str, Path]:
     config_path = Path(path or ROOT_DIR / "configs" / "layout_config.json")
     if not config_path.is_absolute():
@@ -116,14 +96,14 @@ MAIN_STATUS_PATH = [
     "final_delivery",
 ]
 BUILD_HINTS = {
-    "material_extracts": "scripts/material-intake/ingest_materials.py",
-    "formal_search_plan": "scripts/research-external-evidence/ib_research_graph.py prepare",
+    "material_extracts": "scripts/pipeline.py start-brief",
+    "formal_search_plan": "scripts/pipeline.py research-prepare",
     "executable_search_batch": "LLM Query Author edits artifacts/executable_search_batch.json",
-    "formal_research_execution": "scripts/research-external-evidence/ib_research_graph.py compile",
-    "source_archive": "scripts/research-external-evidence/ib_research_graph.py compile",
-    "research_evidence_db": "scripts/knowledge-repository/research_evidence_db.py build, then Knowledge LLM authoring",
-    "research_pack": "scripts/knowledge-repository/research_evidence_db.py export",
-    "template_registry": "scripts/template/template_analyzer.py registry",
+    "formal_research_execution": "scripts/pipeline.py research-compile",
+    "source_archive": "scripts/pipeline.py research-compile",
+    "research_evidence_db": "scripts/pipeline.py evidence-build, then Knowledge LLM authoring",
+    "research_pack": "scripts/pipeline.py evidence-export",
+    "template_registry": "scripts/pipeline.py template-registry",
     "banker_page_pack": "Generation LLM authors banker_page_pack.json",
     "deck_blueprint": "scripts/pipeline.py compile",
     "page_evidence_contract": "scripts/pipeline.py compile",
@@ -422,7 +402,7 @@ def _preflight(run_dir: Path) -> None:
 def _check_runtime_readiness(run_dir: Path, python_cmd: str, *, strict: bool = False) -> bool:
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
-    check_script = ROLE_SCRIPT_DIRS["bootstrap_runtime.py"]
+    check_script = _internal_script("bootstrap_runtime.py")
     cmd = [str(python_cmd), str(check_script), "check"]
     printable = " ".join(cmd)
     print(f"[pipeline] {printable}")
@@ -639,7 +619,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["template_analyzer.py"],
+            _internal_script("template/template_analyzer.py"),
             "--template",
             template_path,
             "--layout-config",
@@ -651,7 +631,7 @@ def validate_pre_ppt(run_dir: Path, python_cmd: str, *, template_path: Path | No
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["template_analyzer.py"],
+            _internal_script("template/template_analyzer.py"),
             "fit",
             "--renderer-spec",
             run_dir / "renderer_spec.json",
@@ -820,11 +800,101 @@ def _run_if_inputs_exist(run_dir: Path, required: list[str]) -> tuple[bool, list
     return not missing, missing
 
 
+def start_brief(
+    run_dir: Path,
+    python_cmd: str,
+    *,
+    case_name: str,
+    brief_text: str | None = None,
+    brief_file: Path | None = None,
+    files: list[str] | None = None,
+    urls: list[str] | None = None,
+    template_files: list[str] | None = None,
+    target_company: str = "",
+    transaction_type: str = "",
+    industry: str = "",
+    subsector: str = "",
+    geography: str = "",
+) -> None:
+    args: list[Any] = [
+        python_cmd,
+        _internal_script("material-intake/ingest_materials.py"),
+        "start-brief",
+        "--case-name",
+        case_name,
+        "--run-dir",
+        run_dir,
+    ]
+    if brief_text:
+        args.extend(["--brief-text", brief_text])
+    if brief_file:
+        args.extend(["--brief-file", brief_file])
+    for item in files or []:
+        args.extend(["--file", item])
+    for item in urls or []:
+        args.extend(["--url", item])
+    for item in template_files or []:
+        args.extend(["--template-file", item])
+    for flag, value in (
+        ("--target-company", target_company),
+        ("--transaction-type", transaction_type),
+        ("--industry", industry),
+        ("--subsector", subsector),
+        ("--geography", geography),
+    ):
+        if value:
+            args.extend([flag, value])
+    _run(args)
+    _validate_artifact(run_dir, python_cmd, "input_card", run_dir / "artifacts/input_card_validation.json")
+    _validate_artifact(run_dir, python_cmd, "material_extracts", run_dir / "artifacts/material_extracts_validation.json")
+
+
+def research_prepare(
+    run_dir: Path,
+    python_cmd: str,
+    *,
+    allow_missing_scope_bootstrap: bool = False,
+    worker_backend: str = "manual_or_external",
+) -> None:
+    args: list[Any] = [
+        python_cmd,
+        _internal_script("research-external-evidence/ib_research_graph.py"),
+        "prepare",
+        "--run-dir",
+        run_dir,
+        "--worker-backend",
+        worker_backend,
+    ]
+    if allow_missing_scope_bootstrap:
+        args.append("--allow-missing-scope-bootstrap")
+    _run(args)
+    _validate_artifact(run_dir, python_cmd, "formal_search_plan", run_dir / "artifacts/formal_search_plan_validation.json")
+
+
+def research_compile(run_dir: Path, python_cmd: str) -> None:
+    _run(
+        [
+            python_cmd,
+            _internal_script("research-external-evidence/ib_research_graph.py"),
+            "compile",
+            "--state",
+            run_dir / "artifacts/research_graph_state.json",
+            "--formal-search-plan",
+            run_dir / "artifacts/formal_search_plan.json",
+            "--run-dir",
+            run_dir,
+        ]
+    )
+    _validate_artifact(run_dir, python_cmd, "formal_research_execution", run_dir / "artifacts/formal_research_execution_validation.json")
+    _validate_artifact(run_dir, python_cmd, "source_archive", run_dir / "artifacts/source_archive_validation.json")
+    _validate_artifact(run_dir, python_cmd, "pre_research_pack", run_dir / "artifacts/stage_gate_pre_research_pack_validation.json")
+
+
 def _compile_research_graph_for_archive(run_dir: Path, python_cmd: str) -> None:
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["ib_research_graph.py"],
+            _internal_script("research-external-evidence/ib_research_graph.py"),
             "compile",
             "--state",
             run_dir / "artifacts/research_graph_state.json",
@@ -841,7 +911,7 @@ def _rebuild_execution_report(run_dir: Path, python_cmd: str) -> None:
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["ib_research_graph.py"],
+            _internal_script("research-external-evidence/ib_research_graph.py"),
             "compile",
             "--state",
             run_dir / "artifacts/research_graph_state.json",
@@ -859,10 +929,42 @@ def _rebuild_pre_research_gate(run_dir: Path, python_cmd: str) -> None:
 
 
 def _rebuild_research_pack_export(run_dir: Path, python_cmd: str) -> None:
+    evidence_export(run_dir, python_cmd)
+
+
+def evidence_build(run_dir: Path, python_cmd: str) -> None:
     _run(
         [
             python_cmd,
-            ROLE_SCRIPT_DIRS["research_evidence_db.py"],
+            _internal_script("knowledge-repository/research_evidence_db.py"),
+            "build",
+            "--input-card",
+            run_dir / "input_card.json",
+            "--scope-pack",
+            run_dir / "artifacts/industry_scope_pack.json",
+            "--formal-search-plan",
+            run_dir / "artifacts/formal_search_plan.json",
+            "--formal-research-execution-report",
+            run_dir / "artifacts/formal_research_execution_report.json",
+            "--source-archive-index",
+            run_dir / "artifacts/source_archive/source_archive_index.json",
+            "--research-graph-state",
+            run_dir / "artifacts/research_graph_state.json",
+            "--material-manifest",
+            run_dir / "artifacts/material_manifest.json",
+            "--material-extracts",
+            run_dir / "artifacts/material_extracts.json",
+            "--output",
+            run_dir / "artifacts/research_evidence_db.json",
+        ]
+    )
+
+
+def evidence_export(run_dir: Path, python_cmd: str) -> None:
+    _run(
+        [
+            python_cmd,
+            _internal_script("knowledge-repository/research_evidence_db.py"),
             "export",
             "--research-evidence-db",
             run_dir / "artifacts/research_evidence_db.json",
@@ -897,6 +999,23 @@ def compile_page_pack(run_dir: Path, python_cmd: str) -> None:
     _validate_artifact(run_dir, python_cmd, "deck_blueprint", run_dir / "artifacts/deck_blueprint_validation.json")
     _validate_artifact(run_dir, python_cmd, "page_evidence_contract", run_dir / "artifacts/page_evidence_contract_validation.json")
     _validate_artifact(run_dir, python_cmd, "renderer_spec", run_dir / "artifacts/renderer_spec_validation.json")
+
+
+def build_template_registry(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) -> None:
+    run_dir = _ensure_run_dir(run_dir)
+    template_path = _select_template_for_run(run_dir, python_cmd, template_path)
+    _run(
+        [
+            python_cmd,
+            _internal_script("template/template_analyzer.py"),
+            "registry",
+            "--template",
+            template_path,
+            "--output",
+            run_dir / "template_registry.json",
+        ]
+    )
+    _validate_artifact(run_dir, python_cmd, "template_registry", run_dir / "artifacts/template_registry_validation.json")
 
 
 def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None = None) -> None:
@@ -964,7 +1083,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
             _run(
                 [
                     python_cmd,
-                    ROLE_SCRIPT_DIRS["template_analyzer.py"],
+                    _internal_script("template/template_analyzer.py"),
                     "--template",
                     template_path,
                     "--layout-config",
@@ -977,7 +1096,7 @@ def rebuild_stale(run_dir: Path, python_cmd: str, *, template_path: Path | None 
             _run(
                 [
                     python_cmd,
-                    ROLE_SCRIPT_DIRS["template_analyzer.py"],
+                    _internal_script("template/template_analyzer.py"),
                     "fit",
                     "--renderer-spec",
                     run_dir / "renderer_spec.json",
@@ -1064,19 +1183,46 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python", default=sys.executable, help="Python interpreter used for child scripts.")
     sub = parser.add_subparsers(dest="command", required=True)
+    start_brief_parser = None
+    research_prepare_parser = None
     validate_pre_ppt_parser = None
     validate_parser = None
+    template_registry_parser = None
     render_parser = None
     rebuild_stale_parser = None
     finalize_parser = None
     status_parsers = []
-    for name in ("status", "next", "gate", "route", "summary", "compile", "validate", "validate-pre-ppt", "rebuild-stale", "render", "finalize"):
+    for name in (
+        "status",
+        "next",
+        "gate",
+        "route",
+        "summary",
+        "start-brief",
+        "research-prepare",
+        "research-compile",
+        "evidence-build",
+        "evidence-export",
+        "compile",
+        "validate",
+        "template-registry",
+        "validate-pre-ppt",
+        "rebuild-stale",
+        "render",
+        "finalize",
+    ):
         p = sub.add_parser(name)
         p.add_argument("--run-dir", required=True)
         if name in {"status", "next", "gate", "route", "summary"}:
             status_parsers.append(p)
+        elif name == "start-brief":
+            start_brief_parser = p
+        elif name == "research-prepare":
+            research_prepare_parser = p
         elif name == "validate":
             validate_parser = p
+        elif name == "template-registry":
+            template_registry_parser = p
         elif name == "validate-pre-ppt":
             validate_pre_ppt_parser = p
         elif name == "rebuild-stale":
@@ -1087,7 +1233,10 @@ def main() -> int:
             finalize_parser = p
 
     if (
-        validate_parser is None
+        start_brief_parser is None
+        or research_prepare_parser is None
+        or validate_parser is None
+        or template_registry_parser is None
         or validate_pre_ppt_parser is None
         or rebuild_stale_parser is None
         or render_parser is None
@@ -1095,7 +1244,7 @@ def main() -> int:
     ):
         raise RuntimeError("failed to construct parser for pipeline commands")
 
-    for template_parser in (validate_pre_ppt_parser, rebuild_stale_parser, render_parser):
+    for template_parser in (template_registry_parser, validate_pre_ppt_parser, rebuild_stale_parser, render_parser):
         template_parser.add_argument(
             "--template",
             default="",
@@ -1104,6 +1253,23 @@ def main() -> int:
     for status_parser in status_parsers:
         status_parser.add_argument("--output")
         status_parser.add_argument("--markdown-output")
+    start_brief_parser.add_argument("--case-name", required=True)
+    start_brief_parser.add_argument("--brief-text")
+    start_brief_parser.add_argument("--brief-file")
+    start_brief_parser.add_argument("--file", action="append", default=[])
+    start_brief_parser.add_argument("--url", action="append", default=[])
+    start_brief_parser.add_argument("--template-file", action="append", default=[])
+    start_brief_parser.add_argument("--target-company", default="")
+    start_brief_parser.add_argument("--transaction-type", default="")
+    start_brief_parser.add_argument("--industry", default="")
+    start_brief_parser.add_argument("--subsector", default="")
+    start_brief_parser.add_argument("--geography", default="")
+    research_prepare_parser.add_argument("--worker-backend", default="manual_or_external")
+    research_prepare_parser.add_argument(
+        "--allow-missing-scope-bootstrap",
+        action="store_true",
+        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_v2 and boundary QC pass.",
+    )
     validate_parser.add_argument("--artifact", required=True, choices=sorted(ARTIFACT_PATHS))
     validate_parser.add_argument("--path", help="Optional explicit artifact path.")
     validate_parser.add_argument("--output")
@@ -1130,8 +1296,39 @@ def main() -> int:
                 output=Path(args.output) if args.output else None,
                 markdown_output=Path(args.markdown_output) if args.markdown_output else None,
             )
+        elif args.command == "start-brief":
+            start_brief(
+                run_dir,
+                args.python,
+                case_name=args.case_name,
+                brief_text=args.brief_text,
+                brief_file=Path(args.brief_file) if args.brief_file else None,
+                files=args.file,
+                urls=args.url,
+                template_files=args.template_file,
+                target_company=args.target_company,
+                transaction_type=args.transaction_type,
+                industry=args.industry,
+                subsector=args.subsector,
+                geography=args.geography,
+            )
+        elif args.command == "research-prepare":
+            research_prepare(
+                _ensure_run_dir(run_dir),
+                args.python,
+                allow_missing_scope_bootstrap=args.allow_missing_scope_bootstrap,
+                worker_backend=args.worker_backend,
+            )
+        elif args.command == "research-compile":
+            research_compile(_ensure_run_dir(run_dir), args.python)
+        elif args.command == "evidence-build":
+            evidence_build(_ensure_run_dir(run_dir), args.python)
+        elif args.command == "evidence-export":
+            evidence_export(_ensure_run_dir(run_dir), args.python)
         elif args.command == "compile":
             compile_page_pack(_ensure_run_dir(run_dir), args.python)
+        elif args.command == "template-registry":
+            build_template_registry(_ensure_run_dir(run_dir), args.python, template_path=Path(args.template) if args.template else None)
         elif args.command == "validate":
             result = validate_artifact_entry(
                 _ensure_run_dir(run_dir),

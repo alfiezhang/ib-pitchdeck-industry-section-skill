@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -41,10 +42,46 @@ def test_internal_output_scripts_are_not_agent_facing() -> None:
     role_map = json.loads((SKILL_DIR / "configs/script_role_map.json").read_text(encoding="utf-8"))
     exposed = set(role_map)
     assert "pipeline.py" in exposed
+    assert "bootstrap_runtime.py" not in exposed
+    assert "template_analyzer.py" not in exposed
     assert "generate_replacement_dict.py" not in exposed
     assert "fill_ppt_tokens.py" not in exposed
     assert "clean_filled_ppt.py" not in exposed
     assert "postprocess_ppt_visuals.py" not in exposed
+    assert exposed == {"pipeline.py"}
+
+
+def test_skill_guidance_exposes_pipeline_not_internal_role_scripts() -> None:
+    guidance_paths = [SKILL_DIR / "SKILL.md", SKILL_DIR / "configs/artifact_manifest.json"]
+    guidance_paths.extend((SKILL_DIR / "references").glob("*.md"))
+    guidance_paths.extend((SKILL_DIR / "configs" / "artifact_templates").glob("*.json"))
+
+    internal_script_ref = re.compile(r"scripts/(?!pipeline\.py\b)[A-Za-z0-9_-]+/[A-Za-z0-9_-]+\.py")
+    hits: list[str] = []
+    for path in guidance_paths:
+        text = path.read_text(encoding="utf-8")
+        for match in internal_script_ref.finditer(text):
+            hits.append(f"{path.relative_to(SKILL_DIR)}: {match.group(0)}")
+
+    assert hits == []
+
+
+def test_deterministic_validator_does_not_read_llm_quality_rules() -> None:
+    assert not (SKILL_DIR / "configs/content_quality_rules.json").exists()
+    assert not (SKILL_DIR / "configs/drilldown_role_library.json").exists()
+    assert not list((SKILL_DIR / "configs").glob("*.md"))
+    assert (SKILL_DIR / "references/content-quality.md").exists()
+    assert (SKILL_DIR / "references/drilldown-roles.md").exists()
+    assert (SKILL_DIR / "references/critical-anti-patterns.md").exists()
+    deterministic_sources = [
+        SKILL_DIR / "scripts/qc/validate_artifact.py",
+        SKILL_DIR / "scripts/knowledge-repository/research_evidence_db.py",
+    ]
+    for path in deterministic_sources:
+        source = path.read_text(encoding="utf-8")
+        assert "content_quality_rules.json" not in source
+        assert "_quality_rules" not in source
+        assert "advisory target" not in source
 
 
 def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
@@ -113,3 +150,21 @@ def test_validate_artifact_cli_writes_output(tmp_path: Path) -> None:
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["is_valid"] is True
     assert payload["validation_policy"] == "mechanical_only"
+
+
+def test_pipeline_template_registry_command_writes_and_validates(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    result = _run([
+        sys.executable,
+        "scripts/pipeline.py",
+        "template-registry",
+        "--run-dir",
+        str(run_dir),
+    ])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (run_dir / "template_registry.json").exists()
+    validation = json.loads((run_dir / "artifacts/template_registry_validation.json").read_text(encoding="utf-8"))
+    assert validation["is_valid"] is True

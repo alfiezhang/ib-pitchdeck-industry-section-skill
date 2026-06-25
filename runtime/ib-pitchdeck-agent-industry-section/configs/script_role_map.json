@@ -1,8 +1,3 @@
 {
-  "bootstrap_runtime.py": "scripts/bootstrap_runtime.py",
-  "ib_research_graph.py": "scripts/research-external-evidence/ib_research_graph.py",
-  "ingest_materials.py": "scripts/material-intake/ingest_materials.py",
-  "pipeline.py": "scripts/pipeline.py",
-  "research_evidence_db.py": "scripts/knowledge-repository/research_evidence_db.py",
-  "template_analyzer.py": "scripts/template/template_analyzer.py"
+  "pipeline.py": "scripts/pipeline.py"
 }

@@ -81,7 +81,7 @@ Formal Research Execution Results:
 ## Formal Research Extracts
 > Preserve the raw research substrate before synthesis. This section is not page strategy and not slide copy.
 > For every material `FR-xxx` and `SRC-xxx`, include the reviewed locator/excerpt, extracted fact, metric candidates, limitations, and whether the item is promoted to EV/MET. This prevents the research pack from becoming an over-compressed memo.
-> This Markdown file is generated from `artifacts/research_evidence_db.json` with `scripts/knowledge-repository/research_evidence_db.py export`. Edit the database, not this export. Do not delete thin or insufficient rows to make the file shorter.
+> This Markdown file is generated from `artifacts/research_evidence_db.json` with `scripts/pipeline.py evidence-export`. Edit the database, not this export. Do not delete thin or insufficient rows to make the file shorter.
 
 | Result ID | Source Review ID | Search Attempt IDs | Source URL | Locator | Reviewed Excerpt / Paraphrase | Extracted Fact Or Metric Candidate | Status | Promoted EV/MET IDs | Limitations |
 |---|---|---|---|---|---|---|---|---|---|

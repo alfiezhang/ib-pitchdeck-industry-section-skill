@@ -202,7 +202,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     execution_errors, execution_warnings = validate_artifact("formal_research_execution", run_dir)
     assert not execution_errors, execution_errors
     assert any("below minimum search coverage" in warning for warning in execution_warnings), execution_warnings
-    assert any("evidence-bearing FS rows" in warning for warning in execution_warnings), execution_warnings
+    assert not any("evidence-bearing FS rows" in warning for warning in execution_warnings), execution_warnings
     assert report["coverage_summary"]["planned_fs_rows"] == len(plan["issue_search_plan"])
     assert report["coverage_summary"]["actual_search_attempts"] == 2
     assert report["coverage_summary"]["fs_rows_executed_with_evidence"] == 1

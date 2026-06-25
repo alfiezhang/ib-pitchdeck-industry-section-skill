@@ -68,9 +68,9 @@ def test_research_graph_prepare_is_operator_builder() -> None:
     manifest = _manifest()
     artifacts = manifest["artifacts"]
 
-    assert artifacts["formal_search_plan"]["builder"].endswith("ib_research_graph.py prepare")
-    assert artifacts["coverage_map"]["builder"].endswith("ib_research_graph.py prepare")
-    assert artifacts["executable_search_batch"]["builder"].endswith("ib_research_graph.py prepare")
+    assert artifacts["formal_search_plan"]["builder"].endswith("pipeline.py research-prepare")
+    assert artifacts["coverage_map"]["builder"].endswith("pipeline.py research-prepare")
+    assert artifacts["executable_search_batch"]["builder"].endswith("pipeline.py research-prepare")
 
 
 def test_industry_scope_pack_is_v2_boundary_card() -> None:

@@ -1,7 +1,7 @@
 {
   "schema_version": "formal_search_plan_v1",
   "_template_only": true,
-  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use ib_research_graph.py prepare, then edit the executable query batch/state as needed.",
+  "_template_only_note": "This file is schema guidance only and must not be copied as an artifact in production. Use scripts/pipeline.py research-prepare, then edit the executable query batch/state as needed.",
   "meta": {
     "target_company": "",
     "transaction_type": "",
@@ -24,7 +24,7 @@
       "handoff_to_research"
     ]
   },
-  "builder_instruction": "Do not copy this template as a final plan. First run scripts/research-external-evidence/ib_research_graph.py prepare to generate formal_search_plan.json, coverage_map.json, executable_search_batch.json, and research_graph_state.json together. formal_search_plan is the coverage/evidence-need plan; executable queries are authored only in executable_search_batch.json. The configured taxonomy is a coverage menu, and industry_specific_research_threads capture material custom evidence needs.",
+  "builder_instruction": "Do not copy this template as a final plan. First run scripts/pipeline.py research-prepare to generate formal_search_plan.json, coverage_map.json, executable_search_batch.json, and research_graph_state.json together. formal_search_plan is the coverage/evidence-need plan; executable queries are authored only in executable_search_batch.json. The configured taxonomy is a coverage menu, and industry_specific_research_threads capture material custom evidence needs.",
   "allowed_issue_taxonomy": {
     "instruction": "Use only these issue_area/subissue pairs. Do not invent new subissue names; if a topic does not fit, choose the closest valid subissue and note the limitation in research_question.",
     "market_size_growth": ["current_market_size", "historical_growth", "forecast_growth", "market_segmentation", "growth_quality", "market_cycle"],

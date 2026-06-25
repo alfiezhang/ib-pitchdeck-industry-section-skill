@@ -3,10 +3,10 @@
 Use this file when a workflow starts from a brief, attachments, or an existing
 research pack that the user wants to expand.
 
-Before running any local script, select one runtime and reuse it:
+Before running local workflow commands, use the single public controller surface:
 
 ```bash
-PYTHON_CMD="$(python3 scripts/bootstrap_runtime.py --print-python)"
+PYTHON_CMD=python3
 ```
 
 ## Baseline
@@ -65,11 +65,11 @@ configured graph worker or explicitly supplied source URLs/files and record the 
 memory into `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` evidence.
 
 A formal client-ready PPT requires a runtime that can support formal public
-research and source review. If `scripts/bootstrap_runtime.py check`
-reports no configured search provider or no PDF extraction capability, stop
-before formal rendering and route to runtime setup or an evidence-limited
-outline. Manual source mode is useful when the user supplies exact sources, but
-it is not a silent fallback for missing public-search execution.
+research and source review. If pipeline runtime diagnostics report no
+configured search provider or no PDF extraction capability, stop before formal
+rendering and route to runtime setup or an evidence-limited outline. Manual
+source mode is useful when the user supplies exact sources, but it is not a
+silent fallback for missing public-search execution.
 
 ## Industry Scope Pack And Search Plan
 
@@ -126,7 +126,7 @@ Recommended sequence:
    `artifacts/research_graph_state.json`; then edit executable queries in
    the executable batch using the scope pack:
    ```bash
-   "$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py prepare \
+   "$PYTHON_CMD" scripts/pipeline.py research-prepare \
      --run-dir "$RUN_DIR"
    ```
    Use `configs/artifact_templates/formal_search_plan.template.json` for field meaning, not as a
@@ -248,9 +248,7 @@ equivalent archived source with an explicit `capture_method` such as
 result is not a saved source.
 
 ```bash
-"$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py compile \
-  --state "$RUN_DIR/artifacts/research_graph_state.json" \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+"$PYTHON_CMD" scripts/pipeline.py research-compile \
   --run-dir "$RUN_DIR"
 
 "$PYTHON_CMD" scripts/pipeline.py validate \
@@ -296,7 +294,7 @@ accounted for; do not remove them from the plan to avoid work:
 - `limitations`
 - `research_pack_handling`
 
-Generate the execution report with `ib_research_graph.py compile`. Do not treat
+Generate the execution report with `scripts/pipeline.py research-compile`. Do not treat
 compiled JSON as a hand-fill template. If an issue was weak, perform the search
 and mark it weak in `research_graph_state.json`; do not pretend unsearched
 issues were researched.
@@ -354,23 +352,16 @@ handoff for evidence extraction, build the machine-readable evidence database
 first:
 
 ```bash
-"$PYTHON_CMD" scripts/knowledge-repository/research_evidence_db.py build \
-  --input-card "$RUN_DIR/input_card.json" \
-  --scope-pack "$RUN_DIR/artifacts/industry_scope_pack.json" \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
-  --formal-research-execution-report "$RUN_DIR/artifacts/formal_research_execution_report.json" \
-  --source-archive-index "$RUN_DIR/artifacts/source_archive/source_archive_index.json" \
-  --research-graph-state "$RUN_DIR/artifacts/research_graph_state.json" \
-  --output "$RUN_DIR/artifacts/research_evidence_db.json"
+"$PYTHON_CMD" scripts/pipeline.py evidence-build \
+  --run-dir "$RUN_DIR"
 
 "$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact research_evidence_db \
   --run-dir "$RUN_DIR" \
   --output "$RUN_DIR/artifacts/research_evidence_db_validation.json"
 
-"$PYTHON_CMD" scripts/knowledge-repository/research_evidence_db.py export \
-  --research-evidence-db "$RUN_DIR/artifacts/research_evidence_db.json" \
-  --output "$RUN_DIR/industry_research_pack.md"
+"$PYTHON_CMD" scripts/pipeline.py evidence-export \
+  --run-dir "$RUN_DIR"
 
 "$PYTHON_CMD" scripts/pipeline.py validate \
   --artifact research_pack \
@@ -436,8 +427,6 @@ from being overused downstream simply because `usable_as_evidence=true`.
 Run graph compilation as an automatic build step after research state updates:
 
 ```bash
-"$PYTHON_CMD" scripts/research-external-evidence/ib_research_graph.py compile \
-  --state "$RUN_DIR/artifacts/research_graph_state.json" \
-  --formal-search-plan "$RUN_DIR/artifacts/formal_search_plan.json" \
+"$PYTHON_CMD" scripts/pipeline.py research-compile \
   --run-dir "$RUN_DIR"
 ```

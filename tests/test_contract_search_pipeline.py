@@ -28,8 +28,8 @@ def test_prepare_cli_writes_plan_batch_and_graph_state(tmp_path: Path) -> None:
 
     result = _run([
         sys.executable,
-        "scripts/research-external-evidence/ib_research_graph.py",
-        "prepare",
+        "scripts/pipeline.py",
+        "research-prepare",
         "--run-dir",
         str(run_dir),
     ])

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared validation helpers for renderer-spec/content-quality checks."""
+"""Shared validation helpers for renderer-spec layout and text-fit checks."""
 
 import math
 import re
