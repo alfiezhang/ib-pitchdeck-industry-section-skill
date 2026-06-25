@@ -79,6 +79,12 @@ synchronizes internal IDs, search log, source archive index, formal execution
 report, and coverage accounting. It must not author the Knowledge DB or decide
 claim strength.
 
+Use `status=supported` only when the row also has explicit
+`terminal_status=executed_with_evidence`, reviewed source IDs, actual attempts,
+candidate EV/MET rows, and a valid downstream permission. Directional,
+backlog, not-executed, or missing-authorization rows must be `thin`,
+`insufficient`, or `unavailable_after_research`.
+
 For unexecuted, weak, unavailable, or not-material topics, say so in state and
 coverage. Do not create fake `S-xxx`, `SRC-xxx`, `EV-xxx`, or `MET-xxx` IDs to
 look complete.

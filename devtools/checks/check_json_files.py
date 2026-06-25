@@ -13,7 +13,7 @@ LIB_DIR = REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scrip
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 
-from json_utils import load_json_file, smart_quote_locations
+from runtime_utils import load_json_file, smart_quote_locations
 
 
 DEFAULT_EXCLUDES = {".git", ".venv", "venv", "dist", "__pycache__", ".claude"}

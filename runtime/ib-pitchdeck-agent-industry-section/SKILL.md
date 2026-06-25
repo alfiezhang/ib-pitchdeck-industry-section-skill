@@ -11,7 +11,7 @@ This skill helps create the **industry section of a pre-mandate client pitchbook
 
 The default engagement setting is **pre-mandate client pitch**. The output is an **industry section**, not a target marketing section: it should prove that the bank understands the industry first, the transaction logic second, and only the selective target context needed to make the industry view relevant. Do not write it like a CIM, signed-engagement report, investor memo, target profile, or execution workplan unless the user explicitly changes the deliverable.
 
-Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. Treat `scripts/pipeline.py` as the main public controller; internal scripts are implementation details, not alternate workflow routes.
+Scripts in this skill are helpers for deterministic work: parsing, synchronization, rendering, token checks, and mechanical validation. They do not replace your judgment. No helper script may decide source quality, evidence readiness, claim strength, page density, or deck permission; those are LLM-owned judgments recorded in the owning artifact. Treat `scripts/pipeline.py` as the main public controller; internal scripts are implementation details, not alternate workflow routes.
 
 When a task is narrow enough to delegate or isolate, use a role job packet: the parent agent prepares the packet, the worker handles only that packet, and the parent integrates the result. Do not hand off the whole workflow.
 

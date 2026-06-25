@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from json_utils import load_json_file
+from runtime_utils import load_json_file
 
 
 ROOT_DIR = _IB_RUNTIME_ROOT

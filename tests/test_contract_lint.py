@@ -19,7 +19,11 @@ from pipeline import build_template_token_report  # noqa: E402
 
 
 def _run(args: list[str], **kwargs) -> subprocess.CompletedProcess:
-    env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
+    env = {
+        **__import__("os").environ,
+        "PYTHONPATH": str(SCRIPT_DIR),
+        "PYTHONPYCACHEPREFIX": str(REPO_ROOT / ".pytest_cache" / "pycache"),
+    }
     return subprocess.run(args, text=True, capture_output=True, cwd=str(SKILL_DIR), env=env, **kwargs)
 
 

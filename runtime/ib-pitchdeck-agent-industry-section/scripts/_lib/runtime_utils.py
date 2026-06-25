@@ -1,11 +1,34 @@
-#!/usr/bin/env python3
-"""Shared helpers for deterministic material extraction scripts."""
+"""Shared deterministic runtime helpers.
+
+Keep this module limited to file/JSON/text normalization work. It must not
+decide evidence quality, claim strength, or downstream deck permission.
+"""
 
 from __future__ import annotations
 
-from pathlib import Path
 import hashlib
+import json
+from pathlib import Path
 from typing import Any
+
+
+SMART_QUOTES = {
+    "\u201c": "left double smart quote",
+    "\u201d": "right double smart quote",
+    "\u2018": "left single smart quote",
+    "\u2019": "right single smart quote",
+    "\uff02": "fullwidth double quote",
+    "\uff07": "fullwidth single quote",
+}
+
+SMART_QUOTE_REPLACEMENTS = {
+    "\u201c": '"',
+    "\u201d": '"',
+    "\u2018": "'",
+    "\u2019": "'",
+    "\uff02": '"',
+    "\uff07": "'",
+}
 
 CANONICAL_SOURCE_TYPES = (
     "project_specific_material",
@@ -23,7 +46,6 @@ CANONICAL_SOURCE_TYPES = (
     "database",
     "other",
 )
-
 
 SOURCE_TYPE_ALIASES = {
     "user_provided": "project_specific_material",
@@ -53,7 +75,6 @@ SOURCE_TYPE_ALIASES = {
     "模板": "ppt_template",
 }
 
-
 USER_MATERIAL_SOURCE_TYPES = {
     "project_specific_material",
     "user_curated_industry_report",
@@ -61,6 +82,74 @@ USER_MATERIAL_SOURCE_TYPES = {
     "manual_url_ingestion",
     "ppt_template",
 }
+
+
+def smart_quote_locations(text: str) -> list[dict[str, Any]]:
+    locations: list[dict[str, Any]] = []
+    line = 1
+    col = 1
+    for idx, char in enumerate(text):
+        if char in SMART_QUOTES:
+            locations.append(
+                {
+                    "char": char,
+                    "name": SMART_QUOTES[char],
+                    "line": line,
+                    "column": col,
+                    "offset": idx,
+                }
+            )
+        if char == "\n":
+            line += 1
+            col = 1
+        else:
+            col += 1
+    return locations
+
+
+def replace_smart_quotes(text: str) -> str:
+    """Return text with smart/fullwidth quote characters normalized."""
+    return "".join(SMART_QUOTE_REPLACEMENTS.get(char, char) for char in text)
+
+
+def json_error_message(path: Path, exc: json.JSONDecodeError, text: str) -> str:
+    locations = smart_quote_locations(text)
+    message = f"Invalid JSON in {path}: {exc}"
+    if locations:
+        first = locations[0]
+        message += (
+            f"; detected smart/Chinese quote {first['char']!r} "
+            f"({first['name']}) at line {first['line']}, column {first['column']}. "
+            'JSON keys and string delimiters must use ASCII double quotes: ".'
+        )
+    return message
+
+
+def load_json_file(path: Path) -> Any:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"JSON file not found: {path}") from exc
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(json_error_message(path, exc, text)) from exc
+
+
+def check_file(path: Path) -> dict[str, Any]:
+    text = ""
+    try:
+        text = path.read_text(encoding="utf-8")
+        load_json_file(path)
+    except Exception as exc:
+        return {
+            "path": str(path),
+            "is_valid": False,
+            "error": str(exc),
+            "smart_quotes": smart_quote_locations(text) if text else [],
+        }
+    return {"path": str(path), "is_valid": True, "error": "", "smart_quotes": []}
 
 
 def normalize_source_type(value: Any) -> str:
@@ -101,12 +190,7 @@ def is_url(value: str) -> bool:
 
 
 def infer_material_kind(source_path: str, source_type: str) -> str:
-    """Classify source kind without inferring facts from file names.
-
-    `source_type` controls whether this is a curated or user-provided URL/file;
-    this helper only normalizes shape so validators have stable values.
-    """
-
+    """Classify source shape without inferring business facts."""
     source_path = text(source_path)
     if normalize_source_type(source_type) == "ppt_template":
         return "ppt_template"

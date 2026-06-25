@@ -32,7 +32,7 @@ from pathlib import Path
 from zipfile import ZipFile
 from typing import Any
 
-from json_utils import load_json_file
+from runtime_utils import load_json_file
 ROOT_DIR = _IB_RUNTIME_ROOT
 KNOWN_RENDERERS = {
     "overview_dynamic",

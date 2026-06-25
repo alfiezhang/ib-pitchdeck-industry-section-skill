@@ -37,8 +37,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from json_utils import load_json_file
-from material_intake_common import CANONICAL_SOURCE_TYPES, is_material_type, normalize_source_type
+from runtime_utils import CANONICAL_SOURCE_TYPES, is_material_type, load_json_file, normalize_source_type
 
 
 def _load_issue_topics_by_area() -> dict[str, set[str]]:
@@ -324,15 +323,8 @@ def meta_from_inputs(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> 
 
 def issue_fact_status(result: dict[str, Any]) -> str:
     status = text(result.get("status"))
-    has_ids = bool(as_list(result.get("evidence_ids")) or as_list(result.get("metric_ids")))
-    if status == "supported" and has_ids:
-        return "sufficient"
-    if status in {"supported", "thin"} and has_ids:
-        return "thin"
     if status == "unavailable_after_research":
         return "unavailable_after_research"
-    if status == "not_comparable":
-        return "thin" if has_ids else "insufficient"
     return "insufficient"
 
 
@@ -639,13 +631,14 @@ def build_db(
             effective_evidence_ids: list[str] = []
             effective_metric_ids: list[str] = []
             if result and text(result.get("terminal_status")) == EVIDENCE_TERMINAL_STATUS:
-                fact_status = "insufficient"
                 if result_sources_ready:
+                    fact_status = "needs_knowledge_llm"
                     notes = (
                         f"{text(result.get('findings_summary'))} "
                         "Candidate evidence exists, but Knowledge LLM must promote EV/MET rows before issue analysis can use it."
                     ).strip()
                 else:
+                    fact_status = "insufficient"
                     notes = (
                         f"{text(result.get('findings_summary'))} "
                         "Source archive is not evidence-ready; Research secondary verification is required."
@@ -1034,7 +1027,9 @@ def validate_db(db: dict[str, Any]) -> tuple[list[str], list[str], dict[str, Any
             errors.append(f"{prefix}: invalid issue_area {area!r}")
         elif subissue not in ISSUE_TOPICS_BY_AREA.get(area, set()):
             errors.append(f"{prefix}: subissue {subissue!r} does not belong to issue_area {area!r}")
-        if status not in {"sufficient", "thin", "insufficient", "not_applicable", "unavailable_after_research"}:
+        if status == "needs_knowledge_llm":
+            errors.append(f"{prefix}: replace needs_knowledge_llm with Knowledge LLM fact_status before validation")
+        elif status not in {"sufficient", "thin", "insufficient", "not_applicable", "unavailable_after_research"}:
             errors.append(f"{prefix}: invalid fact_status {status!r}")
         if status in {"sufficient", "thin"}:
             sufficient_or_thin += 1

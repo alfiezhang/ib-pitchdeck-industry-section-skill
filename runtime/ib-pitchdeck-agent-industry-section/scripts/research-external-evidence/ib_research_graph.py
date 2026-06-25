@@ -43,8 +43,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
 
-from json_utils import load_json_file
-from material_intake_common import classify_access, normalize_source_type
+from runtime_utils import classify_access, load_json_file, normalize_source_type
 
 
 GRAPH_SCHEMA_VERSION = "ib_research_graph_state_v1"
@@ -1280,6 +1279,9 @@ def _terminal_status(unit: dict[str, Any], *, attempts: list[dict[str, Any]], ev
         and attempts
         and (evidence_ids or metric_ids)
     )
+    candidate_evidence_without_explicit_authorization = bool(
+        source_ids and attempts and (evidence_ids or metric_ids) and not explicit_evidence_authorization
+    )
     if explicit_evidence_authorization:
         terminal = raw_terminal
     elif raw_terminal in {"executed_no_usable_source", "directional_only"} and attempts:
@@ -1302,10 +1304,12 @@ def _terminal_status(unit: dict[str, Any], *, attempts: list[dict[str, Any]], ev
         permission = raw_permission
     elif terminal == "directional_only":
         status = raw_status if raw_status in VALID_RESULT_STATUS else "thin"
+        if status == "supported":
+            status = "thin"
         permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "contextual_only"
     elif terminal == "executed_no_usable_source":
         status = raw_status if raw_status in VALID_RESULT_STATUS else "insufficient"
-        if status in EVIDENCE_STATUSES and not source_ids:
+        if candidate_evidence_without_explicit_authorization or status in EVIDENCE_STATUSES:
             status = "insufficient"
         permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "research_backlog_only"
     else:

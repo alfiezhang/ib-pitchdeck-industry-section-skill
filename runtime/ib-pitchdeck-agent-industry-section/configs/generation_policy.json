@@ -81,6 +81,5 @@
     "timeline_page": "cards",
     "summary_page": "cards"
   },
-  "default_visual_capability": "text",
-  "default_evidence_limited_exhibit_plan": "Use a structured evidence-boundary grid, caveated table, or metric cards; do not make a single-point chart or empty page."
+  "default_visual_capability": "text"
 }

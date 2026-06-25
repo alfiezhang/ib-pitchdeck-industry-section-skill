@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,9 @@ ROLE_SCRIPT_DIRS = {
     for script in role_dir.glob("*.py")
 }
 FIXTURES_DIR = ROOT / "tests" / "fixtures"
+
+os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+sys.dont_write_bytecode = True
 
 for _path in SCRIPT_IMPORT_PATHS:
     text = str(_path)
@@ -1113,6 +1117,10 @@ def _pipeline_run_dir(tmp_path_factory):
         "User-provided vs external-source discrepancy": "No user-provided conflicting metric in this fixture.",
         "Chart number consistency": "Chart-ready metrics preserve original fixture values.",
     }
+    for row in research_db.get("issue_fact_inventory", []):
+        if row.get("fact_status") == "needs_knowledge_llm":
+            has_promoted_support = bool(row.get("evidence_ids") or row.get("metric_ids"))
+            row["fact_status"] = "sufficient" if has_promoted_support else "insufficient"
     _write_json(artifacts / "research_evidence_db.json", research_db)
     db_errors, db_warnings, _ = validate_research_evidence_db(research_db)
     assert not db_errors, db_errors

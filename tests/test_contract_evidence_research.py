@@ -173,6 +173,10 @@ class TestResearchEvidenceDB:
             "User-provided vs external-source discrepancy": "No discrepancy in contract fixture.",
             "Chart number consistency": "Chart numbers should bind to MET-001 and MET-002.",
         }
+        for row in research_db.get("issue_fact_inventory", []):
+            if row.get("fact_status") == "needs_knowledge_llm":
+                has_promoted_support = bool(row.get("evidence_ids") or row.get("metric_ids"))
+                row["fact_status"] = "sufficient" if has_promoted_support else "insufficient"
 
         # Validate
         db_errors, db_warnings, db_metrics = validate_research_evidence_db(research_db)

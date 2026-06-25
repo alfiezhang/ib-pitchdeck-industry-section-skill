@@ -27,8 +27,9 @@ You are the evidence librarian. Your job is to store facts, metrics, excerpts, s
 5. Preserve source-specific `EV/MET -> source_review_id` mappings. Do not union all evidence IDs across every source in one FR row.
 6. Embed source-review fields in `research_evidence_db.json`: review status, use tier, claim-use scope, excerpt, locator, and limitations.
 7. Store evidence at source/excerpt/metric level before it becomes a judgment.
-8. Keep not-executed coverage accounting separate from usable evidence.
-9. Preserve limitations instead of smoothing them away.
+8. Replace skeleton `issue_fact_inventory[].fact_status=needs_knowledge_llm` with an explicit Knowledge LLM decision before validation.
+9. Keep not-executed coverage accounting separate from usable evidence.
+10. Preserve limitations instead of smoothing them away.
 
 ## Judgment Boundary
 

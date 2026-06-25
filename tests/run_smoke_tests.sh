@@ -8,10 +8,11 @@ SKILL_DIR="$ROOT_DIR/runtime/ib-pitchdeck-agent-industry-section"
 PYTHON_CMD="${PYTHON_CMD:-python3}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+export PYTHONDONTWRITEBYTECODE=1
 
 cd "$SKILL_DIR"
 
-"$PYTHON_CMD" -m compileall -q scripts
+PYTHONPYCACHEPREFIX="$TMP_DIR/pycache" "$PYTHON_CMD" -m compileall -q scripts
 bash -n setup.sh
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck setup.sh "$ROOT_DIR/tests/run_smoke_tests.sh"

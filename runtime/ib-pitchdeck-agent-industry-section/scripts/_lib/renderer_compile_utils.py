@@ -43,7 +43,7 @@ from deck_blueprint_utils import (
     unique,
     visual_plan_from_blueprint_slide,
 )
-from json_utils import load_json_file
+from runtime_utils import load_json_file
 
 
 ROLE_FIELD_ALIASES = {
@@ -273,7 +273,6 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
                 "evidence_limited_exhibit_plan": _text(
                     visual_plan.get("evidence_limited_exhibit_plan")
                     or slide.get("evidence_limited_exhibit_plan")
-                    or "Route back to banker_page_pack if evidence is insufficient."
                 ),
                 "caveats": [_text(item) for item in as_list(slide.get("caveats")) if _text(item)],
                 "evidence_boundary_notes": [_text(item) for item in as_list(slide.get("evidence_boundary_notes")) if _text(item)],

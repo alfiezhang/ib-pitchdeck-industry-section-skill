@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from json_utils import load_json_file
+from runtime_utils import load_json_file
 
 try:
     from pptx import Presentation

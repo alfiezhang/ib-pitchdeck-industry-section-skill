@@ -43,18 +43,19 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
-from material_intake_common import (
+from runtime_utils import (
+    CANONICAL_SOURCE_TYPES,
     as_bool,
     clean_text_block,
     classify_access,
-    is_url,
-    normalize_source_type_hint,
     file_fingerprint,
+    infer_material_kind,
+    is_url,
+    normalize_source_type,
+    normalize_source_type_hint,
     read_text_file,
     text,
-    infer_material_kind,
 )
-from material_intake_common import CANONICAL_SOURCE_TYPES, normalize_source_type
 
 
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")

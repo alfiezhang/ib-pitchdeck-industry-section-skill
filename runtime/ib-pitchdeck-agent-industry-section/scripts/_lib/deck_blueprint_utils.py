@@ -217,7 +217,6 @@ def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
             visual.get("evidence_limited_exhibit_plan")
             or exhibit.get("evidence_limited_exhibit_plan")
             or slide.get("evidence_limited_exhibit_plan")
-            or _generation_text("default_evidence_limited_exhibit_plan")
         ).strip(),
     }
 

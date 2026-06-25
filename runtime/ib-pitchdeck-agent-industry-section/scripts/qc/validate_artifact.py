@@ -43,7 +43,7 @@ from deck_blueprint_utils import (
     required_body_fields,
     unique,
 )
-from json_utils import load_json_file
+from runtime_utils import load_json_file
 from renderer_compile_utils import build_token_source
 from research_evidence_db import validate_db as validate_research_db
 

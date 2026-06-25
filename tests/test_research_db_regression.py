@@ -337,6 +337,13 @@ def test_build_db_keeps_multi_source_evidence_source_specific() -> None:
     assert extracts["SRC-A"]["promoted_evidence_ids"] == []
     assert extracts["SRC-B"]["promoted_evidence_ids"] == []
     assert db["evidence_ledger"] == []
+    inventory_row = next(
+        row for row in db["issue_fact_inventory"]
+        if row["issue_area"] == "market_size_growth" and row["subissue"] == "market_segmentation"
+    )
+    assert inventory_row["fact_status"] == "needs_knowledge_llm"
+    errors, _, _ = validate_db(db)
+    assert any("replace needs_knowledge_llm" in error for error in errors)
 
 
 def test_pipeline_run_flags_written_for_formal_package(tmp_path: Path) -> None:

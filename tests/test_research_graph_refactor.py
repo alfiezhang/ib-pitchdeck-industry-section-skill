@@ -287,6 +287,10 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
         "User-provided vs external-source discrepancy": "No user-provided conflicting metric.",
         "Chart number consistency": "Metric row preserves normalized and original values.",
     }
+    for row in research_db.get("issue_fact_inventory", []):
+        if row.get("fact_status") == "needs_knowledge_llm":
+            has_promoted_support = bool(row.get("evidence_ids") or row.get("metric_ids"))
+            row["fact_status"] = "sufficient" if has_promoted_support else "insufficient"
     (artifacts / "research_evidence_db.json").write_text(json.dumps(research_db, ensure_ascii=False, indent=2), encoding="utf-8")
     db_errors, _db_warnings, db_metrics = validate_research_evidence_db(research_db)
     assert not db_errors, db_errors
@@ -365,6 +369,8 @@ def test_research_graph_requires_explicit_evidence_authorization(tmp_path: Path)
     first_unit = state["research_units"][0]
     first_unit.update(
         {
+            "status": "supported",
+            "downstream_permission": "may_support_claim",
             "attempts": [
                 {
                     "query": "sample sector market size report",
@@ -403,6 +409,7 @@ def test_research_graph_requires_explicit_evidence_authorization(tmp_path: Path)
     row = report["issue_results"][0]
     assert row["terminal_status"] == "executed_no_usable_source"
     assert row["status"] == "insufficient"
+    assert row["downstream_permission"] == "research_backlog_only"
     assert row["evidence_ids"] == []
     assert row["metric_ids"] == []
     assert "explicit Research authorization is missing" in row["findings_summary"]
@@ -416,7 +423,7 @@ def test_non_evidence_terminal_cannot_keep_may_support_claim(tmp_path: Path) -> 
     first_unit = state["research_units"][0]
     first_unit.update(
         {
-            "status": "thin",
+            "status": "supported",
             "terminal_status": "directional_only",
             "downstream_permission": "may_support_claim",
             "attempts": [
@@ -445,6 +452,7 @@ def test_non_evidence_terminal_cannot_keep_may_support_claim(tmp_path: Path) -> 
     report = json.loads((run_dir / "artifacts" / "formal_research_execution_report.json").read_text(encoding="utf-8"))
     row = report["issue_results"][0]
     assert row["terminal_status"] == "directional_only"
+    assert row["status"] == "thin"
     assert row["downstream_permission"] == "contextual_only"
 
 

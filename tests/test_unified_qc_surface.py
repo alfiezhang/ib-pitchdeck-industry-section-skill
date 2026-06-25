@@ -42,6 +42,8 @@ def test_old_qc_entrypoints_are_removed() -> None:
     assert not (SKILL_DIR / "scripts/_lib/issue_taxonomy.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/layout_config.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/material_extractors.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/json_utils.py").exists()
+    assert not (SKILL_DIR / "scripts/_lib/material_intake_common.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/slide_registry.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/renderer_token_source.py").exists()
     assert not (SKILL_DIR / "scripts/_lib/template_contract_utils.py").exists()
@@ -66,7 +68,7 @@ def test_runtime_python_surface_stays_small() -> None:
         path.relative_to(SKILL_DIR).as_posix()
         for path in (SKILL_DIR / "scripts").rglob("*.py")
     ]
-    assert len(scripts) <= 11
+    assert len(scripts) <= 10
 
 
 def test_pipeline_is_only_public_script_surface() -> None:
@@ -149,6 +151,40 @@ def test_deterministic_validator_does_not_read_llm_quality_rules() -> None:
         assert "content_quality_rules.json" not in source
         assert "_quality_rules" not in source
         assert "advisory target" not in source
+
+
+def test_page_type_rules_stay_mechanical_not_prompt_guidance() -> None:
+    path = SKILL_DIR / "configs/page_type_rules.json"
+    text = path.read_text(encoding="utf-8")
+    forbidden_keys = [
+        "anti_patterns",
+        "primary_question",
+        "secondary_question",
+        "content_balance_rule",
+        "required_structure",
+        "semantic_role",
+    ]
+    hits = [key for key in forbidden_keys if key in text]
+    assert hits == []
+
+
+def test_python_does_not_default_evidence_limited_exhibit_language() -> None:
+    paths = [
+        SKILL_DIR / "configs/generation_policy.json",
+        SKILL_DIR / "scripts/_lib/deck_blueprint_utils.py",
+        SKILL_DIR / "scripts/_lib/renderer_compile_utils.py",
+    ]
+    forbidden = [
+        "default_evidence_limited_exhibit_plan",
+        "Route back to banker_page_pack if evidence is insufficient",
+    ]
+    hits: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for term in forbidden:
+            if term in text:
+                hits.append(f"{path.relative_to(SKILL_DIR)}: {term}")
+    assert hits == []
 
 
 def test_runtime_guidance_does_not_reintroduce_old_workflow_terms() -> None:
