@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from conftest import FIXED_PAGE_ROLES, ROLE_SCRIPT_DIRS, SCRIPT_IMPORT_PATHS, SKILL_DIR, SLIDE_NUMBERS, _write_json
 
 
@@ -452,7 +454,7 @@ def test_banker_page_pack_validates_and_compiles(
     assert all("pitch_relevance" not in slide for slide in renderer["slides"])
 
 
-def test_compare_table_body_blocks_cannot_use_table_fields(
+def test_compare_table_body_blocks_warn_on_table_fields_in_style_guided_mode(
     tmp_path: Path,
     deck_blueprint_data: dict,
     template_registry_path: Path,
@@ -467,13 +469,33 @@ def test_compare_table_body_blocks_cannot_use_table_fields(
 
     result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
 
-    assert result.returncode != 0
+    assert result.returncode == 0, result.stdout + result.stderr
     assert "takes table content from compare_table_data" in result.stdout
     assert "active body fields" in result.stdout
     diagnostics = json.loads((tmp_path / "artifacts/banker_page_pack_template_diagnostics.json").read_text(encoding="utf-8"))
     slide_6_diagnostics = next(item for item in diagnostics["slides"] if item["slide_no"] == 6)
     assert slide_6_diagnostics["active_body_fields"] == ["right_top", "right_mid", "right_bottom"]
     assert "table_row_1" in slide_6_diagnostics["inactive_when_compare_table_data_present"]
+
+
+def test_compare_table_body_blocks_fail_in_strict_layout_mode(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    slide_6 = pack["slides"][5]
+    slide_6["body_blocks"][0]["target_field"] = "table_row_1"
+    pack_path = tmp_path / "banker_page_pack.json"
+    _write_json(pack_path, pack)
+    _write_json(tmp_path / "artifacts/rendering_policy.json", {"template_contract_mode": "strict_layout"})
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
+
+    assert result.returncode != 0
+    assert "takes table content from compare_table_data" in result.stdout
 
 
 def test_compare_table_columns_alias_compiles_with_canonical_warning(
@@ -562,3 +584,62 @@ def test_render_auto_refreshes_template_and_compiled_artifacts(
     assert (tmp_path / "renderer_spec.json").exists()
     assert (tmp_path / "industry_section_filled_clean.pptx").exists()
     assert (tmp_path / "artifacts/banker_page_pack_template_diagnostics.json").exists()
+
+
+def test_style_guided_render_accepts_simple_non_token_template(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    pptx = pytest.importorskip("pptx")
+    prs = pptx.Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    title = slide.shapes.add_textbox(914400, 914400, 7315200, 700000)
+    title.text = "Simple style reference"
+    note = slide.shapes.add_textbox(914400, 5800000, 7315200, 500000)
+    note.text = "Source footer style"
+    simple_template = tmp_path / "simple_style_template.pptx"
+    prs.save(simple_template)
+
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    for slide_payload in pack["slides"]:
+        slide_payload["selected_page_type"] = "freeform_page"
+        slide_payload["body_copy"] = {
+            "mechanism": f"Page {slide_payload['slide_no']} mechanism remains authored by the LLM.",
+            "data_read": "Visible data and evidence shape the page composition.",
+            "banker_view": "Python should place this reliably without requiring template fields.",
+        }
+    pack["slides"][5]["compare_table_data"] = {
+        "headers": ["Dimension", "Read"],
+        "rows": [
+            {"label": "Demand", "cells": ["Growth mechanism is visible"]},
+            {"label": "Competition", "cells": ["Peer differences stay evidence-bound"]},
+        ],
+    }
+    _write_json(tmp_path / "banker_page_pack.json", pack)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SKILL_DIR / "scripts" / "pipeline.py"),
+            "render",
+            "--run-dir",
+            str(tmp_path),
+            "--template",
+            str(simple_template),
+        ],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp_path / "industry_section_filled_clean.pptx").exists()
+    replacement = json.loads((tmp_path / "replacement_dict.json").read_text(encoding="utf-8"))
+    assert replacement["_render_mode"] == "style_guided"
+    token_report = json.loads((tmp_path / "artifacts/template_token_check.json").read_text(encoding="utf-8"))
+    assert token_report["summary"]["template_token_count"] == 0
+    postprocess = json.loads((tmp_path / "artifacts/postprocess_ppt_visuals.log.json").read_text(encoding="utf-8"))
+    assert postprocess["style_guided_render"] is True

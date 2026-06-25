@@ -870,15 +870,52 @@ def build_replacement_dict(
 def build_token_source_from_renderer_spec(renderer_spec: dict[str, Any]) -> dict[str, Any]:
     result = build_token_source(renderer_spec)
     warnings = result.get("warnings") or []
-    blocking = [
-        warning for warning in warnings
-        if "missing active body_copy fields" in warning
-        or "empty active body_copy fields" in warning
-        or "extra body_copy fields ignored" in warning
-    ]
+    policy = renderer_spec.get("rendering_policy") if isinstance(renderer_spec.get("rendering_policy"), dict) else {}
+    strict_layout = str(policy.get("template_contract_mode") or "style_guided") == "strict_layout"
+    blocking = []
+    if strict_layout:
+        blocking = [
+            warning for warning in warnings
+            if "missing active body_copy fields" in warning
+            or "empty active body_copy fields" in warning
+            or "extra body_copy fields ignored" in warning
+        ]
     if blocking:
         raise ValueError("renderer_spec cannot be converted into token source: " + "; ".join(blocking))
     return result["token_source"]
+
+
+def template_contract_mode(run_dir: Path, renderer_spec: dict[str, Any] | None = None) -> str:
+    sources: list[dict[str, Any]] = []
+    if isinstance(renderer_spec, dict):
+        sources.append(renderer_spec)
+    for path in (
+        run_dir / "artifacts/rendering_policy.json",
+        run_dir / "artifacts/template_selection.json",
+        ROOT_DIR / "configs/workflow_policy.json",
+    ):
+        if path.exists():
+            try:
+                item = _json(path)
+            except Exception:
+                item = {}
+            if isinstance(item, dict):
+                sources.append(item)
+    for source in sources:
+        nested = source.get("rendering_policy")
+        if isinstance(nested, dict):
+            mode = str(nested.get("template_contract_mode") or "").strip()
+            if mode:
+                return mode if mode in {"style_guided", "strict_layout"} else "style_guided"
+        mode = str(source.get("template_contract_mode") or "").strip()
+        if mode:
+            return mode if mode in {"style_guided", "strict_layout"} else "style_guided"
+        rendering = source.get("rendering")
+        if isinstance(rendering, dict):
+            mode = str(rendering.get("template_contract_mode") or "").strip()
+            if mode:
+                return mode if mode in {"style_guided", "strict_layout"} else "style_guided"
+    return "style_guided"
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -1334,43 +1371,86 @@ def render(
 
     try:
         validate_pre_ppt(run_dir, python_cmd, template_path=template_path)
-        _write_template_token_report(template_path, PPT_MAPPING, artifacts / "template_token_check.json")
-        replacements = build_replacement_dict(
-            build_token_source_from_renderer_spec(_json(run_dir / "renderer_spec.json")),
-            _json(PPT_MAPPING),
-            False,
-            renderer_spec_path=run_dir / "renderer_spec.json",
-            ppt_mapping_path=PPT_MAPPING,
-        )
-        _write_json(run_dir / "replacement_dict.json", replacements)
-        _validate_artifact(run_dir, python_cmd, "replacement_dict", artifacts / "replacement_dict_validation.json")
-        _write_json(
-            artifacts / "fill_ppt_tokens.log.json",
-            fill_ppt(template_path, run_dir / "replacement_dict.json", run_dir / FILLED_PPT),
-        )
-        _write_json(
-            artifacts / "clean_filled_ppt.log.json",
-            clean_presentation(run_dir / FILLED_PPT, run_dir / "renderer_spec.json", run_dir / CLEAN_PPT),
-        )
-        _run(
-            [
-                python_cmd,
-                _internal_script("output/postprocess_ppt_visuals.py"),
-                "--input-ppt",
-                run_dir / CLEAN_PPT,
-                "--renderer-spec",
-                run_dir / "renderer_spec.json",
-                "--output",
-                run_dir / CLEAN_PPT,
-                "--template-profile",
-                artifacts / "template_profile.json",
-                "--render-layouts",
-                RENDER_LAYOUTS,
-                "--log",
-                artifacts / "postprocess_ppt_visuals.log.json",
-                "--fail-on-unrendered",
-            ]
-        )
+        renderer_spec = _json(run_dir / "renderer_spec.json")
+        mode = template_contract_mode(run_dir, renderer_spec)
+        if mode == "strict_layout":
+            _write_template_token_report(template_path, PPT_MAPPING, artifacts / "template_token_check.json")
+            replacements = build_replacement_dict(
+                build_token_source_from_renderer_spec(renderer_spec),
+                _json(PPT_MAPPING),
+                False,
+                renderer_spec_path=run_dir / "renderer_spec.json",
+                ppt_mapping_path=PPT_MAPPING,
+            )
+            _write_json(run_dir / "replacement_dict.json", replacements)
+            _validate_artifact(run_dir, python_cmd, "replacement_dict", artifacts / "replacement_dict_validation.json")
+            _write_json(
+                artifacts / "fill_ppt_tokens.log.json",
+                fill_ppt(template_path, run_dir / "replacement_dict.json", run_dir / FILLED_PPT),
+            )
+            _write_json(
+                artifacts / "clean_filled_ppt.log.json",
+                clean_presentation(run_dir / FILLED_PPT, run_dir / "renderer_spec.json", run_dir / CLEAN_PPT),
+            )
+            _run(
+                [
+                    python_cmd,
+                    _internal_script("output/postprocess_ppt_visuals.py"),
+                    "--input-ppt",
+                    run_dir / CLEAN_PPT,
+                    "--renderer-spec",
+                    run_dir / "renderer_spec.json",
+                    "--output",
+                    run_dir / CLEAN_PPT,
+                    "--template-profile",
+                    artifacts / "template_profile.json",
+                    "--render-layouts",
+                    RENDER_LAYOUTS,
+                    "--log",
+                    artifacts / "postprocess_ppt_visuals.log.json",
+                    "--fail-on-unrendered",
+                ]
+            )
+        else:
+            token_report = build_template_token_report(template_path, PPT_MAPPING)
+            _write_json(artifacts / "template_token_check.json", token_report)
+            _write_json(
+                run_dir / "replacement_dict.json",
+                {
+                    "_render_mode": "style_guided",
+                    "_note": "No token contract is required; PPT was rendered from renderer_spec using template style.",
+                },
+            )
+            _validate_artifact(run_dir, python_cmd, "replacement_dict", artifacts / "replacement_dict_validation.json")
+            _run(
+                [
+                    python_cmd,
+                    _internal_script("output/postprocess_ppt_visuals.py"),
+                    "--style-guided-render",
+                    "--input-ppt",
+                    template_path,
+                    "--renderer-spec",
+                    run_dir / "renderer_spec.json",
+                    "--output",
+                    run_dir / FILLED_PPT,
+                    "--template-profile",
+                    artifacts / "template_profile.json",
+                    "--render-layouts",
+                    RENDER_LAYOUTS,
+                    "--log",
+                    artifacts / "postprocess_ppt_visuals.log.json",
+                ]
+            )
+            shutil.copy2(run_dir / FILLED_PPT, run_dir / CLEAN_PPT)
+            _write_json(
+                artifacts / "clean_filled_ppt.log.json",
+                {
+                    "input_pptx": str(run_dir / FILLED_PPT),
+                    "output_pptx": str(run_dir / CLEAN_PPT),
+                    "render_mode": "style_guided",
+                    "template_contract_mode": mode,
+                },
+            )
         _validate_artifact(run_dir, python_cmd, "filled_ppt", run_dir / "filled_ppt_validation.json")
         finalize(run_dir, python_cmd, require_client_ready=True)
         _clear_not_client_ready(run_dir)

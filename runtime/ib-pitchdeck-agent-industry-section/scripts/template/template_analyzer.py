@@ -981,7 +981,25 @@ def _fit_check_text_capacity(slide: dict[str, Any], layout_budget: dict[str, Any
                     warnings.append(f"slide {slide_no}: table field '{field_name}' cell {idx} is {cell_units:.1f} units; >{table_limit:.1f} may wrap")
 
 
-def _fit_check_text_lines(slide: dict[str, Any], text_fit_fields: dict[str, Any], aliases: dict[str, str], warnings: list[str], blocking: list[str]) -> None:
+def _fit_contract_mode(renderer_spec: dict[str, Any]) -> str:
+    policy = renderer_spec.get("rendering_policy") if isinstance(renderer_spec.get("rendering_policy"), dict) else {}
+    mode = str(policy.get("template_contract_mode") or "style_guided").strip()
+    return mode if mode in {"style_guided", "strict_layout"} else "style_guided"
+
+
+def _fit_is_strict(renderer_spec: dict[str, Any]) -> bool:
+    return _fit_contract_mode(renderer_spec) == "strict_layout"
+
+
+def _fit_check_text_lines(
+    slide: dict[str, Any],
+    text_fit_fields: dict[str, Any],
+    aliases: dict[str, str],
+    warnings: list[str],
+    blocking: list[str],
+    *,
+    strict_layout: bool,
+) -> None:
     slide_no = int(slide.get("slide_no") or 0)
     page_type = str(slide.get("selected_page_type") or "")
     for field, value in {"headline": slide.get("headline", ""), "main_message": slide.get("main_message", "")}.items():
@@ -1004,20 +1022,30 @@ def _fit_check_text_lines(slide: dict[str, Any], text_fit_fields: dict[str, Any]
                 f"estimated {actual_lines} line(s), target is {target_lines}"
             )
         if max_lines and actual_lines > max_lines:
-            blocking.append(
+            message = (
                 f"slide {slide_no}: '{field}' exceeds template max lines for {placeholder}; "
                 f"estimated {actual_lines} line(s), max is {max_lines}"
             )
+            (blocking if strict_layout else warnings).append(message)
 
 
-def _fit_check_payload_support(slide: dict[str, Any], variant: dict[str, Any], warnings: list[str], blocking: list[str]) -> None:
+def _fit_check_payload_support(
+    slide: dict[str, Any],
+    variant: dict[str, Any],
+    warnings: list[str],
+    blocking: list[str],
+    *,
+    strict_layout: bool,
+) -> None:
     supports = variant.get("supports") if isinstance(variant.get("supports"), dict) else {}
     slide_no = slide.get("slide_no")
     page_type = str(slide.get("selected_page_type") or "")
     if _fit_has_payload(slide.get("chart_data")) and not bool(supports.get("chart", False)):
-        blocking.append(f"slide {slide_no}: chart data exists for '{page_type}' but template variant reports no chart support")
+        message = f"slide {slide_no}: chart data exists for '{page_type}' but template variant reports no chart support"
+        (blocking if strict_layout else warnings).append(message)
     if _fit_has_payload(slide.get("compare_table_data")) and not bool(supports.get("table", False)):
-        blocking.append(f"slide {slide_no}: compare_table_data exists for '{page_type}' but template variant reports no table support")
+        message = f"slide {slide_no}: compare_table_data exists for '{page_type}' but template variant reports no table support"
+        (blocking if strict_layout else warnings).append(message)
     if _fit_has_payload(slide.get("matrix_data")) and not bool(supports.get("matrix", False)):
         warnings.append(f"slide {slide_no}: matrix payload exists for '{page_type}' but matrix support flag is false")
     required_fields = variant.get("required_body_fields") if isinstance(variant.get("required_body_fields"), list) else []
@@ -1026,10 +1054,18 @@ def _fit_check_payload_support(slide: dict[str, Any], variant: dict[str, Any], w
     if isinstance(body_copy, dict):
         missing = [name for name in required_fields if _fit_is_blank(body_copy.get(name))]
         if missing:
-            blocking.append(f"slide {slide_no}: required body fields missing: {', '.join(missing)}")
+            message = f"slide {slide_no}: required body fields missing: {', '.join(missing)}"
+            (blocking if strict_layout else warnings).append(message)
 
 
-def _fit_check_render_layout_presence(slide: dict[str, Any], layout_slides: dict[str, dict[str, dict[str, Any]]], blocking: list[str]) -> None:
+def _fit_check_render_layout_presence(
+    slide: dict[str, Any],
+    layout_slides: dict[str, dict[str, dict[str, Any]]],
+    warnings: list[str],
+    blocking: list[str],
+    *,
+    strict_layout: bool,
+) -> None:
     slide_no = int(slide.get("slide_no") or 0)
     page_type = str(slide.get("selected_page_type") or "")
     variant_missing = page_type not in layout_slides.get(str(slide_no), {})
@@ -1040,9 +1076,11 @@ def _fit_check_render_layout_presence(slide: dict[str, Any], layout_slides: dict
         or _fit_has_payload(slide.get("exhibit"))
     )
     if variant_missing and needs_render_layout:
-        blocking.append(f"slide {slide_no}: render layout for '{page_type}' not found in template profile; PPT rendering will produce broken output")
+        message = f"slide {slide_no}: render layout for '{page_type}' not found in template profile; style-guided render will use a dynamic layout"
+        (blocking if strict_layout else warnings).append(message)
     elif variant_missing:
-        blocking.append(f"slide {slide_no}: render layout for '{page_type}' not found in template profile; formal delivery requires explicit layout support")
+        message = f"slide {slide_no}: render layout for '{page_type}' not found in template profile; style-guided render will use a dynamic layout"
+        (blocking if strict_layout else warnings).append(message)
 
 
 def _fit_check_visual_style(profile: dict[str, Any], warnings: list[str]) -> None:
@@ -1072,6 +1110,7 @@ def _run_fit(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> tuple[bo
     text_fit_fields, aliases = _fit_text_rules(profile)
     variants = _fit_slide_variants(profile)
     layout_slides = _fit_render_layouts_by_slide(profile)
+    strict_layout = _fit_is_strict(renderer_spec)
     _fit_check_visual_style(profile, warnings)
     for slide in slides:
         if not isinstance(slide, dict):
@@ -1080,13 +1119,16 @@ def _run_fit(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> tuple[bo
         page_type = str(slide.get("selected_page_type") or "")
         variant = variants.get((slide_no, page_type))
         if not isinstance(variant, dict):
-            blocking.append(f"slide {slide_no}: template profile missing variant '{page_type}'")
-            continue
+            message = f"slide {slide_no}: template profile missing variant '{page_type}'"
+            (blocking if strict_layout else warnings).append(message)
+            variant = {}
+            if strict_layout:
+                continue
         _fit_check_source_footer(slide, variant, warnings, blocking)
         _fit_check_text_capacity(slide, layout_budget, warnings, blocking)
-        _fit_check_text_lines(slide, text_fit_fields, aliases, warnings, blocking)
-        _fit_check_payload_support(slide, variant, warnings, blocking)
-        _fit_check_render_layout_presence(slide, layout_slides, blocking)
+        _fit_check_text_lines(slide, text_fit_fields, aliases, warnings, blocking, strict_layout=strict_layout)
+        _fit_check_payload_support(slide, variant, warnings, blocking, strict_layout=strict_layout)
+        _fit_check_render_layout_presence(slide, layout_slides, warnings, blocking, strict_layout=strict_layout)
     return not blocking, warnings, blocking
 
 
@@ -1129,6 +1171,7 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
     assignments: list[dict[str, Any]] = []
     recommendations: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
+    strict_layout = _fit_is_strict(renderer_spec)
     for slide in _fit_as_list(renderer_spec.get("slides")):
         if not isinstance(slide, dict):
             continue
@@ -1136,7 +1179,10 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
         page_type = str(slide.get("selected_page_type") or "")
         variant = variants.get((slide_no, page_type), {})
         if not variant:
-            conflicts.append(_fit_capacity_conflict(slide_no, "selected_page_type", f"template profile has no variant for page type '{page_type}'", "Choose a registered page type or regenerate template_profile from the selected template."))
+            if strict_layout:
+                conflicts.append(_fit_capacity_conflict(slide_no, "selected_page_type", f"template profile has no variant for page type '{page_type}'", "Choose a registered page type or regenerate template_profile from the selected template."))
+            else:
+                recommendations.append({"slide_no": slide_no, "field_path": "selected_page_type", "recommendation_type": "dynamic_layout", "message": f"Style-guided render will place page type '{page_type}' dynamically."})
             continue
         assignments.extend(_fit_slot_assignments(slide, variant, inventory.get(slide_no, {})))
         body_copy = slide.get("body_copy") if isinstance(slide.get("body_copy"), dict) else {}
@@ -1152,10 +1198,14 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
                 over_by = round(actual - limit, 1)
                 recommendations.append({"slide_no": slide_no, "field_path": f"body_copy.{field_name}", "recommendation_type": "copy_compression_advisory", "current_units": actual, "max_units": limit, "message": f"Body copy is above template guidance by {over_by:.1f} units; compress only if the rendered page looks crowded."})
         supports = variant.get("supports") if isinstance(variant.get("supports"), dict) else {}
-        if _fit_has_payload(slide.get("chart_data")) and not supports.get("chart"):
+        if strict_layout and _fit_has_payload(slide.get("chart_data")) and not supports.get("chart"):
             conflicts.append(_fit_capacity_conflict(slide_no, "chart_data", "renderer_spec contains chart_data but selected template variant has no chart slot", "Choose a chart-capable page type or revise visual plan in Generation."))
-        if _fit_has_payload(slide.get("compare_table_data")) and not supports.get("table"):
+        elif _fit_has_payload(slide.get("chart_data")) and not supports.get("chart"):
+            recommendations.append({"slide_no": slide_no, "field_path": "chart_data", "recommendation_type": "dynamic_layout", "message": "Style-guided render will create a chart area independent of template placeholders."})
+        if strict_layout and _fit_has_payload(slide.get("compare_table_data")) and not supports.get("table"):
             conflicts.append(_fit_capacity_conflict(slide_no, "compare_table_data", "renderer_spec contains compare_table_data but selected template variant has no table slot", "Choose a table-capable page type or revise visual plan in Generation."))
+        elif _fit_has_payload(slide.get("compare_table_data")) and not supports.get("table"):
+            recommendations.append({"slide_no": slide_no, "field_path": "compare_table_data", "recommendation_type": "dynamic_layout", "message": "Style-guided render will create a table area independent of template placeholders."})
         for field, value in {"headline": slide.get("headline", ""), "main_message": slide.get("main_message", "")}.items():
             alias = aliases.get(field, field)
             rule = fields.get(f"{slide_no}:{page_type}:{alias}")
@@ -1163,7 +1213,7 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
                 continue
             max_line_units = float(rule.get("max_line_units") or 0)
             max_lines = int(rule.get("max_lines") or 0)
-            if max_line_units and max_lines and estimate_lines(value, max_line_units) > max_lines:
+            if strict_layout and max_line_units and max_lines and estimate_lines(value, max_line_units) > max_lines:
                 actual_lines = estimate_lines(value, max_line_units)
                 conflicts.append(_fit_capacity_conflict(slide_no, field, f"{field} estimates to {actual_lines} lines but template allows {max_lines}", "Return to Generation and compress the headline/message before rendering."))
     return {

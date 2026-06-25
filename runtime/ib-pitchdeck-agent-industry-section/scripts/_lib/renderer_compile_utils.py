@@ -98,6 +98,28 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _rendering_policy(*sources: dict[str, Any]) -> dict[str, Any]:
+    policy: dict[str, Any] = {"template_contract_mode": "style_guided"}
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        nested = source.get("rendering_policy")
+        if isinstance(nested, dict):
+            policy.update({str(key): value for key, value in nested.items()})
+        mode = _text(source.get("template_contract_mode"))
+        if mode:
+            policy["template_contract_mode"] = mode
+    mode = _text(policy.get("template_contract_mode")) or "style_guided"
+    if mode not in {"style_guided", "strict_layout"}:
+        mode = "style_guided"
+    policy["template_contract_mode"] = mode
+    return policy
+
+
+def _strict_layout_enabled(policy: dict[str, Any]) -> bool:
+    return _text(policy.get("template_contract_mode")) == "strict_layout"
+
+
 def _ids_from_blocks(slide: dict[str, Any], field: str) -> list[str]:
     values: list[str] = []
     for block in as_list(slide.get("body_blocks")):
@@ -180,6 +202,7 @@ def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str,
     return {
         "schema_version": "deck_blueprint_v1",
         "section_meta": banker_page_pack.get("section_meta") if isinstance(banker_page_pack.get("section_meta"), dict) else {},
+        "rendering_policy": _rendering_policy(banker_page_pack),
         "deck_storyline": _text(banker_page_pack.get("deck_storyline")),
         "slides": sorted(slides, key=lambda item: int(item.get("slide_no") or 0)),
         "authoring_status": "derived_from_banker_page_pack",
@@ -332,13 +355,25 @@ def _candidate_fields_for_role(role: str, fields: list[str]) -> list[str]:
     return unique(candidates)
 
 
-def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], page_type: str) -> dict[str, str]:
+def _body_copy_from_blocks(
+    slide: dict[str, Any],
+    required_fields: list[str],
+    page_type: str,
+    *,
+    strict_layout: bool = False,
+) -> dict[str, str]:
     slide_no = int(slide.get("slide_no") or 0)
     explicit = slide.get("body_copy")
     if isinstance(explicit, dict) and explicit:
         return {str(key): str(value or "").strip() for key, value in explicit.items()}
     fields = active_body_fields(required_fields, page_type, slide)
     blocks = [block for block in as_list(slide.get("body_blocks")) if isinstance(block, dict)]
+    if not fields:
+        return {
+            f"point_{idx}": _body_text(block)
+            for idx, block in enumerate(blocks, start=1)
+            if _body_text(block)
+        }
     body: dict[str, str] = {field: "" for field in fields}
     assigned_block_indexes: set[int] = set()
 
@@ -347,11 +382,17 @@ def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], pa
         if not target:
             continue
         if target not in fields:
+            if not strict_layout:
+                continue
             raise ValueError(
                 f"slide {slide_no}: body block target_field '{target}' is not active for {page_type}. "
                 f"{_active_fields_hint(slide_no, page_type, fields)}"
             )
         if body.get(target):
+            if not strict_layout:
+                body[target] = (body[target] + "\n" + _body_text(block)).strip()
+                assigned_block_indexes.add(idx)
+                continue
             raise ValueError(
                 f"slide {slide_no}: duplicate body block target_field '{target}'. "
                 f"{_active_fields_hint(slide_no, page_type, fields)}"
@@ -371,6 +412,15 @@ def _body_copy_from_blocks(slide: dict[str, Any], required_fields: list[str], pa
 
     if len(assigned_block_indexes) < len(blocks):
         unmapped = [str(idx + 1) for idx in range(len(blocks)) if idx not in assigned_block_indexes]
+        if not strict_layout:
+            for idx_text in unmapped:
+                block = blocks[int(idx_text) - 1]
+                extra = _body_text(block)
+                if not extra:
+                    continue
+                target = next((field for field in fields if not body.get(field)), fields[-1])
+                body[target] = (body.get(target, "") + "\n" + extra).strip()
+            return body
         if fields and all(body.get(field) for field in fields):
             target = fields[-1]
             for idx_text in unmapped:
@@ -733,6 +783,8 @@ def build_renderer_spec_from_deck_blueprint(
     slides: list[dict[str, Any]] = []
     template_binding: dict[str, str] = {}
     section_meta = deck_blueprint.get("section_meta") if isinstance(deck_blueprint.get("section_meta"), dict) else {}
+    policy = _rendering_policy(deck_blueprint)
+    strict_layout = _strict_layout_enabled(policy)
     for slide_no in _slide_numbers_from_template_registry(template_registry):
         slide = slides_by_no.get(slide_no)
         if not slide:
@@ -740,7 +792,7 @@ def build_renderer_spec_from_deck_blueprint(
         contract = contracts.get(slide_no, {})
         page_type = str(slide.get("selected_page_type") or "").strip()
         required_fields = required_body_fields(template_registry, slide_no, page_type)
-        body_copy = _body_copy_from_blocks(slide, required_fields, page_type)
+        body_copy = _body_copy_from_blocks(slide, required_fields, page_type, strict_layout=strict_layout)
         banker_page_id = banker_page_id_for_slide(slide)
         evidence_ids = unique(
             [str(item).strip() for item in as_list(contract.get("body_evidence_ids")) if str(item).strip()]
@@ -804,11 +856,12 @@ def build_renderer_spec_from_deck_blueprint(
         if not payload["compare_table_data"] and page_type == "compare_table_page":
             payload["compare_table_data"] = {}
         slides.append(payload)
-        if slide_no in {1, 2, 3, 6, 7}:
+        if strict_layout and slide_no in {1, 2, 3, 6, 7}:
             template_binding[f"slide_{slide_no}_variant"] = page_type
     return {
         "schema_version": "renderer_spec_v1",
         "section_meta": section_meta,
+        "rendering_policy": policy,
         "slides": slides,
         "template_binding": template_binding,
     }
@@ -1021,7 +1074,12 @@ def convert_rules(template_binding: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def validate_variant_consistency(slides: list[dict[str, Any]], template_binding: dict[str, Any]) -> tuple[list[str], dict[int, str]]:
+def validate_variant_consistency(
+    slides: list[dict[str, Any]],
+    template_binding: dict[str, Any],
+    *,
+    strict_layout: bool,
+) -> tuple[list[str], dict[int, str]]:
     warnings = []
     normalized_page_types = {}
     variant_map = {
@@ -1036,10 +1094,14 @@ def validate_variant_consistency(slides: list[dict[str, Any]], template_binding:
         expected = template_binding.get(binding_key, "")
         actual = slide.get("selected_page_type", "")
         if expected and expected not in valid_types:
-            raise ValueError(
+            message = (
                 f"Slide {slide_no}: template_binding.{binding_key}='{expected}' is invalid. "
                 f"Allowed values: {', '.join(valid_types)}."
             )
+            if strict_layout:
+                raise ValueError(message)
+            warnings.append(message)
+            continue
         if expected and actual and expected != actual:
             warnings.append(
                 f"Slide {slide_no}: selected_page_type '{actual}' does not match "
@@ -1093,7 +1155,13 @@ def validate_content_fields(slides: list[dict[str, Any]]) -> list[str]:
 def build_token_source(renderer_spec: dict[str, Any]) -> dict[str, Any]:
     template_binding = renderer_spec.get("template_binding", {})
     renderer_slides = renderer_spec.get("slides", [])
-    warnings, normalized_page_types = validate_variant_consistency(renderer_slides, template_binding)
+    policy = renderer_spec.get("rendering_policy") if isinstance(renderer_spec.get("rendering_policy"), dict) else {}
+    strict_layout = _strict_layout_enabled(policy)
+    warnings, normalized_page_types = validate_variant_consistency(
+        renderer_slides,
+        template_binding,
+        strict_layout=strict_layout,
+    )
     normalized_slides = copy.deepcopy(renderer_slides)
     for slide in normalized_slides:
         slide_no = int(slide.get("slide_no", 0) or 0)

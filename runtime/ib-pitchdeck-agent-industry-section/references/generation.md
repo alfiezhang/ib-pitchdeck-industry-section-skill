@@ -25,6 +25,8 @@ For every formal page, ask:
 
 The page should feel filled by thought, not by padding. A strong page has a conclusion-led headline, a main message with a point of view, a visible exhibit, several substantive body blocks, EV/MET bindings where available, and a specific source note.
 
+Own the page composition. If a page needs two columns, six cards, a four-column table, or a chart plus proof points, write that composition in the page pack. Treat `selected_page_type` as a rendering hint, not a reason to flatten the page into template placeholder names. Only use placeholder-style `body_copy` fields when strict layout has been explicitly requested.
+
 Use `project_relevance_note` sparingly. It is a bridge from an industry finding to the pre-mandate conversation, not a target promotion paragraph. The default page subject is `industry`; `target_context` should be exceptional and source-labeled.
 
 Treat management-provided target metrics as unaudited project context unless independently verified. They may support relevance, but they are not audited industry metrics and should not be mixed into industry charts.
@@ -54,4 +56,4 @@ python3 scripts/pipeline.py compile --run-dir <run_dir>
 
 ## What To Pass On
 
-Hand off with the validated `banker_page_pack.json`, the compiled `renderer_spec.json`, caveats that must remain visible, and any page where template capacity may require compression or a split-page decision.
+Hand off with the validated `banker_page_pack.json`, the compiled `renderer_spec.json`, caveats that must remain visible, and any page where density may require compression or a split-page decision.

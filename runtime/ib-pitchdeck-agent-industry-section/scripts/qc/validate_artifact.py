@@ -242,6 +242,43 @@ def _compare_table_data_from_slide(slide: dict[str, Any]) -> dict[str, Any]:
     return _visual_payload(slide, "compare_table_data")
 
 
+def _template_contract_mode(run_dir: Path, payload: dict[str, Any] | None = None) -> str:
+    sources: list[dict[str, Any]] = []
+    if isinstance(payload, dict):
+        sources.append(payload)
+    for path in (
+        run_dir / "artifacts/rendering_policy.json",
+        run_dir / "artifacts/template_selection.json",
+        RUNTIME_ROOT / "configs/workflow_policy.json",
+    ):
+        if path.exists():
+            try:
+                item = load_json_file(path)
+            except Exception:
+                item = {}
+            if isinstance(item, dict):
+                sources.append(item)
+    for source in sources:
+        nested = source.get("rendering_policy")
+        if isinstance(nested, dict):
+            mode = text(nested.get("template_contract_mode"))
+            if mode:
+                return mode if mode in {"style_guided", "strict_layout"} else "style_guided"
+        mode = text(source.get("template_contract_mode"))
+        if mode:
+            return mode if mode in {"style_guided", "strict_layout"} else "style_guided"
+        rendering = source.get("rendering")
+        if isinstance(rendering, dict):
+            mode = text(rendering.get("template_contract_mode"))
+            if mode:
+                return mode if mode in {"style_guided", "strict_layout"} else "style_guided"
+    return "style_guided"
+
+
+def _strict_layout(run_dir: Path, payload: dict[str, Any] | None = None) -> bool:
+    return _template_contract_mode(run_dir, payload) == "strict_layout"
+
+
 def _validate_compare_table_shape(slide_no: int, data: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
     headers = data.get("headers")
     columns = data.get("columns")
@@ -388,6 +425,7 @@ def banker_page_pack_template_diagnostics(run_dir: Path, path: Path | None = Non
     return {
         "schema_version": "banker_page_pack_template_diagnostics_v1",
         "banker_page_pack": str(target),
+        "template_contract_mode": _template_contract_mode(run_dir, pack),
         "template_registry": str(template_path) if template_path.exists() else "",
         "has_template_registry": bool(template),
         "slides": diagnostics,
@@ -639,6 +677,7 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
     met_ids = _ids(db, "metric_reconciliation", ("metric_id", "id"))
     template_path = run_dir / "template_registry.json"
     template = _json(template_path, []) if template_path.exists() else {}
+    strict_layout = _strict_layout(run_dir, payload)
     template_variants = template_variants_by_slide(template) if template else {}
     if not template:
         warnings.append(
@@ -682,10 +721,11 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
         if template and selected_page_type:
             allowed_page_types = sorted(template_variants.get(slide_no, {}).keys())
             if allowed_page_types and selected_page_type not in allowed_page_types:
-                errors.append(
+                message = (
                     f"slide {slide_no}: selected_page_type '{selected_page_type}' is not available for "
                     f"fixed_page_role '{expected_role or '?'}'; allowed page types: {allowed_page_types}"
                 )
+                (errors if strict_layout else warnings).append(message)
             required_fields = required_body_fields(template, slide_no, selected_page_type)
             active_fields = active_body_fields(required_fields, selected_page_type, slide)
             if selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
@@ -700,21 +740,30 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
                 body_copy_for_checks = {str(key): str(value or "").strip() for key, value in explicit_body_copy.items()}
                 extra_fields = sorted(set(body_copy_for_checks) - set(active_fields))
                 if extra_fields:
-                    errors.append(
+                    message = (
                         f"slide {slide_no}: body_copy contains fields not active for {selected_page_type}: {extra_fields}. "
                         f"Active body fields: {active_fields or ['(none)']}"
                     )
+                    (errors if strict_layout else warnings).append(message)
                 missing_fields = [field for field in active_fields if not text(body_copy_for_checks.get(field))]
                 if missing_fields:
-                    errors.append(
+                    message = (
                         f"slide {slide_no}: body_copy missing active fields for {selected_page_type}: {missing_fields}. "
                         f"Active body fields: {active_fields or ['(none)']}"
                     )
+                    (errors if strict_layout else warnings).append(message)
             elif body_blocks:
                 try:
-                    body_copy_for_checks = _body_copy_from_blocks(slide, required_fields, selected_page_type)
+                    body_copy_for_checks = _body_copy_from_blocks(
+                        slide,
+                        required_fields,
+                        selected_page_type,
+                        strict_layout=strict_layout,
+                    )
                 except Exception as exc:
-                    errors.append(f"slide {slide_no}: body_blocks cannot map to active template fields: {exc}")
+                    (errors if strict_layout else warnings).append(
+                        f"slide {slide_no}: body_blocks cannot map to active template fields: {exc}"
+                    )
             if selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
                 for block_idx, block in enumerate(body_blocks, start=1):
                     if not isinstance(block, dict):
@@ -727,11 +776,12 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
                         or block.get("role")
                     )
                     if target_or_role == "table_header" or target_or_role.startswith("table_row_"):
-                        errors.append(
+                        message = (
                             f"slide {slide_no}: body block {block_idx} uses '{target_or_role}', but compare_table_page "
                             "takes table content from compare_table_data; use active body fields "
                             f"{active_fields or ['right_top', 'right_mid', 'right_bottom']}"
                         )
+                        (errors if strict_layout else warnings).append(message)
             field_limits = _body_field_limits(layout_budget, slide_no, selected_page_type)
             default_limit = _default_body_limit(layout_budget)
             for field_name, value in body_copy_for_checks.items():
@@ -759,17 +809,19 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
                         f"slide {slide_no}: {text_field} estimates to {estimated} lines for {placeholder}; target is {target_lines}"
                     )
                 if max_lines and estimated > max_lines and rule.get("block_if_exceeds_max_lines") is not False:
-                    errors.append(
+                    message = (
                         f"slide {slide_no}: {text_field} exceeds template max lines for {placeholder}: "
                         f"estimated {estimated}, max {max_lines}; shorten before render"
                     )
+                    (errors if strict_layout else warnings).append(message)
         if selected_page_type == "compare_table_page":
             compare_table_data = _compare_table_data_from_slide(slide)
             if not compare_table_data:
-                errors.append(
+                message = (
                     f"slide {slide_no}: compare_table_page requires compare_table_data with headers and rows; "
                     "do not put peer-table content in body_blocks"
                 )
+                (errors if strict_layout else warnings).append(message)
             else:
                 _validate_compare_table_shape(slide_no, compare_table_data, errors, warnings)
         slide_ev_ids = _scan_ids(slide, {"evidence_id", "evidence_ids"})

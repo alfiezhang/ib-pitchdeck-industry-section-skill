@@ -1459,23 +1459,24 @@ def render_slide6_compare_table(slide, slide_data: dict, layout: dict) -> dict:
     header_cells, rows = normalize_compare_table_payload(slide_data)
     col_count = len(header_cells)
     slide_no = slide_data.get("slide_no")
-    if col_count < 3 or col_count > 6:
+    if col_count < 1 or col_count > 8:
         return {
             "rendered": False,
-            "reason": f"slide {slide_no} compare table requires 3-6 explicit header columns; found {col_count}",
+            "reason": f"slide {slide_no} compare table requires 1-8 explicit header columns; found {col_count}",
         }
 
     if not header_cells and not rows:
         return {"rendered": False, "reason": f"missing slide {slide_no} compare_table_data payload"}
-    if len(rows) < 3:
-        return {"rendered": False, "reason": f"slide {slide_no} compare table needs at least 3 populated rows"}
+    if len(rows) < 1:
+        return {"rendered": False, "reason": f"slide {slide_no} compare table needs at least 1 populated row"}
 
     normalized_rows = []
     for row_idx, cells in enumerate(rows, start=1):
-        if len(cells) != col_count:
-            return {"rendered": False, "reason": f"row {row_idx} has {len(cells)} cells; expected {col_count}"}
-        if any(not cell.strip() for cell in cells):
-            return {"rendered": False, "reason": f"row {row_idx} contains blank cell"}
+        cells = [str(cell or "").strip() for cell in cells]
+        if len(cells) > col_count:
+            cells = cells[: col_count - 1] + [" / ".join(cells[col_count - 1 :])]
+        if len(cells) < col_count:
+            cells = cells + [""] * (col_count - len(cells))
         normalized_rows.append(cells)
 
     table_box = layout["table_box"]
@@ -1498,6 +1499,191 @@ def render_slide6_compare_table(slide, slide_data: dict, layout: dict) -> dict:
             set_cell_text(table.cell(row_idx, col_idx), cell_text, body_font, False)
     style_table_shape(table_shape)
     return {"rendered": True, "rows": len(normalized_rows) + 1, "columns": col_count, "removed_text_shapes": removed}
+
+
+def generic_visual_layout(prs: Presentation, slide_data: dict) -> dict:
+    width = int(prs.slide_width)
+    height = int(prs.slide_height)
+    margin_x = int(width * 0.065)
+    title_top = int(height * 0.055)
+    title_height = int(height * 0.10)
+    message_top = title_top + title_height
+    message_height = int(height * 0.065)
+    content_top = message_top + message_height + int(height * 0.035)
+    footer_height = int(height * 0.045)
+    content_height = height - content_top - footer_height - int(height * 0.045)
+    content_width = width - margin_x * 2
+    has_body = bool(slide_data.get("body_copy"))
+    if has_body and (slide_data.get("chart_data") or slide_data.get("compare_table_data")):
+        visual_left = margin_x + int(content_width * 0.40)
+        visual_width = int(content_width * 0.60)
+        body_width = int(content_width * 0.36)
+    else:
+        visual_left = margin_x
+        visual_width = content_width
+        body_width = content_width
+    return {
+        "title_box": (margin_x, content_top - int(height * 0.045), content_width, int(height * 0.035)),
+        "chart_box": (visual_left, content_top, visual_width, content_height),
+        "table_box": (visual_left, content_top, visual_width, content_height),
+        "body_box": (margin_x, content_top, body_width, content_height),
+        "footer_box": (margin_x, height - footer_height - int(height * 0.02), content_width, footer_height),
+        "preserve_existing_shapes": True,
+    }
+
+
+def clear_slides(prs: Presentation) -> None:
+    slide_id_list = prs.slides._sldIdLst  # python-pptx internal API; no public delete API exists.
+    for slide_id in list(slide_id_list):
+        rel_id = slide_id.rId
+        prs.part.drop_rel(rel_id)
+        slide_id_list.remove(slide_id)
+
+
+def text_units(text: str) -> float:
+    units = 0.0
+    for char in str(text or ""):
+        if "\u4e00" <= char <= "\u9fff":
+            units += 1.0
+        elif char.isspace():
+            units += 0.3
+        else:
+            units += 0.55
+    return units
+
+
+def fit_font_size(text: str, base: float, minimum: float, max_units: float) -> float:
+    units = text_units(text)
+    if max_units <= 0 or units <= max_units:
+        return base
+    return max(minimum, round(base * max_units / units, 1))
+
+
+def add_text_box(slide, box: tuple[int, int, int, int], text: str, *, font_size: float, bold: bool = False, color: Optional[RGBColor] = None, fill: Optional[RGBColor] = None) -> None:
+    if not str(text or "").strip():
+        return
+    left, top, width, height = box
+    shape = slide.shapes.add_textbox(Emu(left), Emu(top), Emu(width), Emu(height))
+    if fill is not None:
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = fill
+    text_frame = shape.text_frame
+    text_frame.clear()
+    text_frame.word_wrap = True
+    text_frame.margin_left = Emu(45000)
+    text_frame.margin_right = Emu(45000)
+    text_frame.margin_top = Emu(25000)
+    text_frame.margin_bottom = Emu(20000)
+    paragraph = text_frame.paragraphs[0]
+    paragraph.alignment = PP_ALIGN.LEFT
+    run = paragraph.add_run()
+    run.text = str(text or "").strip()
+    run.font.name = BODY_FONT
+    run.font.size = Pt(font_size)
+    run.font.bold = bold
+    run.font.color.rgb = color or TEXT_GRAY
+
+
+def add_card(slide, box: tuple[int, int, int, int], text: str, *, idx: int) -> None:
+    left, top, width, height = box
+    shape = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE, Emu(left), Emu(top), Emu(width), Emu(height))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(0xF7, 0xF9, 0xFC)
+    shape.line.color.rgb = GRID_GRAY
+    prefix = f"{idx}. " if idx else ""
+    add_text_box(slide, box, prefix + str(text or "").strip(), font_size=fit_font_size(text, 10.5, 7.5, 80), color=TEXT_GRAY)
+
+
+def body_items(slide_data: dict) -> list[str]:
+    body = slide_data.get("body_copy") if isinstance(slide_data.get("body_copy"), dict) else {}
+    values = [str(value or "").strip() for value in body.values() if str(value or "").strip()]
+    if values:
+        return values
+    blocks = slide_data.get("body_blocks") if isinstance(slide_data.get("body_blocks"), list) else []
+    return [str(block.get("copy") or "").strip() for block in blocks if isinstance(block, dict) and str(block.get("copy") or "").strip()]
+
+
+def render_body_cards(slide, slide_data: dict, box: tuple[int, int, int, int]) -> dict:
+    items = body_items(slide_data)
+    if not items:
+        return {"rendered": False, "reason": "no body copy"}
+    left, top, width, height = box
+    count = min(len(items), 8)
+    cols = 1 if width < 4_000_000 or count <= 3 else 2
+    rows = (count + cols - 1) // cols
+    gap = 90_000
+    card_w = int((width - gap * (cols - 1)) / cols)
+    card_h = int((height - gap * (rows - 1)) / rows)
+    for idx, item in enumerate(items[:count], start=1):
+        row = (idx - 1) // cols
+        col = (idx - 1) % cols
+        add_card(slide, (left + col * (card_w + gap), top + row * (card_h + gap), card_w, card_h), item, idx=idx)
+    return {"rendered": True, "items": count}
+
+
+def render_style_guided_deck(template_ppt: Path, renderer_spec_path: Path, output_ppt: Path, template_profile_path: Path) -> dict:
+    template_profile_warnings: list[str] = []
+    _apply_template_profile_style(template_profile_path, template_profile_warnings)
+    renderer_spec = load_json(renderer_spec_path)
+    prs = Presentation(str(template_ppt))
+    clear_slides(prs)
+    blank_layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
+    visual_results = []
+    for slide_data in renderer_spec.get("slides", []):
+        slide = prs.slides.add_slide(blank_layout)
+        width = int(prs.slide_width)
+        height = int(prs.slide_height)
+        margin_x = int(width * 0.065)
+        add_text_box(
+            slide,
+            (margin_x, int(height * 0.052), int(width * 0.87), int(height * 0.095)),
+            str(slide_data.get("headline") or ""),
+            font_size=fit_font_size(str(slide_data.get("headline") or ""), 24, 15, 34),
+            bold=True,
+            color=BRAND_BLUE,
+        )
+        add_text_box(
+            slide,
+            (margin_x, int(height * 0.145), int(width * 0.87), int(height * 0.075)),
+            str(slide_data.get("main_message") or ""),
+            font_size=fit_font_size(str(slide_data.get("main_message") or ""), 12.5, 8.5, 88),
+            color=TEXT_GRAY,
+        )
+        layout = generic_visual_layout(prs, slide_data)
+        body_result = render_body_cards(slide, slide_data, layout["body_box"])
+        chart_result = {"rendered": False, "required_render": False, "reason": "no visual payload"}
+        if slide_data.get("compare_table_data"):
+            chart_result = render_slide6_compare_table(slide, slide_data, layout)
+        elif slide_data.get("chart_data"):
+            chart_result = build_chart(slide, slide_data, layout)
+        add_text_box(
+            slide,
+            layout["footer_box"],
+            str(slide_data.get("source_note") or ""),
+            font_size=7.0,
+            color=TEXT_GRAY,
+        )
+        visual_results.append(
+            {
+                "slide_no": slide_data.get("slide_no"),
+                "selected_page_type": slide_data.get("selected_page_type"),
+                "style_guided": True,
+                "body": body_result,
+                "visual": chart_result,
+                "rendered": bool(body_result.get("rendered") or chart_result.get("rendered")),
+                "required_render": False,
+            }
+        )
+    save_presentation(prs, output_ppt)
+    return {
+        "input_ppt": str(template_ppt),
+        "renderer_spec": str(renderer_spec_path),
+        "template_profile": str(template_profile_path),
+        "template_profile_warnings": template_profile_warnings,
+        "output_ppt": str(output_ppt),
+        "style_guided_render": True,
+        "chart_rendering": visual_results,
+    }
 
 
 def render_quant_slide(prs: Presentation, renderer_spec: dict, slide_no: int, render_layouts: dict[int, dict]) -> dict:
@@ -1752,6 +1938,11 @@ def main() -> None:
         action="store_true",
         help="Bypass the pre-PPT stage gate. Use only for local diagnostics, never delivery.",
     )
+    parser.add_argument(
+        "--style-guided-render",
+        action="store_true",
+        help="Create an editable PPT from renderer_spec using the input PPT only as a style/size reference.",
+    )
     args = parser.parse_args()
 
     output_path = Path(args.output)
@@ -1759,13 +1950,21 @@ def main() -> None:
         if args.allow_ungated_debug:
             require_debug_output_name(output_path)
         require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
-        result = postprocess(
-            Path(args.input_ppt),
-            Path(args.renderer_spec),
-            output_path,
-            Path(args.render_layouts),
-            Path(args.template_profile),
-        )
+        if args.style_guided_render:
+            result = render_style_guided_deck(
+                Path(args.input_ppt),
+                Path(args.renderer_spec),
+                output_path,
+                Path(args.template_profile),
+            )
+        else:
+            result = postprocess(
+                Path(args.input_ppt),
+                Path(args.renderer_spec),
+                output_path,
+                Path(args.render_layouts),
+                Path(args.template_profile),
+            )
     except Exception as exc:
         result = {
             "input_ppt": args.input_ppt,

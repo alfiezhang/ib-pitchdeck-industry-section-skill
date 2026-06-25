@@ -11,7 +11,7 @@ Use this skill to create the industry section of a **pre-mandate client pitchboo
 
 The section should make a potential client feel that the bank understands the industry first, the pre-mandate transaction logic second, and the target context only where it sharpens the industry view. It should not read like a CIM, execution workplan, buyer memo, signed-engagement report, or generic market report unless the user explicitly asks for that.
 
-The scripts are here to handle deterministic work: intake, artifact synchronization, validation, template analysis, rendering, and packaging. They are rails, not the analyst. Source quality, evidence readiness, claim strength, page density, and deck permission are LLM judgments that belong in the source-of-truth artifacts.
+The scripts are here to handle deterministic work: intake, artifact synchronization, validation, style extraction, rendering, and packaging. They are rails, not the analyst. Source quality, evidence readiness, claim strength, page density, page composition, and deck permission are LLM judgments that belong in the source-of-truth artifacts.
 
 ## Working Mindset
 
@@ -47,7 +47,7 @@ python3 scripts/pipeline.py compile --run-dir "<run_dir>"
 
 The compile step derives `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`. Treat them as renderer artifacts. If the compiled deck is sparse, unsupported, or data-light, repair `banker_page_pack.json` or the evidence DB and compile again.
 
-Render only through the formal output path after the evidence, page pack, template, and QC surfaces are ready. There is no alternate renderer for formal delivery.
+Render only through the formal output path after the evidence, page pack, template, and QC surfaces are ready. Templates are style references by default: colors, fonts, page size, title hierarchy, and source-note treatment. A template's example text boxes or table columns are not a default structure contract. Use strict layout only when the operator explicitly asks for placeholder-level conformity.
 
 ## Evidence And Judgment Loops
 
@@ -110,7 +110,7 @@ Directory note: `schemas/` holds machine-readable schemas, `configs/` holds dete
 - The deck is industry-led, with selective project context rather than target promotion.
 - Exhibits have enough chart/table/card density; chart-led pages are not single-datapoint placeholders.
 - Transaction relevance is visible where appropriate, without pretending confidential access or a signed mandate.
-- The selected PPT template is honored.
+- The selected PPT template's style is honored without forcing the page story into example placeholders.
 - Final status is honest: client-ready, evidence-limited, or blocked with a clear repair owner.
 
 ## Common Failure Modes
