@@ -442,7 +442,14 @@ def validate_material_like(artifact: str, path: Path, run_dir: Path, errors: lis
     payload = _json(path, errors)
     if not payload:
         return
-    if artifact == "input_card" and not (payload.get("raw_brief") or payload.get("explicit_user_facts") or payload.get("brief_text")):
+    if artifact == "input_card" and not (
+        payload.get("raw_brief")
+        or payload.get("explicit_user_facts")
+        or payload.get("brief_text")
+        or payload.get("deal_context")
+        or payload.get("target_business_summary")
+        or payload.get("user_provided_target_facts")
+    ):
         warnings.append("input_card has no obvious raw brief or explicit facts")
 
 
@@ -656,21 +663,21 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
     if payload.get("schema_version") != "banker_page_pack":
         errors.append("banker_page_pack.schema_version must be banker_page_pack")
     slides = payload.get("slides")
-    expected_slide_count = len(FIXED_PAGE_ROLES)
-    if not isinstance(slides, list) or len(slides) != expected_slide_count:
-        errors.append(f"banker_page_pack must contain exactly {expected_slide_count} slides from slide_registry.json")
+    if not isinstance(slides, list) or not slides:
+        errors.append("banker_page_pack.slides must contain at least one LLM-authored page")
+        return
+    if len(slides) > 12:
+        errors.append("banker_page_pack.slides must not contain more than 12 pages; split into a separate section instead")
         return
     slide_numbers = [_int_value(slide.get("slide_no")) for slide in slides if isinstance(slide, dict)]
-    expected_numbers = sorted(FIXED_PAGE_ROLES)
-    missing_numbers = [number for number in expected_numbers if number not in slide_numbers]
+    missing_numbers = [idx for idx, number in enumerate(slide_numbers, start=1) if not number]
     duplicate_numbers = sorted({number for number in slide_numbers if number and slide_numbers.count(number) > 1})
-    invalid_numbers = [number for number in slide_numbers if number not in FIXED_PAGE_ROLES]
     if missing_numbers:
-        errors.append(f"banker_page_pack missing slide_no values required by template: {missing_numbers}")
+        errors.append(f"banker_page_pack has slide(s) missing positive slide_no at positions: {missing_numbers}")
     if duplicate_numbers:
         errors.append(f"banker_page_pack contains duplicate slide_no values: {duplicate_numbers}")
-    if invalid_numbers:
-        errors.append(f"banker_page_pack contains slide_no values not in slide_registry.json: {invalid_numbers}")
+    if any(number and number > 12 for number in slide_numbers):
+        errors.append("banker_page_pack slide_no values must be between 1 and 12")
     db_path = run_dir / "artifacts/research_evidence_db.json"
     db = _json(db_path, []) if db_path.exists() else {}
     ev_ids = _ids(db, "evidence_ledger", ("evidence_id", "id"))
@@ -696,10 +703,11 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
             errors.append(f"slide {slide_no}: banker_page_id must be {expected_id}")
         expected_role = FIXED_PAGE_ROLES.get(slide_no)
         if expected_role and text(slide.get("fixed_page_role")) != expected_role:
-            errors.append(
-                f"slide {slide_no}: fixed_page_role must be '{expected_role}' for this template position; "
-                f"do not move page roles by changing slide_no"
-            )
+            if strict_layout:
+                errors.append(
+                    f"slide {slide_no}: fixed_page_role differs from registry role '{expected_role}'. "
+                    "strict_layout mode requires registry alignment."
+                )
         if text(slide.get("claim_strength")) not in VALID_CLAIM_STRENGTHS:
             errors.append(f"slide {slide_no}: invalid claim_strength")
         if text(slide.get("allowed_deck_usage")) not in VALID_ALLOWED_DECK_USAGES:
@@ -721,11 +729,11 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
         if template and selected_page_type:
             allowed_page_types = sorted(template_variants.get(slide_no, {}).keys())
             if allowed_page_types and selected_page_type not in allowed_page_types:
-                message = (
-                    f"slide {slide_no}: selected_page_type '{selected_page_type}' is not available for "
-                    f"fixed_page_role '{expected_role or '?'}'; allowed page types: {allowed_page_types}"
-                )
-                (errors if strict_layout else warnings).append(message)
+                if strict_layout:
+                    errors.append(
+                        f"slide {slide_no}: selected_page_type '{selected_page_type}' is not available for "
+                        f"fixed_page_role '{expected_role or '?'}'; allowed page types: {allowed_page_types}"
+                    )
             required_fields = required_body_fields(template, slide_no, selected_page_type)
             active_fields = active_body_fields(required_fields, selected_page_type, slide)
             if selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
@@ -860,18 +868,27 @@ def validate_deck_blueprint(path: Path, run_dir: Path, errors: list[str], warnin
     if not payload:
         return
     slides = payload.get("slides")
-    expected_slide_count = len(FIXED_PAGE_ROLES)
-    if not isinstance(slides, list) or len(slides) != expected_slide_count:
-        errors.append(f"deck_blueprint must contain exactly {expected_slide_count} slides from slide_registry.json")
+    if not isinstance(slides, list) or not slides:
+        errors.append("deck_blueprint.slides must contain at least one page")
+        return
+    if len(slides) > 12:
+        errors.append("deck_blueprint.slides must not contain more than 12 pages")
         return
     template = _json(run_dir / "template_registry.json", []) if (run_dir / "template_registry.json").exists() else {}
+    strict_layout = _strict_layout(run_dir, payload)
+    seen_slide_numbers: list[int] = []
     for slide in slides:
         if not isinstance(slide, dict):
             continue
         slide_no = int(slide.get("slide_no") or 0)
+        seen_slide_numbers.append(slide_no)
         expected = FIXED_PAGE_ROLES.get(slide_no)
         if expected and text(slide.get("fixed_page_role")) != expected:
-            errors.append(f"slide {slide_no}: fixed_page_role must be {expected}")
+            if strict_layout:
+                errors.append(
+                    f"slide {slide_no}: fixed_page_role differs from registry role {expected}; "
+                    "strict_layout mode requires registry alignment"
+                )
         banker_page_id = banker_page_id_for_slide(slide)
         if not BP_RE.fullmatch(banker_page_id):
             errors.append(f"slide {slide_no}: invalid banker_page_id")
@@ -886,6 +903,9 @@ def validate_deck_blueprint(path: Path, run_dir: Path, errors: list[str], warnin
                 required_body_fields(template, slide_no, text(slide.get("selected_page_type")))
             except Exception as exc:
                 errors.append(f"slide {slide_no}: template field mapping failed: {exc}")
+    duplicates = sorted({number for number in seen_slide_numbers if number and seen_slide_numbers.count(number) > 1})
+    if duplicates:
+        errors.append(f"deck_blueprint contains duplicate slide_no values: {duplicates}")
 
 
 def validate_page_contract(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
@@ -893,9 +913,11 @@ def validate_page_contract(path: Path, run_dir: Path, errors: list[str], warning
     if not payload:
         return
     slides = payload.get("slides")
-    expected_slide_count = len(FIXED_PAGE_ROLES)
-    if not isinstance(slides, list) or len(slides) != expected_slide_count:
-        errors.append(f"page_evidence_contract must contain exactly {expected_slide_count} slides from slide_registry.json")
+    if not isinstance(slides, list) or not slides:
+        errors.append("page_evidence_contract.slides must contain at least one page")
+        return
+    if len(slides) > 12:
+        errors.append("page_evidence_contract.slides must not contain more than 12 pages")
         return
     deck = _json(run_dir / "deck_blueprint.json", []) if (run_dir / "deck_blueprint.json").exists() else {}
     deck_by_no = _slide_index(deck)
@@ -921,14 +943,54 @@ def validate_renderer_spec(path: Path, run_dir: Path, errors: list[str], warning
     if payload.get("schema_version") != "renderer_spec_v1":
         errors.append("renderer_spec.schema_version must be renderer_spec_v1")
     slides = payload.get("slides")
-    expected_slide_count = len(FIXED_PAGE_ROLES)
-    if not isinstance(slides, list) or len(slides) != expected_slide_count:
-        errors.append(f"renderer_spec must contain exactly {expected_slide_count} slides from slide_registry.json")
+    if not isinstance(slides, list) or not slides:
+        errors.append("renderer_spec.slides must contain at least one page")
+        return
+    if len(slides) > 12:
+        errors.append("renderer_spec.slides must not contain more than 12 pages")
         return
     try:
         build_token_source(payload)
     except Exception as exc:
         errors.append(f"renderer_spec cannot be converted into token source: {exc}")
+
+
+def validate_client_ready_page_pack(run_dir: Path, errors: list[str], warnings: list[str]) -> None:
+    path = run_dir / "banker_page_pack.json"
+    payload = _json(path, errors)
+    if not payload:
+        return
+    readiness = payload.get("deliverable_readiness") if isinstance(payload.get("deliverable_readiness"), dict) else {}
+    if readiness.get("enough_for_client_pitch") is not True:
+        errors.append(
+            "banker_page_pack.deliverable_readiness.enough_for_client_pitch must be true before PPT render; "
+            "keep the run as an evidence-limited outline or return to Research/Knowledge/Generation."
+        )
+    if readiness.get("research_first_required") is True:
+        errors.append("banker_page_pack.deliverable_readiness.research_first_required=true blocks PPT render")
+    slides = [slide for slide in as_list(payload.get("slides")) if isinstance(slide, dict)]
+    not_allowed = [
+        int(slide.get("slide_no") or 0)
+        for slide in slides
+        if text(slide.get("allowed_deck_usage")) == "not_allowed"
+    ]
+    if not_allowed:
+        errors.append(
+            f"banker_page_pack contains not_allowed page(s) selected for rendering: {not_allowed}; "
+            "remove them from the renderable page list or repair upstream evidence permission."
+        )
+    renderable = [
+        slide
+        for slide in slides
+        if text(slide.get("allowed_deck_usage")) in {"headline_allowed", "body_only", "supporting_context", "caveat_only"}
+    ]
+    if len(renderable) < 4:
+        errors.append(
+            f"banker_page_pack has only {len(renderable)} renderable page(s); a client-ready pre-mandate industry section "
+            "needs at least 4 substantive pages or should remain evidence-limited."
+        )
+    if len(renderable) > 12:
+        errors.append("banker_page_pack has more than 12 renderable pages; split the section before rendering")
 
 
 def validate_replacement_dict(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
@@ -1030,6 +1092,7 @@ def validate_stage(artifact: str, run_dir: Path, errors: list[str], warnings: li
         validate_source_archive(run_dir / "artifacts/source_archive/source_archive_index.json", run_dir, errors, warnings)
     elif artifact == "pre_ppt":
         validate_banker_page_pack(run_dir / "banker_page_pack.json", run_dir, errors, warnings)
+        validate_client_ready_page_pack(run_dir, errors, warnings)
         validate_template_registry(run_dir / "template_registry.json", errors, warnings)
         validate_deck_blueprint(run_dir / "deck_blueprint.json", run_dir, errors, warnings)
         validate_page_contract(run_dir / "page_evidence_contract.json", run_dir, errors, warnings)

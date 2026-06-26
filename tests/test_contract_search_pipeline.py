@@ -80,7 +80,7 @@ def test_validate_artifact_rejects_query_fields_in_formal_plan(tmp_path: Path) -
     assert any("must not contain executable query fields" in error for error in errors), errors
 
 
-def test_validate_artifact_scope_pack_requires_v2(tmp_path: Path) -> None:
+def test_validate_artifact_scope_pack_rejects_old_memo_schema(tmp_path: Path) -> None:
     from validate_artifact import validate_artifact
 
     run_dir = tmp_path / "run"

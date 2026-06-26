@@ -12,8 +12,8 @@
     },
     "slides": {
       "type": "array",
-      "minItems": 8,
-      "maxItems": 8,
+      "minItems": 1,
+      "maxItems": 12,
       "items": {
         "type": "object",
         "required": [

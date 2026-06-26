@@ -12,6 +12,8 @@ Write `banker_page_pack.json` after Knowledge has validated `artifacts/research_
 
 This is the LLM-authored source of truth for page judgment. The compiler later derives `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`; those files should carry the judgment forward, not create it.
 
+Choose the page count from the evidence and the pitch need. A normal client-ready section usually has 4-10 substantive pages, not a mandatory eight-page template fill. Merge, omit, or split pages when that makes the industry argument stronger. Do not create a page merely because the bundled template has a placeholder or registered role for it.
+
 ## How To Think About Each Page
 
 For every formal page, ask:
@@ -27,6 +29,8 @@ The page should feel filled by thought, not by padding. A strong page has a conc
 
 Own the page composition. If a page needs two columns, six cards, a four-column table, or a chart plus proof points, write that composition in the page pack. Treat `selected_page_type` as a rendering hint, not a reason to flatten the page into template placeholder names. Only use placeholder-style `body_copy` fields when strict layout has been explicitly requested.
 
+Before writing the final page list, decide which pages deserve to exist. For each page, the exhibit and body blocks should prove a distinct industry judgment. If the only reason for a page is to match a standard slide role, omit or merge it.
+
 Use `project_relevance_note` sparingly. It is a bridge from an industry finding to the pre-mandate conversation, not a target promotion paragraph. The default page subject is `industry`; `target_context` should be exceptional and source-labeled.
 
 Treat management-provided target metrics as unaudited project context unless independently verified. They may support relevance, but they are not audited industry metrics and should not be mixed into industry charts.
@@ -39,7 +43,7 @@ When sources conflict, choose a working number if the evidence allows it and exp
 
 Set `allowed_deck_usage` yourself for each page: `headline_allowed`, `body_only`, `supporting_context`, `caveat_only`, or `not_allowed`. The compiler only expands this into renderer permissions; it should not infer permission from `claim_strength`.
 
-If the evidence base is thin, write a professional caveated page or mark the run as `evidence_limited_pitch_outline` / `research_first_required`. Do not force a sparse eight-page client deck. If more public evidence would change page permission or exhibit readiness, ask Reasoning to author `artifacts/research_request_queue.json`; do not display research requests as client-facing page content.
+If the evidence base is thin, write a professional caveated page or mark the run as `evidence_limited_pitch_outline` / `research_first_required`. Do not force a sparse client deck. If more public evidence would change page permission or exhibit readiness, ask Reasoning to author `artifacts/research_request_queue.json`; do not display research requests as client-facing page content.
 
 ## Compile
 

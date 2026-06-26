@@ -8,7 +8,7 @@ from pathlib import Path
 from conftest import _minimal_scope_pack, _write_json
 
 
-def test_v2_minimal_valid_scope_pack_passes(tmp_path: Path) -> None:
+def test_boundary_card_minimal_valid_scope_pack_passes(tmp_path: Path) -> None:
     from validate_artifact import validate_artifact
 
     run_dir = tmp_path / "run"

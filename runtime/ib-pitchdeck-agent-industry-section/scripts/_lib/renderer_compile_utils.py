@@ -366,8 +366,14 @@ def _body_copy_from_blocks(
     explicit = slide.get("body_copy")
     if isinstance(explicit, dict) and explicit:
         return {str(key): str(value or "").strip() for key, value in explicit.items()}
-    fields = active_body_fields(required_fields, page_type, slide)
     blocks = [block for block in as_list(slide.get("body_blocks")) if isinstance(block, dict)]
+    if not strict_layout:
+        return {
+            f"point_{idx}": _body_text(block)
+            for idx, block in enumerate(blocks, start=1)
+            if _body_text(block)
+        }
+    fields = active_body_fields(required_fields, page_type, slide)
     if not fields:
         return {
             f"point_{idx}": _body_text(block)
@@ -773,6 +779,22 @@ def _slide_numbers_from_template_registry(template_registry: dict[str, Any]) -> 
     return sorted(set(slide_numbers))
 
 
+def _slide_numbers_for_renderer(
+    template_registry: dict[str, Any],
+    slides_by_no: dict[int, dict[str, Any]],
+    *,
+    strict_layout: bool,
+) -> list[int]:
+    if strict_layout:
+        return _slide_numbers_from_template_registry(template_registry)
+    slide_numbers = sorted(number for number in slides_by_no if number > 0)
+    if not slide_numbers:
+        raise ValueError("deck_blueprint has no usable slides")
+    if len(slide_numbers) > 12:
+        raise ValueError("style-guided renderer supports up to 12 slides in one industry section")
+    return slide_numbers
+
+
 def build_renderer_spec_from_deck_blueprint(
     deck_blueprint: dict[str, Any],
     template_registry: dict[str, Any],
@@ -785,7 +807,7 @@ def build_renderer_spec_from_deck_blueprint(
     section_meta = deck_blueprint.get("section_meta") if isinstance(deck_blueprint.get("section_meta"), dict) else {}
     policy = _rendering_policy(deck_blueprint)
     strict_layout = _strict_layout_enabled(policy)
-    for slide_no in _slide_numbers_from_template_registry(template_registry):
+    for slide_no in _slide_numbers_for_renderer(template_registry, slides_by_no, strict_layout=strict_layout):
         slide = slides_by_no.get(slide_no)
         if not slide:
             raise ValueError(f"slide {slide_no}: missing from deck_blueprint")

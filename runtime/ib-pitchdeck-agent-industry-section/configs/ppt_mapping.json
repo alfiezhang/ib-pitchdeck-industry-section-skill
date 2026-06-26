@@ -108,7 +108,7 @@
     },
     "4": {
       "selected_page_type": "value_chain_page",
-      "structure_summary": "Top row for value-chain stages, bottom row for profit pool, barriers, and selective project relevance.",
+      "structure_summary": "Top row for value-chain stages, bottom row for profit pool, barriers, and source-labeled context where it sharpens the industry view.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
@@ -117,7 +117,7 @@
         "top_right": "downstream_stage",
         "bottom_left": "profit_pool_view",
         "bottom_center": "key_barriers_by_stage",
-        "bottom_right": "project_relevance_or_transaction_framing_angle",
+        "bottom_right": "source_labeled_project_context_or_evidence_boundary",
         "source_footer": "page_source_footer"
       }
     },
@@ -142,7 +142,7 @@
       "variants": {
         "compare_table_page": {
           "variant_key": "06a",
-          "structure_summary": "Peer-comparison table on the left with structure judgment and project relevance panels on the right.",
+          "structure_summary": "Peer-comparison table on the left with structure judgment and evidence-boundary panels on the right.",
           "field_roles": {
             "slide_title": "conclusion_led_page_title",
             "main_takeaway": "page_conclusion",
@@ -155,7 +155,7 @@
             "table_row_6": "compare_table_row_6",
             "right_top": "industry_structure_judgment",
             "right_mid": "industry_evolution",
-            "right_bottom": "project_relevance_or_transaction_framing_angle",
+            "right_bottom": "source_labeled_project_context_or_evidence_boundary",
             "source_footer": "page_source_footer"
           }
         },
@@ -171,7 +171,7 @@
             "matrix_label_y": "matrix_axis_y",
             "right_top": "industry_structure_judgment",
             "right_mid": "industry_evolution",
-            "right_bottom": "project_relevance_or_transaction_framing_angle",
+            "right_bottom": "source_labeled_project_context_or_evidence_boundary",
             "source_footer": "page_source_footer"
           }
         }
@@ -259,12 +259,12 @@
     },
     "8": {
       "selected_page_type": "summary_page",
-      "structure_summary": "Synthesis page combining industry attractiveness, transaction relevance, selective project context, and evidence boundaries.",
+      "structure_summary": "Synthesis page combining industry attractiveness, pre-mandate readthrough, selective source-labeled context, and evidence boundaries.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
         "left_panel": "why_industry_is_attractive",
-        "right_top": "transaction_relevance_from_industry_view",
+        "right_top": "pre_mandate_readthrough_with_limits",
         "right_mid": "industry_changes_relevant_to_project",
         "right_bottom": "evidence_boundary_or_caveated_readthrough",
         "source_footer": "page_source_footer"

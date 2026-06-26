@@ -39,6 +39,8 @@ Watch for target drift:
 
 `project_relevance_note` should be one short bridge from industry finding to pre-mandate discussion. It is not an execution plan.
 
+For consumer brand or product-category pitches, management-provided GMV, net profit, unit sales, rankings, repeat purchase, gross margin, channel mix, traffic cost, creator network, or ROI metrics are project context unless independently verified. Do not place those figures in industry charts, peer rankings, or headline proof points. Use cards or a clearly labeled context table when the figures are useful for relevance, and keep the industry evidence visually separate.
+
 ## Language Quality
 
 Replace generic source phrases such as `public sources`, `industry reports`, `公开资料`, `行业报告`, or `多方来源` with named sources, EV/MET IDs, or an explicit evidence boundary.
@@ -52,6 +54,8 @@ Be careful with hard overclaims such as `certainty`, `guaranteed`, `irreversible
 Slides should build the argument rather than recycle it. Slide 3 is about current growth drivers; Slide 7 is about future evolution. Slide 4 is value chain and profit pool; Slide 5 is barriers and winner capabilities. Slide 1 establishes industry attractiveness; Slide 8 synthesizes transaction relevance and evidence boundaries.
 
 Slide 2 should add a second-layer structural view rather than repeat Slide 1. Slide 6 should explain the competitive landscape, not simply prove target differentiation.
+
+The standard slide roles are editorial prompts, not mandatory pages. A stronger five- or six-page section is better than a thin eight-page section. If a role lacks enough evidence or would duplicate another page, merge it or omit it and explain the decision in the page pack.
 
 ## Review Disposition
 

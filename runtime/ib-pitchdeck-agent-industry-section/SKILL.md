@@ -37,7 +37,7 @@ Research from the boundary outward. Treat `formal_search_plan.json` as a coverag
 
 Build the evidence database honestly. `scripts/pipeline.py evidence-build` creates candidate extracts; Knowledge LLM decides what becomes formal EV/MET evidence and what remains context, conflict, or gap. The Markdown research pack is an export of the DB, not a place to patch facts by hand.
 
-Write one `banker_page_pack.json`. This is the main LLM-authored page artifact. Each page should have an industry-first headline, banker judgment, page argument, exhibit, body blocks, evidence/metric bindings where available, source note, caveats, and explicit `allowed_deck_usage`. Important visible numbers need `key_data_audit` rows.
+Write one `banker_page_pack.json`. This is the main LLM-authored page artifact. Choose the page count from the evidence and the pitch need; a stronger concise section is better than a padded template fill. Each page should have an industry-first headline, banker judgment, page argument, exhibit, body blocks, evidence/metric bindings where available, source note, caveats, and explicit `allowed_deck_usage`. Important visible numbers need `key_data_audit` rows.
 
 Compile only after the page pack is ready:
 

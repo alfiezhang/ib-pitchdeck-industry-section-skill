@@ -454,6 +454,71 @@ def test_banker_page_pack_validates_and_compiles(
     assert all("pitch_relevance" not in slide for slide in renderer["slides"])
 
 
+def test_style_guided_compile_uses_llm_selected_page_count(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    pack["slides"] = pack["slides"][:5]
+    for idx, slide in enumerate(pack["slides"], start=1):
+        slide["slide_no"] = idx
+        slide["banker_page_id"] = f"BP-{idx:03d}"
+    pack_path = tmp_path / "banker_page_pack.json"
+    _write_json(pack_path, pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    validation = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
+    assert validation.returncode == 0, validation.stdout + validation.stderr
+
+    result = subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "compile", "--run-dir", str(tmp_path)],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    renderer = json.loads((tmp_path / "renderer_spec.json").read_text(encoding="utf-8"))
+    assert [slide["slide_no"] for slide in renderer["slides"]] == [1, 2, 3, 4, 5]
+
+
+def test_pre_ppt_blocks_evidence_limited_page_pack(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    pack["slides"] = pack["slides"][:3]
+    pack["deliverable_readiness"] = {
+        "decision_status": "llm_decided",
+        "decision_owner": "generation",
+        "enough_for_client_pitch": False,
+        "evidence_limited_pitch_outline": True,
+        "research_first_required": True,
+        "decision_note": "Fixture intentionally lacks enough evidence-backed pages for PPT render.",
+    }
+    _write_json(tmp_path / "banker_page_pack.json", pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    compile_result = subprocess.run(
+        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "compile", "--run-dir", str(tmp_path)],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
+    )
+    assert compile_result.returncode == 0, compile_result.stdout + compile_result.stderr
+
+    pre_ppt = _run("pipeline.py", ["validate", "--artifact", "pre_ppt", "--run-dir", str(tmp_path)])
+    assert pre_ppt.returncode != 0
+    assert "enough_for_client_pitch must be true before PPT render" in pre_ppt.stdout
+    assert "research_first_required=true blocks PPT render" in pre_ppt.stdout
+
+
 def test_compare_table_body_blocks_warn_on_table_fields_in_style_guided_mode(
     tmp_path: Path,
     deck_blueprint_data: dict,
