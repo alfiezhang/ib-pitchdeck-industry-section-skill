@@ -57,6 +57,23 @@ MET_RE = re.compile(r"^MET-\d{3}$")
 BP_RE = re.compile(r"^BP-\d{3}$")
 SRC_RE = re.compile(r"^SRC-\d{3}$")
 BAD_PPT_GLYPHS = {"�", "□", "▯", "\ufffd"}
+CLIENT_VISIBLE_INTERNAL_TERMS = (
+    "工作市场",
+    "父市场",
+    "broader market",
+    "working market",
+    "parent market",
+    "证明赛道边界",
+    "第一步是",
+    "pitch 应",
+    "pitch中应",
+    "页面语言应",
+    "不进入审计级",
+    "审计级图表",
+    "只作项目连接",
+    "source boundary",
+    "evidence boundary",
+)
 
 
 ARTIFACT_PATHS = {
@@ -158,6 +175,44 @@ def _scan_ids(value: Any, key_names: set[str]) -> list[str]:
         for item in value:
             found.extend(_scan_ids(item, key_names))
     return unique(found)
+
+
+def _client_visible_texts(slide: dict[str, Any]) -> list[tuple[str, str]]:
+    visible: list[tuple[str, str]] = []
+    for field in ("headline", "main_message"):
+        if text(slide.get(field)):
+            visible.append((field, text(slide.get(field))))
+    for idx, block in enumerate(as_list(slide.get("body_blocks")), start=1):
+        if isinstance(block, dict) and text(block.get("copy")):
+            visible.append((f"body_blocks[{idx}].copy", text(block.get("copy"))))
+    chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
+    for field in ("title", "display_note", "on_slide_note"):
+        if text(chart_data.get(field)):
+            visible.append((f"chart_data.{field}", text(chart_data.get(field))))
+    table_data = slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {}
+    for idx, header in enumerate(as_list(table_data.get("headers")), start=1):
+        if text(header):
+            visible.append((f"compare_table_data.headers[{idx}]", text(header)))
+    for row_idx, row in enumerate(as_list(table_data.get("rows")), start=1):
+        if not isinstance(row, dict):
+            continue
+        if text(row.get("label")):
+            visible.append((f"compare_table_data.rows[{row_idx}].label", text(row.get("label"))))
+        for cell_idx, cell in enumerate(as_list(row.get("cells")), start=1):
+            if text(cell):
+                visible.append((f"compare_table_data.rows[{row_idx}].cells[{cell_idx}]", text(cell)))
+    return visible
+
+
+def _warn_internal_client_facing_terms(slide_no: int, slide: dict[str, Any], warnings: list[str]) -> None:
+    for field, value in _client_visible_texts(slide):
+        lowered = value.lower()
+        for term in CLIENT_VISIBLE_INTERNAL_TERMS:
+            if term.lower() in lowered:
+                warnings.append(
+                    f"slide {slide_no}: {field} contains internal working-paper language '{term}'; "
+                    "rewrite visible copy as client-facing banker presentation language"
+                )
 
 
 def _ppt_slide_texts(pptx_path: Path) -> list[str]:
@@ -720,6 +775,7 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
         for field in ("fixed_page_role", "page_question", "banker_judgment", "page_argument", "headline", "main_message", "selected_page_type", "source_note"):
             if not text(slide.get(field)):
                 errors.append(f"slide {slide_no}: {field} is required")
+        _warn_internal_client_facing_terms(slide_no, slide, warnings)
         body_blocks = as_list(slide.get("body_blocks"))
         if not body_blocks:
             errors.append(f"slide {slide_no}: body_blocks is required")

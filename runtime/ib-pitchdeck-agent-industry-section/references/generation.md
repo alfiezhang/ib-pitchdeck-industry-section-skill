@@ -29,6 +29,10 @@ The page should feel filled by thought, not by padding. A strong page has a conc
 
 Own the page composition. If a page needs two columns, six cards, a four-column table, or a chart plus proof points, write that composition in the page pack. Treat `selected_page_type` as a rendering hint, not a reason to flatten the page into template placeholder names. Only use placeholder-style `body_copy` fields when strict layout has been explicitly requested.
 
+Write slide-facing copy as client presentation language, not artifact language. Scope labels, research process labels, evidence workbench labels, and page-construction instructions belong in internal JSON fields, not in `headline`, `main_message`, visible body blocks, chart titles, or table headers. Translate them into normal banker prose: market framing, investable category, channel economics, peer benchmark, profit pool, and transaction relevance.
+
+Do not write visible slide copy that talks about how to build the pitchbook. A page should make the client believe a supported industry point; it should not say that the page is proving a boundary, demonstrating process discipline, or explaining what the bank should do first.
+
 Before writing the final page list, decide which pages deserve to exist. For each page, the exhibit and body blocks should prove a distinct industry judgment. If the only reason for a page is to match a standard slide role, omit or merge it.
 
 Use `project_relevance_note` sparingly. It is a bridge from an industry finding to the pre-mandate conversation, not a target promotion paragraph. The default page subject is `industry`; `target_context` should be exceptional and source-labeled.

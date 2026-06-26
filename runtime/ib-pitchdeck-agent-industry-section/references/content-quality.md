@@ -49,6 +49,10 @@ Replace generic market language such as `rapidly growing`, `large market potenti
 
 Be careful with hard overclaims such as `certainty`, `guaranteed`, `irreversible`, `确定性`, `不可逆`, `绝对领先`, `唯一`, and `必然受益`. They require strong evidence and careful caveating.
 
+Review the visible slide language separately from the JSON authoring logic. A client-facing slide should not expose scoping labels, research workflow labels, artifact permissions, or instructions about how the page was built. If a sentence sounds like an analyst note to self, rewrite it into banker presentation language before rendering.
+
+Market-boundary discipline should be visible through clean framing and precise source labels, not through workflow vocabulary. Say what the evidence supports for the market, channel, peer set, or transaction relevance; do not narrate the internal research process.
+
 ## Slide Distinctness
 
 Slides should build the argument rather than recycle it. Slide 3 is about current growth drivers; Slide 7 is about future evolution. Slide 4 is value chain and profit pool; Slide 5 is barriers and winner capabilities. Slide 1 establishes industry attractiveness; Slide 8 synthesizes transaction relevance and evidence boundaries.

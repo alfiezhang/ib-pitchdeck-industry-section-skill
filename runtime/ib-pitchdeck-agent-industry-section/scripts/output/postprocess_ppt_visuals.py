@@ -24,6 +24,7 @@ for _ib_path in reversed(_IB_IMPORT_PATHS):
     _ib_sys.path.insert(0, _ib_path)
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -1576,6 +1577,52 @@ def clear_slides(prs: Presentation) -> None:
         slide_id_list.remove(slide_id)
 
 
+def slide_text_units(slide) -> float:
+    total = 0.0
+    for shape in slide.shapes:
+        if not getattr(shape, "has_text_frame", False):
+            continue
+        total += text_units("\n".join(paragraph.text for paragraph in shape.text_frame.paragraphs))
+    return total
+
+
+def style_reference_slide_index(prs: Presentation) -> Optional[int]:
+    candidates: list[tuple[float, int, int]] = []
+    for idx, slide in enumerate(prs.slides):
+        if any(getattr(shape, "has_chart", False) or getattr(shape, "has_table", False) for shape in slide.shapes):
+            continue
+        units = slide_text_units(slide)
+        if units > 24:
+            continue
+        candidates.append((units, len(slide.shapes), idx))
+    if not candidates:
+        return None
+    return sorted(candidates)[0][2]
+
+
+def clone_style_reference_slide(prs: Presentation, source_slide) -> Any:
+    blank_layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
+    slide = prs.slides.add_slide(blank_layout)
+    for shape in source_slide.shapes:
+        slide.shapes._spTree.insert_element_before(copy.deepcopy(shape.element), "p:extLst")
+    for rel in source_slide.part.rels.values():
+        if "notesSlide" in rel.reltype or "slideLayout" in rel.reltype:
+            continue
+        if rel.rId in slide.part.rels:
+            continue
+        try:
+            slide.part.rels.add_relationship(rel.reltype, rel._target, rel.rId)
+        except Exception:
+            # Decorative base-slide relationships are helpful but not required
+            # for the dynamic renderer. If a relation cannot be cloned safely,
+            # keep the slide editable rather than failing the render.
+            continue
+    for shape in slide.shapes:
+        if getattr(shape, "has_text_frame", False):
+            shape.text_frame.clear()
+    return slide
+
+
 def text_units(text: str) -> float:
     units = 0.0
     for char in str(text or ""):
@@ -1661,12 +1708,15 @@ def render_style_guided_deck(template_ppt: Path, renderer_spec_path: Path, outpu
     template_profile_warnings: list[str] = []
     _apply_template_profile_style(template_profile_path, template_profile_warnings)
     renderer_spec = load_json(renderer_spec_path)
+    template_source = Presentation(str(template_ppt))
+    style_base_idx = style_reference_slide_index(template_source)
+    style_base_slide = template_source.slides[style_base_idx] if style_base_idx is not None else None
     prs = Presentation(str(template_ppt))
     clear_slides(prs)
     blank_layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
     visual_results = []
     for slide_data in renderer_spec.get("slides", []):
-        slide = prs.slides.add_slide(blank_layout)
+        slide = clone_style_reference_slide(prs, style_base_slide) if style_base_slide is not None else prs.slides.add_slide(blank_layout)
         width = int(prs.slide_width)
         height = int(prs.slide_height)
         margin_x = int(width * 0.065)
@@ -1718,6 +1768,8 @@ def render_style_guided_deck(template_ppt: Path, renderer_spec_path: Path, outpu
         "template_profile_warnings": template_profile_warnings,
         "output_ppt": str(output_ppt),
         "style_guided_render": True,
+        "style_base_slide": style_base_idx + 1 if style_base_idx is not None else None,
+        "style_base_strategy": "copied_low_content_template_slide" if style_base_idx is not None else "blank_layout_from_template",
         "chart_rendering": visual_results,
     }
 

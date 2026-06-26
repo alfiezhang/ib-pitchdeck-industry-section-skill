@@ -286,6 +286,25 @@ def test_banker_page_pack_leaves_target_drift_to_llm_qc(tmp_path: Path) -> None:
     assert "project-context drift" in qc_text
 
 
+def test_banker_page_pack_warns_on_internal_working_paper_language(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    pack["slides"][0]["body_blocks"][0]["copy"] = "工作市场：样例行业；第一步是证明赛道边界清楚。"
+    pack_path = tmp_path / "banker_page_pack.json"
+    _write_json(pack_path, pack)
+    (tmp_path / "template_registry.json").write_text(template_registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = _run("pipeline.py", ["validate", "--artifact", "banker_page_pack", "--run-dir", str(tmp_path), "--path", str(pack_path)])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "internal working-paper language" in result.stdout
+    assert "client-facing banker presentation language" in result.stdout
+
+
 def test_banker_page_pack_leaves_subject_mix_to_llm_qc(tmp_path: Path) -> None:
     slides = []
     for idx in SLIDE_NUMBERS:
@@ -708,3 +727,54 @@ def test_style_guided_render_accepts_simple_non_token_template(
     assert token_report["summary"]["template_token_count"] == 0
     postprocess = json.loads((tmp_path / "artifacts/postprocess_ppt_visuals.log.json").read_text(encoding="utf-8"))
     assert postprocess["style_guided_render"] is True
+
+
+def test_style_guided_render_copies_low_content_template_base_slide(
+    tmp_path: Path,
+    deck_blueprint_data: dict,
+    template_registry_path: Path,
+) -> None:
+    pptx = pytest.importorskip("pptx")
+    from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
+    from pptx.dml.color import RGBColor
+
+    prs = pptx.Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    band = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, 0, 0, prs.slide_width, 320000)
+    band.fill.solid()
+    band.fill.fore_color.rgb = RGBColor(0xE8, 0xEF, 0xF7)
+    band.line.fill.background()
+    simple_template = tmp_path / "blank_style_template.pptx"
+    prs.save(simple_template)
+
+    template_registry = json.loads(template_registry_path.read_text(encoding="utf-8"))
+    pack = _banker_page_pack(deck_blueprint_data, template_registry)
+    for slide_payload in pack["slides"]:
+        slide_payload["selected_page_type"] = "freeform_page"
+        slide_payload["body_copy"] = {
+            "mechanism": f"Page {slide_payload['slide_no']} mechanism remains authored by the LLM.",
+            "data_read": "Visible data and evidence shape the page composition.",
+            "banker_view": "Python should place this reliably without requiring template fields.",
+        }
+    _write_json(tmp_path / "banker_page_pack.json", pack)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SKILL_DIR / "scripts" / "pipeline.py"),
+            "render",
+            "--run-dir",
+            str(tmp_path),
+            "--template",
+            str(simple_template),
+        ],
+        text=True,
+        capture_output=True,
+        cwd=str(SKILL_DIR),
+        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    postprocess = json.loads((tmp_path / "artifacts/postprocess_ppt_visuals.log.json").read_text(encoding="utf-8"))
+    assert postprocess["style_base_slide"] == 1
+    assert postprocess["style_base_strategy"] == "copied_low_content_template_slide"
