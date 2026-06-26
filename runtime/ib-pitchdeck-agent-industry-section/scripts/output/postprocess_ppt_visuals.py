@@ -320,10 +320,15 @@ def normalize_compare_table_payload(slide_data: dict) -> tuple[list[str], list[l
 DEFAULT_RENDER_LAYOUTS_PATH = _IB_RUNTIME_ROOT / "configs" / "render_layouts.json"
 DEFAULT_TEMPLATE_PROFILE_PATH = _IB_RUNTIME_ROOT / "configs" / "template_profile.json"
 
-BRAND_BLUE = RGBColor(0x0D, 0x57, 0xAA)
-GRID_GRAY = RGBColor(0xD9, 0xD9, 0xD9)
-TEXT_GRAY = RGBColor(0x55, 0x55, 0x55)
-ACCENT_RED = RGBColor(0xC0, 0x3C, 0x28)
+DEFAULT_BRAND_BLUE = RGBColor(0x0D, 0x57, 0xAA)
+DEFAULT_GRID_GRAY = RGBColor(0xD9, 0xD9, 0xD9)
+DEFAULT_TEXT_GRAY = RGBColor(0x55, 0x55, 0x55)
+DEFAULT_ACCENT_RED = RGBColor(0xC0, 0x3C, 0x28)
+
+BRAND_BLUE = DEFAULT_BRAND_BLUE
+GRID_GRAY = DEFAULT_GRID_GRAY
+TEXT_GRAY = DEFAULT_TEXT_GRAY
+ACCENT_RED = DEFAULT_ACCENT_RED
 LEGEND_FONT_SIZE = 8
 BODY_FONT = "Microsoft YaHei"
 TABLE_HEADER_FONT_SIZE = 10.0
@@ -339,6 +344,23 @@ def _parse_hex_rgb(value: object, fallback: RGBColor) -> RGBColor:
     if any(ch not in "0123456789ABCDEFabcdef" for ch in text):
         return fallback
     return RGBColor(int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16))
+
+
+def _rgb_components(color: RGBColor) -> tuple[int, int, int]:
+    return int(color[0]), int(color[1]), int(color[2])
+
+
+def _relative_luminance(color: RGBColor) -> float:
+    def channel(value: int) -> float:
+        scaled = value / 255
+        return scaled / 12.92 if scaled <= 0.03928 else ((scaled + 0.055) / 1.055) ** 2.4
+
+    red, green, blue = _rgb_components(color)
+    return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+
+
+def _too_light_for_white_background(color: RGBColor) -> bool:
+    return _relative_luminance(color) >= 0.78
 
 
 def _parse_font_size(value: object, fallback: float) -> float:
@@ -369,10 +391,24 @@ def _apply_template_profile_style(profile_path: Path, warnings: Optional[list[st
     colors = visual.get("colors", {}) if isinstance(visual, dict) else {}
     typography = visual.get("typography", {}) if isinstance(visual, dict) else {}
 
-    BRAND_BLUE = _parse_hex_rgb(colors.get("brand_primary"), BRAND_BLUE)
-    ACCENT_RED = _parse_hex_rgb(colors.get("accent_red"), ACCENT_RED)
-    GRID_GRAY = _parse_hex_rgb(colors.get("grid_gray"), GRID_GRAY)
-    TEXT_GRAY = _parse_hex_rgb(colors.get("text_gray"), TEXT_GRAY)
+    brand_primary = _parse_hex_rgb(colors.get("brand_primary"), DEFAULT_BRAND_BLUE)
+    text_gray = _parse_hex_rgb(colors.get("text_gray"), DEFAULT_TEXT_GRAY)
+    if _too_light_for_white_background(brand_primary):
+        profile_warnings.append(
+            "template profile brand_primary is too light for a white style-guided page; using fallback title color"
+        )
+        BRAND_BLUE = DEFAULT_BRAND_BLUE
+    else:
+        BRAND_BLUE = brand_primary
+    if _too_light_for_white_background(text_gray):
+        profile_warnings.append(
+            "template profile text_gray is too light for a white style-guided page; using fallback body color"
+        )
+        TEXT_GRAY = DEFAULT_TEXT_GRAY
+    else:
+        TEXT_GRAY = text_gray
+    ACCENT_RED = _parse_hex_rgb(colors.get("accent_red"), DEFAULT_ACCENT_RED)
+    GRID_GRAY = _parse_hex_rgb(colors.get("grid_gray"), DEFAULT_GRID_GRAY)
 
     LEGEND_FONT_SIZE = _parse_font_size(typography.get("legend_pt"), LEGEND_FONT_SIZE)
     TABLE_HEADER_FONT_SIZE = _parse_font_size(typography.get("table_header_pt"), TABLE_HEADER_FONT_SIZE)

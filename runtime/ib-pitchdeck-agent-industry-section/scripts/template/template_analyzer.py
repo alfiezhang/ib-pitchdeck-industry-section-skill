@@ -1118,17 +1118,20 @@ def _run_fit(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> tuple[bo
         slide_no = int(slide.get("slide_no") or 0)
         page_type = str(slide.get("selected_page_type") or "")
         variant = variants.get((slide_no, page_type))
+        dynamic_style_guided_layout = False
         if not isinstance(variant, dict):
-            message = f"slide {slide_no}: template profile missing variant '{page_type}'"
-            (blocking if strict_layout else warnings).append(message)
-            variant = {}
             if strict_layout:
+                message = f"slide {slide_no}: template profile missing variant '{page_type}'"
+                blocking.append(message)
                 continue
+            dynamic_style_guided_layout = True
+            variant = {}
         _fit_check_source_footer(slide, variant, warnings, blocking)
         _fit_check_text_capacity(slide, layout_budget, warnings, blocking)
         _fit_check_text_lines(slide, text_fit_fields, aliases, warnings, blocking, strict_layout=strict_layout)
-        _fit_check_payload_support(slide, variant, warnings, blocking, strict_layout=strict_layout)
-        _fit_check_render_layout_presence(slide, layout_slides, warnings, blocking, strict_layout=strict_layout)
+        if not dynamic_style_guided_layout:
+            _fit_check_payload_support(slide, variant, warnings, blocking, strict_layout=strict_layout)
+            _fit_check_render_layout_presence(slide, layout_slides, warnings, blocking, strict_layout=strict_layout)
     return not blocking, warnings, blocking
 
 

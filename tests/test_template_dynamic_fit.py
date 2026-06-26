@@ -111,6 +111,30 @@ def _renderer_spec(body_text: str) -> dict:
     }
 
 
+def _freeform_renderer_spec() -> dict:
+    return {
+        "schema_version": "renderer_spec_v1",
+        "rendering_policy": {"template_contract_mode": "style_guided"},
+        "slides": [
+            {
+                "slide_no": 1,
+                "fixed_page_role": "industry_overview",
+                "selected_page_type": "freeform_page",
+                "headline": "Market context",
+                "main_message": "Evidence supports a focused market read.",
+                "body_copy": {"point_1": "LLM-authored page composition should not require template fields."},
+                "chart_data": {
+                    "chart_type": "bar",
+                    "categories": ["A", "B"],
+                    "series": [{"name": "Metric", "values": [1, 2]}],
+                    "unit": "index",
+                },
+                "source_note": "Source: unit-test source review.",
+            }
+        ],
+    }
+
+
 def test_template_analyzer_extracts_inventory_from_arbitrary_pptx(tmp_path: Path) -> None:
     pptx = pytest.importorskip("pptx")
     prs = pptx.Presentation()
@@ -181,6 +205,39 @@ def test_template_fit_outputs_body_copy_advisory_without_blocking(tmp_path: Path
     assert fit_plan["fit_decision"] == "template_ready"
     assert fit_plan["capacity_conflicts"] == []
     assert any(item["recommendation_type"] == "copy_compression_advisory" for item in fit_plan["copy_compression_recommendations"])
+
+
+def test_template_fit_does_not_warn_for_style_guided_freeform_dynamic_layout(tmp_path: Path) -> None:
+    profile_path = tmp_path / "template_profile.json"
+    renderer_path = tmp_path / "renderer_spec.json"
+    validation_path = tmp_path / "template_fit_validation.json"
+    plan_path = tmp_path / "template_fit_plan.json"
+
+    _write_json(profile_path, _minimal_profile(max_units=160))
+    _write_json(renderer_path, _freeform_renderer_spec())
+
+    result = _run_script(
+        "template_analyzer.py",
+        [
+            "fit",
+            "--renderer-spec",
+            str(renderer_path),
+            "--template-profile",
+            str(profile_path),
+            "--output",
+            str(validation_path),
+            "--fit-plan-output",
+            str(plan_path),
+        ],
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    validation = json.loads(validation_path.read_text(encoding="utf-8"))
+    assert validation["is_valid"] is True
+    warning_text = "\n".join(validation["warnings"])
+    assert "template profile missing variant 'freeform_page'" not in warning_text
+    assert "template variant reports no chart support" not in warning_text
+    assert "render layout for 'freeform_page' not found" not in warning_text
 
 
 def test_template_fit_plan_records_slot_assignments_for_compatible_content(tmp_path: Path) -> None:
