@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from conftest import _minimal_scope_pack, _rewrite_plan_queries_for_contract_test
-from ib_research_graph import build_formal_search_plan, compile_graph_state, init_graph_state, normalize_metric_row
+from ib_research_graph import build_executable_search_batch, build_formal_search_plan, compile_graph_state, init_graph_state, normalize_metric_row
 from research_evidence_db import build_db as build_research_evidence_db
 from research_evidence_db import export_markdown as export_research_pack_from_db
 from research_evidence_db import validate_db as validate_research_evidence_db
@@ -35,6 +35,23 @@ def test_unit_normalizer_converts_chinese_and_absolute_rmb_units() -> None:
     assert percent_audit["converted"] is False
     assert percent_row["value"] == "45.5"
     assert percent_row["unit"] == "%"
+
+
+def test_research_workbench_describes_metrics_as_candidates_until_knowledge_review() -> None:
+    input_card = {"industry": "sample sector", "geography": "Samplestan"}
+    scope_pack = _minimal_scope_pack()
+    plan = build_formal_search_plan(input_card, scope_pack)
+    batch = build_executable_search_batch(plan)
+    state = init_graph_state(formal_search_plan=plan, input_card=input_card, scope_pack=scope_pack)
+
+    workbench_text = json.dumps(batch, ensure_ascii=False)
+    graph_config_text = json.dumps(state["graph_config"], ensure_ascii=False)
+
+    assert "candidate metrics" in workbench_text
+    assert "audited metrics" not in workbench_text
+    assert "key-number candidates" in graph_config_text
+    assert "formal EV/MET" in graph_config_text
+    assert "audited metrics" not in graph_config_text
 
 
 def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path) -> None:
@@ -198,16 +215,27 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     assert result["compiled_counts"]["research_context_rows"] == 1
 
     report = json.loads((artifacts / "formal_research_execution_report.json").read_text(encoding="utf-8"))
+    report_text = json.dumps(report, ensure_ascii=False)
+    assert "issue_area" not in report_text
+    assert "subissue" not in report_text
+    assert "minimum_actual_searches" not in report_text
+    assert "coverage_required" not in report_text
     execution_errors, execution_warnings = validate_artifact("formal_research_execution", run_dir)
     assert not execution_errors, execution_errors
-    assert any("below minimum search coverage" in warning for warning in execution_warnings), execution_warnings
+    assert not any("below minimum search coverage" in warning for warning in execution_warnings), execution_warnings
     assert not any("evidence-bearing FS rows" in warning for warning in execution_warnings), execution_warnings
-    assert report["coverage_summary"]["planned_fs_rows"] == len(plan["issue_search_plan"])
+    assert report["coverage_summary"]["planned_fs_rows"] == len(plan["core_research_threads"]) + len(plan["industry_specific_research_threads"])
     assert report["coverage_summary"]["actual_search_attempts"] == 2
     assert report["coverage_summary"]["fs_rows_executed_with_evidence"] == 1
-    assert report["coverage_summary"]["fs_rows_not_executed"] == len(plan["issue_search_plan"]) - 2
+    assert report["coverage_summary"]["fs_rows_not_executed"] == report["coverage_summary"]["planned_fs_rows"] - 2
+    assert "covered_research_threads" in report["coverage_summary"]
     assert report["issue_results"][1]["terminal_status"] == "directional_only"
     assert isinstance(execution_warnings, list)
+    coverage_accounting = json.loads((artifacts / "coverage_accounting.json").read_text(encoding="utf-8"))
+    coverage_text = json.dumps(coverage_accounting, ensure_ascii=False)
+    assert "issue_area" not in coverage_text
+    assert "subissue" not in coverage_text
+    assert "minimum_actual_searches" not in coverage_text
 
     archive_errors, archive_warnings = validate_artifact("source_archive", run_dir)
     assert not archive_errors, archive_errors
@@ -216,6 +244,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     archive_entry = archive_index["entries"][0]
     context_archive_entry = archive_index["entries"][1]
     assert archive_entry["archive_status"] == "manual_verified_excerpt"
+    assert archive_entry["audit_level"] == "candidate_source"
     assert archive_entry["source_reliability"] == "needs_knowledge_llm_source_reliability"
     assert archive_entry["confidence"] == "needs_knowledge_llm_source_confidence"
     assert archive_entry["raw_archive_path"].startswith("artifacts/source_archive/raw/")
@@ -234,6 +263,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
     state_evidence = first_unit["evidence"][0]
     state_metric, _ = normalize_metric_row(first_unit["metrics"][0])
     source = research_db["source_materials"][0]
+    assert source["audit_level"] == "candidate_source"
     assert source["source_reliability"] == "needs_knowledge_llm_source_reliability"
     assert source["confidence"] == "needs_knowledge_llm_source_confidence"
     research_db["evidence_ledger"] = [
@@ -276,9 +306,9 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
         item for item in research_db["research_gap_audit"].get("critical_gaps", []) if "TODO" not in item
     ]
     research_db["research_gap_audit"]["deliverable_constraint"] = "evidence_limited_outline_only"
-    research_db["research_gap_audit"]["evidence_limited_rationale"] = (
+    research_db["research_gap_audit"]["research_gap_note"] = (
         "Compiler contract fixture intentionally has one evidence row and one metric row; "
-        "it validates DB honesty but cannot support formal client-ready generation."
+        "it validates DB honesty but cannot support formal final-delivery generation."
     )
     research_db["research_gap_audit"]["metric_consistency_check"] = {
         "GMV vs revenue": "Not applicable in graph refactor fixture.",
@@ -287,7 +317,7 @@ def test_research_graph_compiles_valid_legacy_research_artifacts(tmp_path: Path)
         "User-provided vs external-source discrepancy": "No user-provided conflicting metric.",
         "Chart number consistency": "Metric row preserves normalized and original values.",
     }
-    for row in research_db.get("issue_fact_inventory", []):
+    for row in research_db.get("page_evidence_inventory", []):
         if row.get("fact_status") == "needs_knowledge_llm":
             has_promoted_support = bool(row.get("evidence_ids") or row.get("metric_ids"))
             row["fact_status"] = "sufficient" if has_promoted_support else "insufficient"
@@ -408,7 +438,7 @@ def test_research_graph_requires_explicit_evidence_authorization(tmp_path: Path)
     report = json.loads((run_dir / "artifacts" / "formal_research_execution_report.json").read_text(encoding="utf-8"))
     row = report["issue_results"][0]
     assert row["terminal_status"] == "executed_no_usable_source"
-    assert row["status"] == "insufficient"
+    assert row["status"] == "needs_research_authorization"
     assert row["downstream_permission"] == "research_backlog_only"
     assert row["evidence_ids"] == []
     assert row["metric_ids"] == []
@@ -452,7 +482,7 @@ def test_non_evidence_terminal_cannot_keep_may_support_claim(tmp_path: Path) -> 
     report = json.loads((run_dir / "artifacts" / "formal_research_execution_report.json").read_text(encoding="utf-8"))
     row = report["issue_results"][0]
     assert row["terminal_status"] == "directional_only"
-    assert row["status"] == "thin"
+    assert row["status"] == "research_context_only"
     assert row["downstream_permission"] == "contextual_only"
 
 
@@ -496,6 +526,51 @@ def test_saved_text_requires_explicit_capture_method(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="capture_method"):
         compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
+
+
+def test_saved_text_accepts_natural_language_capture_method(tmp_path: Path) -> None:
+    input_card = {"industry": "sample sector", "geography": "Samplestan"}
+    scope_pack = _minimal_scope_pack()
+    plan = build_formal_search_plan(input_card, scope_pack)
+    state = init_graph_state(formal_search_plan=plan, input_card=input_card, scope_pack=scope_pack)
+    first_unit = state["research_units"][0]
+    first_unit.update(
+        {
+            "status": "supported",
+            "terminal_status": "executed_with_evidence",
+            "downstream_permission": "may_support_claim",
+            "attempts": [
+                {
+                    "query": "sample sector saved source",
+                    "provider": "contract_fixture",
+                    "selected_source_urls": ["https://example.com/saved"],
+                    "opened_reviewed": "yes",
+                    "locator_excerpt": "Source page was opened and saved as readable text.",
+                }
+            ],
+            "sources": [
+                {
+                    "url": "https://example.com/saved",
+                    "title": "Natural capture source",
+                    "source_type": "industry_report",
+                    "archive_status": "saved_text",
+                    "capture_method": "opened original URL and saved the readable article text",
+                    "locator": "section 1",
+                    "reviewed_excerpt": "This fixture should pass because the capture method is explicit natural language.",
+                    "usable_as_evidence": True,
+                }
+            ],
+            "evidence": [{"claim_or_metric": "Natural-language capture method should be accepted."}],
+        }
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "artifacts").mkdir()
+
+    compile_graph_state(state=state, formal_search_plan=plan, run_dir=run_dir)
+
+    archive = json.loads((run_dir / "artifacts" / "source_archive" / "source_archive_index.json").read_text(encoding="utf-8"))
+    assert archive["entries"][0]["capture_method"] == "opened original URL and saved the readable article text"
 
 
 def test_raw_archive_text_does_not_upgrade_to_saved_text(tmp_path: Path) -> None:

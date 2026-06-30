@@ -7,47 +7,66 @@ description: Build pre-mandate investment banking pitchbook industry sections fr
 
 ## What This Skill Is For
 
-Use this skill to create the industry section of a **pre-mandate client pitchbook**. The user may only have a rough target brief, a few project facts, a report, or a template. Treat that material as context for choosing the right industry lens, not as permission to write a target marketing deck.
+Use this skill to create the industry section of a **pre-mandate client pitchbook**. Treat the user's brief as context for choosing the industry lens, not as permission to write a target marketing deck.
 
-The section should make a potential client feel that the bank understands the industry first, the pre-mandate transaction logic second, and the target context only where it sharpens the industry view. It should not read like a CIM, execution workplan, buyer memo, signed-engagement report, or generic market report unless the user explicitly asks for that.
+The section should prove industry understanding first, transaction logic second, and target relevance only where it sharpens the industry view. It should not read like a CIM, execution workplan, buyer memo, signed-engagement report, or generic market report unless the user explicitly asks for that.
 
-The scripts are here to handle deterministic work: intake, artifact synchronization, validation, style extraction, rendering, and packaging. They are rails, not the analyst. Source quality, evidence readiness, claim strength, page density, page composition, and deck permission are LLM judgments that belong in the source-of-truth artifacts.
+Scripts handle deterministic work: intake records, file synchronization, debug structure checks, style extraction, rendering, and packaging. They are rails, not the analyst. Source quality, evidence readiness, claim strength, page density, page composition, and delivery readiness are LLM judgments captured in the authored work product.
+
+## Output Contract
+
+Produce an editable PowerPoint industry section plus a supporting evidence/page record. The record can be concise: enough to show sources, key-data audit, page intent, and repair routing. Do not create every possible intermediate file just because a helper can read it. The deliverable should make an industry-led pre-mandate pitch case, show traceable data, and leave an actionable handoff: send the deck, improve the page pack, run one narrow research loop, or create a clearly labeled review copy only after the loop cap/source limit is real.
+
+Do not turn this skill into a full valuation model, CIM, process report, buyer list, or operating plan unless the user explicitly changes the assignment. If the user asks only to update an existing deck, preserve the deck and make the smallest reliable change.
+
+## Operating Modes
+
+- **First-draft industry section:** LLM-led framing, research judgment, evidence record, banker page brief, style-guided/direct PPT output, and final QC.
+- **Existing deck improvement:** read the current deck first, preserve client-facing style, and repair the requested pages.
+- **Template/style adaptation:** treat templates as style sources unless strict placeholder conformity is explicitly requested.
+- **Direct PPT composition:** copy the selected PPTX, duplicate a low-content or blank page, and build editable text boxes, tables, charts, cards, or shapes directly when that better preserves the user's style. Keep the evidence/page-pack judgment record, but do not force every derived renderer artifact.
+- **Research-limited review copy:** Do not create a review copy as the first stopping point. Route to targeted research first; create a `RESEARCH_LIMITED_REVIEW_` PPT only after loop cap, clear source unavailability, or explicit operator direction.
+
+## Preference Hierarchy
+
+When instructions conflict, apply this order:
+
+1. explicit user instruction for this run;
+2. user-provided template, style guide, source material, or approved deck;
+3. reviewed evidence and metric audit records;
+4. this skill's default workflow and bundled template assumptions.
+
+Do not let a default page role, sample text box, or example table column override the actual page argument or the user's provided style.
 
 ## Working Mindset
 
 Start like a banker/editor, not a form filler.
 
 - Use the brief to understand market boundary, geography, transaction setting, and research priorities.
-- Keep user-provided target facts clearly labeled. They can frame relevance, but they should not become the page story unless independently verified and genuinely needed for the industry argument.
+- Keep user-provided target facts clearly labeled. They can frame relevance, but they should not become the page story unless independently verified and needed for the industry argument.
 - Use public evidence or user-curated materials with clear provenance. Never imply confidential company access or a signed mandate.
-- Prefer a dense, evidence-backed page with a clear exhibit. If evidence is thin, write a structured, caveated page or stop before client-ready rendering; do not create an empty-looking deck just because the template can be filled.
+- Prefer dense, evidence-backed pages with clear exhibits. If evidence is thin, write a structured, caveated page or route to targeted research; do not create an empty-looking deck because a template can be filled.
 - Keep the output industry-led. Project relevance is a short bridge from the industry view to the conversation, not a target profile paragraph.
 
 ## Natural Workflow
 
-Capture the user's material first. Preserve the original brief, register any PDFs/PPTs/Excel files/URLs/reports/templates, and separate explicit user facts from external evidence. For a short text brief, use:
+The named files are records and helper interfaces, not a form sequence. Start from the business question, evidence, page argument, and final slide experience. Write or refresh only the records needed to preserve traceability, route a repair, or render reliably.
 
-```bash
-python3 scripts/pipeline.py start-brief --case-name "<case>" --run-dir "<run_dir>" --brief-text "<exact user brief>"
-```
+Capture the user's material first. Preserve the original wording, register files/URLs/reports/templates, and separate explicit user facts from external evidence. Translate target facts into research priorities, not slide copy.
 
-Define the industry boundary before researching. The scope pack is a short boundary card: working market, parent market, broader market, core/broad/adjacent/excluded categories, and reconciliation rules. It is not an industry memo and should not contain market size, growth, rankings, valuations, or page conclusions.
+Define the industry boundary before researching. The scope pack is a short boundary card: the market lens for this pitch, broader context, categories to include/exclude, and reconciliation rules. It is not an industry memo and should not contain market size, growth, rankings, valuations, or page conclusions.
 
-Research from the boundary outward. Treat `formal_search_plan.json` as a coverage and evidence-need map, `executable_search_batch.json` as the query workbench, and `research_graph_state.json` as the execution record. Search results are leads only. Evidence requires opened or archived sources, locators, excerpts, and clear source-use limits. Key numbers need audit-grade metric rows.
+Research from the boundary outward. Treat search plans and query batches as workbenches, not page evidence. Search results are leads only; evidence requires opened or archived sources, locators, excerpts, and clear source-use limits. During Research, key numbers are candidate metrics; Knowledge promotes only reviewed numbers into formal metric rows.
 
-Build the evidence database honestly. `scripts/pipeline.py evidence-build` creates candidate extracts; Knowledge LLM decides what becomes formal EV/MET evidence and what remains context, conflict, or gap. The Markdown research pack is an export of the DB, not a place to patch facts by hand.
+Author the evidence record honestly. Knowledge decides what becomes formal EV/MET evidence and what remains context, conflict, or gap. The record may be compact when the source base is small, but important visible numbers still need source detail. The Markdown research pack is an export of the DB, not a place to patch facts by hand. Once the authored evidence DB exists, do not backfill early research workbench files solely to make status look linear.
 
-Write one `banker_page_pack.json`. This is the main LLM-authored page artifact. Choose the page count from the evidence and the pitch need; a stronger concise section is better than a padded template fill. Each page should have an industry-first headline, banker judgment, page argument, exhibit, body blocks, evidence/metric bindings where available, source note, caveats, and explicit `allowed_deck_usage`. Important visible numbers need `key_data_audit` rows.
+Author one banker page pack (`banker_page_pack.json`) as a client-facing page brief, not as a slot-filling file. In direct PPT composition runs, this can be a concise slide-by-slide judgment record rather than a renderer-shaped JSON object. Choose page count from the evidence and pitch need. For each page, decide the argument, visible title or title-ready argument, exhibit/body payload, source bindings, source note/caveat, and deck-use note where useful. Use `main_message` only when a subtitle helps; otherwise omit it so helpers do not repeat the page argument as a subtitle. Important visible numbers need `key_data_audit` rows with known source detail. For final handoff, state the decision in prose and use `deliverable_readiness.business_action` only as a short helper label when needed.
 
-Compile only after the page pack is ready:
+Before output, read visible slide copy as if you were the client. If it sounds like workflow language, a scope-card label, a research task, an internal deck-use discussion, a readiness label, or a post-mandate workstream phrase, rewrite it into market framing, category economics, channel behavior, peer benchmark, source limitation, or transaction relevance.
 
-```bash
-python3 scripts/pipeline.py compile --run-dir "<run_dir>"
-```
+Render or directly compose the PPT only after evidence, page pack, template style, and review signals are ready. Templates are style references by default: colors, fonts, page size, title hierarchy, source-note treatment, and density. Prefer direct editable composition when a user template is simple, when structured rendering would force awkward slot choices, or when the LLM can make a better page by drawing the right text boxes, tables, charts, or cards itself. Always start from the selected PPTX package; do not create an unrelated new presentation and approximate the style. A template's example text boxes or table columns are not a default structure contract.
 
-The compile step derives `deck_blueprint.json`, `page_evidence_contract.json`, and `renderer_spec.json`. Treat them as renderer artifacts. If the compiled deck is sparse, unsupported, or data-light, repair `banker_page_pack.json` or the evidence DB and compile again.
-
-Render only through the formal output path after the evidence, page pack, template, and QC surfaces are ready. Templates are style references by default: colors, fonts, page size, title hierarchy, and source-note treatment. A template's example text boxes or table columns are not a default structure contract. Use strict layout only when the operator explicitly asks for placeholder-level conformity.
+Use review points rather than silent forward motion. After evidence DB authoring, page-pack authoring, and final rendering, the next step should be clear from the authored work product and QC: continue, repair the owning file, send a targeted research queue, or ask for QC/user decision after bounded research is exhausted. Helper checks can confirm structure and file consistency; they do not decide whether the section is persuasive.
 
 ## Evidence And Judgment Loops
 
@@ -63,43 +82,27 @@ Use the public evidence loop when a page needs stronger support before its claim
 Banker Page Pack -> Research Request Queue -> Research -> Knowledge -> Banker Page Pack
 ```
 
-The `Research Request Queue` is LLM-authored. Validate its structure, but do not generate it mechanically from every caveat or evidence-boundary note.
+The `Research Request Queue` is LLM-authored. Use helper checks for structure and loop caps, but do not auto-generate it from every caveat or internal source-use note. Caps are ceilings, not quotas; ask for the one piece of evidence that could change page inclusion, headline assertiveness, key-data audit, or exhibit design.
 
-## Useful Commands
+## Helper Tools
 
-Run from the skill root, or resolve paths relative to this `SKILL.md`.
+Use helpers after the owning LLM work product exists or when diagnosing a concrete failure. Run them from the skill root, or resolve paths relative to this `SKILL.md`. Use status helpers to understand run state and repair routing, structure helpers for file consistency, and template helpers only when a template needs to be inspected. Do not start a run by chasing helper output for artifacts that have not been authored yet, and do not turn one helper warning into a new hard rule unless the failure is deterministic and repeatable. Default status should show owner-facing milestones, not every derived helper file. Use debug status only when exact helper commands are needed.
 
-```bash
-python3 scripts/pipeline.py next --run-dir "<run_dir>"
-python3 scripts/pipeline.py gate --run-dir "<run_dir>" --output "<run_dir>/artifacts/status_report.json" --markdown-output "<run_dir>/artifacts/status_report.md"
-python3 scripts/pipeline.py validate --artifact <artifact> --run-dir "<run_dir>"
-python3 scripts/pipeline.py template-registry --run-dir "<run_dir>"
-```
-
-Use `next` or `gate` to understand run state and repair routing. Use `validate` for mechanical checks only. LLM review owns source quality, evidence sufficiency, page density, transaction relevance, and banker judgment.
+Treat helper output as instrumentation. LLM review owns source quality, evidence sufficiency, page density, transaction relevance, banker judgment, and whether direct editable PPT composition is better than structured rendering for this run.
 
 ## Reference Map
 
-Read only the reference that matches the current work.
+Load only the reference needed for the current decision. Do not load a full role bundle just because the workflow has many stages; extra process language makes the page pack worse.
 
-- `references/material-intake.md`: capture briefs, documents, URLs, reports, and templates.
-- `references/knowledge-repository.md`: maintain facts, metrics, sources, conflicts, unknowns, and the evidence DB.
-- `references/industry-scoping.md`: define and validate the industry boundary.
-- `references/research-external-evidence.md`: plan searches, archive sources, extract public evidence, and account for coverage.
-- `references/reasoning.md`: sharpen banker judgment and bounded research requests inside the page-pack workflow.
-- `references/generation.md`: write `banker_page_pack.json` and compile it into renderer artifacts.
-- `references/content-quality.md`: LLM-only page-density, target-drift, exhibit, and slide-quality review guidance.
-- `references/drilldown-roles.md`: choose the Slide 2 drilldown without hard-coding by industry.
-- `references/template.md`: analyze and fit PPT templates without changing page judgment.
-- `references/qc.md`: review quality, interpret validators, and route repairs.
-- `references/output.md`: render, postprocess, package, and report final status.
-- `references/role_job_packets.md`: delegate narrow role work without losing parent-agent control.
-- `references/research_policy.md`: evidence discipline and public research handling.
-- `references/operating_model.md`: full architecture and artifact flow.
-- `references/critical-anti-patterns.md`: common formatting and content failure modes.
-- `references/ppt_visual_qc.md`: visual review expectations for PPT output.
+- Intake / boundary / evidence: read only the active stage reference: `references/material-intake.md`, `references/industry-scoping.md`, `references/research-external-evidence.md`, `references/research_policy.md`, or `references/knowledge-repository.md`.
+- Page writing: read `references/generation.md`; add `references/reasoning.md` only when deciding claim strength or targeted research. Add `references/content-quality.md` only for an editorial quality pass.
+- Specific page idea: read `references/drilldown-roles.md` only when a structural drilldown page needs a deeper market view.
+- Style and delivery: read `references/template.md` for style/template interpretation, `references/output.md` for output path/final delivery, and `references/ppt_visual_qc.md` for visual review.
+- Review: read `references/qc.md`; add `references/critical-anti-patterns.md` only when diagnosing repeated or subtle failures.
+- Subagent packet: read `references/role_job_packets.md` only when delegating one bounded task to a worker.
+- Workflow architecture: read `references/operating_model.md` only when debugging or changing the workflow itself.
 
-Directory note: `schemas/` holds machine-readable schemas, `configs/` holds deterministic registries and templates, `references/` holds LLM judgment guidance, and `assets/` holds the bundled PPT template.
+Directory note: `references/` holds LLM judgment guidance, `configs/` holds deterministic render/review settings, and `assets/` holds the bundled PPT template. Do not treat config files as prompt templates or authoring instructions.
 
 ## What Good Looks Like
 
@@ -111,7 +114,7 @@ Directory note: `schemas/` holds machine-readable schemas, `configs/` holds dete
 - Exhibits have enough chart/table/card density; chart-led pages are not single-datapoint placeholders.
 - Transaction relevance is visible where appropriate, without pretending confidential access or a signed mandate.
 - The selected PPT template's style is honored without forcing the page story into example placeholders.
-- Final status is honest: client-ready, evidence-limited, or blocked with a clear repair owner.
+- Final handoff is actionable: send, targeted research, page-pack repair, or a clearly labeled review copy after loop cap / source unavailability / explicit operator direction.
 
 ## Common Failure Modes
 
@@ -121,6 +124,6 @@ Directory note: `schemas/` holds machine-readable schemas, `configs/` holds dete
 - Turning hypotheses into headlines.
 - Rendering directly from raw research without a banker page pack.
 - Filling sparse token-only pages when the slide needs a real exhibit.
-- Letting the target brief become eight pages of target promotion.
-- Editing derived renderer artifacts or final flags to hide upstream content problems.
-- Calling a draft client-ready after QC has found unresolved readiness problems.
+- Letting the target brief become a full section of target promotion.
+- Editing helper render files or final flags to hide upstream content problems.
+- Sending a draft as final after QC has found unresolved evidence, wording, or visual problems.

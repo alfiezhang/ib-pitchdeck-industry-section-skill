@@ -1,6 +1,6 @@
 # Role Job Packets
 
-Use a role job packet when one bounded task is easier to isolate than to keep in the main thread. The parent agent remains the engagement lead: it chooses the task, gives the worker only the context needed, inspects the result, and integrates usable work into the canonical artifact.
+Use a role job packet when one bounded task is easier to isolate than to keep in the main thread. The parent agent remains the engagement lead: it chooses the task, gives the worker only the context needed, inspects the result, and integrates usable work into the owning file.
 
 Good packet tasks include one source review, one boundary ambiguity, one small search batch, one page repair, one template-fit problem, or one QC repair brief.
 
@@ -8,81 +8,40 @@ Avoid packets for broad requests such as "make the whole deck", "fix everything"
 
 ## Parent Guidance
 
-A good packet is self-contained. Include the task, engagement context, relevant input files, source limits, output location or result format, and the shortcuts the worker should avoid. After the worker returns, inspect the result before integrating it. Preserve blockers instead of silently weakening quality.
+A good packet is self-contained. Include the task, engagement context, relevant input files, source limits, output location or result format, and the shortcuts the worker should avoid. After the worker returns, inspect the result before integrating it. Preserve material constraints instead of silently weakening quality.
 
 The worker should not rely on conversation context that is not in the packet.
 
-## Example Packet
+For research packets, give the inherited policy cap or any narrower structured request budget, plus the stop or close rule. Include cycle number and max cycles when the parent is continuing a prior loop or changing the default cap. The default cap is no more than 3 actual searches, 4 opened/reviewed sources, and 2 promoted sources per request unless the parent explicitly narrows or raises it. The worker should return a cycle outcome when that budget is spent; it should not recommend another broad pass or rerun the same request unless the parent supplies a narrower decision anchor.
 
-```json
-{
-  "job_id": "RJ-001",
-  "role": "research_external_evidence",
-  "objective": "Verify the China base makeup market-size definition and source quality.",
-  "engagement_context": {
-    "deliverable": "pre_mandate_client_pitch_industry_section",
-    "disclosure_level": "public_and_user_provided_only"
-  },
-  "input_artifacts": [
-    "artifacts/industry_scope_pack.json",
-    "artifacts/research_request_queue.json"
-  ],
-  "task_context": {
-    "core_industry": "China face/base makeup",
-    "claim_scope": "market size and definition",
-    "known_limits": ["search snippets are leads only"]
-  },
-  "task": {
-    "instructions": [
-      "Run source-specific searches or ingest provided URLs.",
-      "Open and archive useful sources.",
-      "Extract locator, usable facts, metrics, scope, and limits."
-    ],
-    "expected_outputs": [
-      "opened_sources",
-      "source_archive_entries",
-      "extracted_facts",
-      "metric_candidates",
-      "coverage_or_gap_notes"
-    ]
-  },
-  "output_path": "artifacts/role_jobs/RJ-001.result.json",
-  "avoid": [
-    "Citing search snippets as evidence.",
-    "Editing derived deck_blueprint.json instead of repairing banker_page_pack.json.",
-    "Calling the work client-ready."
-  ],
-  "blocker_format": {
-    "reason": "",
-    "missing_input": "",
-    "recommended_next_action": ""
-  }
-}
-```
+Do not ask a worker to make the final delivery call for the whole engagement. A worker can say what this bounded request found, what it could not find, and whether the specific page decision changed. The parent agent decides whether to run the next narrow cycle, narrow the page scope, or ask QC/user after the cap.
+
+## Packet Contents
+
+Write the packet in whatever concise shape is easiest for the worker to follow. Useful ingredients:
+
+- a short job ID or label if useful;
+- the role and one-sentence objective;
+- engagement context and disclosure/source limits;
+- relevant input files;
+- the narrow task and expected outputs;
+- boundaries the worker should respect;
+- how to report constraints that need parent-agent judgment.
+
+For example, a research packet may ask the worker to verify a China base-makeup market-size definition, read the available boundary, evidence, or page context needed for that request, use the active narrow gap if one exists, run source-specific searches, open/archive useful sources, and return locators, facts, metric candidates, and source limits. It should explicitly avoid citing snippets, backfilling missing early workbenches for appearance, editing helper render files, or making the final delivery call before the parent loop has a concrete gap or exhausted-loop decision.
 
 ## Worker Result
 
-```json
-{
-  "job_id": "RJ-001",
-  "role": "research_external_evidence",
-  "status": "completed_with_limits",
-  "outputs": [
-    "artifacts/source_archive/SRC-001.json"
-  ],
-  "decisions_or_notes": [
-    "The source supports broader beauty context, not base makeup market size."
-  ],
-  "evidence_limits": [
-    "Market-size source uses online GMV sample, not all-channel retail sales."
-  ],
-  "blocker": null,
-  "next_recommended_owner": "knowledge_repository"
-}
-```
+The result should be equally compact:
 
-Allowed status values: `completed`, `completed_with_limits`, `blocked`, `needs_parent_decision`.
+- a one-line outcome in natural language;
+- output files or source records created;
+- decisions or notes the parent should inspect;
+- evidence limits and unresolved gaps;
+- next recommended owner if further integration is needed.
+
+Do not force the result into fixed status values. Say what happened, what is usable, and what the parent still needs to decide.
 
 ## Integration
 
-Job results are not automatically canonical. The parent or owning role integrates source/archive results into the evidence DB, page draft fields into `banker_page_pack.json`, template notes into the fit plan, and QC notes into a repair brief. Workers should not hand-author derived renderer artifacts or the final PPT.
+Job results are not automatically accepted. The parent or owning role integrates source/archive results into the evidence DB, page draft fields into `banker_page_pack.json`, template notes into the fit plan, and QC notes into a repair brief. Workers should not hand-author helper render files or the final PPT.

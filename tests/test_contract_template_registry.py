@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -53,15 +51,8 @@ class TestTemplateRegistryExtraction:
             assert len(slide["variants"]) >= 1, f"slide {slide['slide_no']} has no variants"
 
     def test_registry_validate(self, template_registry_path, tmp_path):
-        env = {**__import__("os").environ, "PYTHONPATH": str(SCRIPT_DIR)}
-        result = subprocess.run(
-            [sys.executable, "scripts/pipeline.py", "validate",
-             "--artifact", "template_registry",
-             "--run-dir", str(tmp_path),
-             "--path", str(template_registry_path),
-             "--output", str(tmp_path / "template_registry_validation.json")],
-            text=True, capture_output=True, cwd=str(SKILL_DIR), env=env,
-        )
-        assert result.returncode == 0, result.stdout + result.stderr
-        validation = json.loads((tmp_path / "template_registry_validation.json").read_text(encoding="utf-8"))
-        assert validation["is_valid"], validation
+        from validate_artifact import validate_artifact
+
+        errors, warnings = validate_artifact("template_registry", tmp_path, template_registry_path)
+        assert errors == []
+        assert isinstance(warnings, list)

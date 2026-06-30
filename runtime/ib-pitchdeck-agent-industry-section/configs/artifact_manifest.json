@@ -1,12 +1,12 @@
 {
   "schema_version": "artifact_manifest_v1",
-  "description": "Canonical artifact and gate manifest for the formal IB industry section workflow. Use this file as the machine source of truth for artifact paths, validators, builders, and stale-validation input relationships.",
+  "description": "Registered artifact and review-routing manifest for the IB industry section workflow. Use this file for artifact paths, ownership, layers, and stale-check input relationships; do not treat it as the page-story checklist or command index.",
+  "operator_guidance": "The mental workflow is owner-action first: LLM roles author boundaries, evidence decisions, page arguments, and readiness calls. Helper tools live in pipeline/status helpers; this manifest should not list command recipes. The context sequence is only a from-scratch orientation, not a backfill requirement; if a downstream authored evidence DB or page pack already exists, repair that source of truth instead of recreating earlier workbenches for appearance.",
   "artifact_layers": {
     "authoring": {
-      "description": "Editable source-of-truth workbenches where the LLM performs substantive transcription, query authoring, research judgment, evidence extraction, or page design. This is the main mental path.",
-      "main_llm_authoring_path": [
+      "description": "Editable LLM work surfaces for substantive transcription, query authoring, research judgment, evidence extraction, and page design. The context sequence is for fresh starts; once downstream authored work exists, it is not a requirement to backfill earlier workbenches.",
+      "from_scratch_context_sequence": [
         "input_card",
-        "material_extracts",
         "industry_scope_pack",
         "formal_search_plan",
         "executable_search_batch",
@@ -18,7 +18,6 @@
         "material_extracts",
         "input_card",
         "industry_scope_pack",
-        "industry_boundary_qc",
         "formal_search_plan",
         "executable_search_batch",
         "research_graph_state",
@@ -46,22 +45,20 @@
         "deck_blueprint",
         "page_evidence_contract",
         "renderer_spec",
-        "replacement_dict",
         "filled_ppt"
       ]
     },
-    "validation": {
-      "description": "Gate and validation artifacts. Repair upstream authoring files instead of editing these outputs.",
+    "readiness": {
+      "description": "Structure readiness outputs. They report whether upstream authored work can move forward; they are not content-authoring surfaces.",
       "artifacts": [
-        "pre_research_pack_gate",
-        "pre_ppt_gate",
+        "pre_ppt_readiness",
         "final_delivery"
       ]
     },
     "diagnostic": {
       "description": "Optional helper artifacts for debugging or role handoff. They are not part of the main workflow path and should not be required for delivery.",
       "artifacts": [
-        "failure_memory",
+        "industry_boundary_qc",
         "status_report"
       ]
     }
@@ -77,7 +74,7 @@
       ]
     },
     "industry-scoping": {
-      "description": "Target industry definition, boundary validation, excluded scope, and scope risk mapping.",
+      "description": "Target industry definition, boundary review, excluded scope, and scope risk mapping.",
       "artifacts": [
         "industry_scope_pack",
         "industry_boundary_qc"
@@ -93,8 +90,7 @@
         "search_log",
         "source_archive",
         "formal_research_execution_report",
-        "coverage_accounting",
-        "pre_research_pack_gate"
+        "coverage_accounting"
       ]
     },
     "knowledge-repository": {
@@ -111,7 +107,7 @@
       ]
     },
     "generation": {
-      "description": "Banker page pack authoring plus deterministic compilation into renderer-facing artifacts.",
+      "description": "Banker page pack authoring plus optional deterministic helpers for the structured-render path.",
       "artifacts": [
         "banker_page_pack",
         "template_registry",
@@ -121,7 +117,7 @@
       ]
     },
     "template": {
-      "description": "Template style/profile analysis and content-to-template capacity fit.",
+      "description": "Template style/profile guidance and style-guided content fit.",
       "artifacts": [
         "template_profile",
         "template_selection",
@@ -130,18 +126,16 @@
       ]
     },
     "qc": {
-      "description": "Small mechanical validation layer. LLM owns content-quality review.",
+      "description": "Small structure readiness layer. LLM owns content-quality review.",
       "artifacts": [
-        "pre_ppt_gate",
+        "pre_ppt_readiness",
         "final_delivery",
-        "status_report",
-        "failure_memory"
+        "status_report"
       ]
     },
     "output": {
-      "description": "Deterministic replacement dictionary, PPT rendering, cleanup, and filled-PPT validation.",
+      "description": "Deterministic PPT rendering, cleanup, and filled-PPT package checks.",
       "artifacts": [
-        "replacement_dict",
         "filled_ppt"
       ]
     }
@@ -150,17 +144,11 @@
     "material_manifest": {
       "path": "artifacts/material_manifest.json",
       "owner": "pipeline_material_intake_record",
-      "builder": "scripts/pipeline.py start-brief",
-      "validator": "scripts/pipeline.py validate --artifact material_manifest",
-      "validation": "artifacts/material_manifest_validation.json",
       "inputs": []
     },
     "material_extracts": {
       "path": "artifacts/material_extracts.json",
       "owner": "llm_fact_extraction_workspace",
-      "builder": "scripts/pipeline.py start-brief",
-      "validator": "scripts/pipeline.py validate --artifact material_extracts",
-      "validation": "artifacts/material_extracts_validation.json",
       "inputs": [
         "material_manifest"
       ]
@@ -168,7 +156,6 @@
     "source_classification": {
       "path": "artifacts/source_classification.json",
       "owner": "pipeline_material_source_classification",
-      "builder": "scripts/pipeline.py start-brief",
       "inputs": [
         "material_manifest"
       ]
@@ -176,8 +163,6 @@
     "input_card": {
       "path": "input_card.json",
       "owner": "llm_transcription",
-      "validator": "scripts/pipeline.py validate --artifact input_card",
-      "validation": "artifacts/input_card_validation.json",
       "inputs": []
     },
     "industry_scope_pack": {
@@ -185,8 +170,6 @@
       "owner": "industry-scoping",
       "purpose": "brief boundary card",
       "schema_version": "industry_scope_pack_boundary_card",
-      "validator": "scripts/pipeline.py validate --artifact industry_scope_pack",
-      "validation": "artifacts/industry_scope_pack_validation.json",
       "inputs": [
         "input_card"
       ]
@@ -194,6 +177,8 @@
     "industry_boundary_qc": {
       "path": "artifacts/industry_boundary_qc.json",
       "owner": "llm_qc_boundary_review",
+      "purpose": "Optional LLM boundary review signal when scope ambiguity could change research direction.",
+      "schema_version": "industry_boundary_qc",
       "inputs": [
         "industry_scope_pack"
       ]
@@ -201,9 +186,6 @@
     "formal_search_plan": {
       "path": "artifacts/formal_search_plan.json",
       "owner": "llm_research_planning_workbench",
-      "builder": "scripts/pipeline.py research-prepare",
-      "validator": "scripts/pipeline.py validate --artifact formal_search_plan",
-      "validation": "artifacts/formal_search_plan_validation.json",
       "inputs": [
         "input_card",
         "industry_scope_pack"
@@ -212,7 +194,6 @@
     "coverage_map": {
       "path": "artifacts/coverage_map.json",
       "owner": "deterministic_coverage_map",
-      "builder": "scripts/pipeline.py research-prepare",
       "inputs": [
         "formal_search_plan"
       ]
@@ -222,9 +203,6 @@
       "owner": "llm_query_author_workspace",
       "display_name": "executable_search_batch",
       "purpose": "Executable query workbench and the only editable query-authoring artifact.",
-      "builder": "scripts/pipeline.py research-prepare",
-      "validator": "scripts/pipeline.py validate --artifact executable_search_batch",
-      "validation": "artifacts/executable_search_batch_validation.json",
       "inputs": [
         "formal_search_plan"
       ]
@@ -233,7 +211,6 @@
       "path": "artifacts/research_graph_state.json",
       "owner": "research_execution_workbench",
       "purpose": "Editable execution state for actual attempts, reviewed sources, and source-specific EV/MET capture.",
-      "builder": "scripts/pipeline.py research-prepare",
       "inputs": [
         "formal_search_plan",
         "executable_search_batch"
@@ -249,9 +226,6 @@
     "formal_research_execution_report": {
       "path": "artifacts/formal_research_execution_report.json",
       "owner": "deterministic_execution_report_export",
-      "builder": "scripts/pipeline.py research-compile",
-      "validator": "scripts/pipeline.py validate --artifact formal_research_execution",
-      "validation": "artifacts/formal_research_execution_validation.json",
       "inputs": [
         "formal_search_plan",
         "search_log",
@@ -261,7 +235,6 @@
     "coverage_accounting": {
       "path": "artifacts/coverage_accounting.json",
       "owner": "deterministic_coverage_accounting_export",
-      "builder": "scripts/pipeline.py research-compile",
       "inputs": [
         "formal_research_execution_report"
       ]
@@ -269,8 +242,6 @@
     "source_archive": {
       "path": "artifacts/source_archive/source_archive_index.json",
       "owner": "deterministic_archive_capture_index",
-      "validator": "scripts/pipeline.py validate --artifact source_archive",
-      "validation": "artifacts/source_archive_validation.json",
       "inputs": [
         "search_log"
       ]
@@ -278,7 +249,6 @@
     "template_profile": {
       "path": "artifacts/template_profile.json",
       "owner": "deterministic_template_profile",
-      "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_selection"
       ]
@@ -286,7 +256,6 @@
     "template_selection": {
       "path": "artifacts/template_selection.json",
       "owner": "pipeline_template_selection_record",
-      "builder": "scripts/pipeline.py render",
       "inputs": [
         "material_manifest",
         "source_classification"
@@ -295,7 +264,6 @@
     "template_fit_validation": {
       "path": "artifacts/template_fit_validation.json",
       "owner": "deterministic_template_fit_check",
-      "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_profile",
         "renderer_spec"
@@ -304,47 +272,24 @@
     "template_fit_plan": {
       "path": "artifacts/template_fit_plan.json",
       "owner": "deterministic_template_fit_plan",
-      "builder": "scripts/pipeline.py validate-pre-ppt",
       "inputs": [
         "template_profile",
         "renderer_spec",
         "template_fit_validation"
       ]
     },
-    "pre_research_pack_gate": {
-      "path": "artifacts/stage_gate_pre_research_pack_validation.json",
-      "owner": "deterministic_stage_gate",
-      "validator": "scripts/pipeline.py validate --artifact pre_research_pack",
-      "validation": "artifacts/stage_gate_pre_research_pack_validation.json",
-      "inputs": [
-        "material_manifest",
-        "material_extracts",
-        "industry_scope_pack",
-        "formal_search_plan",
-        "search_log",
-        "formal_research_execution_report",
-        "coverage_accounting",
-        "source_archive",
-        "research_graph_state"
-      ]
-    },
     "research_request_queue": {
       "path": "artifacts/research_request_queue.json",
       "owner": "reasoning_llm_research_request_author",
-      "purpose": "LLM-authored bounded request queue for evidence that must be researched before a claim can be promoted.",
-      "validator": "scripts/pipeline.py validate --artifact research_request_queue",
-      "validation": "artifacts/research_request_queue_validation.json",
+      "purpose": "LLM-authored bounded request queue for evidence that could change page inclusion, headline assertiveness, key data audit, or exhibit readiness.",
       "inputs": [
         "banker_page_pack",
-        "industry_boundary_qc"
+        "research_evidence_db"
       ]
     },
     "research_pack": {
       "path": "industry_research_pack.md",
       "owner": "deterministic_export_from_research_evidence_db",
-      "builder": "scripts/pipeline.py evidence-export",
-      "validator": "scripts/pipeline.py validate --artifact research_pack",
-      "validation": "artifacts/research_pack_validation.json",
       "inputs": [
         "research_evidence_db"
       ]
@@ -352,10 +297,7 @@
     "research_evidence_db": {
       "path": "artifacts/research_evidence_db.json",
       "owner": "knowledge_llm_evidence_authoring",
-      "purpose": "Knowledge LLM-authored evidence database. evidence-build only creates candidate extracts; it does not promote EV/MET rows.",
-      "builder": "scripts/pipeline.py evidence-build",
-      "validator": "scripts/pipeline.py validate --artifact research_evidence_db",
-      "validation": "artifacts/research_evidence_db_validation.json",
+      "purpose": "Knowledge LLM-authored evidence database. Candidate extracts are only a workspace; they do not promote EV/MET rows.",
       "inputs": [
         "industry_scope_pack",
         "formal_search_plan",
@@ -368,31 +310,23 @@
     "banker_page_pack": {
       "path": "banker_page_pack.json",
       "owner": "llm_banker_page_author",
-      "purpose": "single LLM-authored pre-mandate page pack: banker judgment, exhibit design, dense copy, metrics, evidence bindings, and transaction readthrough",
+      "purpose": "single LLM-authored pre-mandate page pack: banker judgment, exhibit design, dense copy, metrics, evidence bindings, and transaction relevance",
       "schema_version": "banker_page_pack",
-      "schema": "schemas/banker_page_pack_schema.json",
-      "validator": "scripts/pipeline.py validate --artifact banker_page_pack",
-      "validation": "artifacts/banker_page_pack_validation.json",
       "inputs": [
         "industry_scope_pack",
-        "research_evidence_db",
-        "template_registry"
+        "research_evidence_db"
       ]
     },
     "template_registry": {
       "path": "template_registry.json",
       "owner": "deterministic_template_registry",
-      "builder": "scripts/pipeline.py template-registry",
-      "validator": "scripts/pipeline.py validate --artifact template_registry",
-      "validation": "artifacts/template_registry_validation.json",
+      "purpose": "Optional structured-render helper describing template style and available layout hints; not a page-story source.",
       "inputs": []
     },
     "deck_blueprint": {
       "path": "deck_blueprint.json",
-      "owner": "deterministic_derived_from_banker_page_pack",
-      "builder": "scripts/pipeline.py compile",
-      "validator": "scripts/pipeline.py validate --artifact deck_blueprint",
-      "validation": "artifacts/deck_blueprint_validation.json",
+      "owner": "structured_render_helper_from_banker_page_pack",
+      "purpose": "Optional structured-render helper derived from banker_page_pack; do not author page arguments here.",
       "inputs": [
         "banker_page_pack"
       ]
@@ -400,9 +334,7 @@
     "page_evidence_contract": {
       "path": "page_evidence_contract.json",
       "owner": "deterministic_page_evidence_contract",
-      "builder": "scripts/pipeline.py compile",
-      "validator": "scripts/pipeline.py validate --artifact page_evidence_contract",
-      "validation": "artifacts/page_evidence_contract_validation.json",
+      "purpose": "Optional structured-render helper carrying evidence bindings already selected in banker_page_pack.",
       "inputs": [
         "banker_page_pack",
         "deck_blueprint"
@@ -411,9 +343,7 @@
     "renderer_spec": {
       "path": "renderer_spec.json",
       "owner": "deterministic_renderer_spec",
-      "builder": "scripts/pipeline.py compile",
-      "validator": "scripts/pipeline.py validate --artifact renderer_spec",
-      "validation": "artifacts/renderer_spec_validation.json",
+      "purpose": "Optional render instruction helper for editable PPT output after page judgment is ready.",
       "inputs": [
         "template_registry",
         "banker_page_pack",
@@ -421,79 +351,55 @@
         "page_evidence_contract"
       ]
     },
-    "failure_memory": {
-      "path": "artifacts/failure_memory.jsonl",
-      "owner": "pipeline",
-      "builder": "scripts/pipeline.py render",
-      "inputs": []
-    },
     "status_report": {
       "path": "artifacts/status_report.json",
       "owner": "pipeline_status_dashboard",
-      "builder": "scripts/pipeline.py summary",
       "inputs": []
     },
-    "pre_ppt_gate": {
-      "path": "artifacts/stage_gate_pre_ppt_validation.json",
-      "owner": "deterministic_stage_gate",
-      "validator": "scripts/pipeline.py validate --artifact pre_ppt",
-      "validation": "artifacts/stage_gate_pre_ppt_validation.json",
+    "pre_ppt_readiness": {
+      "path": "artifacts/pre_ppt_readiness.json",
+      "owner": "deterministic_readiness_check",
       "inputs": [
-        "input_card",
-        "industry_scope_pack",
-        "formal_search_plan",
-        "search_log",
-        "formal_research_execution_report",
-        "coverage_accounting",
-        "source_archive",
-        "research_evidence_db",
-        "research_pack",
         "banker_page_pack",
+        "template_selection",
+        "template_profile",
         "template_registry",
         "deck_blueprint",
         "page_evidence_contract",
         "renderer_spec"
       ]
     },
-    "replacement_dict": {
-      "path": "replacement_dict.json",
-      "owner": "deterministic_render_tokens",
-      "builder": "scripts/pipeline.py render",
-      "validator": "scripts/pipeline.py validate --artifact replacement_dict",
-      "validation": "artifacts/replacement_dict_validation.json",
-      "inputs": [
-        "renderer_spec",
-        "pre_ppt_gate"
-      ]
-    },
     "filled_ppt": {
       "path": "industry_section_filled_clean.pptx",
-      "owner": "deterministic_ppt_render",
-      "builder": "scripts/pipeline.py render",
-      "validator": "scripts/pipeline.py validate --artifact filled_ppt",
-      "validation": "filled_ppt_validation.json",
+      "alternate_output_marker": "LATEST_FINAL_PPT.txt",
+      "owner": "output_render_or_direct_ppt_composition",
       "inputs": [
+        "banker_page_pack",
+        "template_selection",
+        "template_profile"
+      ],
+      "optional_trace_inputs": [
+        "template_registry",
         "renderer_spec",
-        "page_evidence_contract",
-        "pre_ppt_gate",
-        "replacement_dict"
+        "page_evidence_contract"
       ]
     },
     "final_delivery": {
       "path": "artifacts/final_delivery_validation.json",
       "owner": "deterministic_final_delivery_check",
-      "validator": "scripts/pipeline.py validate --artifact final_delivery",
-      "validation": "artifacts/final_delivery_validation.json",
       "inputs": [
         "input_card",
+        "research_evidence_db",
+        "banker_page_pack",
+        "filled_ppt"
+      ],
+      "optional_trace_inputs": [
         "industry_scope_pack",
         "formal_search_plan",
         "formal_research_execution_report",
         "coverage_accounting",
         "source_archive",
-        "research_evidence_db",
         "research_pack",
-        "banker_page_pack",
         "template_registry",
         "deck_blueprint",
         "page_evidence_contract",
@@ -501,101 +407,19 @@
         "template_selection",
         "template_profile",
         "template_fit_validation",
-        "template_fit_plan",
-        "replacement_dict",
-        "filled_ppt"
+        "template_fit_plan"
       ]
     }
   },
-  "gates": [
+  "readiness_reviews": [
     {
-      "gate": "material_intake",
-      "artifact": "material_manifest"
+      "review": "pre_ppt",
+      "artifact": "pre_ppt_readiness"
     },
     {
-      "gate": "input_card",
-      "artifact": "input_card"
-    },
-    {
-      "gate": "industry_scope_pack",
-      "artifact": "industry_scope_pack"
-    },
-    {
-      "gate": "industry_boundary_qc",
-      "artifact": "industry_boundary_qc"
-    },
-    {
-      "gate": "formal_search_plan",
-      "artifact": "formal_search_plan"
-    },
-    {
-      "gate": "executable_search_batch",
-      "artifact": "executable_search_batch"
-    },
-    {
-      "gate": "source_archive",
-      "artifact": "source_archive"
-    },
-    {
-      "gate": "formal_research_execution",
-      "artifact": "formal_research_execution_report"
-    },
-    {
-      "gate": "pre_research_pack",
-      "artifact": "pre_research_pack_gate"
-    },
-    {
-      "gate": "research_evidence_db",
-      "artifact": "research_evidence_db"
-    },
-    {
-      "gate": "research_pack",
-      "artifact": "research_pack"
-    },
-    {
-      "gate": "template_registry",
-      "artifact": "template_registry"
-    },
-    {
-      "gate": "banker_page_pack",
-      "artifact": "banker_page_pack"
-    },
-    {
-      "gate": "deck_blueprint",
-      "artifact": "deck_blueprint"
-    },
-    {
-      "gate": "page_evidence_contract",
-      "artifact": "page_evidence_contract"
-    },
-    {
-      "gate": "renderer_spec",
-      "artifact": "renderer_spec"
-    },
-    {
-      "gate": "template_profile",
-      "artifact": "template_profile"
-    },
-    {
-      "gate": "template_fit_validation",
-      "artifact": "template_fit_validation"
-    },
-    {
-      "gate": "pre_ppt",
-      "artifact": "pre_ppt_gate"
-    },
-    {
-      "gate": "replacement_dict",
-      "artifact": "replacement_dict"
-    },
-    {
-      "gate": "filled_ppt",
-      "artifact": "filled_ppt"
-    },
-    {
-      "gate": "final_delivery",
+      "review": "final_delivery",
       "artifact": "final_delivery",
-      "require_client_ready": true
+      "require_final_delivery_authorization": true
     }
   ]
 }

@@ -32,8 +32,25 @@ LEGACY_PLUGIN_NAMES = [
 
 DEFAULT_PLUGIN_ROOTS = [
     "~/.codex/plugins",
+    "~/.codex/plugins/cache/personal",
     "~/.claude/plugins",
+    "~/.claude/plugins/cache/personal",
     "~/.workbuddy/plugins",
+    "~/.workbuddy/plugins/cache/personal",
+]
+
+CURRENT_SKILL_NAME = "ib-pitchdeck-agent-industry-section"
+
+STALE_CURRENT_SKILL_MARKERS = [
+    "scripts/pipeline.py gate",
+    "scripts/pipeline.py validate",
+    "scripts/pipeline.py template-registry",
+    "scripts/pipeline.py evidence-build",
+    "scripts/pipeline.py research-prepare",
+    "stage_gate",
+    "industry_issue_analysis",
+    "hypothesis_store",
+    "page_argument_pack",
 ]
 
 
@@ -60,6 +77,24 @@ def _path_summary(path: Path) -> dict[str, Any]:
     }
 
 
+def _current_skill_summary(root: Path) -> dict[str, Any]:
+    path = root / CURRENT_SKILL_NAME
+    item = _path_summary(path)
+    markers: list[str] = []
+    skill_path = path / "SKILL.md"
+    if skill_path.exists():
+        try:
+            text = skill_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            text = ""
+        markers.extend(marker for marker in STALE_CURRENT_SKILL_MARKERS if marker in text)
+    item["skill_name"] = CURRENT_SKILL_NAME
+    item["skill_root"] = str(root)
+    item["stale_markers"] = markers
+    item["stale_install"] = bool(item["exists"] and markers)
+    return item
+
+
 def audit_legacy_installs(skill_roots: list[Path] | None = None, plugin_roots: list[Path] | None = None) -> dict[str, Any]:
     roots = skill_roots or [Path(item).expanduser() for item in DEFAULT_SKILL_ROOTS]
     entries: list[dict[str, Any]] = []
@@ -70,6 +105,8 @@ def audit_legacy_installs(skill_roots: list[Path] | None = None, plugin_roots: l
             item["skill_name"] = skill_name
             item["skill_root"] = str(root)
             entries.append(item)
+
+    current_skill_entries = [_current_skill_summary(root) for root in roots]
 
     plugin_entries: list[dict[str, Any]] = []
     for root in plugin_roots or [Path(item).expanduser() for item in DEFAULT_PLUGIN_ROOTS]:
@@ -82,17 +119,23 @@ def audit_legacy_installs(skill_roots: list[Path] | None = None, plugin_roots: l
 
     found = [item for item in entries if item["legacy_install"]]
     plugin_found = [item for item in plugin_entries if item["legacy_install"]]
+    stale_current = [item for item in current_skill_entries if item["stale_install"]]
     return {
         "schema_version": "legacy_install_audit_v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_valid": True,
-        "legacy_install_count": len(found) + len(plugin_found),
-        "legacy_installs_found": bool(found or plugin_found),
+        "legacy_install_count": len(found) + len(plugin_found) + len(stale_current),
+        "legacy_installs_found": bool(found or plugin_found or stale_current),
         "checked_roots": [str(root) for root in roots],
         "checked_skill_names": LEGACY_SKILL_NAMES,
+        "checked_current_skill_name": CURRENT_SKILL_NAME,
         "entries": entries,
+        "current_skill_entries": current_skill_entries,
         "plugin_entries": plugin_entries,
-        "recommended_action": "Use the current skill install path for active runtime. Remove old plugin or legacy skill installs only after confirming no host depends on them.",
+        "recommended_action": (
+            "Install the current runtime skill into active host skill roots. "
+            "Remove old plugin cache or legacy skill installs only after confirming no host depends on them."
+        ),
     }
 
 

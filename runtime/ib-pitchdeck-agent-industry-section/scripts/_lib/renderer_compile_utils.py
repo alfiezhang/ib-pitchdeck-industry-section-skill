@@ -36,9 +36,11 @@ from deck_blueprint_utils import (
     active_body_fields,
     as_list,
     banker_page_id_for_slide,
+    compiled_page_role,
     metric_ids_from_visual,
+    normalize_allowed_deck_usage,
     proof_points_from_blueprint_slide,
-    required_body_fields,
+    strict_layout_body_fields,
     template_variants_by_slide,
     unique,
     visual_plan_from_blueprint_slide,
@@ -66,6 +68,7 @@ ROLE_FIELD_ALIASES = {
 }
 
 DEFAULT_SLIDE_REGISTRY_PATH = _IB_RUNTIME_ROOT / "configs" / "slide_registry.json"
+CONSERVATIVE_USAGE_IF_UNSPECIFIED = "supporting_context"
 
 
 def split_table_cells(text: str) -> list[str]:
@@ -76,6 +79,19 @@ def split_table_cells(text: str) -> list[str]:
         stripped = text.strip().strip("|")
         return [part.strip() for part in stripped.split("|")]
     return [text.strip()] if text.strip() else []
+
+
+def _coerce_table_cells(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if value is None:
+        return []
+    if isinstance(value, (dict, tuple, set)):
+        return []
+    text_value = str(value).strip()
+    if not text_value:
+        return []
+    return split_table_cells(text_value)
 
 
 def _contract_index(page_contract: dict[str, Any]) -> dict[int, dict[str, Any]]:
@@ -120,11 +136,22 @@ def _strict_layout_enabled(policy: dict[str, Any]) -> bool:
     return _text(policy.get("template_contract_mode")) == "strict_layout"
 
 
+def _as_scalar_or_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if value is None:
+        return []
+    return [value]
+
+
 def _ids_from_blocks(slide: dict[str, Any], field: str) -> list[str]:
+    alias = {"evidence_ids": "evidence_id", "metric_ids": "metric_id"}.get(field)
     values: list[str] = []
     for block in as_list(slide.get("body_blocks")):
         if isinstance(block, dict):
-            values.extend(_text(item) for item in as_list(block.get(field)) if _text(item))
+            values.extend(_text(item) for item in _as_scalar_or_list(block.get(field)) if _text(item))
+            if alias:
+                values.extend(_text(item) for item in _as_scalar_or_list(block.get(alias)) if _text(item))
     return values
 
 
@@ -132,7 +159,11 @@ def _metric_ids_from_visible_claims(slide: dict[str, Any]) -> list[str]:
     values: list[str] = []
     for claim in as_list(slide.get("visible_metric_claims")):
         if isinstance(claim, dict):
-            values.extend(_text(item) for item in as_list(claim.get("metric_ids")) if _text(item))
+            values.extend(
+                _text(item)
+                for item in [*_as_scalar_or_list(claim.get("metric_ids")), *_as_scalar_or_list(claim.get("metric_id"))]
+                if _text(item)
+            )
     return values
 
 
@@ -145,67 +176,156 @@ def _permission(usage: str) -> dict[str, bool]:
     }
 
 
+def _normalized_deck_usage(value: Any) -> str:
+    return normalize_allowed_deck_usage(value, default=CONSERVATIVE_USAGE_IF_UNSPECIFIED)
+
+
+def infer_selected_page_type(slide: dict[str, Any], slide_no: int, template_registry: dict[str, Any] | None = None) -> str:
+    explicit = _text(slide.get("selected_page_type"))
+    if explicit:
+        return explicit
+
+    def choose(*candidates: str) -> str:
+        for candidate in candidates:
+            if candidate:
+                return candidate
+        return "summary_page"
+
+    compare_table = _visual_payload(slide, "compare_table_data")
+    chart = _visual_payload(slide, "chart_data")
+    visual = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    exhibit = slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
+    exhibit_type = _text(exhibit.get("exhibit_type")).lower()
+    visual_type = _text(visual.get("visual_type") or visual.get("type")).lower()
+    chart_type = _text(chart.get("chart_type") or chart.get("type")).lower()
+    card_count = len(as_list(visual.get("cards") or exhibit.get("cards")))
+    metric_claim_count = sum(
+        1
+        for item in as_list(slide.get("visible_metric_claims"))
+        if isinstance(item, dict)
+        and (
+            _text(item.get("display_text"))
+            or _text(item.get("claim"))
+            or _text(item.get("text"))
+            or _text(item.get("label"))
+            or _text(item.get("value_label"))
+            or _text(item.get("metric_id"))
+            or any(_text(metric_id) for metric_id in as_list(item.get("metric_ids")))
+        )
+    )
+    key_data_count = sum(
+        1
+        for item in as_list(slide.get("key_data_audit"))
+        if isinstance(item, dict)
+        and (
+            _text(item.get("metric_id"))
+            or _text(item.get("indicator"))
+            or _text(item.get("metric"))
+            or _text(item.get("value"))
+            or _text(item.get("display_value"))
+        )
+    )
+
+    if compare_table or "table" in exhibit_type or "table" in visual_type:
+        return choose("compare_table_page")
+    if "matrix" in chart_type or "matrix" in exhibit_type or "matrix" in visual_type:
+        return choose("matrix_page", "chart_page")
+    if "value_chain" in exhibit_type or "value_chain" in visual_type or "flow" in exhibit_type or "flow" in visual_type:
+        return choose("value_chain_page")
+    if card_count >= 6:
+        return choose("driver_card_6_page", "driver_card_page", "moat_page", "summary_page")
+    if card_count == 5:
+        return choose("driver_card_5_page", "driver_card_page", "moat_page", "summary_page")
+    if card_count or "card" in exhibit_type or "card" in visual_type:
+        return choose("driver_card_page", "moat_page", "summary_page")
+    if metric_claim_count or key_data_count:
+        return choose("chart_page", "industry_overview_dynamic_page", "summary_page")
+    if chart or "chart" in exhibit_type or "chart" in visual_type or "kpi" in exhibit_type or "kpi" in visual_type:
+        return choose("chart_page", "industry_overview_dynamic_page")
+    return "summary_page"
+
+
 def build_internal_deck_blueprint(banker_page_pack: dict[str, Any]) -> dict[str, Any]:
     slides: list[dict[str, Any]] = []
-    for slide in as_list(banker_page_pack.get("slides")):
+    policy = _rendering_policy(banker_page_pack)
+    strict_layout = _strict_layout_enabled(policy)
+    for idx, slide in enumerate(as_list(banker_page_pack.get("slides")), start=1):
         if not isinstance(slide, dict):
             continue
-        slide_no = int(slide.get("slide_no") or len(slides) + 1)
-        banker_page_id = _text(slide.get("banker_page_id")) or f"BP-{slide_no:03d}"
+        allowed_deck_usage = _normalized_deck_usage(slide.get("allowed_deck_usage") or slide.get("deck_use"))
+        if allowed_deck_usage == "not_allowed" and not strict_layout:
+            continue
+        if strict_layout:
+            slide_no = int(slide.get("slide_no") or len(slides) + 1)
+        else:
+            slide_no = len(slides) + 1
+        banker_page_id = f"BP-{slide_no:03d}"
         project_relevance_note = _text(slide.get("project_relevance_note"))
+        exhibit = slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
+        visual_design = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+        chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
+        compare_table_data = slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {}
+        banker_judgment = _text(slide.get("banker_judgment"))
+        page_argument = _first_text(
+            slide.get("page_argument"),
+            slide.get("page_thesis"),
+            banker_judgment,
+            slide.get("page_answer"),
+        )
+        explicit_headline = _first_text(
+            slide.get("headline"),
+            slide.get("title"),
+            slide.get("slide_title"),
+            slide.get("page_title"),
+        )
+        headline = _text(explicit_headline or page_argument or banker_judgment)
+        main_message = _text(slide.get("main_message"))
+        visual_intent = _text(
+            slide.get("visual_intent")
+            or exhibit.get("why_this_exhibit")
+            or visual_design.get("title")
+            or chart_data.get("title")
+            or compare_table_data.get("title")
+            or main_message
+        )
         blocks: list[dict[str, Any]] = []
         for block in as_list(slide.get("body_blocks")):
             if not isinstance(block, dict):
                 continue
             item = dict(block)
             item.setdefault("source_banker_page_ids", [banker_page_id])
-            if not _text(item.get("claim_strength")):
-                item["claim_strength"] = _text(slide.get("claim_strength"))
             blocks.append(item)
         slides.append(
             {
                 "slide_no": slide_no,
                 "banker_page_id": banker_page_id,
-                "fixed_page_role": _text(slide.get("fixed_page_role")) or FIXED_PAGE_ROLES.get(slide_no, ""),
-                "page_primary_subject": _text(slide.get("page_primary_subject")),
-                "page_question": _text(slide.get("page_question")),
-                "page_thesis": _text(slide.get("banker_judgment")),
-                "page_argument": _text(slide.get("page_argument")),
-                "visual_intent": _text(slide.get("visual_intent") or slide.get("exhibit", {}).get("why_this_exhibit")),
-                "evidence_role": _text(slide.get("evidence_role") or "thesis_anchor"),
-                "exhibit": slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {},
-                "why_this_page_matters": project_relevance_note,
-                "selected_page_type": _text(slide.get("selected_page_type")),
-                "claim_strength": _text(slide.get("claim_strength")),
-                "allowed_deck_usage": _text(slide.get("allowed_deck_usage")),
-                "headline": _text(slide.get("headline")),
-                "main_message": _text(slide.get("main_message")),
+                "fixed_page_role": compiled_page_role(slide, slide_no, strict_layout=strict_layout),
+                "page_thesis": _text(banker_judgment or page_argument or main_message),
+                "page_argument": page_argument,
+                "visual_intent": visual_intent,
+                "exhibit": exhibit,
+                "project_relevance_note": project_relevance_note,
+                "selected_page_type": _text(slide.get("selected_page_type")) or ("" if strict_layout else infer_selected_page_type(slide, slide_no)),
+                "allowed_deck_usage": allowed_deck_usage,
+                "headline": headline,
+                "main_message": main_message,
                 "body_blocks": blocks,
                 "body_copy": slide.get("body_copy") if isinstance(slide.get("body_copy"), dict) else {},
-                "visual_design": slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {},
-                "chart_data": slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {},
-                "compare_table_data": slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {},
+                "visual_design": visual_design,
+                "chart_data": chart_data,
+                "compare_table_data": compare_table_data,
                 "visible_metric_claims": [item for item in as_list(slide.get("visible_metric_claims")) if isinstance(item, dict)],
                 "source_note": _text(slide.get("source_note")),
                 "caveats": [_text(item) for item in as_list(slide.get("caveats")) if _text(item)],
-                "evidence_boundary_notes": [_text(item) for item in as_list(slide.get("evidence_boundary_notes")) if _text(item)],
-                "strategy_checks": {
-                    "new_information_added": [
-                        _text(slide.get("banker_judgment")),
-                        project_relevance_note,
-                    ],
-                    "source_artifact": "banker_page_pack.json",
-                },
-                "derived_from": "banker_page_pack",
+                "source_limitations": [_text(item) for item in as_list(slide.get("source_limitations")) if _text(item)],
             }
         )
     return {
         "schema_version": "deck_blueprint_v1",
         "section_meta": banker_page_pack.get("section_meta") if isinstance(banker_page_pack.get("section_meta"), dict) else {},
-        "rendering_policy": _rendering_policy(banker_page_pack),
+        "rendering_policy": policy,
         "deck_storyline": _text(banker_page_pack.get("deck_storyline")),
         "slides": sorted(slides, key=lambda item: int(item.get("slide_no") or 0)),
-        "authoring_status": "derived_from_banker_page_pack",
     }
 
 
@@ -228,25 +348,15 @@ def _evidence_ids_for_slide(slide: dict[str, Any]) -> list[str]:
     )
 
 
-def _proof_standard(usage: str) -> str:
-    if usage == "headline_allowed":
-        return "Headline, main message, body copy, and material visuals may use this page's EV/MET IDs."
-    if usage == "body_only":
-        return "Use this page's EV/MET IDs in body copy and supporting visuals; avoid unqualified headline claims."
-    if usage == "caveat_only":
-        return "Use only as caveated context or route back to Research before promotion."
-    return "Do not use as a deck claim until LLM authoring resolves evidence sufficiency."
-
-
 def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]:
     contract_slides: list[dict[str, Any]] = []
+    strict_layout = _strict_layout_enabled(_rendering_policy(deck_blueprint))
     for slide in as_list(deck_blueprint.get("slides")):
         if not isinstance(slide, dict):
             continue
         slide_no = int(slide.get("slide_no") or len(contract_slides) + 1)
         banker_page_id = banker_page_id_for_slide(slide) or f"BP-{slide_no:03d}"
-        claim_strength = _text(slide.get("claim_strength"))
-        usage = _text(slide.get("allowed_deck_usage")) or "not_allowed"
+        usage = _normalized_deck_usage(slide.get("allowed_deck_usage"))
         permission = _permission(usage)
         proof_points = proof_points_from_blueprint_slide(slide)
         body_evidence_ids = unique(
@@ -269,15 +379,13 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
         )
         visual_plan = visual_plan_from_blueprint_slide(slide)
         visual_metric_ids = unique(_visual_metric_ids(slide) + [_text(item) for item in as_list(visual_plan.get("visual_metric_ids")) if _text(item)])
-        chart_metric_ids = visual_metric_ids if visual_plan.get("required_capability") == "chart" else []
+        chart_metric_ids = visual_metric_ids if visual_plan.get("visual_type") == "chart" else []
         contract_slides.append(
             {
                 "slide_no": slide_no,
                 "banker_page_id": banker_page_id,
-                "page_role": _text(slide.get("fixed_page_role") or slide.get("page_role")) or FIXED_PAGE_ROLES.get(slide_no, ""),
-                "page_question": _text(slide.get("page_question")),
+                "page_role": compiled_page_role(slide, slide_no, strict_layout=strict_layout),
                 "headline_claim": _text(slide.get("headline")),
-                "proof_standard": _proof_standard(usage),
                 "allowed_deck_usage": usage,
                 "headline_allowed": permission["headline_allowed"],
                 "main_message_allowed": permission["main_message_allowed"],
@@ -289,13 +397,8 @@ def build_banker_page_contract(deck_blueprint: dict[str, Any]) -> dict[str, Any]
                 "body_evidence_ids": body_evidence_ids if permission["body_copy_allowed"] else [],
                 "body_metric_ids": body_metric_ids if permission["body_copy_allowed"] else [],
                 "proof_points": proof_points if permission["body_copy_allowed"] else [],
-                "claim_strength": claim_strength,
-                "evidence_limited_exhibit_plan": _text(
-                    visual_plan.get("evidence_limited_exhibit_plan")
-                    or slide.get("evidence_limited_exhibit_plan")
-                ),
                 "caveats": [_text(item) for item in as_list(slide.get("caveats")) if _text(item)],
-                "evidence_boundary_notes": [_text(item) for item in as_list(slide.get("evidence_boundary_notes")) if _text(item)],
+                "source_limitations": [_text(item) for item in as_list(slide.get("source_limitations")) if _text(item)],
             }
         )
     return {"schema_version": "page_evidence_contract_v1", "slides": sorted(contract_slides, key=lambda item: int(item.get("slide_no") or 0))}
@@ -312,7 +415,7 @@ def compile_banker_page_pack(
 
 
 def _body_text(block: dict[str, Any]) -> str:
-    return str(block.get("copy") or block.get("point") or "").strip()
+    return str(block.get("copy") or block.get("point") or block.get("text") or "").strip()
 
 
 def _block_target_field(block: dict[str, Any]) -> str:
@@ -323,11 +426,50 @@ def _block_target_field(block: dict[str, Any]) -> str:
     return ""
 
 
+def _block_field_or_role(block: dict[str, Any]) -> str:
+    return str(
+        _block_target_field(block)
+        or block.get("role")
+        or ""
+    ).strip()
+
+
+def _style_guided_body_copy_from_explicit(body_copy: dict[str, Any]) -> dict[str, str]:
+    """Treat explicit body_copy keys as authoring hints, not template slots."""
+    normalized: dict[str, str] = {}
+    for value in body_copy.values():
+        if isinstance(value, list):
+            text = "\n".join(str(item).strip() for item in value if str(item).strip())
+        elif isinstance(value, dict):
+            text = "\n".join(str(item).strip() for item in value.values() if str(item).strip())
+        else:
+            text = str(value or "").strip()
+        if text:
+            normalized[f"point_{len(normalized) + 1}"] = text
+    return normalized
+
+
+def _has_compare_table_payload(slide: dict[str, Any]) -> bool:
+    if isinstance(slide.get("compare_table_data"), dict) and slide.get("compare_table_data"):
+        return True
+    visual_design = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    visual_plan = slide.get("visual_plan") if isinstance(slide.get("visual_plan"), dict) else {}
+    return bool(
+        isinstance(visual_design.get("compare_table_data"), dict) and visual_design.get("compare_table_data")
+        or isinstance(visual_plan.get("compare_table_data"), dict) and visual_plan.get("compare_table_data")
+    )
+
+
+def _is_duplicate_table_field_block(block: dict[str, Any]) -> bool:
+    field = _block_field_or_role(block)
+    return field == "table_header" or field.startswith("table_row_")
+
+
 def _active_fields_hint(slide_no: int, page_type: str, fields: list[str]) -> str:
     allowed = ", ".join(fields) if fields else "(none)"
     return (
-        f"Allowed active body fields: {allowed}. "
-        "Use one of these values, or remove target_field and let the compiler map by role."
+        f"Allowed strict-layout placeholders: {allowed}. "
+        "Use one of these values only in explicit strict-layout mode, or remove target_field and let the compiler map by role."
     )
 
 
@@ -357,7 +499,7 @@ def _candidate_fields_for_role(role: str, fields: list[str]) -> list[str]:
 
 def _body_copy_from_blocks(
     slide: dict[str, Any],
-    required_fields: list[str],
+    strict_fields: list[str],
     page_type: str,
     *,
     strict_layout: bool = False,
@@ -365,15 +507,22 @@ def _body_copy_from_blocks(
     slide_no = int(slide.get("slide_no") or 0)
     explicit = slide.get("body_copy")
     if isinstance(explicit, dict) and explicit:
+        if not strict_layout:
+            return _style_guided_body_copy_from_explicit(explicit)
         return {str(key): str(value or "").strip() for key, value in explicit.items()}
     blocks = [block for block in as_list(slide.get("body_blocks")) if isinstance(block, dict)]
     if not strict_layout:
+        if page_type == "compare_table_page" and _has_compare_table_payload(slide):
+            # In style-guided mode, table rows belong in compare_table_data.
+            # Ignore duplicated table field blocks instead of forcing the LLM
+            # to learn placeholder activation rules.
+            blocks = [block for block in blocks if not _is_duplicate_table_field_block(block)]
         return {
             f"point_{idx}": _body_text(block)
             for idx, block in enumerate(blocks, start=1)
             if _body_text(block)
         }
-    fields = active_body_fields(required_fields, page_type, slide)
+    fields = active_body_fields(strict_fields, page_type, slide)
     if not fields:
         return {
             f"point_{idx}": _body_text(block)
@@ -460,13 +609,24 @@ def _visible_metric_claims_from_blueprint(
             metric_ids = unique(
                 [
                     str(metric_id).strip()
-                    for metric_id in as_list(item.get("metric_ids"))
+                    for metric_id in [*_as_scalar_or_list(item.get("metric_ids")), *_as_scalar_or_list(item.get("metric_id"))]
                     if str(metric_id).strip() and (not restrict_metrics or str(metric_id).strip() in allowed)
                 ]
             )
             if metric_ids:
                 row = dict(item)
                 row["metric_ids"] = metric_ids
+                if not _text(row.get("display_text")):
+                    row["display_text"] = _text(
+                        row.get("claim")
+                        or row.get("text")
+                        or row.get("label")
+                        or row.get("value_label")
+                    )
+                if not _text(row.get("location")):
+                    row["location"] = _text(row.get("where") or row.get("placement") or "visible metric")
+                if not _text(row.get("usage_type")):
+                    row["usage_type"] = "visible_metric"
                 filtered.append(row)
         return filtered
 
@@ -719,7 +879,7 @@ def _normalize_compare_table_data(raw: dict[str, Any]) -> dict[str, Any]:
         for row in raw_rows:
             if isinstance(row, dict):
                 label = _first_text(row.get("label"), row.get("name"))
-                cells = [str(item).strip() for item in row.get("cells") or []]
+                cells = _coerce_table_cells(row.get("cells"))
                 if not cells:
                     cells = [
                         str(value).strip()
@@ -755,12 +915,11 @@ def _normalize_compare_table_data(raw: dict[str, Any]) -> dict[str, Any]:
     return table
 
 
-def _source_note(slide: dict[str, Any], evidence_ids: list[str]) -> str:
+def _source_note(slide: dict[str, Any]) -> str:
     explicit = str(slide.get("source_note") or "").strip()
     if explicit:
         return explicit
-    ids = unique(evidence_ids)
-    return "Sources: " + "; ".join(ids) if ids else ""
+    return ""
 
 
 def _slide_numbers_from_template_registry(template_registry: dict[str, Any]) -> list[int]:
@@ -790,8 +949,6 @@ def _slide_numbers_for_renderer(
     slide_numbers = sorted(number for number in slides_by_no if number > 0)
     if not slide_numbers:
         raise ValueError("deck_blueprint has no usable slides")
-    if len(slide_numbers) > 12:
-        raise ValueError("style-guided renderer supports up to 12 slides in one industry section")
     return slide_numbers
 
 
@@ -813,8 +970,12 @@ def build_renderer_spec_from_deck_blueprint(
             raise ValueError(f"slide {slide_no}: missing from deck_blueprint")
         contract = contracts.get(slide_no, {})
         page_type = str(slide.get("selected_page_type") or "").strip()
-        required_fields = required_body_fields(template_registry, slide_no, page_type)
-        body_copy = _body_copy_from_blocks(slide, required_fields, page_type, strict_layout=strict_layout)
+        if strict_layout and not page_type:
+            raise ValueError(f"slide {slide_no}: strict_layout requires selected_page_type")
+        if not page_type:
+            page_type = infer_selected_page_type(slide, slide_no, template_registry)
+        strict_fields = strict_layout_body_fields(template_registry, slide_no, page_type)
+        body_copy = _body_copy_from_blocks(slide, strict_fields, page_type, strict_layout=strict_layout)
         banker_page_id = banker_page_id_for_slide(slide)
         evidence_ids = unique(
             [str(item).strip() for item in as_list(contract.get("body_evidence_ids")) if str(item).strip()]
@@ -828,6 +989,16 @@ def build_renderer_spec_from_deck_blueprint(
         visual_plan = visual_plan_from_blueprint_slide(slide)
         chart_data = _normalize_chart_data(_visual_payload(slide, "chart_data"))
         compare_table_data = _normalize_compare_table_data(_visual_payload(slide, "compare_table_data"))
+        page_role = compiled_page_role(slide, slide_no, strict_layout=strict_layout)
+        headline = _first_text(
+            slide.get("headline"),
+            slide.get("title"),
+            slide.get("slide_title"),
+            slide.get("page_title"),
+            slide.get("page_argument"),
+            slide.get("page_thesis"),
+            slide.get("main_message"),
+        )
         allowed_visible_metric_ids = unique(
             [
                 str(item).strip()
@@ -838,13 +1009,12 @@ def build_renderer_spec_from_deck_blueprint(
         )
         payload = {
             "slide_no": slide_no,
-            "fixed_page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
-            "slide_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
+            "fixed_page_role": page_role,
+            "slide_role": page_role,
             "selected_page_type": page_type,
             "banker_page_id": banker_page_id,
-            "claim_strength": str(contract.get("claim_strength") or slide.get("claim_strength") or "").strip(),
             "exhibit": slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {},
-            "headline": str(slide.get("headline") or "").strip(),
+            "headline": headline,
             "main_message": str(slide.get("main_message") or "").strip(),
             "body_copy": body_copy,
             "chart_data": chart_data,
@@ -855,23 +1025,12 @@ def build_renderer_spec_from_deck_blueprint(
                 allowed_visible_metric_ids,
             ),
             "evidence_ids": evidence_ids,
-            "source_note": _source_note(slide, evidence_ids),
-            "page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(slide_no, ""),
+            "source_note": _source_note(slide),
+            "page_role": page_role,
             "caveats": [str(item).strip() for item in as_list(slide.get("caveats")) if str(item).strip()],
-            "evidence_boundary_notes": [str(item).strip() for item in as_list(slide.get("evidence_boundary_notes")) if str(item).strip()],
+            "source_limitations": [str(item).strip() for item in as_list(slide.get("source_limitations")) if str(item).strip()],
         }
-        strategy_checks = slide.get("strategy_checks") if isinstance(slide.get("strategy_checks"), dict) else {}
-        if str(strategy_checks.get("drilldown_role") or "").strip():
-            payload["drilldown_role"] = str(strategy_checks.get("drilldown_role") or "").strip()
-        if isinstance(strategy_checks.get("drill_down_from_slide"), int):
-            payload["drill_down_from_slide"] = strategy_checks["drill_down_from_slide"]
-        if as_list(strategy_checks.get("new_information_added")):
-            payload["new_information_added"] = [
-                str(item).strip()
-                for item in as_list(strategy_checks.get("new_information_added"))
-                if str(item).strip()
-            ]
-        if not payload["chart_data"] and visual_plan.get("required_capability") == "chart":
+        if not payload["chart_data"] and visual_plan.get("visual_type") == "chart":
             # Leave the field empty instead of inventing chart data. Downstream
             # validators will block if the chosen page requires a chart.
             payload["chart_data"] = {}
@@ -946,7 +1105,7 @@ def normalize_compare_table_payload(slide_data: dict[str, Any]) -> tuple[list[st
             if not isinstance(row, dict):
                 continue
             label = str(row.get("label") or "").strip()
-            cells = [str(item).strip() for item in row.get("cells") or []]
+            cells = _coerce_table_cells(row.get("cells"))
             rows.append([label] + cells)
         return headers, rows
     return [], []
@@ -1081,18 +1240,19 @@ def convert_slide(renderer_slide: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def convert_rules(template_binding: dict[str, Any]) -> dict[str, Any]:
+def convert_rules(template_binding: dict[str, Any], *, strict_layout: bool = False) -> dict[str, Any]:
     return {
-        "active_slide_keys_only": True,
+        "active_slide_keys_only": bool(strict_layout),
         "controlled_layout_variants": controlled_layout_variants(SLIDE_REGISTRY),
-        "slide_02_table_fields_only_active_for_chart_plus_mini_table_page": True,
-        "inactive_variant_fields_may_remain_blank": True,
-        "selected_page_type_required_for_variant_slides": True,
-        "title_should_be_conclusion_led": True,
-        "takeaway_one_sentence_only": True,
-        "content_fields_should_follow_slide_registry": True,
-        "content_fields_should_match_ppt_mapping_roles": True,
-        "source_footer_required": True,
+        "slide_02_table_fields_only_active_for_chart_plus_mini_table_page": bool(strict_layout),
+        "inactive_variant_fields_may_remain_blank": bool(strict_layout),
+        "selected_page_type_required_for_variant_slides": bool(strict_layout),
+        "title_style_hint": "Prefer conclusion-led client-facing headlines when the evidence supports them.",
+        "takeaway_style_hint": "Use a concise takeaway when it helps scanability; omit or derive it when the page composition carries the point.",
+        "content_fields_should_follow_slide_registry": bool(strict_layout),
+        "content_fields_should_match_ppt_mapping_roles": bool(strict_layout),
+        "source_footer_available": True,
+        "source_footer_required_in_strict_layout": bool(strict_layout),
     }
 
 
@@ -1133,7 +1293,9 @@ def validate_variant_consistency(
     return warnings, normalized_page_types
 
 
-def validate_content_fields(slides: list[dict[str, Any]]) -> list[str]:
+def validate_content_fields(slides: list[dict[str, Any]], *, strict_layout: bool = False) -> list[str]:
+    if not strict_layout:
+        return []
     warnings = []
     for slide in slides:
         slide_no = slide.get("slide_no", 0)
@@ -1142,7 +1304,7 @@ def validate_content_fields(slides: list[dict[str, Any]]) -> list[str]:
         expected_by_type = EXPECTED_CONTENT_FIELDS.get(slide_no, {})
         expected_fields = expected_by_type.get(page_type)
         if expected_fields is None:
-            warnings.append(f"Slide {slide_no}: no expected content-field contract for page type '{page_type}'.")
+            warnings.append(f"Slide {slide_no}: no strict-layout placeholder contract for page type '{page_type}'.")
             continue
         if slide_no == 6 and page_type == "compare_table_page":
             populated_rows = [
@@ -1190,12 +1352,12 @@ def build_token_source(renderer_spec: dict[str, Any]) -> dict[str, Any]:
         if slide_no in normalized_page_types:
             slide["selected_page_type"] = normalized_page_types[slide_no]
     converted_slides = [convert_slide(slide) for slide in normalized_slides]
-    warnings.extend(validate_content_fields(converted_slides))
+    warnings.extend(validate_content_fields(converted_slides, strict_layout=strict_layout))
     return {
         "token_source": {
             "meta": convert_meta(renderer_spec),
             "slides": converted_slides,
-            "rules": convert_rules(template_binding),
+            "rules": convert_rules(template_binding, strict_layout=strict_layout),
         },
         "warnings": warnings,
     }

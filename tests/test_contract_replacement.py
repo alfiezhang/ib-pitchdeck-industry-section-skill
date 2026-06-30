@@ -39,9 +39,27 @@ class TestReplacementDict:
         replacement_path = tmp_path / "replacement_dict.json"
         replacement_path.write_text(json.dumps(replacements, ensure_ascii=False, indent=2), encoding="utf-8")
         result = _run([
-            sys.executable, "scripts/pipeline.py", "validate",
+            sys.executable, "scripts/pipeline.py", "review",
             "--artifact", "replacement_dict",
             "--run-dir", str(compiled_artifacts["renderer_spec"].parent),
             "--path", str(replacement_path),
         ])
         assert result.returncode == 0, result.stdout + result.stderr
+
+    def test_replacement_dict_without_renderer_spec_is_warning_for_direct_composition(self, tmp_path):
+        replacement_path = tmp_path / "replacement_dict.json"
+        replacement_path.write_text(
+            json.dumps({"slide_01_title": "Direct-composition debug value"}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        result = _run([
+            sys.executable, "scripts/pipeline.py", "review",
+            "--artifact", "replacement_dict",
+            "--run-dir", str(tmp_path),
+            "--path", str(replacement_path),
+        ])
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "direct-composition/debug artifact" in result.stdout
+        assert "replacement_dict requires renderer_spec.json" not in result.stdout

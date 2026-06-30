@@ -29,14 +29,48 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(args, text=True, capture_output=True, cwd=str(SKILL_DIR), env=env)
 
 
-class TestStageGate:
-    def test_pre_research_pack_gate_passes(self, _pipeline_run_dir):
-        from validate_artifact import validate_artifact
-        artifacts = _pipeline_run_dir["artifacts"]
-        errors, warnings = validate_artifact("pre_research_pack", _pipeline_run_dir["run_dir"])
-        result = {"is_valid": not errors, "errors": errors, "warnings": warnings}
-        assert result["is_valid"], result
-        _write_json(artifacts / "stage_gate_pre_research_pack_validation.json", result)
+def test_pre_research_pack_readiness_review_is_removed() -> None:
+    from validate_artifact import ARTIFACT_PATHS
+
+    assert "pre_research_pack" not in ARTIFACT_PATHS
+
+
+def test_research_pack_missing_db_routes_repair_to_knowledge_db(tmp_path: Path) -> None:
+    from validate_artifact import validate_artifact
+
+    (tmp_path / "industry_research_pack.md").write_text("EV-001 placeholder export\n", encoding="utf-8")
+
+    errors, warnings = validate_artifact("research_pack", tmp_path)
+
+    assert warnings == []
+    assert any("research pack is a derived export" in error for error in errors)
+    assert any("Knowledge must author or repair the evidence DB first" in error for error in errors)
+    assert not any("industry_boundary_qc" in error for error in errors)
+
+
+def test_source_archive_validator_checks_compiled_entries_archive_paths(tmp_path: Path) -> None:
+    from validate_artifact import validate_artifact
+
+    archive_dir = tmp_path / "artifacts" / "source_archive"
+    archive_dir.mkdir(parents=True)
+    _write_json(
+        archive_dir / "source_archive_index.json",
+        {
+            "schema_version": "source_archive_index_v1",
+            "entries": [
+                {
+                    "source_review_id": "SRC-001",
+                    "archive_status": "saved_text",
+                    "archive_path": "artifacts/source_archive/missing.md",
+                }
+            ],
+        },
+    )
+
+    errors, warnings = validate_artifact("source_archive", tmp_path)
+
+    assert warnings == []
+    assert any("archive file not found: artifacts/source_archive/missing.md" in error for error in errors)
 
 
 class TestResearchEvidenceDB:
@@ -173,7 +207,7 @@ class TestResearchEvidenceDB:
             "User-provided vs external-source discrepancy": "No discrepancy in contract fixture.",
             "Chart number consistency": "Chart numbers should bind to MET-001 and MET-002.",
         }
-        for row in research_db.get("issue_fact_inventory", []):
+        for row in research_db.get("page_evidence_inventory", []):
             if row.get("fact_status") == "needs_knowledge_llm":
                 has_promoted_support = bool(row.get("evidence_ids") or row.get("metric_ids"))
                 row["fact_status"] = "sufficient" if has_promoted_support else "insufficient"
@@ -189,8 +223,35 @@ class TestResearchEvidenceDB:
         # Export
         exported = export_research_pack_from_db(research_db)
         assert "Generated readable export" in exported, exported[:300]
+        assert "## Evidence Notes" in exported
+        assert "## Evidence Promotion Review" not in exported
+        assert "Evidence Promotion Gate" not in exported
+        assert "search plan Validation" not in exported
+        assert "Registry-Defined Slide Structure Preserved" not in exported
+        assert "LLM definition draft" not in exported
+        assert "Project Classification:" not in exported
+        assert "Working Market:" not in exported
+        assert "Parent Market:" not in exported
+        assert "Broader Market:" not in exported
+        assert "Focused Category:" in exported
+        assert "Relevant Broader Category:" in exported
+        assert "Recommended `Fact Status`" not in exported
+        assert "Evidence Use Tier" not in exported
+        assert "Usable As Evidence" not in exported
+        assert "Evidence Status" not in exported
+        assert "Chart Ready" not in exported
+        assert "Audit Level" not in exported
+        assert "CAGR Endpoint IDs" not in exported
+        assert "## Metric Reconciliation" not in exported
+        assert "Claim Use Scope" not in exported
+        assert "| Source ID | Source Name | Type | Date / Geography | URL / Path | Locator | Reviewed Excerpt | Source Use Notes |" in exported
+        assert "## Research Execution Summary" in exported
+        assert "## Source Extracts" in exported
+        assert "## Metric Audit Table" in exported
+        assert "Exhibit Use" in exported
+        assert "usable in sourced exhibit" in exported
+        assert "Metric Evidence Level" in exported
         assert "| EV-001 | Current market size" in exported, exported[:4000]
-        assert "Chart Ready" in exported, exported[:5000]
 
     def test_export_validates_without_chart_ready_warning(self, _pipeline_run_dir):
         from validate_artifact import validate_artifact

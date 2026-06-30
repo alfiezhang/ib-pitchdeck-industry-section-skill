@@ -41,8 +41,8 @@
           "field_roles": {
             "slide_title": "conclusion_led_page_title",
             "main_takeaway": "page_conclusion",
-            "bullet_1": "chart_readthrough_primary",
-            "bullet_2": "chart_readthrough_secondary",
+            "bullet_1": "chart_relevance_primary",
+            "bullet_2": "chart_relevance_secondary",
             "table_header_1": "mini_table_header_left",
             "table_header_2": "mini_table_header_right",
             "table_row_1": "mini_table_row_1",
@@ -117,7 +117,7 @@
         "top_right": "downstream_stage",
         "bottom_left": "profit_pool_view",
         "bottom_center": "key_barriers_by_stage",
-        "bottom_right": "source_labeled_project_context_or_evidence_boundary",
+        "bottom_right": "source_labeled_project_context_or_source_limit",
         "source_footer": "page_source_footer"
       }
     },
@@ -142,7 +142,7 @@
       "variants": {
         "compare_table_page": {
           "variant_key": "06a",
-          "structure_summary": "Peer-comparison table on the left with structure judgment and evidence-boundary panels on the right.",
+          "structure_summary": "Peer-comparison table on the left with supporting insight panels on the right.",
           "field_roles": {
             "slide_title": "conclusion_led_page_title",
             "main_takeaway": "page_conclusion",
@@ -155,7 +155,7 @@
             "table_row_6": "compare_table_row_6",
             "right_top": "industry_structure_judgment",
             "right_mid": "industry_evolution",
-            "right_bottom": "source_labeled_project_context_or_evidence_boundary",
+            "right_bottom": "source_labeled_project_context_or_source_limit",
             "source_footer": "page_source_footer"
           }
         },
@@ -171,7 +171,7 @@
             "matrix_label_y": "matrix_axis_y",
             "right_top": "industry_structure_judgment",
             "right_mid": "industry_evolution",
-            "right_bottom": "source_labeled_project_context_or_evidence_boundary",
+            "right_bottom": "source_labeled_project_context_or_source_limit",
             "source_footer": "page_source_footer"
           }
         }
@@ -189,7 +189,7 @@
       "variants": {
         "trend_page": {
           "variant_key": "07a",
-          "structure_summary": "Three parallel trend cards with evidence and industry readthrough.",
+          "structure_summary": "Three parallel trend cards with evidence and industry relevance.",
           "field_roles": {
             "slide_title": "conclusion_led_page_title",
             "main_takeaway": "page_conclusion",
@@ -259,14 +259,14 @@
     },
     "8": {
       "selected_page_type": "summary_page",
-      "structure_summary": "Synthesis page combining industry attractiveness, pre-mandate readthrough, selective source-labeled context, and evidence boundaries.",
+      "structure_summary": "Synthesis page combining industry attractiveness, pre-mandate relevance, selective source-labeled context, and evidence boundaries.",
       "field_roles": {
         "slide_title": "conclusion_led_page_title",
         "main_takeaway": "page_conclusion",
         "left_panel": "why_industry_is_attractive",
-        "right_top": "pre_mandate_readthrough_with_limits",
+        "right_top": "pre_mandate_relevance_with_limits",
         "right_mid": "industry_changes_relevant_to_project",
-        "right_bottom": "evidence_boundary_or_caveated_readthrough",
+        "right_bottom": "source_limit_or_caveated_relevance",
         "source_footer": "page_source_footer"
       }
     }

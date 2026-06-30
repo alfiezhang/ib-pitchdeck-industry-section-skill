@@ -12,17 +12,13 @@ Material Intake protects what the user actually gave the team. Capture the brief
 - user-provided claims separate from public evidence;
 - ambiguous or missing fields that later roles should not silently infer.
 
-If the user provides only a short text brief, start the run with:
-
-```bash
-"$PYTHON_CMD" scripts/pipeline.py start-brief --case-name "<case>" --run-dir "$RUN_DIR" --brief-text "<exact user brief>"
-```
-
-Add `--template-file "<path/to/template.pptx>"` when the user supplies a PPT/POTX template. The template is registered for Template/Output use, not as evidence.
+If the user provides only a short text brief, preserve the exact wording in the run record; the intake helper is optional support, not the starting point. When the user supplies a PPT/POTX template, record it as a style/template source for Template/Output, not as evidence.
 
 ## How To Think
 
 Register first, interpret second. A useful intake record lets Scoping understand the market, lets Research know which user-curated materials exist, and lets Knowledge distinguish target-level facts from external evidence.
+
+If authoring `input_card.json` manually, treat it as a short transcription card. Keep the exact brief, explicit user facts, source materials, and any useful candidate normalizations. Omit unknown metadata instead of leaving blank fields, copying enum-like options, or converting guesses into facts.
 
 `raw_text_preview` is captured text only. It is not evidence authorization. If a user-curated industry report looks useful, classify it cleanly so Knowledge or Research can decide how to use it later.
 

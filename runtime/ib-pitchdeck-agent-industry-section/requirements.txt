@@ -1,3 +1,1 @@
 python-pptx>=0.6.21
-tavily-python>=0.5.0
-ddgs>=9.0.0

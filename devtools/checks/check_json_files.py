@@ -8,6 +8,8 @@ import json
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LIB_DIR = REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section" / "scripts" / "_lib"
 if str(LIB_DIR) not in sys.path:

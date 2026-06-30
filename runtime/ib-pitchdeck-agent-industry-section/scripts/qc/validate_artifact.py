@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Unified deterministic validator for the industry-section workflow.
+"""Internal pipeline helper for structure-only artifact checks.
 
-This script deliberately checks only mechanical conditions: files exist, JSON is
+This script deliberately checks only structure/helper conditions: files exist, JSON is
 parseable, IDs and cross-references are coherent, and renderer/PPT inputs can be
 used by deterministic tooling. Content quality, page density, source judgment,
 and transaction relevance are LLM responsibilities.
@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 
+sys.dont_write_bytecode = True
 SCRIPT_DIR = Path(__file__).resolve().parent
 RUNTIME_ROOT = next(
     parent for parent in Path(__file__).resolve().parents
@@ -36,18 +37,16 @@ for path in [
 
 from deck_blueprint_utils import (
     FIXED_PAGE_ROLES,
-    PAGE_PRIMARY_SUBJECTS,
-    VALID_ALLOWED_DECK_USAGES,
-    VALID_CLAIM_STRENGTHS,
     active_body_fields,
     as_list,
     banker_page_id_for_slide,
-    required_body_fields,
+    normalize_allowed_deck_usage,
+    strict_layout_body_fields,
     template_variants_by_slide,
     unique,
 )
 from runtime_utils import load_json_file
-from renderer_compile_utils import _body_copy_from_blocks, build_token_source
+from renderer_compile_utils import _body_copy_from_blocks, build_token_source, infer_selected_page_type, split_table_cells
 from research_evidence_db import validate_db as validate_research_db
 from template_analyzer import display_units, estimate_lines, layout_rules_for
 
@@ -57,23 +56,75 @@ MET_RE = re.compile(r"^MET-\d{3}$")
 BP_RE = re.compile(r"^BP-\d{3}$")
 SRC_RE = re.compile(r"^SRC-\d{3}$")
 BAD_PPT_GLYPHS = {"�", "□", "▯", "\ufffd"}
-CLIENT_VISIBLE_INTERNAL_TERMS = (
-    "工作市场",
-    "父市场",
-    "broader market",
-    "working market",
-    "parent market",
-    "证明赛道边界",
-    "第一步是",
-    "pitch 应",
-    "pitch中应",
-    "页面语言应",
-    "不进入审计级",
-    "审计级图表",
-    "只作项目连接",
-    "source boundary",
-    "evidence boundary",
-)
+CLIENT_VISIBLE_EDITORIAL_HINT_TERMS = {
+    "working market": "market-boundary slot label",
+    "parent market": "market-boundary slot label",
+    "broader market": "market-boundary slot label",
+    "scope card": "market-boundary workpaper label",
+    "boundary card": "market-boundary workpaper label",
+    "diligence": "post-mandate workstream language",
+    "due diligence": "post-mandate workstream language",
+    "not_client_ready": "delivery-status label",
+    "client-ready": "delivery-status label",
+    "evidence-limited": "delivery-status label",
+    "targeted research": "research workflow label",
+    "research request": "research workflow label",
+    "工作市场": "market-boundary slot label",
+    "父市场": "market-boundary slot label",
+    "边界卡": "market-boundary workpaper label",
+    "后续验证点": "research workflow label",
+    "后续验证": "research workflow label",
+    "客户关注点": "question-bucket label",
+    "尽调": "post-mandate workstream language",
+    "尽职调查": "post-mandate workstream language",
+}
+VISIBLE_TEXT_KEYS = {
+    "headline",
+    "title",
+    "slide_title",
+    "page_title",
+    "main_message",
+    "page_argument",
+    "page_thesis",
+    "banker_judgment",
+    "page_answer",
+    "copy",
+    "point",
+    "text",
+    "label",
+    "display_text",
+    "value_label",
+    "claim",
+    "source_note",
+    "project_relevance_note",
+    "caveat",
+    "caveats",
+    "source_limitations",
+}
+VISIBLE_CONTAINER_KEYS = {
+    "body_blocks",
+    "body_copy",
+    "chart_data",
+    "compare_table_data",
+    "visible_metric_claims",
+    "visual_design",
+    "visual_plan",
+    "source_note",
+    "project_relevance_note",
+    "caveats",
+    "source_limitations",
+}
+NON_VISIBLE_TEXT_KEY_FRAGMENTS = {
+    "metric",
+    "evidence",
+    "source_banker_page",
+    "audit",
+    "readiness",
+    "deck_use",
+    "allowed_deck_usage",
+    "selected_page_type",
+    "fixed_page_role",
+}
 
 
 ARTIFACT_PATHS = {
@@ -81,8 +132,10 @@ ARTIFACT_PATHS = {
     "material_extracts": "artifacts/material_extracts.json",
     "input_card": "input_card.json",
     "industry_scope_pack": "artifacts/industry_scope_pack.json",
+    "industry_boundary_qc": "artifacts/industry_boundary_qc.json",
     "formal_search_plan": "artifacts/formal_search_plan.json",
     "executable_search_batch": "artifacts/executable_search_batch.json",
+    "research_graph_state": "artifacts/research_graph_state.json",
     "formal_research_execution": "artifacts/formal_research_execution_report.json",
     "source_archive": "artifacts/source_archive/source_archive_index.json",
     "research_evidence_db": "artifacts/research_evidence_db.json",
@@ -95,8 +148,7 @@ ARTIFACT_PATHS = {
     "renderer_spec": "renderer_spec.json",
     "replacement_dict": "replacement_dict.json",
     "filled_ppt": "filled_ppt_validation.json",
-    "pre_research_pack": "artifacts/stage_gate_pre_research_pack_validation.json",
-    "pre_ppt": "artifacts/stage_gate_pre_ppt_validation.json",
+    "pre_ppt": "artifacts/pre_ppt_readiness.json",
     "final_delivery": "artifacts/final_delivery_validation.json",
 }
 
@@ -106,8 +158,10 @@ VALIDATION_OUTPUTS = {
     "material_extracts": "artifacts/material_extracts_validation.json",
     "input_card": "artifacts/input_card_validation.json",
     "industry_scope_pack": "artifacts/industry_scope_pack_validation.json",
+    "industry_boundary_qc": "artifacts/industry_boundary_qc_validation.json",
     "formal_search_plan": "artifacts/formal_search_plan_validation.json",
     "executable_search_batch": "artifacts/executable_search_batch_validation.json",
+    "research_graph_state": "artifacts/research_graph_state_validation.json",
     "formal_research_execution": "artifacts/formal_research_execution_validation.json",
     "source_archive": "artifacts/source_archive_validation.json",
     "research_evidence_db": "artifacts/research_evidence_db_validation.json",
@@ -120,10 +174,35 @@ VALIDATION_OUTPUTS = {
     "renderer_spec": "artifacts/renderer_spec_validation.json",
     "replacement_dict": "artifacts/replacement_dict_validation.json",
     "filled_ppt": "filled_ppt_validation.json",
-    "pre_research_pack": "artifacts/stage_gate_pre_research_pack_validation.json",
-    "pre_ppt": "artifacts/stage_gate_pre_ppt_validation.json",
+    "pre_ppt": "artifacts/pre_ppt_readiness.json",
     "final_delivery": "artifacts/final_delivery_validation.json",
 }
+
+
+def helper_check_guidance(artifact: str, errors: list[str], warnings: list[str]) -> dict[str, str]:
+    if errors:
+        status = "needs_owner_repair"
+        next_action = (
+            f"Repair `{artifact}` or its owning upstream artifact. Treat errors as helper-check signals; "
+            "do not invent evidence, hidden permissions, or filler fields merely to clear the review."
+        )
+    elif warnings:
+        status = "checked_with_llm_prompts"
+        next_action = (
+            f"Use the prompts for `{artifact}` as editorial or helper-check signals, then rely on LLM judgment "
+            "for source quality, page density, and final delivery quality."
+        )
+    else:
+        status = "structure_checked"
+        next_action = (
+            f"`{artifact}` has no helper-check errors. This does not certify content quality, "
+            "evidence strength, page density, or final delivery quality."
+        )
+    return {
+        "status": status,
+        "scope": "structure, file presence, IDs, cross-references, and deterministic render inputs only",
+        "next_action": next_action,
+    }
 
 
 def text(value: Any) -> str:
@@ -175,44 +254,6 @@ def _scan_ids(value: Any, key_names: set[str]) -> list[str]:
         for item in value:
             found.extend(_scan_ids(item, key_names))
     return unique(found)
-
-
-def _client_visible_texts(slide: dict[str, Any]) -> list[tuple[str, str]]:
-    visible: list[tuple[str, str]] = []
-    for field in ("headline", "main_message"):
-        if text(slide.get(field)):
-            visible.append((field, text(slide.get(field))))
-    for idx, block in enumerate(as_list(slide.get("body_blocks")), start=1):
-        if isinstance(block, dict) and text(block.get("copy")):
-            visible.append((f"body_blocks[{idx}].copy", text(block.get("copy"))))
-    chart_data = slide.get("chart_data") if isinstance(slide.get("chart_data"), dict) else {}
-    for field in ("title", "display_note", "on_slide_note"):
-        if text(chart_data.get(field)):
-            visible.append((f"chart_data.{field}", text(chart_data.get(field))))
-    table_data = slide.get("compare_table_data") if isinstance(slide.get("compare_table_data"), dict) else {}
-    for idx, header in enumerate(as_list(table_data.get("headers")), start=1):
-        if text(header):
-            visible.append((f"compare_table_data.headers[{idx}]", text(header)))
-    for row_idx, row in enumerate(as_list(table_data.get("rows")), start=1):
-        if not isinstance(row, dict):
-            continue
-        if text(row.get("label")):
-            visible.append((f"compare_table_data.rows[{row_idx}].label", text(row.get("label"))))
-        for cell_idx, cell in enumerate(as_list(row.get("cells")), start=1):
-            if text(cell):
-                visible.append((f"compare_table_data.rows[{row_idx}].cells[{cell_idx}]", text(cell)))
-    return visible
-
-
-def _warn_internal_client_facing_terms(slide_no: int, slide: dict[str, Any], warnings: list[str]) -> None:
-    for field, value in _client_visible_texts(slide):
-        lowered = value.lower()
-        for term in CLIENT_VISIBLE_INTERNAL_TERMS:
-            if term.lower() in lowered:
-                warnings.append(
-                    f"slide {slide_no}: {field} contains internal working-paper language '{term}'; "
-                    "rewrite visible copy as client-facing banker presentation language"
-                )
 
 
 def _ppt_slide_texts(pptx_path: Path) -> list[str]:
@@ -293,8 +334,218 @@ def _text_fit_rule(text_fit_rules: dict[str, Any], slide_no: int, page_type: str
     return rule if isinstance(rule, dict) else {}
 
 
+def _strict_layout_blocks_line_overflow(rule: dict[str, Any]) -> bool:
+    if "strict_layout_pause_if_exceeds_max_lines" in rule:
+        return rule.get("strict_layout_pause_if_exceeds_max_lines") is not False
+    if "strict_layout_block_if_exceeds_max_lines" in rule:
+        return rule.get("strict_layout_block_if_exceeds_max_lines") is not False
+    return rule.get("block_if_exceeds_max_lines") is not False
+
+
 def _compare_table_data_from_slide(slide: dict[str, Any]) -> dict[str, Any]:
     return _visual_payload(slide, "compare_table_data")
+
+
+def _chart_data_from_slide(slide: dict[str, Any]) -> dict[str, Any]:
+    return _visual_payload(slide, "chart_data")
+
+
+def _body_blocks_have_visible_copy(slide: dict[str, Any]) -> bool:
+    for block in as_list(slide.get("body_blocks")):
+        if isinstance(block, dict) and text(block.get("copy") or block.get("point") or block.get("text")):
+            return True
+    return False
+
+
+def _body_copy_has_visible_copy(slide: dict[str, Any]) -> bool:
+    body_copy = slide.get("body_copy")
+    if not isinstance(body_copy, dict):
+        return False
+    return any(text(value) for value in body_copy.values())
+
+
+def _chart_data_has_visible_payload(data: dict[str, Any]) -> bool:
+    series = data.get("series")
+    categories = data.get("categories")
+    source_rows = data.get("source_rows")
+    if isinstance(series, list) and series and isinstance(categories, list) and categories:
+        return True
+    if isinstance(source_rows, list) and source_rows:
+        return True
+    return False
+
+
+def _table_data_has_visible_payload(data: dict[str, Any]) -> bool:
+    headers = data.get("headers") or data.get("columns")
+    has_headers = isinstance(headers, list) and any(text(item) for item in headers)
+    if not has_headers:
+        has_headers = bool(split_table_cells(text(data.get("table_header"))))
+    rows = data.get("rows")
+    has_rows = isinstance(rows, list) and bool(rows)
+    if not has_rows:
+        has_rows = any(text(data.get(f"table_row_{idx}")) for idx in range(1, 7))
+    return has_headers and has_rows
+
+
+def _visual_payload_has_visible_content(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(text(value))
+    if isinstance(value, (int, float, bool)):
+        return True
+    if isinstance(value, list):
+        return any(_visual_payload_has_visible_content(item) for item in value)
+    if isinstance(value, dict):
+        return any(_visual_payload_has_visible_content(item) for item in value.values())
+    return False
+
+
+def _visual_design_has_visible_payload(slide: dict[str, Any]) -> bool:
+    visual_design = slide.get("visual_design") if isinstance(slide.get("visual_design"), dict) else {}
+    visual_plan = slide.get("visual_plan") if isinstance(slide.get("visual_plan"), dict) else {}
+    for payload in (visual_design, visual_plan):
+        for key in ("cards", "items", "stages", "rows", "points", "modules", "nodes"):
+            value = payload.get(key)
+            if isinstance(value, list) and value:
+                return True
+        if _visual_payload_has_visible_content(payload):
+            return True
+    return False
+
+
+def _visible_metric_claims_have_payload(slide: dict[str, Any]) -> bool:
+    for claim in as_list(slide.get("visible_metric_claims")):
+        if not isinstance(claim, dict):
+            continue
+        if any(
+            text(claim.get(field))
+            for field in ("display_text", "claim", "text", "label", "value_label", "metric_id")
+        ):
+            return True
+        if any(text(item) for item in as_list(claim.get("metric_ids"))):
+            return True
+    return False
+
+
+def _key_data_audit_has_payload(slide: dict[str, Any]) -> bool:
+    for row in as_list(slide.get("key_data_audit")):
+        if not isinstance(row, dict):
+            continue
+        if any(
+            text(row.get(field))
+            for field in (
+                "metric_id",
+                "indicator",
+                "metric",
+                "value",
+                "display_value",
+                "source",
+                "source_note",
+            )
+        ):
+            return True
+    return False
+
+
+def _has_substantive_page_content(slide: dict[str, Any]) -> bool:
+    return (
+        _body_blocks_have_visible_copy(slide)
+        or _body_copy_has_visible_copy(slide)
+        or _chart_data_has_visible_payload(_chart_data_from_slide(slide))
+        or _table_data_has_visible_payload(_compare_table_data_from_slide(slide))
+        or _visual_design_has_visible_payload(slide)
+        or _visible_metric_claims_have_payload(slide)
+        or _key_data_audit_has_payload(slide)
+    )
+
+
+def _slide_page_argument(slide: dict[str, Any]) -> str:
+    return text(
+        slide.get("page_argument")
+        or slide.get("page_thesis")
+        or slide.get("banker_judgment")
+        or slide.get("page_answer")
+    )
+
+
+def _slide_headline(slide: dict[str, Any]) -> str:
+    return text(
+        slide.get("headline")
+        or slide.get("title")
+        or slide.get("slide_title")
+        or slide.get("page_title")
+    )
+
+
+def _field_path(path: str, key: str | int) -> str:
+    if isinstance(key, int):
+        return f"{path}[{key}]"
+    return f"{path}.{key}" if path else key
+
+
+def _looks_non_visible_key(key: str) -> bool:
+    lowered = key.lower()
+    if lowered == "id" or lowered.endswith("_id") or lowered.endswith("_ids"):
+        return True
+    return any(fragment in lowered for fragment in NON_VISIBLE_TEXT_KEY_FRAGMENTS)
+
+
+def _iter_visible_strings(value: Any, path: str = "") -> list[tuple[str, str]]:
+    if isinstance(value, str):
+        return [(path, value)] if text(value) else []
+    if isinstance(value, list):
+        result: list[tuple[str, str]] = []
+        for idx, item in enumerate(value, start=1):
+            result.extend(_iter_visible_strings(item, _field_path(path, idx)))
+        return result
+    if not isinstance(value, dict):
+        return []
+    result: list[tuple[str, str]] = []
+    for key, item in value.items():
+        key_text = str(key)
+        child_path = _field_path(path, key_text)
+        if key_text in VISIBLE_TEXT_KEYS:
+            result.extend(_iter_visible_strings(item, child_path))
+        elif key_text in VISIBLE_CONTAINER_KEYS or not _looks_non_visible_key(key_text):
+            result.extend(_iter_visible_strings(item, child_path))
+    return result
+
+
+def _client_visible_editorial_hits(slide: dict[str, Any]) -> list[tuple[str, str]]:
+    scoped: dict[str, Any] = {}
+    for key in (
+        "headline",
+        "title",
+        "slide_title",
+        "page_title",
+        "main_message",
+        "page_argument",
+        "page_thesis",
+        "banker_judgment",
+        "page_answer",
+        "body_blocks",
+        "body_copy",
+        "chart_data",
+        "compare_table_data",
+        "visible_metric_claims",
+        "visual_design",
+        "visual_plan",
+        "source_note",
+        "project_relevance_note",
+        "caveats",
+        "source_limitations",
+    ):
+        if key in slide:
+            scoped[key] = slide.get(key)
+    hits: list[tuple[str, str]] = []
+    for path, value in _iter_visible_strings(scoped):
+        lowered = value.lower()
+        categories: set[str] = set()
+        for term, category in CLIENT_VISIBLE_EDITORIAL_HINT_TERMS.items():
+            if term.lower() in lowered:
+                categories.add(category)
+        for category in sorted(categories):
+            hits.append((path, category))
+    return hits
 
 
 def _template_contract_mode(run_dir: Path, payload: dict[str, Any] | None = None) -> str:
@@ -304,7 +555,6 @@ def _template_contract_mode(run_dir: Path, payload: dict[str, Any] | None = None
     for path in (
         run_dir / "artifacts/rendering_policy.json",
         run_dir / "artifacts/template_selection.json",
-        RUNTIME_ROOT / "configs/workflow_policy.json",
     ):
         if path.exists():
             try:
@@ -334,24 +584,54 @@ def _strict_layout(run_dir: Path, payload: dict[str, Any] | None = None) -> bool
     return _template_contract_mode(run_dir, payload) == "strict_layout"
 
 
-def _validate_compare_table_shape(slide_no: int, data: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
+def _validate_compare_table_shape(
+    slide_no: int,
+    data: dict[str, Any],
+    errors: list[str],
+    warnings: list[str],
+    *,
+    strict_layout: bool = False,
+) -> None:
+    def table_shape_issue(message: str) -> None:
+        if strict_layout:
+            errors.append(message)
+        else:
+            warnings.append(message + "; style-guided render treats this table payload as advisory")
+
     headers = data.get("headers")
     columns = data.get("columns")
     header_values: list[str] = []
     if not isinstance(headers, list) or not [text(item) for item in headers if text(item)]:
         if isinstance(columns, list) and [text(item) for item in columns if text(item)]:
             header_values = [text(item) for item in columns if text(item)]
-            warnings.append(
-                f"slide {slide_no}: compare_table_data uses columns; compiler accepts it, but canonical key is headers"
-            )
+            if strict_layout:
+                warnings.append(
+                    f"slide {slide_no}: compare_table_data uses columns; structured-render helper accepts it and will normalize to headers"
+                )
+        elif split_table_cells(text(data.get("table_header"))):
+            header_values = split_table_cells(text(data.get("table_header")))
+            if strict_layout:
+                warnings.append(
+                    f"slide {slide_no}: compare_table_data uses table_header; structured-render helper accepts it and will normalize to headers"
+                )
         else:
-            errors.append("slide {slide_no}: compare_table_data requires non-empty headers list".format(slide_no=slide_no))
+            table_shape_issue(
+                "slide {slide_no}: compare_table_data requires non-empty headers list".format(slide_no=slide_no)
+            )
     else:
         header_values = [text(item) for item in headers if text(item)]
     rows = data.get("rows")
     if not isinstance(rows, list) or not rows:
-        errors.append(f"slide {slide_no}: compare_table_data requires non-empty rows list")
-        return
+        row_texts = [text(data.get(f"table_row_{idx}")) for idx in range(1, 7) if text(data.get(f"table_row_{idx}"))]
+        if row_texts:
+            rows = row_texts
+            if strict_layout:
+                warnings.append(
+                    f"slide {slide_no}: compare_table_data uses table_row_* fields; structured-render helper accepts them and will normalize to rows"
+                )
+        else:
+            table_shape_issue(f"slide {slide_no}: compare_table_data requires non-empty rows list")
+            return
     valid_rows = 0
     header_count = len(header_values)
     for idx, row in enumerate(rows, start=1):
@@ -361,56 +641,77 @@ def _validate_compare_table_shape(slide_no: int, data: dict[str, Any], errors: l
             scalar_cells = [
                 value
                 for key, value in row.items()
-                if key not in {"label", "name", "metric_ids", "evidence_ids", "source_banker_page_ids"}
+                if key not in {"label", "name", "cells", "metric_ids", "evidence_ids", "source_banker_page_ids"}
                 and not isinstance(value, (dict, list))
                 and text(value)
             ]
             if not has_label and not cells and not scalar_cells:
-                errors.append(f"slide {slide_no}: compare_table_data row {idx} needs label plus cells")
+                table_shape_issue(f"slide {slide_no}: compare_table_data row {idx} needs label plus cells")
                 continue
+            cell_values: list[str] = []
             if cells is not None and not isinstance(cells, list):
-                errors.append(f"slide {slide_no}: compare_table_data row {idx}.cells must be a list")
-                continue
-            if isinstance(cells, list) and header_count:
+                if strict_layout:
+                    errors.append(f"slide {slide_no}: compare_table_data row {idx}.cells must be a list")
+                    continue
+                cell_values = split_table_cells(text(cells))
+                warnings.append(
+                    f"slide {slide_no}: compare_table_data row {idx}.cells is scalar; "
+                    "style-guided render will normalize it into cells"
+                )
+            elif isinstance(cells, list):
+                cell_values = [text(item) for item in cells if text(item)]
+            if cell_values and header_count:
                 expected_cells = max(header_count - 1, 0) if has_label else header_count
-                if len(cells) != expected_cells:
-                    errors.append(
-                        f"slide {slide_no}: compare_table_data row {idx} has label plus {len(cells)} cells, "
+                if len(cell_values) != expected_cells:
+                    message = (
+                        f"slide {slide_no}: compare_table_data row {idx} has label plus {len(cell_values)} cells, "
                         f"but {header_count} headers require {expected_cells} cells after label"
                     )
-                    continue
+                    if strict_layout:
+                        errors.append(message)
+                        continue
+                    warnings.append(message + "; style-guided render will merge extra cells or pad missing cells")
             if cells is None and scalar_cells:
                 expected_cells = max(header_count - 1, 0) if has_label else header_count
                 if header_count and len(scalar_cells) != expected_cells:
-                    errors.append(
+                    message = (
                         f"slide {slide_no}: compare_table_data row {idx} has {len(scalar_cells)} scalar columns, "
                         f"but {header_count} headers require {expected_cells} columns after label"
                     )
-                    continue
-                warnings.append(
-                    f"slide {slide_no}: compare_table_data row {idx} uses scalar columns; canonical row shape is {{label, cells}}"
-                )
+                    if strict_layout:
+                        errors.append(message)
+                        continue
+                    warnings.append(message + "; style-guided render will merge extra columns or pad missing columns")
+                if strict_layout:
+                    warnings.append(
+                        f"slide {slide_no}: compare_table_data row {idx} uses scalar columns; structured-render helper accepts it and will normalize to {{label, cells}}"
+                    )
             valid_rows += 1
         elif isinstance(row, list) and row:
             if header_count and len(row) != header_count:
-                errors.append(
+                message = (
                     f"slide {slide_no}: compare_table_data row {idx} has {len(row)} cells, "
                     f"but {header_count} headers require exactly {header_count} cells"
                 )
-                continue
-            warnings.append(
-                f"slide {slide_no}: compare_table_data row {idx} is a list; compiler accepts it, but canonical row shape is {{label, cells}}"
-            )
+                if strict_layout:
+                    errors.append(message)
+                    continue
+                warnings.append(message + "; style-guided render will merge extra cells or pad missing cells")
+            if strict_layout:
+                warnings.append(
+                    f"slide {slide_no}: compare_table_data row {idx} is a list; structured-render helper accepts it and will normalize to {{label, cells}}"
+                )
             valid_rows += 1
         elif isinstance(row, str) and row.strip():
-            warnings.append(
-                f"slide {slide_no}: compare_table_data row {idx} is a string; compiler accepts it, but canonical row shape is {{label, cells}}"
-            )
+            if strict_layout:
+                warnings.append(
+                    f"slide {slide_no}: compare_table_data row {idx} is a string; structured-render helper accepts it and will normalize to {{label, cells}}"
+                )
             valid_rows += 1
         else:
-            errors.append(f"slide {slide_no}: compare_table_data row {idx} must be an object with label/cells")
+            table_shape_issue(f"slide {slide_no}: compare_table_data row {idx} must be an object with label/cells")
     if not valid_rows:
-        errors.append(f"slide {slide_no}: compare_table_data has no usable rows")
+        table_shape_issue(f"slide {slide_no}: compare_table_data has no usable rows")
 
 
 def banker_page_pack_template_diagnostics(run_dir: Path, path: Path | None = None) -> dict[str, Any]:
@@ -435,14 +736,15 @@ def banker_page_pack_template_diagnostics(run_dir: Path, path: Path | None = Non
     text_fit_rules = _load_config_json("configs/text_fit_rules.json")
     slides = pack.get("slides") if isinstance(pack.get("slides"), list) else []
     diagnostics: list[dict[str, Any]] = []
+    strict_layout = _strict_layout(run_dir, pack)
     for raw_slide in slides:
         if not isinstance(raw_slide, dict):
             continue
         slide_no = _int_value(raw_slide.get("slide_no"))
         page_type = text(raw_slide.get("selected_page_type"))
         allowed_page_types = sorted(variants.get(slide_no, {}).keys())
-        required_fields = required_body_fields(template, slide_no, page_type) if template and page_type else []
-        active_fields = active_body_fields(required_fields, page_type, raw_slide) if required_fields else []
+        strict_fields = strict_layout_body_fields(template, slide_no, page_type) if strict_layout and template and page_type else []
+        active_fields = active_body_fields(strict_fields, page_type, raw_slide) if strict_fields else []
         field_limits = _body_field_limits(layout_budget, slide_no, page_type)
         text_rules: dict[str, Any] = {}
         for field in ("headline", "main_message"):
@@ -460,18 +762,34 @@ def banker_page_pack_template_diagnostics(run_dir: Path, path: Path | None = Non
                 "expected_fixed_page_role": FIXED_PAGE_ROLES.get(slide_no, ""),
                 "selected_page_type": page_type,
                 "allowed_page_types": allowed_page_types,
-                "required_body_fields_from_template": required_fields,
-                "active_body_fields": active_fields,
-                "inactive_when_compare_table_data_present": (
-                    [field for field in required_fields if field not in active_fields]
-                    if page_type == "compare_table_page" and _compare_table_data_from_slide(raw_slide)
+                "template_fit_mode": "strict_placeholder_layout" if strict_layout else "style_guided",
+                "style_guided_template_note": (
+                    ""
+                    if strict_layout
+                    else "Template sample boxes, columns, and page roles are style cues only; write the page composition that best carries the banker argument."
+                ),
+                "strict_layout_placeholders": strict_fields if strict_layout else [],
+                "strict_layout_active_placeholders": active_fields if strict_layout else [],
+                "strict_layout_inactive_table_placeholders": (
+                    [field for field in strict_fields if field not in active_fields]
+                    if strict_layout and page_type == "compare_table_page" and _compare_table_data_from_slide(raw_slide)
                     else []
                 ),
-                "body_field_unit_limits": field_limits,
-                "default_body_field_unit_limit": _default_body_limit(layout_budget),
-                "headline_main_message_line_rules": text_rules,
-                "compare_table_data_contract": (
-                    "Use compare_table_data.headers and rows=[{label, cells}]. Table header/row content does not belong in body_copy when compare_table_data is present."
+                "strict_layout_capacity_hints": (
+                    {
+                        "body_placeholder_unit_limits": field_limits,
+                        "default_body_placeholder_unit_limit": _default_body_limit(layout_budget),
+                        "headline_main_message_line_rules": text_rules,
+                    }
+                    if strict_layout
+                    else {}
+                ),
+                "compare_table_data_guidance": (
+                    (
+                        "Strict placeholder layout takes table content from compare_table_data; use active side-panel placeholders only for side-panel copy."
+                        if strict_layout
+                        else "Use the table shape that best explains the page. The structured-render helper accepts headers/columns and row objects/lists/strings, then normalizes them."
+                    )
                     if page_type == "compare_table_page"
                     else ""
                 ),
@@ -493,10 +811,18 @@ def _assert_artifact_report(path: Path, errors: list[str]) -> None:
         errors.append(f"{path.name} is_valid=false")
 
 
+def _reject_shape_hint_copy(payload: dict[str, Any], artifact: str, errors: list[str], instruction: str) -> None:
+    if payload.get("_shape_hint_only") is True:
+        errors.append(f"{artifact} still has _shape_hint_only=true; {instruction}")
+    if payload.get("_template_only") is True:
+        errors.append(f"{artifact} still has _template_only=true; replace the old copied template with authored content. {instruction}")
+
+
 def validate_material_like(artifact: str, path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
     payload = _json(path, errors)
     if not payload:
         return
+    _reject_shape_hint_copy(payload, artifact, errors, "LLM must author the actual artifact from the user materials")
     if artifact == "input_card" and not (
         payload.get("raw_brief")
         or payload.get("explicit_user_facts")
@@ -519,19 +845,30 @@ def _research_request_queue_policy() -> dict[str, Any]:
     return policy if isinstance(policy, dict) else {}
 
 
-def _policy_values(policy: dict[str, Any], key: str) -> set[str]:
-    return {text(item) for item in as_list(policy.get(key)) if text(item)}
+def _request_active_value(request: dict[str, Any]) -> bool | None:
+    value = request.get("active")
+    return value if isinstance(value, bool) else None
+
+
+def _request_counts_as_active(request: dict[str, Any]) -> bool:
+    active_value = _request_active_value(request)
+    if active_value is not None:
+        return active_value
+    return True
 
 
 def validate_research_request_queue(path: Path, errors: list[str], warnings: list[str]) -> None:
     payload = _json(path, errors)
     if not payload:
         return
-    if payload.get("schema_version") != "research_request_queue_v1":
-        errors.append("research_request_queue must use schema_version research_request_queue_v1")
-    if payload.get("authoring_mode") != "llm_authored":
-        errors.append("research_request_queue.authoring_mode must be llm_authored; do not generate this artifact with a builder script")
-
+    if payload.get("schema_version") != "research_request_queue":
+        errors.append("research_request_queue must use schema_version research_request_queue")
+    _reject_shape_hint_copy(
+        payload,
+        "research_request_queue",
+        errors,
+        "Reasoning LLM must author targeted requests or leave the queue absent",
+    )
     requests = payload.get("requests")
     if not isinstance(requests, list):
         errors.append("research_request_queue.requests must be a list")
@@ -540,48 +877,249 @@ def validate_research_request_queue(path: Path, errors: list[str], warnings: lis
         warnings.append("research_request_queue has no active requests")
 
     policy = _research_request_queue_policy()
-    allowed_source_types = _policy_values(policy, "allowed_source_types")
-    downstream_permissions = _policy_values(policy, "downstream_permissions")
-    statuses = _policy_values(policy, "statuses")
-    if not statuses:
-        statuses = {text(policy.get("default_status")), "pending_public_evidence", "in_research", "resolved", "cancelled"}
-
+    loop_policy = policy.get("targeted_loop_policy") if isinstance(policy.get("targeted_loop_policy"), dict) else {}
+    max_cycles = loop_policy.get("max_cycles_before_user_or_qc_decision")
+    loop_control = payload.get("loop_control")
+    loop_budget = loop_control if isinstance(loop_control, dict) else {}
+    active_requests = [
+        request
+        for request in requests
+        if isinstance(request, dict)
+        and _request_counts_as_active(request)
+    ]
+    max_active_requests = loop_policy.get("max_active_requests_per_cycle")
+    if isinstance(max_active_requests, int) and max_active_requests >= 0:
+        if len(active_requests) > max_active_requests:
+            errors.append(
+                f"research_request_queue has {len(active_requests)} active request(s), "
+                f"above targeted-loop cap {max_active_requests}; keep only research that can change deck inclusion, key data audit, or exhibit readiness"
+            )
+    if not isinstance(loop_control, dict):
+        default_max_note = (
+            f" and max_cycles={max_cycles}" if isinstance(max_cycles, int) and max_cycles > 0 else ""
+        )
+        warnings.append(
+            "research_request_queue.loop_control omitted; helper assumes current_cycle=1"
+            f"{default_max_note} from policy. Add loop_control after a cycle outcome or when overriding the default cap."
+        )
+    else:
+        current_cycle = loop_control.get("current_cycle")
+        declared_max = loop_control.get("max_cycles")
+        if not isinstance(current_cycle, int) or current_cycle < 1:
+            warnings.append(
+                "research_request_queue.loop_control.current_cycle is missing or invalid; helper assumes current_cycle=1 for advisory routing"
+            )
+        if declared_max is None:
+            inherited_note = (
+                f"max_cycles={max_cycles}" if isinstance(max_cycles, int) and max_cycles > 0 else "the policy max cycle cap"
+            )
+            warnings.append(
+                f"research_request_queue.loop_control.max_cycles omitted; helper inherits {inherited_note}"
+            )
+        if declared_max is not None and (not isinstance(declared_max, int) or declared_max < 1):
+            errors.append("research_request_queue.loop_control.max_cycles, when present, must be a positive integer")
+        effective_max = declared_max if isinstance(declared_max, int) and declared_max > 0 else max_cycles
+        if isinstance(max_cycles, int) and max_cycles > 0 and isinstance(declared_max, int) and declared_max > max_cycles:
+            errors.append(
+                f"research_request_queue.loop_control.max_cycles exceeds policy cap {max_cycles}"
+            )
+        if isinstance(current_cycle, int) and isinstance(effective_max, int) and effective_max > 0:
+            if current_cycle > effective_max:
+                errors.append(
+                    f"research_request_queue.loop_control.current_cycle={current_cycle} exceeds max_cycles={effective_max}; "
+                    "route to QC/user decision instead of starting another research loop"
+                )
+            elif current_cycle == effective_max:
+                latest_outcome = text(loop_control.get("latest_cycle_outcome"))
+                if latest_outcome and active_requests:
+                    errors.append(
+                        "research_request_queue final targeted cycle already has latest_cycle_outcome, "
+                        "but active requests remain. Close resolved/exhausted requests and route remaining gaps "
+                        "to QC/user decision instead of rerunning the same search loop."
+                    )
+                elif not latest_outcome and not active_requests:
+                    errors.append(
+                        "research_request_queue final targeted cycle has no active requests but no latest_cycle_outcome; "
+                        "record what changed or why sources were unavailable before routing to QC/user decision"
+                    )
+                else:
+                    warnings.append(
+                        "research_request_queue is on its final targeted cycle; unresolved gaps after this cycle must route to QC/user decision"
+                    )
+            elif not active_requests and not text(loop_control.get("latest_cycle_outcome")):
+                warnings.append(
+                    "research_request_queue has no active requests and no latest_cycle_outcome; "
+                    "add one narrow request within the remaining loop budget or record why another search will not change the page decision"
+                )
     seen: set[str] = set()
     for idx, request in enumerate(requests, start=1):
         if not isinstance(request, dict):
             errors.append(f"research_request_queue.requests[{idx}] must be an object")
             continue
         request_id = text(request.get("request_id") or request.get("research_request_id"))
-        if not re.fullmatch(r"RQ-\d{3}", request_id):
-            errors.append(f"research_request_queue.requests[{idx}].request_id must look like RQ-001")
+        request_label = request_id or f"request {idx}"
+        if request_id and not re.fullmatch(r"RQ-\d{3}", request_id):
+            warnings.append(f"research_request_queue.requests[{idx}].request_id does not look like RQ-001; array order can still be used")
         elif request_id in seen:
             errors.append(f"duplicate research request id: {request_id}")
-        seen.add(request_id)
-        if not text(request.get("research_question")):
-            errors.append(f"{request_id or f'request {idx}'} missing research_question")
-        if not (
-            text(request.get("origin_artifact"))
-            or text(request.get("origin_ref_id"))
-            or text(request.get("origin_issue_id"))
-            or text(request.get("origin_page_argument_id"))
-            or text(request.get("boundary_request_id"))
-        ):
-            errors.append(f"{request_id or f'request {idx}'} must cite its origin artifact or source ref")
+        if request_id:
+            seen.add(request_id)
+        active_value = _request_active_value(request)
+        if active_value is None:
+            warnings.append(
+                f"{request_label} missing active boolean; helper treats it as active for this cycle. "
+                "Set active=false after the request is closed, exhausted, or deferred."
+            )
+        if not (text(request.get("research_question")) or text(request.get("question"))):
+            errors.append(f"{request_label} missing research_question")
+        if active_value is True:
+            if not _has_request_decision_anchor(request):
+                warnings.append(
+                    f"LLM research prompt: {request_label} does not name the page, metric, headline, key data, "
+                    "or exhibit decision it could change; LLM/QC should narrow active requests before execution "
+                    "instead of running open-ended exploration"
+                )
+            if not _has_request_close_condition(request):
+                warnings.append(
+                    f"LLM research prompt: {request_label} does not name a stop condition or close rule; "
+                    "LLM/QC should add when to close, narrow, or escalate this request so the next cycle does not rerun it unchanged"
+                )
+            max_searches = loop_policy.get("max_actual_searches_per_request")
+            if isinstance(max_searches, int) and max_searches >= 0:
+                explicit_budgets = _explicit_search_budget_values(request)
+                inherited_search_budgets = _explicit_search_budget_values(loop_budget)
+                oversized = [value for value in explicit_budgets + inherited_search_budgets if value > max_searches]
+                if oversized:
+                    errors.append(
+                        f"{request_label} search_budget exceeds policy cap {max_searches} actual search(es) per request"
+                    )
+            max_sources = loop_policy.get("max_opened_sources_per_request")
+            if isinstance(max_sources, int) and max_sources >= 0:
+                source_budget_values = _explicit_source_review_budget_values(request)
+                inherited_source_budget_values = _explicit_source_review_budget_values(loop_budget)
+                if any(value > max_sources for value in source_budget_values + inherited_source_budget_values):
+                    errors.append(
+                        f"{request_label} source_review_budget exceeds policy cap {max_sources} opened/reviewed source(s) per request"
+                    )
+            max_promoted = loop_policy.get("max_promoted_sources_per_request")
+            if isinstance(max_promoted, int) and max_promoted >= 0:
+                promoted_budget_values = _explicit_promoted_source_budget_values(request)
+                inherited_promoted_budget_values = _explicit_promoted_source_budget_values(loop_budget)
+                if any(value > max_promoted for value in promoted_budget_values + inherited_promoted_budget_values):
+                    errors.append(
+                        f"{request_label} promoted-source budget exceeds policy cap {max_promoted} promoted source(s) per request"
+                    )
 
-        required_source_type = text(request.get("required_source_type"))
-        if allowed_source_types and required_source_type not in allowed_source_types:
-            errors.append(f"{request_id or f'request {idx}'} required_source_type is not allowed: {required_source_type}")
-        minimum = request.get("minimum_actual_searches")
-        if not isinstance(minimum, int) or minimum < 0:
-            errors.append(f"{request_id or f'request {idx}'} minimum_actual_searches must be a non-negative integer")
-        permission = text(request.get("downstream_permission_if_unresolved"))
-        if downstream_permissions and permission not in downstream_permissions:
-            errors.append(f"{request_id or f'request {idx}'} downstream_permission_if_unresolved is not allowed: {permission}")
-        status = text(request.get("status"))
-        if statuses and status not in statuses:
-            errors.append(f"{request_id or f'request {idx}'} status is not allowed: {status}")
-        if not text(request.get("success_criteria")):
-            warnings.append(f"{request_id or f'request {idx}'} has no success_criteria")
+
+def _has_request_decision_anchor(request: dict[str, Any]) -> bool:
+    anchor_fields = (
+        "origin_ref_id",
+        "origin_page_argument_id",
+        "boundary_request_id",
+        "banker_page_id",
+        "page_id",
+        "page_ref",
+        "page_refs",
+        "slide_no",
+        "metric_id",
+        "metric_ids",
+        "evidence_id",
+        "evidence_ids",
+        "claim_ref",
+        "exhibit_ref",
+        "target_decision",
+        "decision_to_change",
+        "decision_anchor",
+        "decision",
+        "page_use_decision",
+        "claim_decision",
+        "chart_decision",
+        "table_decision",
+        "exhibit_decision",
+        "key_data_decision",
+        "would_change",
+    )
+    for field in anchor_fields:
+        value = request.get(field)
+        if isinstance(value, list) and any(text(item) for item in value):
+            return True
+        if text(value):
+            return True
+    return False
+
+
+def _has_request_close_condition(request: dict[str, Any]) -> bool:
+    close_fields = (
+        "stop_condition",
+        "stop_rule",
+        "close_rule",
+        "close_when",
+        "close_condition",
+        "when_to_stop",
+        "stop_or_close_rule",
+        "do_not_rerun_when",
+        "success_criteria",
+        "failure_condition",
+        "escalation_condition",
+        "if_unresolved",
+        "outcome_rule",
+        "cycle_close_rule",
+        "expected_resolution",
+    )
+    for field in close_fields:
+        value = request.get(field)
+        if isinstance(value, list) and any(text(item) for item in value):
+            return True
+        if isinstance(value, dict) and any(text(item) for item in value.values()):
+            return True
+        if text(value):
+            return True
+    return False
+
+
+def _integer_values_from_fields(payload: dict[str, Any], fields: tuple[str, ...]) -> list[int]:
+    return [payload[field] for field in fields if isinstance(payload.get(field), int)]
+
+
+def _explicit_search_budget_values(request: dict[str, Any]) -> list[int]:
+    return _integer_values_from_fields(
+        request,
+        (
+        "max_searches",
+        "max_actual_searches",
+        "actual_search_budget",
+        "search_budget_count",
+        "search_limit",
+        ),
+    )
+
+
+def _explicit_source_review_budget_values(request: dict[str, Any]) -> list[int]:
+    return _integer_values_from_fields(
+        request,
+        (
+        "max_opened_sources",
+        "max_sources_reviewed",
+        "max_reviewed_sources",
+        "opened_source_limit",
+        "source_review_limit",
+        "source_review_budget_count",
+        ),
+    )
+
+
+def _explicit_promoted_source_budget_values(request: dict[str, Any]) -> list[int]:
+    return _integer_values_from_fields(
+        request,
+        (
+        "max_promoted_sources",
+        "max_sources_promoted",
+        "promoted_source_limit",
+        "promotion_limit",
+        "promoted_source_budget_count",
+        "promotion_budget_count",
+        ),
+    )
 
 
 def validate_scope(path: Path, errors: list[str], warnings: list[str]) -> None:
@@ -590,12 +1128,52 @@ def validate_scope(path: Path, errors: list[str], warnings: list[str]) -> None:
         return
     if payload.get("schema_version") != "industry_scope_pack_boundary_card":
         errors.append("industry_scope_pack must use schema_version industry_scope_pack_boundary_card")
+    _reject_shape_hint_copy(
+        payload,
+        "industry_scope_pack",
+        errors,
+        "Industry Scoping LLM must author the actual boundary card",
+    )
     if payload.get("do_not_use_as_claims") is not True:
-        errors.append("industry_scope_pack.do_not_use_as_claims must be true")
+        warnings.append(
+            "industry_scope_pack.do_not_use_as_claims is not true; LLM/QC should treat the scope pack as a boundary card only, not as page evidence or market findings"
+        )
+    if "boundary_validation_needed" in payload:
+        errors.append("industry_scope_pack uses removed field boundary_validation_needed; use boundary_checks_if_needed")
     summary = payload.get("scope_summary") if isinstance(payload.get("scope_summary"), dict) else {}
     for field in ("working_market", "parent_market", "broader_market"):
         if not text(summary.get(field)):
             errors.append(f"scope_summary.{field} is required")
+
+
+def validate_industry_boundary_qc(path: Path, errors: list[str], warnings: list[str]) -> None:
+    payload = _json(path, errors)
+    if not payload:
+        return
+    if payload.get("schema_version") != "industry_boundary_qc":
+        errors.append("industry_boundary_qc must use schema_version industry_boundary_qc")
+    _reject_shape_hint_copy(payload, "industry_boundary_qc", errors, "LLM QC must author the actual boundary review")
+    decision = text(payload.get("decision"))
+    if not decision:
+        warnings.append(
+            "industry_boundary_qc.decision is missing; LLM boundary QC should write a short natural-language review decision when this optional diagnostic artifact is used"
+        )
+    business_action = text(payload.get("business_action")).lower()
+    if business_action and business_action not in {"research_ready", "boundary_check", "repair_scope"}:
+        warnings.append(
+            "industry_boundary_qc.business_action is nonstandard; helpers only honor exact research_ready, "
+            "boundary_check, or repair_scope, and otherwise treat the optional boundary review as advisory"
+        )
+    if "validated_scope" in payload:
+        errors.append("industry_boundary_qc uses removed field validated_scope; use reviewed_scope")
+    if "boundary_validation_requests" in payload:
+        errors.append("industry_boundary_qc uses removed field boundary_validation_requests; use rationale, scope_adjustments, or research_handoff_note")
+    if business_action == "research_ready" and not text(payload.get("rationale")):
+        warnings.append("industry_boundary_qc.business_action=research_ready should include a short rationale for Research handoff")
+    if business_action == "research_ready":
+        reviewed_scope = payload.get("reviewed_scope") if isinstance(payload.get("reviewed_scope"), dict) else {}
+        if not any(text(reviewed_scope.get(field)) for field in ("working_market", "parent_market", "broader_market")):
+            warnings.append("industry_boundary_qc.business_action=research_ready should restate at least the working market in reviewed_scope")
 
 
 def _contains_key(value: Any, keys: set[str]) -> bool:
@@ -606,39 +1184,157 @@ def _contains_key(value: Any, keys: set[str]) -> bool:
     return False
 
 
+def _has_substantive_thread(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(text(value))
+    if isinstance(value, dict):
+        return any(_has_substantive_thread(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_has_substantive_thread(item) for item in value)
+    return value is not None
+
+
+def _executable_query_texts(row: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for field in ("query_text", "search_query"):
+        if text(row.get(field)):
+            values.append(text(row.get(field)))
+    for item in as_list(row.get("queries") or row.get("query_set") or row.get("search_queries")):
+        if isinstance(item, str) and text(item):
+            values.append(text(item))
+        elif isinstance(item, dict):
+            for field in ("query", "query_text", "search_query", "text"):
+                if text(item.get(field)):
+                    values.append(text(item.get(field)))
+                    break
+    return unique(values)
+
+
+def _query_placeholder_texts(query_texts: list[str]) -> list[str]:
+    return [
+        value
+        for value in query_texts
+        if "LLM_REWRITE_REQUIRED" in value or "needs_authoring" in value
+    ]
+
+
+def _query_row_active_value(row: dict[str, Any]) -> bool | None:
+    value = row.get("active")
+    return value if isinstance(value, bool) else None
+
+
+def _query_row_has_reason(row: dict[str, Any]) -> bool:
+    return any(
+        text(row.get(field))
+        for field in (
+            "why_this_search_matters",
+            "selection_note",
+            "decision_note",
+            "defer_reason",
+            "backlog_reason",
+            "why_not_run",
+        )
+    )
+
+
 def validate_formal_plan(path: Path, errors: list[str], warnings: list[str]) -> None:
     payload = _json(path, errors)
     if not payload:
         return
+    _reject_shape_hint_copy(
+        payload,
+        "formal_search_plan",
+        errors,
+        "Research Planning LLM must author the actual evidence-need map",
+    )
     if _contains_key(payload, {"query", "query_variants", "english_query", "chinese_query"}):
         errors.append("formal_search_plan must not contain executable query fields")
-    rows = payload.get("issue_search_plan")
-    if not isinstance(rows, list) or not rows:
-        errors.append("formal_search_plan.issue_search_plan must be a non-empty list")
+    legacy_plan_fields = {"issue_search_plan", "issue_area", "subissue", "minimum_actual_searches", "coverage_required"}
+    if _contains_key(payload, legacy_plan_fields):
+        errors.append(
+            "formal_search_plan must not contain legacy taxonomy/query-control fields "
+            "(issue_search_plan, issue_area, subissue, minimum_actual_searches, coverage_required); "
+            "write compact evidence-need threads instead"
+        )
+    thread_fields = (
+        "industry_specific_research_threads",
+        "core_research_threads",
+        "custom_evidence_needs",
+        "research_threads",
+    )
+    if not any(_has_substantive_thread(payload.get(field)) for field in thread_fields):
+        errors.append(
+            "formal_search_plan must include at least one evidence-need thread in "
+            "core_research_threads, industry_specific_research_threads, custom_evidence_needs, or research_threads"
+        )
 
 
 def validate_search_batch(path: Path, errors: list[str], warnings: list[str]) -> None:
     payload = _json(path, errors)
     if not payload:
         return
-    raw = json.dumps(payload, ensure_ascii=False)
-    if "LLM_REWRITE_REQUIRED" in raw:
-        errors.append("executable_search_batch still contains LLM_REWRITE_REQUIRED")
-    if "needs_authoring" in raw:
-        errors.append("executable_search_batch still contains needs_authoring rows")
     rows = payload.get("batches")
     if isinstance(rows, list):
         for idx, row in enumerate(rows, start=1):
             if not isinstance(row, dict):
                 continue
-            status = text(row.get("query_status"))
-            if status != "authored":
-                fs_id = text(row.get("search_instruction_id")) or f"row {idx}"
-                errors.append(f"executable_search_batch {fs_id}: query_status must be authored before execution")
-            for field in ("english_query", "chinese_query", "source_specific_query"):
-                if not text(row.get(field)):
-                    fs_id = text(row.get("search_instruction_id")) or f"row {idx}"
-                    errors.append(f"executable_search_batch {fs_id}: {field} is required")
+            fs_id = text(row.get("search_instruction_id")) or f"row {idx}"
+            if "query_status" in row:
+                errors.append(
+                    f"executable_search_batch {fs_id}: query_status is no longer a routing field; "
+                    "use active=true for rows to execute now and active=false for deferred rows"
+                )
+            legacy_fields = [field for field in ("english_query", "chinese_query", "source_specific_query") if field in row]
+            if legacy_fields:
+                errors.append(
+                    f"executable_search_batch {fs_id}: legacy query columns are not allowed "
+                    f"({', '.join(legacy_fields)}); use queries[] or query_text"
+                )
+            query_texts = _executable_query_texts(row)
+            placeholder_texts = _query_placeholder_texts(query_texts)
+            active_value = _query_row_active_value(row)
+            if active_value is None:
+                errors.append(
+                    f"executable_search_batch {fs_id}: missing active boolean; use active=true for rows to execute now "
+                    "and active=false for deferred/not-material rows. Python does not infer execution intent from notes."
+                )
+                continue
+            if active_value is False:
+                if placeholder_texts:
+                    warnings.append(
+                        f"executable_search_batch {fs_id}: active=false row still carries placeholder query text; "
+                        "delete query placeholders from deferred rows"
+                    )
+                if query_texts and not placeholder_texts:
+                    warnings.append(
+                        f"executable_search_batch {fs_id}: active=false row carries query text; "
+                        "Research should ignore it unless Query Author changes active to true"
+                    )
+                if not _query_row_has_reason(row):
+                    warnings.append(f"executable_search_batch {fs_id}: active=false row should explain why it is not run now")
+                continue
+            if placeholder_texts:
+                errors.append(f"executable_search_batch {fs_id}: query text still contains placeholder text")
+            if not query_texts:
+                errors.append(
+                    f"executable_search_batch {fs_id}: active=true rows need at least one concrete query "
+                    "in query_text or queries[]"
+                )
+
+
+def validate_research_graph_state(path: Path, errors: list[str], warnings: list[str]) -> None:
+    payload = _json(path, errors)
+    if not payload:
+        return
+    units = payload.get("research_units")
+    if units is None:
+        units = payload.get("units")
+    if units is not None and not isinstance(units, list):
+        errors.append("research_graph_state research_units/units must be a list when present")
+    if not units:
+        warnings.append(
+            "research_graph_state has no visible research units; Research should record selected searches or manual-source reviews here before Knowledge authoring"
+        )
 
 
 def validate_execution(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
@@ -648,36 +1344,26 @@ def validate_execution(path: Path, run_dir: Path, errors: list[str], warnings: l
     search_log = run_dir / "artifacts/search_log.md"
     if not search_log.exists():
         errors.append("formal research execution requires artifacts/search_log.md")
-    coverage = payload.get("coverage_summary") if isinstance(payload.get("coverage_summary"), dict) else {}
-    status_rows = as_list(payload.get("fs_row_execution_status"))
-    below_minimum = [
-        text(row.get("fs_id"))
-        for row in status_rows
-        if isinstance(row, dict)
-        and text(row.get("execution_expectation")) == "deep_search"
-        and int(row.get("actual_search_attempt_count") or 0) < int(row.get("minimum_actual_searches") or 0)
-        and text(row.get("fs_id"))
-    ]
-    if below_minimum:
-        warnings.append(
-            "formal research execution is below minimum search coverage for planned rows: "
-            + ", ".join(below_minimum[:12])
-            + (f"; plus {len(below_minimum) - 12} more" if len(below_minimum) > 12 else "")
-        )
 
 
 def validate_source_archive(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
     payload = _json(path, errors)
     if not payload:
         return
-    rows = payload.get("sources") or payload.get("source_archive") or payload.get("archives") or []
+    rows = (
+        payload.get("entries")
+        or payload.get("sources")
+        or payload.get("source_archive")
+        or payload.get("archives")
+        or []
+    )
     if not isinstance(rows, list):
         errors.append("source archive index must contain a source list")
         return
     for idx, row in enumerate(rows, start=1):
         if not isinstance(row, dict):
             continue
-        source_id = text(row.get("source_id") or row.get("id"))
+        source_id = text(row.get("source_review_id") or row.get("source_id") or row.get("id"))
         if source_id and not SRC_RE.fullmatch(source_id):
             errors.append(f"source archive row {idx}: invalid source_id {source_id}")
         status = text(row.get("research_archive_status") or row.get("archive_status"))
@@ -708,7 +1394,10 @@ def validate_research_pack(path: Path, run_dir: Path, errors: list[str], warning
         warnings.append("research pack contains no visible EV/MET IDs")
     db_path = run_dir / "artifacts/research_evidence_db.json"
     if not db_path.exists():
-        errors.append("research pack requires artifacts/research_evidence_db.json as source of truth")
+        errors.append(
+            "research pack is a derived export, but artifacts/research_evidence_db.json is missing; "
+            "Knowledge must author or repair the evidence DB first, then regenerate the pack"
+        )
 
 
 def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
@@ -721,18 +1410,6 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
     if not isinstance(slides, list) or not slides:
         errors.append("banker_page_pack.slides must contain at least one LLM-authored page")
         return
-    if len(slides) > 12:
-        errors.append("banker_page_pack.slides must not contain more than 12 pages; split into a separate section instead")
-        return
-    slide_numbers = [_int_value(slide.get("slide_no")) for slide in slides if isinstance(slide, dict)]
-    missing_numbers = [idx for idx, number in enumerate(slide_numbers, start=1) if not number]
-    duplicate_numbers = sorted({number for number in slide_numbers if number and slide_numbers.count(number) > 1})
-    if missing_numbers:
-        errors.append(f"banker_page_pack has slide(s) missing positive slide_no at positions: {missing_numbers}")
-    if duplicate_numbers:
-        errors.append(f"banker_page_pack contains duplicate slide_no values: {duplicate_numbers}")
-    if any(number and number > 12 for number in slide_numbers):
-        errors.append("banker_page_pack slide_no values must be between 1 and 12")
     db_path = run_dir / "artifacts/research_evidence_db.json"
     db = _json(db_path, []) if db_path.exists() else {}
     ev_ids = _ids(db, "evidence_ledger", ("evidence_id", "id"))
@@ -740,11 +1417,45 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
     template_path = run_dir / "template_registry.json"
     template = _json(template_path, []) if template_path.exists() else {}
     strict_layout = _strict_layout(run_dir, payload)
+    raw_slide_numbers = [_int_value(slide.get("slide_no")) for slide in slides if isinstance(slide, dict)]
+    missing_numbers = [idx for idx, number in enumerate(raw_slide_numbers, start=1) if not number]
+    if strict_layout and missing_numbers:
+        errors.append(f"banker_page_pack has slide(s) missing positive slide_no at positions: {missing_numbers}")
+    elif missing_numbers:
+        warnings.append(
+            f"banker_page_pack omits slide_no at positions {missing_numbers}; style-guided validation will use array order"
+        )
+    resolved_slide_numbers = [
+        number if number else idx
+        for idx, number in enumerate(raw_slide_numbers, start=1)
+    ]
+    duplicate_numbers = sorted({number for number in resolved_slide_numbers if number and resolved_slide_numbers.count(number) > 1})
+    if strict_layout and duplicate_numbers:
+        errors.append(f"banker_page_pack contains duplicate resolved slide_no values: {duplicate_numbers}")
+    elif duplicate_numbers:
+        warnings.append(
+            f"banker_page_pack contains duplicate slide_no hints {duplicate_numbers}; "
+            "style-guided structured render will use array order and normalize internal page IDs"
+        )
+    if strict_layout and any(number and number not in FIXED_PAGE_ROLES for number in resolved_slide_numbers):
+        errors.append("strict_layout banker_page_pack slide_no values must align with the template registry")
+    not_allowed_numbers = [
+        number if number else idx
+        for idx, (slide, number) in enumerate(zip(slides, resolved_slide_numbers), start=1)
+        if isinstance(slide, dict)
+        and normalize_allowed_deck_usage(slide.get("allowed_deck_usage") or slide.get("deck_use")) == "not_allowed"
+    ]
+    if not_allowed_numbers:
+        message = (
+            f"banker_page_pack contains page(s) marked not for deck: {not_allowed_numbers}; "
+            "style-guided structured render will skip these pages, while strict_layout requires removing or repairing them before render"
+        )
+        (errors if strict_layout else warnings).append(message)
     template_variants = template_variants_by_slide(template) if template else {}
     if not template:
         warnings.append(
             "banker_page_pack template-specific checks were limited because template_registry.json is missing; "
-            "run scripts/pipeline.py template-registry or scripts/pipeline.py render to generate it"
+            "structured render can generate the internal template registry when template-specific rendering is needed"
         )
     layout_budget = _load_config_json("configs/layout_budget.json")
     text_fit_rules = _load_config_json("configs/text_fit_rules.json")
@@ -752,34 +1463,86 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
         if not isinstance(slide, dict):
             errors.append(f"slide {idx}: must be an object")
             continue
-        slide_no = _int_value(slide.get("slide_no"))
+        raw_slide_no = _int_value(slide.get("slide_no"))
+        slide_no = raw_slide_no if strict_layout and raw_slide_no else idx
         expected_id = f"BP-{slide_no:03d}" if slide_no else ""
-        if text(slide.get("banker_page_id") or expected_id) != expected_id:
-            errors.append(f"slide {slide_no}: banker_page_id must be {expected_id}")
+        explicit_banker_page_id = text(slide.get("banker_page_id"))
+        if explicit_banker_page_id and explicit_banker_page_id != expected_id:
+            warnings.append(
+                f"slide {slide_no}: banker_page_id {explicit_banker_page_id!r} will be normalized to {expected_id}; "
+                "omit internal IDs unless they help coordination"
+            )
         expected_role = FIXED_PAGE_ROLES.get(slide_no)
-        if expected_role and text(slide.get("fixed_page_role")) != expected_role:
-            if strict_layout:
-                errors.append(
-                    f"slide {slide_no}: fixed_page_role differs from registry role '{expected_role}'. "
-                    "strict_layout mode requires registry alignment."
-                )
-        if text(slide.get("claim_strength")) not in VALID_CLAIM_STRENGTHS:
-            errors.append(f"slide {slide_no}: invalid claim_strength")
-        if text(slide.get("allowed_deck_usage")) not in VALID_ALLOWED_DECK_USAGES:
-            errors.append(f"slide {slide_no}: allowed_deck_usage must be one of {sorted(VALID_ALLOWED_DECK_USAGES)}")
-        subject = text(slide.get("page_primary_subject"))
-        if subject not in PAGE_PRIMARY_SUBJECTS:
-            errors.append(f"slide {slide_no}: page_primary_subject must be one of {sorted(PAGE_PRIMARY_SUBJECTS)}")
+        fixed_page_role = text(slide.get("fixed_page_role"))
+        if strict_layout and expected_role and fixed_page_role != expected_role:
+            errors.append(
+                f"slide {slide_no}: fixed_page_role differs from registry role '{expected_role}'. "
+                "strict_layout mode requires registry alignment."
+            )
+        elif not strict_layout and fixed_page_role and expected_role and fixed_page_role != expected_role:
+            warnings.append(
+                f"slide {slide_no}: fixed_page_role '{fixed_page_role}' differs from bundled registry role "
+                f"'{expected_role}'; style-guided rendering treats this as a template hint, not a content contract"
+            )
         if text(slide.get("transaction_readthrough")):
-            errors.append(f"slide {slide_no}: transaction_readthrough is deprecated; use project_relevance_note")
-        for field in ("fixed_page_role", "page_question", "banker_judgment", "page_argument", "headline", "main_message", "selected_page_type", "source_note"):
+            errors.append(
+                f"slide {slide_no}: transaction_readthrough is a legacy internal field; "
+                "write current client-facing project_relevance_note instead"
+            )
+        page_argument = _slide_page_argument(slide)
+        headline = _slide_headline(slide)
+        if not page_argument:
+            warnings.append(
+                f"slide {slide_no}: LLM editorial prompt: no page argument/thesis was found; "
+                "drafting can continue, but LLM/QC should decide whether the visible headline, exhibit, "
+                "and body copy already carry a clear client-facing industry judgment before rendering"
+            )
+        if not headline and not page_argument:
+            warnings.append(
+                f"slide {slide_no}: LLM editorial prompt: no headline/title was found; drafting can continue, "
+                "but LLM/QC should provide client-facing slide language or confirm another visible element can "
+                "carry the page title before rendering"
+            )
+        strict_fields = []
+        if strict_layout:
+            strict_fields.insert(0, "fixed_page_role")
+            strict_fields.append("selected_page_type")
+        for field in strict_fields:
             if not text(slide.get(field)):
                 errors.append(f"slide {slide_no}: {field} is required")
-        _warn_internal_client_facing_terms(slide_no, slide, warnings)
+        slide_evidence_ids = sorted(_scan_ids(slide, {"evidence_id", "evidence_ids"}))
+        slide_metric_ids_for_source = sorted(_scan_ids(slide, {"metric_id", "metric_ids"}))
+        if not text(slide.get("source_note")):
+            if not slide_evidence_ids and not slide_metric_ids_for_source:
+                warnings.append(
+                    f"slide {slide_no}: LLM evidence prompt: source_note omitted and no EV/MET bindings were found; "
+                    "LLM/QC should either add readable provenance/evidence bindings or mark the page as caveated, "
+                    "project-context, or needing targeted research"
+                )
         body_blocks = as_list(slide.get("body_blocks"))
-        if not body_blocks:
-            errors.append(f"slide {slide_no}: body_blocks is required")
-        selected_page_type = text(slide.get("selected_page_type"))
+        if not _has_substantive_page_content(slide):
+            warnings.append(
+                f"slide {slide_no}: LLM editorial prompt: page lacks substantive visible content; "
+                "repair the page pack with body copy, a chart/table/card/matrix, or an intentional merge/drop decision "
+                "instead of filling template slots automatically"
+            )
+        editorial_hits = _client_visible_editorial_hits(slide)
+        if editorial_hits:
+            hit_summaries = []
+            seen_hit_summaries: set[str] = set()
+            for field_path, category in editorial_hits:
+                summary = f"{field_path} ({category})"
+                if summary not in seen_hit_summaries:
+                    seen_hit_summaries.add(summary)
+                    hit_summaries.append(summary)
+            warnings.append(
+                f"slide {slide_no}: LLM editorial prompt: client-visible copy may contain internal workpaper language "
+                f"in {', '.join(hit_summaries[:6])}. Rewrite as a market point, source caveat, or transaction relevance bridge before final render."
+            )
+        explicit_selected_page_type = text(slide.get("selected_page_type"))
+        selected_page_type = explicit_selected_page_type
+        if not selected_page_type and not strict_layout:
+            selected_page_type = infer_selected_page_type(slide, slide_no, template)
         active_fields: list[str] = []
         body_copy_for_checks: dict[str, str] = {}
         if template and selected_page_type:
@@ -790,45 +1553,46 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
                         f"slide {slide_no}: selected_page_type '{selected_page_type}' is not available for "
                         f"fixed_page_role '{expected_role or '?'}'; allowed page types: {allowed_page_types}"
                     )
-            required_fields = required_body_fields(template, slide_no, selected_page_type)
-            active_fields = active_body_fields(required_fields, selected_page_type, slide)
-            if selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
-                inactive = [field for field in required_fields if field not in active_fields]
+            strict_fields = strict_layout_body_fields(template, slide_no, selected_page_type) if strict_layout else []
+            active_fields = active_body_fields(strict_fields, selected_page_type, slide) if strict_layout else []
+            if strict_layout and selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
+                inactive = [field for field in strict_fields if field not in active_fields]
                 if inactive:
                     warnings.append(
                         f"slide {slide_no}: compare_table_page table fields are supplied through compare_table_data; "
-                        f"inactive body fields when compare_table_data is present: {inactive}; active body fields: {active_fields}"
+                        f"inactive strict-layout placeholders when compare_table_data is present: {inactive}; "
+                        f"active strict-layout placeholders: {active_fields}"
                     )
             explicit_body_copy = slide.get("body_copy") if isinstance(slide.get("body_copy"), dict) else {}
-            if explicit_body_copy:
+            if strict_layout and explicit_body_copy:
                 body_copy_for_checks = {str(key): str(value or "").strip() for key, value in explicit_body_copy.items()}
                 extra_fields = sorted(set(body_copy_for_checks) - set(active_fields))
                 if extra_fields:
                     message = (
-                        f"slide {slide_no}: body_copy contains fields not active for {selected_page_type}: {extra_fields}. "
-                        f"Active body fields: {active_fields or ['(none)']}"
+                        f"slide {slide_no}: body_copy contains strict-layout placeholders not active for {selected_page_type}: {extra_fields}. "
+                        f"Active strict-layout placeholders: {active_fields or ['(none)']}"
                     )
                     (errors if strict_layout else warnings).append(message)
                 missing_fields = [field for field in active_fields if not text(body_copy_for_checks.get(field))]
                 if missing_fields:
                     message = (
-                        f"slide {slide_no}: body_copy missing active fields for {selected_page_type}: {missing_fields}. "
-                        f"Active body fields: {active_fields or ['(none)']}"
+                        f"slide {slide_no}: body_copy missing active strict-layout placeholders for {selected_page_type}: {missing_fields}. "
+                        f"Active strict-layout placeholders: {active_fields or ['(none)']}"
                     )
                     (errors if strict_layout else warnings).append(message)
             elif body_blocks:
                 try:
                     body_copy_for_checks = _body_copy_from_blocks(
                         slide,
-                        required_fields,
+                        strict_fields,
                         selected_page_type,
                         strict_layout=strict_layout,
                     )
                 except Exception as exc:
                     (errors if strict_layout else warnings).append(
-                        f"slide {slide_no}: body_blocks cannot map to active template fields: {exc}"
+                        f"slide {slide_no}: body_blocks cannot map to strict-layout placeholders: {exc}"
                     )
-            if selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
+            if strict_layout and selected_page_type == "compare_table_page" and _compare_table_data_from_slide(slide):
                 for block_idx, block in enumerate(body_blocks, start=1):
                     if not isinstance(block, dict):
                         continue
@@ -842,7 +1606,7 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
                     if target_or_role == "table_header" or target_or_role.startswith("table_row_"):
                         message = (
                             f"slide {slide_no}: body block {block_idx} uses '{target_or_role}', but compare_table_page "
-                            "takes table content from compare_table_data; use active body fields "
+                            "takes table content from compare_table_data; use active side-panel placeholders "
                             f"{active_fields or ['right_top', 'right_mid', 'right_bottom']}"
                         )
                         (errors if strict_layout else warnings).append(message)
@@ -872,22 +1636,36 @@ def validate_banker_page_pack(path: Path, run_dir: Path, errors: list[str], warn
                     warnings.append(
                         f"slide {slide_no}: {text_field} estimates to {estimated} lines for {placeholder}; target is {target_lines}"
                     )
-                if max_lines and estimated > max_lines and rule.get("block_if_exceeds_max_lines") is not False:
-                    message = (
-                        f"slide {slide_no}: {text_field} exceeds template max lines for {placeholder}: "
-                        f"estimated {estimated}, max {max_lines}; shorten before render"
-                    )
-                    (errors if strict_layout else warnings).append(message)
+                if max_lines and estimated > max_lines:
+                    if strict_layout and _strict_layout_blocks_line_overflow(rule):
+                        errors.append(
+                            f"slide {slide_no}: {text_field} exceeds template max lines for {placeholder}: "
+                            f"estimated {estimated}, max {max_lines}; shorten before render"
+                        )
+                    elif not strict_layout:
+                        warnings.append(
+                            f"slide {slide_no}: {text_field} line-fit advisory for {placeholder}: "
+                            f"estimated {estimated} lines vs template hint {max_lines}; "
+                            "in style-guided mode, preserve the page argument and choose rewrite, split-page, "
+                            "or layout adjustment only if the rendered page looks crowded"
+                        )
         if selected_page_type == "compare_table_page":
             compare_table_data = _compare_table_data_from_slide(slide)
             if not compare_table_data:
                 message = (
-                    f"slide {slide_no}: compare_table_page requires compare_table_data with headers and rows; "
-                    "do not put peer-table content in body_blocks"
+                    f"slide {slide_no}: compare_table_page needs a compare_table_data payload; "
+                    "style-guided mode accepts headers/columns/table_header and row objects/lists/strings/table_row_* "
+                    "and will normalize them. Do not put peer-table content only in body_blocks."
                 )
                 (errors if strict_layout else warnings).append(message)
             else:
-                _validate_compare_table_shape(slide_no, compare_table_data, errors, warnings)
+                _validate_compare_table_shape(
+                    slide_no,
+                    compare_table_data,
+                    errors,
+                    warnings,
+                    strict_layout=strict_layout,
+                )
         slide_ev_ids = _scan_ids(slide, {"evidence_id", "evidence_ids"})
         slide_met_ids = _scan_ids(slide, {"metric_id", "metric_ids"})
         for ev_id in slide_ev_ids:
@@ -927,11 +1705,12 @@ def validate_deck_blueprint(path: Path, run_dir: Path, errors: list[str], warnin
     if not isinstance(slides, list) or not slides:
         errors.append("deck_blueprint.slides must contain at least one page")
         return
-    if len(slides) > 12:
-        errors.append("deck_blueprint.slides must not contain more than 12 pages")
-        return
     template = _json(run_dir / "template_registry.json", []) if (run_dir / "template_registry.json").exists() else {}
     strict_layout = _strict_layout(run_dir, payload)
+    if strict_layout and len(slides) > 12:
+        errors.append(
+            f"deck_blueprint has {len(slides)} pages; strict_layout requires the fixed template page set"
+        )
     seen_slide_numbers: list[int] = []
     for slide in slides:
         if not isinstance(slide, dict):
@@ -948,17 +1727,27 @@ def validate_deck_blueprint(path: Path, run_dir: Path, errors: list[str], warnin
         banker_page_id = banker_page_id_for_slide(slide)
         if not BP_RE.fullmatch(banker_page_id):
             errors.append(f"slide {slide_no}: invalid banker_page_id")
-        for field in ("headline", "main_message", "body_blocks", "selected_page_type"):
-            if field == "body_blocks":
-                if not as_list(slide.get(field)):
-                    errors.append(f"slide {slide_no}: body_blocks is required")
-            elif not text(slide.get(field)):
-                errors.append(f"slide {slide_no}: {field} is required")
-        if template:
+        if not _slide_headline(slide) and not _slide_page_argument(slide):
+            warnings.append(
+                f"slide {slide_no}: deck_blueprint has no headline/title or page argument; "
+                "renderer can still proceed, but LLM/QC should confirm the visible page has a client-facing title or another clear focal point"
+            )
+        if strict_layout:
+            for field in ("main_message", "selected_page_type"):
+                if not text(slide.get(field)):
+                    errors.append(f"slide {slide_no}: {field} is required in strict_layout")
+        if not _has_substantive_page_content(slide):
+            message = (
+                f"slide {slide_no}: deck_blueprint has no substantive page payload beyond title/argument fields. "
+                "LLM/QC should decide whether this is an intentional divider, a page to merge/drop, or a page-pack repair; "
+                "do not hand-author helper render artifacts to hide a weak page."
+            )
+            (errors if strict_layout else warnings).append(message)
+        if template and strict_layout and text(slide.get("selected_page_type")):
             try:
-                required_body_fields(template, slide_no, text(slide.get("selected_page_type")))
+                strict_layout_body_fields(template, slide_no, text(slide.get("selected_page_type")))
             except Exception as exc:
-                errors.append(f"slide {slide_no}: template field mapping failed: {exc}")
+                errors.append(f"slide {slide_no}: strict placeholder mapping failed: {exc}")
     duplicates = sorted({number for number in seen_slide_numbers if number and seen_slide_numbers.count(number) > 1})
     if duplicates:
         errors.append(f"deck_blueprint contains duplicate slide_no values: {duplicates}")
@@ -972,10 +1761,12 @@ def validate_page_contract(path: Path, run_dir: Path, errors: list[str], warning
     if not isinstance(slides, list) or not slides:
         errors.append("page_evidence_contract.slides must contain at least one page")
         return
-    if len(slides) > 12:
-        errors.append("page_evidence_contract.slides must not contain more than 12 pages")
-        return
     deck = _json(run_dir / "deck_blueprint.json", []) if (run_dir / "deck_blueprint.json").exists() else {}
+    strict_layout = _strict_layout(run_dir, deck)
+    if strict_layout and len(slides) > 12:
+        errors.append(
+            f"page_evidence_contract has {len(slides)} pages; strict_layout requires the fixed template page set"
+        )
     deck_by_no = _slide_index(deck)
     for entry in slides:
         if not isinstance(entry, dict):
@@ -1002,13 +1793,35 @@ def validate_renderer_spec(path: Path, run_dir: Path, errors: list[str], warning
     if not isinstance(slides, list) or not slides:
         errors.append("renderer_spec.slides must contain at least one page")
         return
-    if len(slides) > 12:
-        errors.append("renderer_spec.slides must not contain more than 12 pages")
-        return
+    strict_layout = _strict_layout(run_dir, payload)
+    if strict_layout and len(slides) > 12:
+        errors.append(
+            f"renderer_spec has {len(slides)} pages; strict_layout requires the fixed template page set"
+        )
     try:
         build_token_source(payload)
     except Exception as exc:
         errors.append(f"renderer_spec cannot be converted into token source: {exc}")
+
+
+def _has_structured_qc_user_decision_basis(readiness: Any) -> bool:
+    if not isinstance(readiness, dict):
+        return False
+    if (
+        readiness.get("targeted_research_loop_exhausted") is True
+        or readiness.get("source_unavailable") is True
+        or readiness.get("realistic_sources_unavailable") is True
+        or readiness.get("operator_authorized_stop_research") is True
+    ):
+        return True
+    source_limit = readiness.get("source_limit")
+    if isinstance(source_limit, dict):
+        return (
+            source_limit.get("source_unavailable") is True
+            or source_limit.get("realistic_sources_unavailable") is True
+            or source_limit.get("no_material_page_impact") is True
+        )
+    return False
 
 
 def validate_client_ready_page_pack(run_dir: Path, errors: list[str], warnings: list[str]) -> None:
@@ -1016,37 +1829,99 @@ def validate_client_ready_page_pack(run_dir: Path, errors: list[str], warnings: 
     payload = _json(path, errors)
     if not payload:
         return
-    readiness = payload.get("deliverable_readiness") if isinstance(payload.get("deliverable_readiness"), dict) else {}
-    if readiness.get("enough_for_client_pitch") is not True:
-        errors.append(
-            "banker_page_pack.deliverable_readiness.enough_for_client_pitch must be true before PPT render; "
-            "keep the run as an evidence-limited outline or return to Research/Knowledge/Generation."
+    readiness_raw = payload.get("deliverable_readiness")
+    readiness = readiness_raw if isinstance(readiness_raw, dict) else {}
+    readiness_note = _readiness_note_from_page_pack(readiness_raw)
+    business_action = str(readiness.get("business_action") or "").strip().lower()
+    has_readiness_decision = bool(business_action)
+    calls_for_research = business_action == "targeted_research"
+    strict_layout = _strict_layout(run_dir, payload)
+    if not has_readiness_decision:
+        warnings.append(
+            "LLM readiness prompt: banker_page_pack does not give automation a clear final-output next action. "
+            "LLM/QC should state the business decision in the page pack, preferably as deliverable_readiness.business_action: "
+            "send, repair page writing/exhibits, run one bounded research request, "
+            "or ask QC/user after source limits. Helper checks do not infer final delivery readiness from prose or legacy boolean fields."
         )
-    if readiness.get("research_first_required") is True:
-        errors.append("banker_page_pack.deliverable_readiness.research_first_required=true blocks PPT render")
+    if calls_for_research:
+        warnings.append(
+            "LLM readiness prompt: banker_page_pack asks for bounded targeted research; "
+            "run only the bounded, decision-changing research request, then let LLM/QC decide whether the page pack "
+            "can render or should ask QC/user after the loop cap."
+        )
+    if business_action == "qc_user_decision" and not _has_structured_qc_user_decision_basis(readiness):
+        warnings.append(
+            "LLM readiness prompt: qc_user_decision should not be used as a bare stop label. "
+            "Use targeted_research while another bounded pass could change deck inclusion, key data audit, or exhibit readiness; "
+            "otherwise state the basis clearly: targeted research is exhausted, realistic sources are unavailable, another pass would not change the page, "
+            "or the operator explicitly authorized stopping research."
+        )
     slides = [slide for slide in as_list(payload.get("slides")) if isinstance(slide, dict)]
     not_allowed = [
         int(slide.get("slide_no") or 0)
         for slide in slides
-        if text(slide.get("allowed_deck_usage")) == "not_allowed"
+        if normalize_allowed_deck_usage(slide.get("allowed_deck_usage") or slide.get("deck_use")) == "not_allowed"
     ]
     if not_allowed:
-        errors.append(
-            f"banker_page_pack contains not_allowed page(s) selected for rendering: {not_allowed}; "
-            "remove them from the renderable page list or repair upstream evidence permission."
+        message = (
+            f"banker_page_pack contains page(s) marked not for deck: {not_allowed}; "
+            "style-guided structured render will skip these pages, while strict_layout requires removing or repairing them before render."
         )
+        (errors if strict_layout else warnings).append(message)
     renderable = [
         slide
         for slide in slides
-        if text(slide.get("allowed_deck_usage")) in {"headline_allowed", "body_only", "supporting_context", "caveat_only"}
+        if normalize_allowed_deck_usage(slide.get("allowed_deck_usage") or slide.get("deck_use")) in {"headline_allowed", "body_only", "supporting_context", "caveat_only"}
     ]
-    if len(renderable) < 4:
-        errors.append(
-            f"banker_page_pack has only {len(renderable)} renderable page(s); a client-ready pre-mandate industry section "
-            "needs at least 4 substantive pages or should remain evidence-limited."
+    missing_arguments = [
+        int(slide.get("slide_no") or idx)
+        for idx, slide in enumerate(renderable, start=1)
+        if not _slide_page_argument(slide)
+        and not (_slide_headline(slide) and _has_substantive_page_content(slide))
+    ]
+    if missing_arguments:
+        warnings.append(
+            f"LLM editorial prompt: renderable page(s) lack a page argument/thesis: {missing_arguments}; "
+            "LLM/QC should confirm the visible headline, exhibit, and body copy carry a clear client-facing industry judgment"
         )
-    if len(renderable) > 12:
-        errors.append("banker_page_pack has more than 12 renderable pages; split the section before rendering")
+    missing_headline_and_argument = [
+        int(slide.get("slide_no") or idx)
+        for idx, slide in enumerate(renderable, start=1)
+        if not _slide_headline(slide)
+        and not _slide_page_argument(slide)
+    ]
+    missing_headline_with_argument = [
+        int(slide.get("slide_no") or idx)
+        for idx, slide in enumerate(renderable, start=1)
+        if not _slide_headline(slide)
+        and _slide_page_argument(slide)
+    ]
+    if missing_headline_and_argument:
+        warnings.append(
+            f"renderable page(s) lack both headline/title and page argument: {missing_headline_and_argument}; "
+            "LLM/QC should confirm another visible element carries the page claim, or repair banker_page_pack with "
+            "client-facing slide language before treating the output as final"
+        )
+    if missing_headline_with_argument:
+        warnings.append(
+            f"LLM editorial prompt: renderable page(s) lack an explicit headline/title but have a page argument: {missing_headline_with_argument}; "
+            "structured-render helper can derive a title from the page argument, but LLM/QC should confirm the visible slide language after render"
+        )
+
+
+def _readiness_note_from_page_pack(readiness: Any) -> str:
+    if isinstance(readiness, str):
+        return readiness.strip()
+    if not isinstance(readiness, dict):
+        return ""
+    fields = (
+        "readiness_note",
+        "decision_note",
+        "targeted_research_rationale",
+        "rationale",
+        "reason",
+    )
+    return " ".join(text(readiness.get(field)) for field in fields if text(readiness.get(field)))
 
 
 def validate_replacement_dict(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
@@ -1063,25 +1938,51 @@ def validate_replacement_dict(path: Path, run_dir: Path, errors: list[str], warn
     if scan_values(payload):
         errors.append("replacement_dict contains unresolved placeholder braces in replacement values")
     if not (run_dir / "renderer_spec.json").exists():
-        errors.append("replacement_dict requires renderer_spec.json")
+        warnings.append(
+            "replacement_dict exists without renderer_spec.json; treat it as a direct-composition/debug artifact, "
+            "not as proof that the structured-render path is available"
+        )
 
 
 def validate_filled_ppt(path: Path, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
+    marker_candidates: list[Path] = []
+    marker = run_dir / "LATEST_FINAL_PPT.txt"
+    if marker.exists():
+        try:
+            marker_lines = marker.read_text(encoding="utf-8").splitlines()
+            marker_value = text(marker_lines[0] if marker_lines else "")
+        except Exception as exc:
+            marker_value = ""
+            warnings.append(f"could not read LATEST_FINAL_PPT.txt: {exc}")
+        if marker_value:
+            marker_path = Path(marker_value)
+            if not marker_path.is_absolute():
+                marker_path = run_dir / marker_path
+            if marker_path.suffix.lower() != ".pptx":
+                warnings.append("LATEST_FINAL_PPT.txt does not point to a .pptx file")
+            marker_candidates.append(marker_path)
+        else:
+            warnings.append("LATEST_FINAL_PPT.txt is empty; falling back to default PPT filenames")
     candidates = [
+        *marker_candidates,
         run_dir / "industry_section_filled_clean.pptx",
         run_dir / "industry_section_filled.pptx",
-        run_dir / "filled_output_clean.pptx",
-        run_dir / "filled_output.pptx",
-        run_dir / "NOT_CLIENT_READY_industry_section_filled_clean.pptx",
-        run_dir / "NOT_CLIENT_READY_industry_section_filled.pptx",
+        run_dir / "RESEARCH_LIMITED_REVIEW_industry_section_filled_clean.pptx",
+        run_dir / "RESEARCH_LIMITED_REVIEW_industry_section_filled.pptx",
     ]
-    existing = [candidate for candidate in candidates if candidate.exists()]
+    unique_candidates = list(dict.fromkeys(candidates))
+    existing = [candidate for candidate in unique_candidates if candidate.exists()]
     if not existing:
-        errors.append("missing filled PPT output")
+        marker_note = ""
+        if marker_candidates:
+            marker_note = f"; LATEST_FINAL_PPT.txt points to {marker_candidates[0]}"
+        errors.append(f"missing filled PPT output{marker_note}")
         return
     target = existing[0]
-    if target.name.startswith("NOT_CLIENT_READY_"):
-        warnings.append(f"{target.name} exists but final delivery is not client-ready")
+    if target.name.startswith("RESEARCH_LIMITED_REVIEW_"):
+        warnings.append(
+            f"{target.name} exists as a research-limited review copy; targeted research or QC acceptance is still required before final delivery"
+        )
     try:
         with zipfile.ZipFile(target) as archive:
             names = set(archive.namelist())
@@ -1099,6 +2000,19 @@ def validate_filled_ppt(path: Path, run_dir: Path, errors: list[str], warnings: 
         bad = sorted(char for char in BAD_PPT_GLYPHS if char in slide_text)
         if bad:
             errors.append(f"slide {idx}: PPT text contains missing-glyph/tofu characters: {' '.join(bad)}")
+        lowered = slide_text.lower()
+        matched_categories = sorted(
+            {
+                category
+                for term, category in CLIENT_VISIBLE_EDITORIAL_HINT_TERMS.items()
+                if term.lower() in lowered
+            }
+        )
+        if matched_categories:
+            warnings.append(
+                f"slide {idx}: LLM visual/editorial prompt: rendered PPT text may contain internal workpaper language "
+                f"({', '.join(matched_categories)}). Repair banker_page_pack visible copy and rerender before final delivery."
+            )
     postprocess_log = run_dir / "artifacts/postprocess_ppt_visuals.log.json"
     if postprocess_log.exists():
         log = _json(postprocess_log, [])
@@ -1113,49 +2027,78 @@ def validate_filled_ppt(path: Path, run_dir: Path, errors: list[str], warnings: 
                 )
 
 
-def validate_stage(artifact: str, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
-    if artifact == "pre_research_pack":
-        required = [
-            "artifacts/industry_scope_pack.json",
-            "artifacts/formal_search_plan.json",
-            "artifacts/formal_research_execution_report.json",
-            "artifacts/source_archive/source_archive_index.json",
-        ]
-    elif artifact == "pre_ppt":
-        required = [
-            "banker_page_pack.json",
-            "template_registry.json",
+def _compiled_render_artifacts_present(run_dir: Path) -> bool:
+    return all(
+        (run_dir / rel).exists()
+        for rel in (
             "deck_blueprint.json",
             "page_evidence_contract.json",
             "renderer_spec.json",
-        ]
+        )
+    )
+
+
+def _validate_compiled_render_path(run_dir: Path, errors: list[str], warnings: list[str]) -> None:
+    required = [
+        "banker_page_pack.json",
+        "template_registry.json",
+        "deck_blueprint.json",
+        "page_evidence_contract.json",
+        "renderer_spec.json",
+    ]
+    for rel in required:
+        if not (run_dir / rel).exists():
+            errors.append(f"missing required upstream artifact: {rel}")
+    if errors:
+        return
+    validate_banker_page_pack(run_dir / "banker_page_pack.json", run_dir, errors, warnings)
+    validate_client_ready_page_pack(run_dir, errors, warnings)
+    validate_template_registry(run_dir / "template_registry.json", errors, warnings)
+    validate_deck_blueprint(run_dir / "deck_blueprint.json", run_dir, errors, warnings)
+    validate_page_contract(run_dir / "page_evidence_contract.json", run_dir, errors, warnings)
+    validate_renderer_spec(run_dir / "renderer_spec.json", run_dir, errors, warnings)
+
+
+def _validate_direct_ppt_composition_path(run_dir: Path, errors: list[str], warnings: list[str]) -> None:
+    if not (run_dir / "banker_page_pack.json").exists():
+        errors.append("missing required upstream artifact: banker_page_pack.json")
+        return
+    validate_banker_page_pack(run_dir / "banker_page_pack.json", run_dir, errors, warnings)
+    validate_client_ready_page_pack(run_dir, errors, warnings)
+    warnings.append(
+        "direct PPT composition path: structured-render helper artifacts are absent, so deterministic checks cover "
+        "the banker_page_pack and PPT package only. LLM/QC must review the actual PPT for source notes, "
+        "client-facing language, exhibit density, and template-style fidelity."
+    )
+
+
+def validate_stage(artifact: str, run_dir: Path, errors: list[str], warnings: list[str]) -> None:
+    if artifact == "pre_ppt":
+        if _compiled_render_artifacts_present(run_dir):
+            _validate_compiled_render_path(run_dir, errors, warnings)
+        else:
+            _validate_direct_ppt_composition_path(run_dir, errors, warnings)
+        return
     else:
-        required = [
-            "banker_page_pack.json",
-            "renderer_spec.json",
-            "replacement_dict.json",
-        ]
+        required = []
     for rel in required:
         if not (run_dir / rel).exists():
             errors.append(f"missing required upstream artifact: {rel}")
     if errors:
         return
 
-    if artifact == "pre_research_pack":
-        validate_scope(run_dir / "artifacts/industry_scope_pack.json", errors, warnings)
-        validate_formal_plan(run_dir / "artifacts/formal_search_plan.json", errors, warnings)
-        validate_execution(run_dir / "artifacts/formal_research_execution_report.json", run_dir, errors, warnings)
-        validate_source_archive(run_dir / "artifacts/source_archive/source_archive_index.json", run_dir, errors, warnings)
-    elif artifact == "pre_ppt":
-        validate_banker_page_pack(run_dir / "banker_page_pack.json", run_dir, errors, warnings)
-        validate_client_ready_page_pack(run_dir, errors, warnings)
-        validate_template_registry(run_dir / "template_registry.json", errors, warnings)
-        validate_deck_blueprint(run_dir / "deck_blueprint.json", run_dir, errors, warnings)
-        validate_page_contract(run_dir / "page_evidence_contract.json", run_dir, errors, warnings)
-        validate_renderer_spec(run_dir / "renderer_spec.json", run_dir, errors, warnings)
+    if artifact == "pre_ppt":
+        if _compiled_render_artifacts_present(run_dir):
+            _validate_compiled_render_path(run_dir, errors, warnings)
+        else:
+            _validate_direct_ppt_composition_path(run_dir, errors, warnings)
     elif artifact == "final_delivery":
-        validate_stage("pre_ppt", run_dir, errors, warnings)
-        validate_replacement_dict(run_dir / "replacement_dict.json", run_dir, errors, warnings)
+        if _compiled_render_artifacts_present(run_dir):
+            _validate_compiled_render_path(run_dir, errors, warnings)
+        else:
+            _validate_direct_ppt_composition_path(run_dir, errors, warnings)
+        if (run_dir / "replacement_dict.json").exists():
+            validate_replacement_dict(run_dir / "replacement_dict.json", run_dir, errors, warnings)
         validate_filled_ppt(run_dir / "filled_ppt_validation.json", run_dir, errors, warnings)
 
 
@@ -1169,10 +2112,14 @@ def validate_artifact(artifact: str, run_dir: Path, path: Path | None = None) ->
         validate_research_request_queue(target, errors, warnings)
     elif artifact == "industry_scope_pack":
         validate_scope(target, errors, warnings)
+    elif artifact == "industry_boundary_qc":
+        validate_industry_boundary_qc(target, errors, warnings)
     elif artifact == "formal_search_plan":
         validate_formal_plan(target, errors, warnings)
     elif artifact == "executable_search_batch":
         validate_search_batch(target, errors, warnings)
+    elif artifact == "research_graph_state":
+        validate_research_graph_state(target, errors, warnings)
     elif artifact == "formal_research_execution":
         validate_execution(target, run_dir, errors, warnings)
     elif artifact == "source_archive":
@@ -1195,7 +2142,7 @@ def validate_artifact(artifact: str, run_dir: Path, path: Path | None = None) ->
         validate_replacement_dict(target, run_dir, errors, warnings)
     elif artifact == "filled_ppt":
         validate_filled_ppt(target, run_dir, errors, warnings)
-    elif artifact in {"pre_research_pack", "pre_ppt", "final_delivery"}:
+    elif artifact in {"pre_ppt", "final_delivery"}:
         validate_stage(artifact, run_dir, errors, warnings)
     else:
         errors.append(f"unknown artifact: {artifact}")
@@ -1213,23 +2160,26 @@ def main() -> int:
     run_dir = Path(args.run_dir)
     path = Path(args.path) if args.path else None
     errors, warnings = validate_artifact(args.artifact, run_dir, path)
+    owner_guidance = helper_check_guidance(args.artifact, errors, warnings)
     result = {
-        "is_valid": not errors,
         "artifact": args.artifact,
+        "review_outcome": owner_guidance["status"],
+        "owner_repair_guidance": owner_guidance,
+        "helper_check_policy": "structure_only",
+        "is_valid": not errors,
         "run_dir": str(run_dir),
         "path": str(path or run_dir / ARTIFACT_PATHS[args.artifact]),
         "error_count": len(errors),
         "warning_count": len(warnings),
         "errors": errors,
         "warnings": warnings,
-        "validation_policy": "mechanical_only",
     }
     if args.artifact == "banker_page_pack":
         diagnostics = banker_page_pack_template_diagnostics(run_dir, path)
-        result["template_diagnostics"] = diagnostics
         diagnostics_path = run_dir / "artifacts" / "banker_page_pack_template_diagnostics.json"
         diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
         diagnostics_path.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        result["template_diagnostics_path"] = str(diagnostics_path)
     output = json.dumps(result, ensure_ascii=False, indent=2)
     output_path = Path(args.output) if args.output else run_dir / VALIDATION_OUTPUTS.get(args.artifact, f"artifacts/{args.artifact}_validation.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)

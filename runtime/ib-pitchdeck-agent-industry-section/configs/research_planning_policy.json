@@ -1,110 +1,42 @@
 {
   "schema_version": "research_planning_policy_v1",
-  "description": "Configurable planning policy for formal research preparation. These values seed the plan and can be changed without editing Python.",
-  "source_hints_by_area": {
-    "market_size_growth": "official statistics, industry association, broker/consulting report, market data provider",
-    "demand_customer_logic": "customer/end-user/end-market research, industry report, channel/platform/user data",
-    "industry_structure": "industry report, company filings, broker report, value-chain analysis",
-    "key_trends_drivers": "industry report, regulator/standard body, technology report, broker report, M&A news",
-    "competitive_landscape": "company filings, industry report, peer disclosures, market data provider",
-    "competitive_dynamics": "industry report, company disclosures, broker report, trade media with cited data",
-    "transaction_relevance_context": "peer transactions, investor commentary, sector reports, selectively labeled project context"
-  },
-  "source_specific_hints": {
-    "market_size_growth": "official statistics, industry associations, regulatory or sector reports",
-    "demand_customer_logic": "company filings, company calls/transcripts, user or purchaser research",
-    "industry_structure": "industry reports, value-chain studies, financial filings",
-    "key_trends_drivers": "industry report, regulator/standard body, M&A and company announcements",
-    "competitive_landscape": "company filings, peer filings, transaction updates",
-    "competitive_dynamics": "financial results, M&A databases, strategic announcements",
-    "transaction_relevance_context": "peer transactions, sector commentary, selectively labeled project context"
-  },
-  "default_source_hint": "industry report, company disclosure, official or authoritative source",
-  "default_expected_source_type": "public_search",
-  "starter_issue_pairs": [
-    {"issue_area": "market_size_growth", "subissue": "current_market_size"},
-    {"issue_area": "market_size_growth", "subissue": "market_segmentation"},
-    {"issue_area": "market_size_growth", "subissue": "forecast_growth"},
-    {"issue_area": "demand_customer_logic", "subissue": "demand_drivers"},
-    {"issue_area": "demand_customer_logic", "subissue": "channel_behavior"},
-    {"issue_area": "industry_structure", "subissue": "value_chain"},
-    {"issue_area": "industry_structure", "subissue": "profit_pool"},
-    {"issue_area": "industry_structure", "subissue": "barriers_to_entry"},
-    {"issue_area": "key_trends_drivers", "subissue": "secular_tailwinds"},
-    {"issue_area": "key_trends_drivers", "subissue": "channel_or_go_to_market_shift"},
-    {"issue_area": "competitive_landscape", "subissue": "competitor_profiles"},
-    {"issue_area": "competitive_landscape", "subissue": "strategic_positioning"},
-    {"issue_area": "competitive_dynamics", "subissue": "consolidation_logic"}
-  ],
-  "execution_defaults": {
-    "deep_search": {
-      "minimum_actual_searches": 2,
-      "priority": "high",
-      "rationale": "Core pitch issue: run multiple actual searches when possible, ideally authority/source-specific plus reconciliation/counter-check."
+  "description": "Lightweight policy for research planning. It seeds a few natural research threads; the LLM may merge, drop, rewrite, or add threads based on the case.",
+  "default_source_hint": "official statistics, industry association, named industry report, company disclosure, platform category data, or user-provided report",
+  "starter_research_threads": [
+    {
+      "thread": "Market definition and sizing evidence",
+      "research_question": "What source-backed market definition, market size, segmentation, and comparable period/geography evidence exists for the working market?",
+      "why_it_matters": "Sets the investable category and prevents broad-market overclaiming.",
+      "source_direction": "official statistics, industry association, named market report, platform category taxonomy, or broker/consulting report",
+      "priority": "high"
     },
-    "light_search": {
-      "minimum_actual_searches": 1,
-      "priority": "medium",
-      "rationale": "Supporting issue: run one actual search when material, or account for why it is not material/available."
+    {
+      "thread": "Growth drivers and channel behavior",
+      "research_question": "What public evidence explains growth, consumer demand, channel shift, pricing, or purchase behavior in the working market?",
+      "why_it_matters": "Supports the industry attractiveness and timing argument.",
+      "source_direction": "industry report, platform data, consumer research, company disclosure, trade data, or broker commentary",
+      "priority": "high"
     },
-    "accounting_only": {
-      "minimum_actual_searches": 0,
-      "priority": "low",
-      "rationale": "Coverage-audit row: execute only if material after scoping; otherwise account for it as not_material or not_executed in formal execution."
+    {
+      "thread": "Competitive landscape and strategic positioning",
+      "research_question": "Which peers, brand groups, product segments, or business models shape competition and strategic differentiation?",
+      "why_it_matters": "Shows where the pitch can make a credible strategic-read and transaction-relevance point.",
+      "source_direction": "company disclosures, peer filings, platform rankings, trade media with cited data, or transaction commentary",
+      "priority": "medium"
     }
-  },
+  ],
   "research_request_queue": {
-    "allowed_source_types": [
-      "public_search",
-      "user_curated_industry_report",
-      "manual_url_ingestion"
-    ],
-    "default_source_type": "public_search",
-    "statuses": [
-      "pending_public_evidence",
-      "in_research",
-      "resolved",
-      "cancelled"
-    ],
-    "downstream_permissions": [
-      "headline_disallowed",
-      "caveat_or_evidence_boundary_only",
-      "context_only",
-      "body_only",
-      "disallowed_as_claim"
-    ],
-    "headline_aliases": [
-      "headline_allowed",
-      "headline",
-      "not_allowed_in_headline"
-    ],
-    "headline_alias_downgrade_permission": "caveat_or_evidence_boundary_only",
-    "default_permission_if_unresolved": "caveat_or_evidence_boundary_only",
-    "default_minimum_actual_searches": 1,
-    "default_status": "pending_public_evidence",
-    "default_allowed_use_before_resolution": "not_allowed_in_headline",
-    "authoring_rule": "Reasoning LLM writes research_request_queue.json directly only for evidence that is required before promoting a claim. Do not generate requests mechanically from every open question.",
-    "build_rule": "No builder script owns this artifact. Use LLM authoring plus pipeline.py validate for mechanical structure only."
-  },
-  "issue_execution_policy": {
-    "market_size_growth/current_market_size": "deep_search",
-    "market_size_growth/historical_growth": "deep_search",
-    "market_size_growth/forecast_growth": "deep_search",
-    "market_size_growth/market_segmentation": "deep_search",
-    "industry_structure/value_chain": "deep_search",
-    "industry_structure/profit_pool": "deep_search",
-    "industry_structure/barriers_to_entry": "deep_search",
-    "key_trends_drivers/secular_tailwinds": "deep_search",
-    "key_trends_drivers/channel_or_go_to_market_shift": "deep_search",
-    "competitive_landscape/competitor_profiles": "deep_search",
-    "competitive_landscape/strategic_positioning": "deep_search",
-    "competitive_dynamics/consolidation_logic": "deep_search",
-    "transaction_relevance_context/why_sector_matters": "deep_search",
-    "transaction_relevance_context/banker_angle": "deep_search",
-    "market_size_growth/market_cycle": "accounting_only",
-    "key_trends_drivers/technology_disruption": "accounting_only",
-    "key_trends_drivers/regulatory_developments": "accounting_only",
-    "competitive_landscape/valuation_snapshot_peer_fact": "accounting_only",
-    "transaction_relevance_context/evidence_boundaries": "accounting_only"
+    "targeted_loop_policy": {
+      "max_cycles_before_user_or_qc_decision": 2,
+      "max_active_requests_per_cycle": 5,
+      "max_actual_searches_per_request": 3,
+      "max_opened_sources_per_request": 4,
+      "max_promoted_sources_per_request": 2,
+      "max_short_excerpts_per_source": 2,
+      "description": "When a page would materially improve with one specific source, metric, or excerpt, send a narrow research request before settling for a review copy. The caps are ceilings, not quotas: stop early when another search would not change page inclusion, key data audit, or exhibit design. After a cycle, close or narrow resolved requests and record what changed; after the cap, ask QC/user rather than looping indefinitely."
+    },
+    "source_direction_note": "Use natural wording such as official statistics, industry association, named report, platform category page, company filing, manual URL, or user-provided report. Do not choose from a fixed source-type enum unless it helps execution.",
+    "authoring_guidance": "Reasoning LLM writes research_request_queue.json as a concise brief, not a form. A good request names the evidence question, why it matters for a specific page/metric/headline/exhibit decision, where Research should look first, and when to stop or close the request. Add loop_control or numeric sub-budgets only after a cycle outcome, on the final cycle, or when this request needs a tighter cap than the inherited policy. If evidence could still change the deck and loop budget remains, ask one narrower question; if it could not change the page, record the source limit or no-page-impact basis and stop. Do not auto-generate requests from every caveat.",
+    "helper_check_note": "Helper checks protect JSON shape, duplicate IDs, and loop caps when structured values are supplied. Missing loop_control inherits the policy cap; missing active is treated as active for routing and warned, not failed. Page anchors and stop/close rules are LLM prompt warnings, not hard gates. The helper does not parse budget prose, require policy restatement, or judge status, source-type, downstream-use, or success-criteria wording."
   }
 }

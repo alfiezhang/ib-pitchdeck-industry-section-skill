@@ -148,7 +148,7 @@
       "audit_note": "Regression fixture metric; use only as a test datapoint."
     }
   ],
-  "issue_fact_inventory": [
+  "page_evidence_inventory": [
     {
       "issue_area": "market_size_growth",
       "subissue": "current_market_size",

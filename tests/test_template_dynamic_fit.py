@@ -85,12 +85,12 @@ def _minimal_profile(max_units: int = 120) -> dict:
                 "page_type": "overview",
                 "render_layout": "overview",
                 "supports": {"chart": False, "table": False, "matrix": False, "cards": False},
-                "required_body_fields": ["main_body"],
+                "strict_layout_body_fields": ["main_body"],
                 "field_roles": {"main_body": "body"},
-                "source_footer_required": True,
+                "source_footer_available": True,
             }
         ],
-        "source_policy": {"source_footer_fields": ["source_footer"], "required_source_footer": True},
+        "source_policy": {"source_footer_fields": ["source_footer"], "source_footer_available": True},
     }
 
 
@@ -155,8 +155,6 @@ def test_template_analyzer_extracts_inventory_from_arbitrary_pptx(tmp_path: Path
         [
             "--template",
             str(template_path),
-            "--layout-config",
-            str(RUNTIME_DIR / "configs" / "layout_config.json"),
             "--output",
             str(output),
         ],
@@ -207,6 +205,127 @@ def test_template_fit_outputs_body_copy_advisory_without_blocking(tmp_path: Path
     assert any(item["recommendation_type"] == "copy_compression_advisory" for item in fit_plan["copy_compression_recommendations"])
 
 
+def test_template_fit_source_footer_is_style_guided_advisory(tmp_path: Path) -> None:
+    profile_path = tmp_path / "template_profile.json"
+    renderer_path = tmp_path / "renderer_spec.json"
+    validation_path = tmp_path / "template_fit_validation.json"
+    plan_path = tmp_path / "template_fit_plan.json"
+
+    renderer = _renderer_spec("Concise supported point.")
+    renderer["slides"][0].pop("source_note")
+    _write_json(profile_path, _minimal_profile(max_units=160))
+    _write_json(renderer_path, renderer)
+
+    result = _run_script(
+        "template_analyzer.py",
+        [
+            "fit",
+            "--renderer-spec",
+            str(renderer_path),
+            "--template-profile",
+            str(profile_path),
+            "--output",
+            str(validation_path),
+            "--fit-plan-output",
+            str(plan_path),
+        ],
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    validation = json.loads(validation_path.read_text(encoding="utf-8"))
+    warning_text = "\n".join(validation["warnings"])
+    assert validation["is_valid"] is True
+    assert "source footer slot but source_note is empty" in warning_text
+    assert "template_capacity_conflicts" not in warning_text
+
+
+def test_template_fit_source_footer_blocks_only_in_strict_layout(tmp_path: Path) -> None:
+    profile_path = tmp_path / "template_profile.json"
+    renderer_path = tmp_path / "renderer_spec.json"
+    validation_path = tmp_path / "template_fit_validation.json"
+
+    renderer = _renderer_spec("Concise supported point.")
+    renderer["rendering_policy"] = {"template_contract_mode": "strict_layout"}
+    renderer["slides"][0].pop("source_note")
+    _write_json(profile_path, _minimal_profile(max_units=160))
+    _write_json(renderer_path, renderer)
+
+    result = _run_script(
+        "template_analyzer.py",
+        [
+            "fit",
+            "--renderer-spec",
+            str(renderer_path),
+            "--template-profile",
+            str(profile_path),
+            "--output",
+            str(validation_path),
+        ],
+    )
+
+    assert result.returncode != 0
+    validation = json.loads(validation_path.read_text(encoding="utf-8"))
+    pause_text = "\n".join(validation["pause_issues"])
+    assert "blocking_issues" not in validation
+    assert validation["is_valid"] is False
+    assert validation["fit_checks"]["template_contract_mode"] == "strict_layout"
+    assert validation["fit_checks"]["strict_mode"] is True
+    assert validation["fit_checks"]["warnings_as_errors"] is False
+    assert "strict_layout expects source_note" in pause_text
+
+
+def test_template_fit_headline_line_fit_is_style_guided_advisory(tmp_path: Path) -> None:
+    profile_path = tmp_path / "template_profile.json"
+    renderer_path = tmp_path / "renderer_spec.json"
+    validation_path = tmp_path / "template_fit_validation.json"
+    plan_path = tmp_path / "template_fit_plan.json"
+
+    profile = _minimal_profile(max_units=160)
+    profile["layout"]["text_fit_rules"] = {
+        "renderer_field_aliases": {"headline": "slide_title", "main_message": "main_takeaway"},
+        "fields": {
+            "1:overview:slide_title": {
+                "placeholder": "{{slide_title}}",
+                "max_line_units": 10,
+                "target_lines": 1,
+                "max_lines": 1,
+                "strict_layout_pause_if_exceeds_max_lines": True,
+            }
+        },
+    }
+    renderer = _renderer_spec("Concise supported point.")
+    renderer["slides"][0]["headline"] = (
+        "A deliberately long headline should remain a style-guided advisory rather than forcing deletion of the banker point"
+    )
+    _write_json(profile_path, profile)
+    _write_json(renderer_path, renderer)
+
+    result = _run_script(
+        "template_analyzer.py",
+        [
+            "fit",
+            "--renderer-spec",
+            str(renderer_path),
+            "--template-profile",
+            str(profile_path),
+            "--output",
+            str(validation_path),
+            "--fit-plan-output",
+            str(plan_path),
+        ],
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    validation = json.loads(validation_path.read_text(encoding="utf-8"))
+    fit_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    warning_text = "\n".join(validation["warnings"])
+    assert validation["is_valid"] is True
+    assert "line-fit advisory" in warning_text
+    assert "Preserve the page argument" in warning_text
+    assert "exceeds template max lines" not in warning_text
+    assert fit_plan["capacity_conflicts"] == []
+
+
 def test_template_fit_does_not_warn_for_style_guided_freeform_dynamic_layout(tmp_path: Path) -> None:
     profile_path = tmp_path / "template_profile.json"
     renderer_path = tmp_path / "renderer_spec.json"
@@ -240,7 +359,7 @@ def test_template_fit_does_not_warn_for_style_guided_freeform_dynamic_layout(tmp
     assert "render layout for 'freeform_page' not found" not in warning_text
 
 
-def test_template_fit_plan_records_slot_assignments_for_compatible_content(tmp_path: Path) -> None:
+def test_template_fit_plan_omits_slot_assignments_in_style_guided_mode(tmp_path: Path) -> None:
     profile_path = tmp_path / "template_profile.json"
     renderer_path = tmp_path / "renderer_spec.json"
     validation_path = tmp_path / "template_fit_validation.json"
@@ -248,6 +367,45 @@ def test_template_fit_plan_records_slot_assignments_for_compatible_content(tmp_p
 
     _write_json(profile_path, _minimal_profile(max_units=160))
     _write_json(renderer_path, _renderer_spec("Concise supported point."))
+
+    result = _run_script(
+        "template_analyzer.py",
+        [
+            "fit",
+            "--renderer-spec",
+            str(renderer_path),
+            "--template-profile",
+            str(profile_path),
+            "--output",
+            str(validation_path),
+            "--fit-plan-output",
+            str(plan_path),
+        ],
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    validation = json.loads(validation_path.read_text(encoding="utf-8"))
+    fit_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    assert validation["is_valid"] is True
+    assert fit_plan["fit_decision"] == "template_ready"
+    assert fit_plan["capacity_conflicts"] == []
+    assert fit_plan["page_assignments"] == []
+    assert any(
+        item["recommendation_type"] == "style_guided_composition"
+        for item in fit_plan["copy_compression_recommendations"]
+    )
+
+
+def test_template_fit_plan_records_slot_assignments_only_for_strict_layout(tmp_path: Path) -> None:
+    profile_path = tmp_path / "template_profile.json"
+    renderer_path = tmp_path / "renderer_spec.json"
+    validation_path = tmp_path / "template_fit_validation.json"
+    plan_path = tmp_path / "template_fit_plan.json"
+
+    renderer = _renderer_spec("Concise supported point.")
+    renderer["rendering_policy"] = {"template_contract_mode": "strict_layout"}
+    _write_json(profile_path, _minimal_profile(max_units=160))
+    _write_json(renderer_path, renderer)
 
     result = _run_script(
         "template_analyzer.py",

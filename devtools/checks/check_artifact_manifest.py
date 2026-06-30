@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 # Runtime scripts can be run directly. Shared helpers remain in runtime
-# `scripts/`; production tools live under role scripts; validators live under QC.
+# `scripts/`; production tools live under role scripts; QC logic is unified.
 import sys as _ib_sys
 from pathlib import Path as _IbPath
+_ib_sys.dont_write_bytecode = True
 _IB_ROLE_SCRIPT_DIR = _IbPath(__file__).resolve().parent
 _IB_REPO_ROOT = _IbPath(__file__).resolve().parents[2]
 _IB_RUNTIME_ROOT = _IB_REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
@@ -37,27 +38,22 @@ from runtime_utils import load_json_file
 ROOT_DIR = _IB_RUNTIME_ROOT
 
 
-def _script_path(value: Any) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    return text.split()[0]
-
-
 def validate_manifest(manifest: dict[str, Any], root_dir: Path) -> list[str]:
     errors: list[str] = []
     if manifest.get("schema_version") != "artifact_manifest_v1":
         errors.append("schema_version must be artifact_manifest_v1")
 
     artifacts = manifest.get("artifacts")
-    gates = manifest.get("gates")
+    readiness_reviews = manifest.get("readiness_reviews")
     artifact_layers = manifest.get("artifact_layers", {})
     role_layers = manifest.get("role_layers", {})
     if not isinstance(artifacts, dict):
         return ["artifacts must be an object"]
-    if not isinstance(gates, list):
-        errors.append("gates must be an array")
-        gates = []
+    if "checkpoints" in manifest:
+        errors.append("manifest must use readiness_reviews, not checkpoints")
+    if not isinstance(readiness_reviews, list):
+        errors.append("readiness_reviews must be an array")
+        readiness_reviews = []
     if artifact_layers and not isinstance(artifact_layers, dict):
         errors.append("artifact_layers must be an object when present")
         artifact_layers = {}
@@ -71,34 +67,51 @@ def validate_manifest(manifest: dict[str, Any], root_dir: Path) -> list[str]:
             continue
         if not str(artifact.get("path") or "").strip():
             errors.append(f"artifacts.{artifact_key}.path is required")
-        for ref_key in ("validator", "builder"):
-            script = _script_path(artifact.get(ref_key))
-            if script and not (root_dir / script).exists():
-                errors.append(f"artifacts.{artifact_key}.{ref_key} points to missing script: {script}")
+        if "builder" in artifact:
+            errors.append(
+                f"artifacts.{artifact_key}.builder is deprecated; command recipes belong in pipeline/status helpers"
+            )
+        if "validator" in artifact:
+            errors.append(
+                f"artifacts.{artifact_key}.validator is deprecated; command recipes belong in pipeline/status helpers"
+            )
+        for command_key in ("helper_command", "mechanical_check", "check_output"):
+            if command_key in artifact:
+                errors.append(
+                    f"artifacts.{artifact_key}.{command_key} belongs in pipeline/status helpers, not artifact_manifest.json"
+                )
         for input_key in artifact.get("inputs") or []:
             if str(input_key) not in artifacts:
                 errors.append(f"artifacts.{artifact_key}.inputs references unknown artifact: {input_key}")
-        if artifact.get("validator") and not str(artifact.get("validation") or "").strip():
-            errors.append(f"artifacts.{artifact_key} has validator but no validation path")
+        for input_key in artifact.get("optional_trace_inputs") or []:
+            if str(input_key) not in artifacts:
+                errors.append(f"artifacts.{artifact_key}.optional_trace_inputs references unknown artifact: {input_key}")
+        if "validation" in artifact:
+            errors.append(
+                f"artifacts.{artifact_key}.validation is deprecated; mechanical output paths belong in pipeline/status helpers"
+            )
 
-    seen_gates: set[str] = set()
-    for idx, gate in enumerate(gates, start=1):
-        if not isinstance(gate, dict):
-            errors.append(f"gates[{idx}] must be an object")
+    seen_reviews: set[str] = set()
+    for idx, review in enumerate(readiness_reviews, start=1):
+        if not isinstance(review, dict):
+            errors.append(f"readiness_reviews[{idx}] must be an object")
             continue
-        gate_id = str(gate.get("gate") or "").strip()
-        artifact_key = str(gate.get("artifact") or "").strip()
-        if not gate_id:
-            errors.append(f"gates[{idx}].gate is required")
-        elif gate_id in seen_gates:
-            errors.append(f"duplicate gate id: {gate_id}")
-        seen_gates.add(gate_id)
+        review_id = str(review.get("review") or "").strip()
+        artifact_key = str(review.get("artifact") or "").strip()
+        if not review_id:
+            errors.append(f"readiness_reviews[{idx}].review is required")
+        elif review_id in seen_reviews:
+            errors.append(f"duplicate readiness review id: {review_id}")
+        seen_reviews.add(review_id)
         if artifact_key not in artifacts:
-            errors.append(f"gates[{idx}] references unknown artifact: {artifact_key}")
+            errors.append(f"readiness_reviews[{idx}] references unknown artifact: {artifact_key}")
 
-    final_gate = next((gate for gate in gates if isinstance(gate, dict) and gate.get("gate") == "final_delivery"), {})
-    if final_gate.get("require_client_ready") is not True:
-        errors.append("final_delivery gate must set require_client_ready=true")
+    final_review = next(
+        (review for review in readiness_reviews if isinstance(review, dict) and review.get("review") == "final_delivery"),
+        {},
+    )
+    if final_review.get("require_final_delivery_authorization") is not True:
+        errors.append("final_delivery readiness review must set require_final_delivery_authorization=true")
 
     layer_membership: dict[str, str] = {}
     for layer_name, layer in artifact_layers.items():
@@ -120,7 +133,12 @@ def validate_manifest(manifest: dict[str, Any], root_dir: Path) -> list[str]:
                     f"{layer_membership[artifact_key]} and {layer_name}"
                 )
             layer_membership[artifact_key] = str(layer_name)
-        for path_key in ("main_llm_authoring_path",):
+        if "main_llm_authoring_path" in layer:
+            errors.append(
+                f"artifact_layers.{layer_name}.main_llm_authoring_path is deprecated; "
+                "use from_scratch_context_sequence so the manifest is read as context, not a backfill requirement"
+            )
+        for path_key in ("from_scratch_context_sequence",):
             path_items = layer.get(path_key, [])
             if path_items and not isinstance(path_items, list):
                 errors.append(f"artifact_layers.{layer_name}.{path_key} must be an array")

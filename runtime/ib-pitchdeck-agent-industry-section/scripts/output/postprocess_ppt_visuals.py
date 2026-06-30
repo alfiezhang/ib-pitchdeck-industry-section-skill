@@ -3,6 +3,7 @@
 # `scripts/`; production tools live under role scripts; validators live under QC.
 import sys as _ib_sys
 from pathlib import Path as _IbPath
+_ib_sys.dont_write_bytecode = True
 _IB_ROLE_SCRIPT_DIR = _IbPath(__file__).resolve().parent
 _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
@@ -47,66 +48,21 @@ try:
 except ImportError as exc:
     raise SystemExit(
         "python-pptx is required for postprocess_ppt_visuals.py. "
-        "Run this script with a Python environment that has the `pptx` package installed, "
-        "such as the project virtualenv created by `./setup.sh`."
+        "Run this script with a Python environment that has the packages from requirements.txt installed."
     ) from exc
 
 
 DEBUG_MARKER = "DEBUG_OUTPUT_ONLY.txt"
 
 
-def _default_max_repair_cycles() -> int:
-    path = _IB_RUNTIME_ROOT / "configs" / "workflow_policy.json"
-    try:
-        payload = load_json_file(path)
-        gate_retry = payload.get("gate_retry") if isinstance(payload, dict) else {}
-        return int(gate_retry.get("default_max_repair_cycles") or 3) if isinstance(gate_retry, dict) else 3
-    except Exception:
-        return 3
-
-
-DEFAULT_MAX_REPAIR_CYCLES = _default_max_repair_cycles()
-
-
-def _gate_state_path(run_dir: Path) -> Path:
-    return run_dir / "artifacts" / "gate_retry_state.json"
-
-
-def _load_gate_state(run_dir: Path) -> dict[str, Any]:
-    path = _gate_state_path(run_dir)
-    if not path.exists():
-        return {"schema_version": "gate_retry_state_v1", "gates": {}}
-    data = load_json_file(path)
-    if not isinstance(data, dict):
-        return {"schema_version": "gate_retry_state_v1", "gates": {}}
-    data.setdefault("schema_version", "gate_retry_state_v1")
-    data.setdefault("gates", {})
-    return data
-
-
-def _check_gate(run_dir: Path, gate: str, *, max_repair_cycles: int = DEFAULT_MAX_REPAIR_CYCLES) -> dict[str, Any]:
-    state = _load_gate_state(run_dir)
-    gate_state = (state.get("gates") or {}).get(gate) or {}
-    failed_count = int(gate_state.get("failed_validation_count") or 0)
-    blocked = gate_state.get("status") == "blocked" or failed_count > max_repair_cycles
-    return {
-        "is_blocked": blocked,
-        "gate": gate,
-        "run_dir": str(run_dir),
-        "failed_validation_count": failed_count,
-        "max_repair_cycles": max_repair_cycles,
-        "state": gate_state,
-    }
-
-
-def _mark_ungated_debug_run(run_dir: Path) -> None:
+def _mark_unchecked_debug_run(run_dir: Path) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     marker = run_dir / DEBUG_MARKER
     if not marker.exists():
         marker.write_text(
-            "This run used --allow-ungated-debug / IB_SKILL_ALLOW_UNGATED_DEBUG=1.\n"
+            "This run used --allow-unchecked-debug / IB_SKILL_ALLOW_UNCHECKED_DEBUG=1.\n"
             "It is not a formal delivery package. Do not copy generated PPTX files to final-looking names,\n"
-            "do not update LATEST_FINAL_PPT.txt, and do not describe it as client-ready.\n",
+            "do not update LATEST_FINAL_PPT.txt, and do not describe it as final delivery.\n",
             encoding="utf-8",
         )
 
@@ -116,7 +72,7 @@ def require_debug_output_name(output_path: Path) -> None:
         return
     if "DEBUG_NOT_FOR_DELIVERY" not in output_path.name:
         raise RuntimeError(
-            "ungated PPT output must include 'DEBUG_NOT_FOR_DELIVERY' in the filename. "
+            "unchecked debug PPT output must include 'DEBUG_NOT_FOR_DELIVERY' in the filename. "
             "Debug PPTs must not use final-looking names."
         )
 
@@ -137,7 +93,6 @@ def _looks_like_formal_run(run_dir: Path) -> bool:
         run_dir / "deck_blueprint.json",
         run_dir / "template_registry.json",
         run_dir / "renderer_spec.json",
-        run_dir / "replacement_dict.json",
         run_dir / "artifacts/industry_scope_pack.json",
     )
     evidence_chain = (
@@ -150,85 +105,57 @@ def _looks_like_formal_run(run_dir: Path) -> bool:
     return foundation and core and sum(path.exists() for path in evidence_chain) >= 1
 
 
-def _blocked_retry_gates(run_dir: Path) -> list[str]:
-    state = _load_gate_state(run_dir)
-    gates = state.get("gates") if isinstance(state, dict) else {}
-    if not isinstance(gates, dict):
-        return []
-    return [
-        str(gate)
-        for gate, gate_state in gates.items()
-        if isinstance(gate_state, dict) and gate_state.get("status") == "blocked"
-    ]
-
-
-def _pre_ppt_gate_is_passing(run_dir: Path) -> bool:
-    gate_path = run_dir / "artifacts" / "stage_gate_pre_ppt_validation.json"
-    if not gate_path.exists():
+def _pre_ppt_readiness_is_passing(run_dir: Path) -> bool:
+    readiness_path = run_dir / "artifacts" / "pre_ppt_readiness.json"
+    if not readiness_path.exists():
         return False
     try:
-        gate = load_json_file(gate_path)
+        readiness = load_json_file(readiness_path)
     except Exception:
         return False
-    return isinstance(gate, dict) and gate.get("is_valid") is True
+    return isinstance(readiness, dict) and readiness.get("is_valid") is True
 
 
 def _reject_debug_on_formal_run_if_needed(run_dir: Path) -> None:
     if not _looks_like_formal_run(run_dir):
         return
-    blocked = _blocked_retry_gates(run_dir)
-    if blocked:
+    if not _pre_ppt_readiness_is_passing(run_dir):
         raise RuntimeError(
-            "ungated debug output is not allowed for this formal run package because "
-            f"gate(s) are blocked after repeated failures: {', '.join(blocked)}. "
-            "Run scripts/pipeline.py next and report the blocker instead of generating downstream artifacts."
-        )
-    if not _pre_ppt_gate_is_passing(run_dir):
-        raise RuntimeError(
-            "ungated debug output is not allowed for a formal run package without a passing pre-PPT gate. "
+            "unchecked debug output is not allowed for a formal run package without a passing pre-PPT readiness check. "
             "Use an isolated temporary directory for template/render diagnostics, or fix the formal package first."
         )
 
 
-def require_pre_ppt_gate(run_dir: Path, *, allow_ungated_debug: bool = False) -> None:
-    if allow_ungated_debug:
-        if os.environ.get("IB_SKILL_ALLOW_UNGATED_DEBUG") == "1":
+def require_pre_ppt_readiness(run_dir: Path, *, allow_unchecked_debug: bool = False) -> None:
+    if allow_unchecked_debug:
+        if os.environ.get("IB_SKILL_ALLOW_UNCHECKED_DEBUG") == "1":
             _reject_debug_on_formal_run_if_needed(run_dir)
-            _mark_ungated_debug_run(run_dir)
+            _mark_unchecked_debug_run(run_dir)
             return
         raise RuntimeError(
-            "--allow-ungated-debug was requested, but IB_SKILL_ALLOW_UNGATED_DEBUG=1 is not set. "
+            "--allow-unchecked-debug was requested, but IB_SKILL_ALLOW_UNCHECKED_DEBUG=1 is not set. "
             "This bypass is reserved for explicit local diagnostics and must not be used for delivery."
         )
 
-    retry_state = _check_gate(run_dir, "pre_ppt", max_repair_cycles=DEFAULT_MAX_REPAIR_CYCLES)
-    if retry_state.get("is_blocked"):
-        failed_count = retry_state.get("failed_validation_count", 0)
-        max_cycles = retry_state.get("max_repair_cycles", DEFAULT_MAX_REPAIR_CYCLES)
+    readiness_path = run_dir / "artifacts" / "pre_ppt_readiness.json"
+    if not readiness_path.exists():
         raise RuntimeError(
-            "pre-PPT gate is blocked after repeated failures; refusing PPT output. "
-            f"failed_validation_count={failed_count}, max_repair_cycles={max_cycles}. "
-            f"State: {run_dir / 'artifacts' / 'gate_retry_state.json'}"
-        )
-
-    gate_path = run_dir / "artifacts" / "stage_gate_pre_ppt_validation.json"
-    if not gate_path.exists():
-        raise RuntimeError(
-            f"missing required pre-PPT gate artifact: {gate_path}. "
-            "Run scripts/pipeline.py validate --artifact pre_ppt first, or use --allow-ungated-debug only for local diagnostics."
+            f"missing required pre-PPT readiness artifact: {readiness_path}. "
+            "Run through scripts/pipeline.py render so render creates the internal preflight first, "
+            "or use --allow-unchecked-debug only for local diagnostics."
         )
     try:
-        gate = load_json_file(gate_path)
+        readiness = load_json_file(readiness_path)
     except Exception as exc:
-        raise RuntimeError(f"cannot read pre-PPT gate artifact {gate_path}: {exc}") from exc
-    if not isinstance(gate, dict) or gate.get("is_valid") is not True:
-        errors = gate.get("errors", []) if isinstance(gate, dict) else []
+        raise RuntimeError(f"cannot read pre-PPT readiness artifact {readiness_path}: {exc}") from exc
+    if not isinstance(readiness, dict) or readiness.get("is_valid") is not True:
+        errors = readiness.get("errors", []) if isinstance(readiness, dict) else []
         preview = "; ".join(str(item) for item in errors[:5])
         if len(errors) > 5:
             preview += f"; plus {len(errors) - 5} more"
         raise RuntimeError(
-            "pre-PPT gate is not passing; refusing to generate or mutate PPT output. "
-            f"Gate: {gate_path}. {preview}"
+            "pre-PPT readiness is not passing; refusing to generate or mutate PPT output. "
+            f"Readiness artifact: {readiness_path}. {preview}"
         )
 
 
@@ -313,13 +240,18 @@ def normalize_compare_table_payload(slide_data: dict) -> tuple[list[str], list[l
             if not isinstance(row, dict):
                 continue
             label = str(row.get("label") or "").strip()
-            cells = [str(item).strip() for item in row.get("cells") or []]
+            raw_cells = row.get("cells")
+            if isinstance(raw_cells, list):
+                cells = [str(item).strip() for item in raw_cells if str(item).strip()]
+            elif raw_cells is None or isinstance(raw_cells, (dict, tuple, set)):
+                cells = []
+            else:
+                cells = split_table_cells(str(raw_cells or "").strip())
             rows.append([label] + cells)
         return headers, rows
     return [], []
 
 DEFAULT_RENDER_LAYOUTS_PATH = _IB_RUNTIME_ROOT / "configs" / "render_layouts.json"
-DEFAULT_TEMPLATE_PROFILE_PATH = _IB_RUNTIME_ROOT / "configs" / "template_profile.json"
 
 DEFAULT_BRAND_BLUE = RGBColor(0x0D, 0x57, 0xAA)
 DEFAULT_GRID_GRAY = RGBColor(0xD9, 0xD9, 0xD9)
@@ -728,7 +660,7 @@ def build_chart(slide, slide_data: dict, layout: dict) -> dict:
             "path": "chart_data.series",
             "expected": "list[object] where each object has name and values",
             "actual": type(series).__name__,
-            "repair_hint": "Use scripts/pipeline.py compile to normalize natural data_series into renderer chart series.",
+            "repair_hint": "Refresh structured-render inputs from the page pack so natural data_series becomes chart series.",
         }
     non_object_series = [idx for idx, item in enumerate(series, start=1) if not isinstance(item, dict)]
     if non_object_series:
@@ -1280,7 +1212,7 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
             "path": "chart_data.source_rows",
             "expected": "list[object]",
             "actual": type(rows).__name__,
-            "repair_hint": "Use scripts/pipeline.py compile to normalize chart data before postprocess.",
+            "repair_hint": "Refresh structured-render inputs from the page pack before postprocess.",
         }
     if len(rows) < 2:
         return {
@@ -1297,7 +1229,7 @@ def render_slide1_visual(slide, slide_data: dict, layout: dict) -> dict:
             "path": f"chart_data.source_rows[{non_object_rows[0]}]",
             "expected": "object with label/value/unit",
             "actual": type(rows[non_object_rows[0] - 1]).__name__,
-            "repair_hint": "Do not pass source_rows as strings; compile deck_blueprint natural data_series into renderer rows.",
+            "repair_hint": "Do not pass source_rows as strings; refresh structured-render inputs so natural data_series becomes renderer rows.",
         }
 
     chart_title = chart_data.get("title") or ""
@@ -1551,7 +1483,12 @@ def generic_visual_layout(prs: Presentation, slide_data: dict) -> dict:
     content_height = height - content_top - footer_height - int(height * 0.045)
     content_width = width - margin_x * 2
     has_body = bool(slide_data.get("body_copy"))
-    if has_body and (slide_data.get("chart_data") or slide_data.get("compare_table_data")):
+    has_visual_payload = bool(
+        slide_data.get("chart_data")
+        or slide_data.get("compare_table_data")
+        or slide_data.get("visible_metric_claims")
+    )
+    if has_body and has_visual_payload:
         visual_left = margin_x + int(content_width * 0.40)
         visual_width = int(content_width * 0.60)
         body_width = int(content_width * 0.36)
@@ -1677,6 +1614,54 @@ def add_card(slide, box: tuple[int, int, int, int], text: str, *, idx: int) -> N
     add_text_box(slide, box, prefix + str(text or "").strip(), font_size=fit_font_size(text, 10.5, 7.5, 80), color=TEXT_GRAY)
 
 
+def metric_card_text(claim: dict) -> str:
+    display = str(
+        claim.get("display_text")
+        or claim.get("claim")
+        or claim.get("text")
+        or claim.get("label")
+        or claim.get("value_label")
+        or ""
+    ).strip()
+    if display:
+        return display
+    label = str(claim.get("indicator") or claim.get("metric_name") or claim.get("metric_id") or "").strip()
+    value = str(claim.get("value") or claim.get("display_value") or "").strip()
+    unit = str(claim.get("unit") or "").strip()
+    period = str(claim.get("period") or claim.get("data_period") or "").strip()
+    parts = [part for part in (period, label, f"{value}{unit}".strip()) if part]
+    return " | ".join(parts)
+
+
+def render_metric_cards(slide, slide_data: dict, box: tuple[int, int, int, int]) -> dict:
+    claims = [
+        claim
+        for claim in slide_data.get("visible_metric_claims", [])
+        if isinstance(claim, dict) and metric_card_text(claim)
+    ]
+    if not claims:
+        return {"rendered": False, "reason": "no visible metric claims"}
+    left, top, width, height = box
+    count = min(len(claims), 8)
+    cols = 1 if count <= 2 else 2
+    if width < 4_000_000:
+        cols = 1
+    rows = (count + cols - 1) // cols
+    gap = 100_000
+    card_w = int((width - gap * (cols - 1)) / cols)
+    card_h = int((height - gap * (rows - 1)) / rows)
+    for idx, claim in enumerate(claims[:count], start=1):
+        row = (idx - 1) // cols
+        col = (idx - 1) % cols
+        add_card(
+            slide,
+            (left + col * (card_w + gap), top + row * (card_h + gap), card_w, card_h),
+            metric_card_text(claim),
+            idx=0,
+        )
+    return {"rendered": True, "items": count, "source": "visible_metric_claims"}
+
+
 def body_items(slide_data: dict) -> list[str]:
     body = slide_data.get("body_copy") if isinstance(slide_data.get("body_copy"), dict) else {}
     values = [str(value or "").strip() for value in body.values() if str(value or "").strip()]
@@ -1704,9 +1689,17 @@ def render_body_cards(slide, slide_data: dict, box: tuple[int, int, int, int]) -
     return {"rendered": True, "items": count}
 
 
-def render_style_guided_deck(template_ppt: Path, renderer_spec_path: Path, output_ppt: Path, template_profile_path: Path) -> dict:
+def render_style_guided_deck(
+    template_ppt: Path,
+    renderer_spec_path: Path,
+    output_ppt: Path,
+    template_profile_path: Optional[Path] = None,
+) -> dict:
     template_profile_warnings: list[str] = []
-    _apply_template_profile_style(template_profile_path, template_profile_warnings)
+    if template_profile_path is not None:
+        _apply_template_profile_style(template_profile_path, template_profile_warnings)
+    else:
+        template_profile_warnings.append("template profile omitted; using static fallback style")
     renderer_spec = load_json(renderer_spec_path)
     template_source = Presentation(str(template_ppt))
     style_base_idx = style_reference_slide_index(template_source)
@@ -1736,6 +1729,9 @@ def render_style_guided_deck(template_ppt: Path, renderer_spec_path: Path, outpu
             color=TEXT_GRAY,
         )
         layout = generic_visual_layout(prs, slide_data)
+        metric_card_result = {"rendered": False, "reason": "no visible metric claims"}
+        if slide_data.get("visible_metric_claims") and not slide_data.get("chart_data") and not slide_data.get("compare_table_data"):
+            metric_card_result = render_metric_cards(slide, slide_data, layout["chart_box"])
         body_result = render_body_cards(slide, slide_data, layout["body_box"])
         chart_result = {"rendered": False, "required_render": False, "reason": "no visual payload"}
         if slide_data.get("compare_table_data"):
@@ -1755,8 +1751,9 @@ def render_style_guided_deck(template_ppt: Path, renderer_spec_path: Path, outpu
                 "selected_page_type": slide_data.get("selected_page_type"),
                 "style_guided": True,
                 "body": body_result,
+                "metric_cards": metric_card_result,
                 "visual": chart_result,
-                "rendered": bool(body_result.get("rendered") or chart_result.get("rendered")),
+                "rendered": bool(body_result.get("rendered") or metric_card_result.get("rendered") or chart_result.get("rendered")),
                 "required_render": False,
             }
         )
@@ -1768,8 +1765,9 @@ def render_style_guided_deck(template_ppt: Path, renderer_spec_path: Path, outpu
         "template_profile_warnings": template_profile_warnings,
         "output_ppt": str(output_ppt),
         "style_guided_render": True,
+        "template_starting_point": "opened_selected_template_pptx_removed_demo_slides_preserved_theme_master_size",
         "style_base_slide": style_base_idx + 1 if style_base_idx is not None else None,
-        "style_base_strategy": "copied_low_content_template_slide" if style_base_idx is not None else "blank_layout_from_template",
+        "style_base_strategy": "copied_low_content_template_slide" if style_base_idx is not None else "blank_layout_inside_selected_template",
         "chart_rendering": visual_results,
     }
 
@@ -1808,7 +1806,7 @@ def render_quant_slide(prs: Presentation, renderer_spec: dict, slide_no: int, re
             "selected_page_type": page_type,
             "rendered": False,
             "reason": f"{type(exc).__name__}: {exc}",
-            "repair_hint": "Check renderer_spec chart/table payload for this slide. Expected canonical chart series or compare_table_data rows.",
+            "repair_hint": "Check renderer_spec chart/table payload for this slide. Expected normalized chart series or compare_table_data rows.",
         }
     result["slide_no"] = slide_no
     result["selected_page_type"] = page_type
@@ -1954,9 +1952,10 @@ def postprocess(
     template_profile_path: Optional[Path] = None,
 ) -> dict:
     template_profile_warnings: list[str] = []
-    if template_profile_path is None:
-        template_profile_path = DEFAULT_TEMPLATE_PROFILE_PATH
-    _apply_template_profile_style(template_profile_path, template_profile_warnings)
+    if template_profile_path is not None:
+        _apply_template_profile_style(template_profile_path, template_profile_warnings)
+    else:
+        template_profile_warnings.append("template profile omitted; using static fallback style")
 
     renderer_spec = load_json(renderer_spec_path)
     render_layouts = load_render_layouts(render_layouts_path)
@@ -2000,7 +1999,10 @@ def postprocess(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Post-process filled PPT with object-level visual cleanup and chart rendering."
+        description=(
+            "Internal pipeline helper for editable PPT rendering and visual cleanup. "
+            "Use scripts/pipeline.py render for structured-render delivery; this script does not author deck copy or certify final delivery quality."
+        )
     )
     parser.add_argument("--input-ppt", required=True, help="Path to cleaned PPTX input.")
     parser.add_argument("--renderer-spec", dest="renderer_spec", required=True, help="Path to renderer_spec.json.")
@@ -2012,8 +2014,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--template-profile",
-        default=str(DEFAULT_TEMPLATE_PROFILE_PATH),
-        help="Path to template_profile.json with visual style and fit rules.",
+        default="",
+        help="Optional path to a runtime-generated template_profile.json with visual style and fit rules.",
     )
     parser.add_argument("--log", help="Optional path to write a JSON log.")
     parser.add_argument(
@@ -2022,28 +2024,31 @@ def main() -> None:
         help="Exit non-zero if a required deterministic visual renderer fails.",
     )
     parser.add_argument(
-        "--allow-ungated-debug",
+        "--allow-unchecked-debug",
         action="store_true",
-        help="Bypass the pre-PPT stage gate. Use only for local diagnostics, never delivery.",
+        help="Bypass the pre-PPT readiness check. Use only for local diagnostics, never delivery.",
     )
     parser.add_argument(
         "--style-guided-render",
         action="store_true",
-        help="Create an editable PPT from renderer_spec using the input PPT only as a style/size reference.",
+        help=(
+            "Create an editable PPT from renderer_spec inside the selected PPTX package/style context; "
+            "page composition still comes from the LLM-authored page pack."
+        ),
     )
     args = parser.parse_args()
 
     output_path = Path(args.output)
     try:
-        if args.allow_ungated_debug:
+        if args.allow_unchecked_debug:
             require_debug_output_name(output_path)
-        require_pre_ppt_gate(output_path.parent, allow_ungated_debug=args.allow_ungated_debug)
+        require_pre_ppt_readiness(output_path.parent, allow_unchecked_debug=args.allow_unchecked_debug)
         if args.style_guided_render:
             result = render_style_guided_deck(
                 Path(args.input_ppt),
                 Path(args.renderer_spec),
                 output_path,
-                Path(args.template_profile),
+                Path(args.template_profile) if args.template_profile else None,
             )
         else:
             result = postprocess(
@@ -2051,7 +2056,7 @@ def main() -> None:
                 Path(args.renderer_spec),
                 output_path,
                 Path(args.render_layouts),
-                Path(args.template_profile),
+                Path(args.template_profile) if args.template_profile else None,
             )
     except Exception as exc:
         result = {

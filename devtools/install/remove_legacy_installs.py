@@ -21,16 +21,23 @@ from audit_legacy_installs import audit_legacy_installs
 CONFIRMATION = "REMOVE_LEGACY_INSTALLS"
 
 
-def remove_legacy_installs(skill_roots: list[Path] | None = None, *, confirm: str = "", dry_run: bool = True) -> dict[str, Any]:
-    audit = audit_legacy_installs(skill_roots)
+def remove_legacy_installs(
+    skill_roots: list[Path] | None = None,
+    plugin_roots: list[Path] | None = None,
+    *,
+    confirm: str = "",
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    audit = audit_legacy_installs(skill_roots, plugin_roots)
     candidates = [item for item in audit["entries"] if item.get("legacy_install")]
+    candidates.extend(item for item in audit.get("plugin_entries", []) if item.get("legacy_install"))
     confirmed = confirm == CONFIRMATION and not dry_run
     actions: list[dict[str, Any]] = []
     for item in candidates:
         path = Path(str(item["path"]))
         action = {
             "path": str(path),
-            "skill_name": item.get("skill_name", ""),
+            "skill_name": item.get("skill_name", "") or item.get("plugin_name", ""),
             "would_remove": True,
             "removed": False,
             "error": "",
@@ -61,13 +68,15 @@ def remove_legacy_installs(skill_roots: list[Path] | None = None, *, confirm: st
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skill-root", action="append", help="Override skill root; may be repeated")
+    parser.add_argument("--plugin-root", action="append", help="Override plugin cache/root; may be repeated")
     parser.add_argument("--confirm", default="", help=f"Must equal {CONFIRMATION} to remove")
     parser.add_argument("--execute", action="store_true", help="Actually remove matched legacy installs")
     parser.add_argument("--output")
     args = parser.parse_args()
 
     roots = [Path(item).expanduser() for item in args.skill_root] if args.skill_root else None
-    payload = remove_legacy_installs(roots, confirm=args.confirm, dry_run=not args.execute)
+    plugin_roots = [Path(item).expanduser() for item in args.plugin_root] if args.plugin_root else None
+    payload = remove_legacy_installs(roots, plugin_roots, confirm=args.confirm, dry_run=not args.execute)
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     if args.output:
         output = Path(args.output)

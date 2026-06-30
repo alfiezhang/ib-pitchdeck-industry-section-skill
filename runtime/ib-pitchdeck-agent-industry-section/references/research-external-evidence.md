@@ -12,20 +12,36 @@ Start from the industry boundary and the evidence need, then design searches tha
 
 Treat every search result as a lead until you have opened or otherwise verified the underlying source. A snippet, URL title, or unopened result cannot become EV/MET evidence.
 
+Use a research-manager loop:
+
+1. Start with the few searches most likely to change the page argument.
+2. After each search or source read, record what was learned and what is still missing.
+3. Narrow the next query only if it will improve a key number, source authority, market boundary, peer benchmark, or visible exhibit.
+4. Stop when additional searches are repeating the same sources, hit the request's search or source-review budget, or no longer change the deck inclusion, headline, or exhibit decision.
+5. When executing a targeted research cycle, return a cycle outcome: request closed, source found, source unavailable, or still unresolved. On the final allowed cycle, write the outcome clearly and mark completed or exhausted requests closed; do not leave completed final-cycle requests looking active, because that invites the parent agent to rerun the same search.
+
+Do not spend equal effort on every planned row. For a first sendable draft, a few strong opened sources beat a large grid of weak or unopened results.
+
+Respect the request's context budget. By default, do not exceed 3 actual searches, 4 opened/reviewed sources, or 2 promoted sources for one active request unless the operator explicitly raises the cap. Capture only the short excerpts needed for source review and metric audit; do not paste long webpages, broad search result lists, or every paragraph that might be useful later.
+
 Separate the work into three layers:
 
-- coverage: what the plan asked you to investigate;
+- evidence need: what the plan asked you to investigate;
 - execution: what you actually searched, opened, and reviewed;
 - evidence: what can support a candidate fact, metric, or context note.
 
-## Working Artifacts
+## Research Records
 
-- `artifacts/formal_search_plan.json`: coverage and evidence needs.
-- `artifacts/executable_search_batch.json`: concrete queries.
-- `artifacts/research_graph_state.json`: execution state and reviewed source notes.
-- `artifacts/search_log.md`, `artifacts/source_archive/`, and `artifacts/formal_research_execution_report.json`: compiled record of what happened.
+Use the files as records of the work, not as a strategy checklist:
 
-Keep final query strings in the executable batch, not the formal plan. Actual `S-xxx` IDs belong only to searches that really ran.
+- evidence plan: core research threads and evidence needs;
+- executable query batch: concrete queries selected for this pass, with inactive/deferred rows explained in plain language;
+- research execution state: searches run, sources opened, reviewed notes, candidate facts/metrics, limits, and gaps;
+- search log, source archive, and execution report: synchronized record of what actually happened.
+
+Keep final query strings in the executable query batch, not the formal plan. Actual `S-xxx` IDs belong only to searches that really ran.
+
+Do not execute or author every possible row by default. Write concrete queries for the rows that matter now and set those rows to `active: true`; add industry-specific rows when needed; set lower-priority rows to `active: false` with a short natural reason. A smaller set of well-designed searches is better than many generic searches. Do not fill English / Chinese / source-specific query columns; use one natural query list and choose variants only when useful.
 
 ## Source Handling
 
@@ -35,11 +51,11 @@ For each source, decide what kind of material it is:
 - ordinary background that should remain `research_context`;
 - weak, inaccessible, conflicting, or not-material material that should be logged as a gap or limitation.
 
-Audit-grade metrics need more discipline: source locator, excerpt, period, geography, unit, market definition, and a reviewable source capture or explicit manual verification. If a full archive fails, do a second-pass check: reopen the URL, search a distinctive quote, locate the original report/PDF, or find the same passage in a credible repost. Record the verification method and notes clearly.
+Metrics that may later become audit-grade need more discipline: source locator, excerpt, period, geography, unit, market definition, and a reviewable source capture or explicit manual verification. Research records the candidate number and its source trail; Knowledge decides whether it becomes a formal MET row. If a full archive fails, do a second-pass check: reopen the URL, search a distinctive quote, locate the original report/PDF, or find the same passage in a credible repost. Record the verification method and notes clearly.
 
 Do not let archive size or text length decide source quality. Source usability, use tier, and claim-use limits are finalized inside `research_evidence_db.json`.
 
-Use `status=supported` only when the row has explicit `terminal_status=executed_with_evidence`. Directional/background rows, backlog rows, and candidate EV/MET rows without downstream authorization should remain thin, insufficient, or backlog-only.
+Write the execution result in the clearest language available. Treat a row as source-backed only when it records the real search/manual-source work, opened or reviewed sources, locators or excerpts, and the candidate fact or metric. If the result is background-only, weak, conflicting, unavailable, not material, or still waiting for Knowledge authorization, say that directly instead of upgrading the row into evidence-ready wording.
 
 ## What To Pass On
 
@@ -50,7 +66,7 @@ Hand Knowledge the facts of the research, not a finished pitch claim:
 - locators and excerpts;
 - candidate facts and metrics;
 - context-only notes;
-- not-executed or unavailable coverage;
+- not-executed or unavailable planned rows;
 - rejected, thin, or conflicting sources;
 - evidence limits that Reasoning may need to respect.
 

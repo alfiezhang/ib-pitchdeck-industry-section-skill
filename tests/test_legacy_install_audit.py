@@ -48,13 +48,59 @@ def test_audit_legacy_installs_reports_found_legacy_skills(tmp_path: Path) -> No
     assert "SKILL.md" in found[0]["marker_files"]
 
 
+def test_audit_legacy_installs_reports_stale_current_skill(tmp_path: Path) -> None:
+    skill_root = tmp_path / "skills"
+    current = skill_root / "ib-pitchdeck-agent-industry-section"
+    current.mkdir(parents=True)
+    (current / "SKILL.md").write_text(
+        "Use scripts/pipeline.py gate and scripts/pipeline.py validate.",
+        encoding="utf-8",
+    )
+    output = tmp_path / "legacy_install_audit.json"
+    empty_plugin_root = tmp_path / "plugins"
+
+    result = _run(
+        "audit_legacy_installs.py",
+        ["--skill-root", str(skill_root), "--plugin-root", str(empty_plugin_root), "--output", str(output)],
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["legacy_installs_found"] is True
+    stale = [item for item in payload["current_skill_entries"] if item["stale_install"]]
+    assert stale[0]["skill_name"] == "ib-pitchdeck-agent-industry-section"
+    assert "scripts/pipeline.py gate" in stale[0]["stale_markers"]
+
+
+def test_audit_legacy_installs_reports_personal_plugin_cache(tmp_path: Path) -> None:
+    skill_root = tmp_path / "skills"
+    plugin_root = tmp_path / "plugins" / "cache" / "personal"
+    cached = plugin_root / "ib-pitchdeck-agent-industry-section"
+    cached.mkdir(parents=True)
+    (cached / "0.1.0" / "skills").mkdir(parents=True)
+    output = tmp_path / "legacy_install_audit.json"
+
+    result = _run(
+        "audit_legacy_installs.py",
+        ["--skill-root", str(skill_root), "--plugin-root", str(plugin_root), "--output", str(output)],
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["legacy_installs_found"] is True
+    found = [item for item in payload["plugin_entries"] if item["legacy_install"]]
+    assert found[0]["plugin_root"] == str(plugin_root)
+    assert found[0]["plugin_name"] == "ib-pitchdeck-agent-industry-section"
+
+
 def test_remove_legacy_installs_defaults_to_dry_run(tmp_path: Path) -> None:
     skill_root = tmp_path / "skills"
+    plugin_root = tmp_path / "plugins"
     legacy = skill_root / "fill-ppt"
     legacy.mkdir(parents=True)
     (legacy / "SKILL.md").write_text("# legacy fill ppt\n", encoding="utf-8")
 
-    result = _run("remove_legacy_installs.py", ["--skill-root", str(skill_root)])
+    result = _run("remove_legacy_installs.py", ["--skill-root", str(skill_root), "--plugin-root", str(plugin_root)])
 
     assert result.returncode == 0
     payload = json.loads(result.stdout)
@@ -66,6 +112,7 @@ def test_remove_legacy_installs_defaults_to_dry_run(tmp_path: Path) -> None:
 
 def test_remove_legacy_installs_requires_explicit_confirmation_to_delete(tmp_path: Path) -> None:
     skill_root = tmp_path / "skills"
+    plugin_root = tmp_path / "plugins"
     legacy = skill_root / "research-pack"
     legacy.mkdir(parents=True)
     (legacy / "SKILL.md").write_text("# legacy research pack\n", encoding="utf-8")
@@ -75,6 +122,8 @@ def test_remove_legacy_installs_requires_explicit_confirmation_to_delete(tmp_pat
         [
             "--skill-root",
             str(skill_root),
+            "--plugin-root",
+            str(plugin_root),
             "--execute",
             "--confirm",
             "REMOVE_LEGACY_INSTALLS",
@@ -87,3 +136,30 @@ def test_remove_legacy_installs_requires_explicit_confirmation_to_delete(tmp_pat
     assert payload["confirmed"] is True
     assert payload["removed_count"] == 1
     assert not legacy.exists()
+
+
+def test_remove_legacy_installs_can_remove_plugin_cache_with_confirmation(tmp_path: Path) -> None:
+    skill_root = tmp_path / "skills"
+    plugin_root = tmp_path / "plugins" / "cache" / "personal"
+    cached = plugin_root / "ib-pitchdeck-agent-industry-section"
+    cached.mkdir(parents=True)
+    (cached / "0.1.0").mkdir()
+
+    result = _run(
+        "remove_legacy_installs.py",
+        [
+            "--skill-root",
+            str(skill_root),
+            "--plugin-root",
+            str(plugin_root),
+            "--execute",
+            "--confirm",
+            "REMOVE_LEGACY_INSTALLS",
+        ],
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["dry_run"] is False
+    assert payload["removed_count"] == 1
+    assert not cached.exists()

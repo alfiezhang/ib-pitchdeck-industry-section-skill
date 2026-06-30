@@ -7,6 +7,7 @@ from __future__ import annotations
 # `scripts/`; production tools live under role scripts; validators live under QC.
 import sys as _ib_sys
 from pathlib import Path as _IbPath
+_ib_sys.dont_write_bytecode = True
 _IB_ROLE_SCRIPT_DIR = _IbPath(__file__).resolve().parent
 _IB_REPO_ROOT = _IbPath(__file__).resolve().parents[2]
 _IB_RUNTIME_ROOT = _IB_REPO_ROOT / "runtime" / "ib-pitchdeck-agent-industry-section"
@@ -32,6 +33,16 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = _IB_RUNTIME_ROOT
+RENDERER_SPEC_REQUIRED_SLIDE_FIELDS = {
+    "slide_no",
+    "fixed_page_role",
+    "selected_page_type",
+    "banker_page_id",
+    "headline",
+    "main_message",
+    "body_copy",
+    "source_note",
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -76,69 +87,7 @@ def variant_page_types(registry: dict[str, Any]) -> dict[int, tuple[str, set[str
     return variants
 
 
-def page_type_to_slide_entries(registry: dict[str, Any]) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for slide_no, slide in sorted(slides_by_no(registry).items()):
-        entries.append(
-            {
-                "slide_no": slide_no,
-                "slide_key": slide.get("slide_key", ""),
-                "page_type_to_slide": {
-                    page_type: variant.get("physical_slide", "")
-                    for page_type, variant in (slide.get("variants") or {}).items()
-                },
-            }
-        )
-    return entries
-
-
-def check_page_type_rules(registry: dict[str, Any], errors: list[str]) -> None:
-    page_rules = load_json(ROOT_DIR / "configs" / "page_type_rules.json")
-    rule_by_no = {int(item.get("slide_no")): item for item in page_rules.get("slides") or []}
-    for slide_no, slide in slides_by_no(registry).items():
-        rule = rule_by_no.get(slide_no)
-        if not rule:
-            errors.append(f"page_type_rules.json missing slide {slide_no}")
-            continue
-        registry_types = set((slide.get("variants") or {}).keys())
-        rule_types = set(rule.get("page_types") or [])
-        if registry_types != rule_types:
-            errors.append(
-                f"slide {slide_no}: page_type_rules page_types {sorted(rule_types)} "
-                f"do not match slide_registry variants {sorted(registry_types)}"
-            )
-        if rule.get("selection_mode") != slide.get("selection_mode"):
-            errors.append(
-                f"slide {slide_no}: page_type_rules selection_mode {rule.get('selection_mode')!r} "
-                f"does not match slide_registry {slide.get('selection_mode')!r}"
-            )
-
-
-def check_slide_layout_library(registry: dict[str, Any], errors: list[str]) -> None:
-    layout_library = load_json(ROOT_DIR / "configs" / "slide_layout_library.json")
-    expected = page_type_to_slide_entries(registry)
-    actual = layout_library.get("slides") or []
-    if expected != actual:
-        errors.append("slide_layout_library.json does not match slide_registry physical slide mapping")
-
-
-def check_renderer_spec_schema(registry: dict[str, Any], errors: list[str]) -> None:
-    schema = load_json(ROOT_DIR / "schemas" / "renderer_spec_schema.json")
-    required = set(schema.get("properties", {}).get("slides", {}).get("items", {}).get("required", []))
-    expected_required = {
-        "slide_no",
-        "fixed_page_role",
-        "selected_page_type",
-        "banker_page_id",
-        "claim_strength",
-        "headline",
-        "main_message",
-        "body_copy",
-        "source_note",
-    }
-    missing = sorted(expected_required - required)
-    if missing:
-        errors.append("renderer_spec_schema missing required slide field(s): " + ", ".join(missing))
+def check_renderer_contract(registry: dict[str, Any], errors: list[str]) -> None:
     for slide_no, (_binding_key, valid_types) in variant_page_types(registry).items():
         if not valid_types:
             errors.append(f"slide_registry slide {slide_no} has no registered page variants")
@@ -151,9 +100,7 @@ def main() -> int:
 
     registry = load_slide_registry(Path(args.registry))
     errors: list[str] = []
-    check_page_type_rules(registry, errors)
-    check_slide_layout_library(registry, errors)
-    check_renderer_spec_schema(registry, errors)
+    check_renderer_contract(registry, errors)
 
     report = {"is_valid": not errors, "error_count": len(errors), "errors": errors}
     print(json.dumps(report, ensure_ascii=False, indent=2))

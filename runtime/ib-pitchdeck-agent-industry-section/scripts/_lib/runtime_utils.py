@@ -1,7 +1,7 @@
 """Shared deterministic runtime helpers.
 
 Keep this module limited to file/JSON/text normalization work. It must not
-decide evidence quality, claim strength, or downstream deck permission.
+decide evidence quality, claim strength, or downstream deck use.
 """
 
 from __future__ import annotations
@@ -84,6 +84,22 @@ USER_MATERIAL_SOURCE_TYPES = {
 }
 
 
+LAYOUT_CONFIG_FILES = {
+    "slide_registry": "configs/slide_registry.json",
+    "render_layouts": "configs/render_layouts.json",
+    "layout_budget": "configs/layout_budget.json",
+    "text_fit_rules": "configs/text_fit_rules.json",
+    "ppt_mapping": "configs/ppt_mapping.json",
+}
+
+
+def default_layout_paths(runtime_root: Path) -> dict[str, Path]:
+    return {
+        key: runtime_root / relative_path
+        for key, relative_path in LAYOUT_CONFIG_FILES.items()
+    }
+
+
 def smart_quote_locations(text: str) -> list[dict[str, Any]]:
     locations: list[dict[str, Any]] = []
     line = 1
@@ -160,9 +176,9 @@ def normalize_source_type(value: Any) -> str:
         return raw
     if raw in SOURCE_TYPE_ALIASES:
         return SOURCE_TYPE_ALIASES[raw]
-    for token, canonical in SOURCE_TYPE_ALIASES.items():
+    for token, normalized in SOURCE_TYPE_ALIASES.items():
         if token in raw:
-            return canonical
+            return normalized
     return "other"
 
 

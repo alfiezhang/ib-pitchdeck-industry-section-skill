@@ -17,12 +17,10 @@ RUNTIME_ROOT = REPO_ROOT / "runtime" / SKILL_NAME
 REQUIRED_PATHS = [
     "SKILL.md",
     "scripts",
-    "schemas",
     "configs",
     "assets",
     "references",
     "requirements.txt",
-    "setup.sh",
 ]
 
 FORBIDDEN_PARTS = {

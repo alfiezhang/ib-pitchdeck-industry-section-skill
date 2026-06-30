@@ -13,9 +13,8 @@ export PYTHONDONTWRITEBYTECODE=1
 cd "$SKILL_DIR"
 
 PYTHONPYCACHEPREFIX="$TMP_DIR/pycache" "$PYTHON_CMD" -m compileall -q scripts
-bash -n setup.sh
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck setup.sh "$ROOT_DIR/tests/run_smoke_tests.sh"
+  shellcheck "$ROOT_DIR/tests/run_smoke_tests.sh"
 fi
 
 if "$PYTHON_CMD" scripts/pipeline.py render --run-dir "$TMP_DIR/missing_attempt" >/dev/null 2>"$TMP_DIR/missing_run_dir.err"; then

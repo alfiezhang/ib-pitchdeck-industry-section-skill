@@ -1,8 +1,8 @@
 {
-  "_description": "Page-level PPT layout budgets used by renderer-spec prompts and validators. Headline and main_message fit is hard-constrained through text-fit rules; body-copy budgets are advisory scanability hints and must not cause content deletion or formal delivery failure by themselves.",
+  "_description": "Page-level PPT layout budgets used by renderer-spec prompts and validators. In style-guided mode, headline/main_message line-fit and body-copy budgets are advisory scanability hints; they should prompt rewrite, split-page, or layout choices, not automatic content deletion or formal delivery failure. Treat them as hard constraints only in explicit strict_layout mode.",
   "global": {
     "main_message": {
-      "forbid_terminal_punctuation": true,
+      "avoid_terminal_punctuation": true,
       "terminal_punctuation": "。．.，,、；;：:！!？?",
       "max_lines": 2,
       "target_lines": 1
@@ -13,11 +13,11 @@
       "max_bullet_units_table": 34,
       "max_bullet_units_compact": 72,
       "max_newlines_per_field": 1,
-      "forbid_paragraphs": true
+      "avoid_paragraphs": true
     },
     "visual": {
       "renderable_chart_types": ["bar", "column", "clustered_bar", "clustered_column", "stacked_bar", "stacked_column", "line", "line_chart", "metric_cards", "matrix", "none"],
-      "forbid_instructional_chart_titles": true
+      "avoid_instructional_chart_titles": true
     },
     "table": {
       "preferred_separator": "｜",
@@ -37,7 +37,7 @@
         "preferred_chart_types": ["metric_cards", "bar", "line"],
         "min_metric_cards": 3,
         "max_metric_cards": 3,
-        "forbid_none_unless_no_verified_metrics": true
+        "avoid_none_unless_no_verified_metrics": true
       }
     },
     "8:summary_page": {
@@ -48,7 +48,7 @@
         "right_bottom": 78
       },
       "slide_8_body": {
-        "must_be_investment_thesis": true,
+        "preferred_investment_thesis_signal": true,
         "avoid_memo_summary": true
       }
     }
@@ -63,7 +63,7 @@
         "bullet_2": 78,
         "bullet_3": 78
       },
-      "required_visual": true
+      "preferred_visual_payload": true
     },
     "chart_plus_mini_table_page": {
       "body_fields_max_units": {
@@ -157,7 +157,7 @@
         "right_mid": 82,
         "right_bottom": 82
       },
-      "required_numeric_xy": true
+      "preferred_numeric_xy_payload": true
     },
     "trend_page": {
       "body_fields_max_units": {

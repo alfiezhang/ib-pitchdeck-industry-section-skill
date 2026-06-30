@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Analyze a PPT template and emit a deterministic template profile."""
+"""Internal pipeline helper for PPT template style and fit diagnostics.
+
+Use scripts/pipeline.py render only for structured-render delivery. This module extracts style
+signals and advisory fit diagnostics; it does not choose the page story,
+compress LLM copy, or turn template placeholders into a content contract.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +12,7 @@ from __future__ import annotations
 # `scripts/`; production tools live under role scripts; validators live under QC.
 import sys as _ib_sys
 from pathlib import Path as _IbPath
+_ib_sys.dont_write_bytecode = True
 _IB_ROLE_SCRIPT_DIR = _IbPath(__file__).resolve().parent
 _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
@@ -37,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 from deck_blueprint_utils import FIXED_PAGE_ROLES, active_body_fields
-from runtime_utils import load_json_file
+from runtime_utils import default_layout_paths, load_json_file
 
 try:
     from pptx import Presentation
@@ -81,6 +87,14 @@ def estimate_lines(text: str, max_line_units: float) -> int:
         max(1, math.ceil(display_units(segment) / max_line_units))
         for segment in re.split(r"\r?\n", text)
     )
+
+
+def strict_layout_blocks_line_overflow(rule: dict[str, Any]) -> bool:
+    if "strict_layout_pause_if_exceeds_max_lines" in rule:
+        return rule.get("strict_layout_pause_if_exceeds_max_lines") is not False
+    if "strict_layout_block_if_exceeds_max_lines" in rule:
+        return rule.get("strict_layout_block_if_exceeds_max_lines") is not False
+    return rule.get("block_if_exceeds_max_lines") is not False
 
 
 def layout_rules_for(slide_no: int, page_type: str, layout_budget: dict[str, Any] | None) -> dict[str, Any]:
@@ -129,24 +143,6 @@ def _load_json(path: Path | str) -> dict[str, Any]:
     return data
 
 
-def _layout_config_paths(path: Path | str) -> dict[str, Path]:
-    config_path = Path(path)
-    if not config_path.is_absolute():
-        candidate = Path.cwd() / config_path
-        config_path = candidate if candidate.exists() else ROOT / config_path
-    config = _load_json(config_path)
-    if config.get("schema_version") != "layout_config_v1":
-        raise ValueError(f"{config_path} must use schema_version layout_config_v1")
-    files = config.get("files")
-    if not isinstance(files, dict):
-        raise ValueError(f"{config_path} must define object field 'files'")
-    resolved: dict[str, Path] = {}
-    for key, raw in files.items():
-        candidate = Path(str(raw))
-        resolved[key] = candidate if candidate.is_absolute() else ROOT / candidate
-    return resolved
-
-
 def _ppt_mapping_by_slide(ppt_mapping: dict[str, Any]) -> dict[int, dict[str, Any]]:
     return {
         int(item["slide_no"]): item
@@ -163,7 +159,7 @@ def _layout_binding_by_slide(ppt_mapping: dict[str, Any]) -> dict[int, dict[str,
 
 
 def _registry_supports(renderer: str, page_type: str, deck_contract: dict[str, Any]) -> dict[str, bool]:
-    required = set(deck_contract.get("required_objects") or [])
+    required = set(deck_contract.get("strict_layout_objects") or [])
     preferred = set(deck_contract.get("preferred_objects") or [])
     objects = required | preferred
     return {
@@ -205,22 +201,15 @@ def build_registry(
     *,
     template: Path,
     slide_registry_path: Path,
-    page_type_rules_path: Path,
     ppt_mapping_path: Path,
     layout_budget_path: Path,
     text_fit_rules_path: Path,
 ) -> dict[str, Any]:
     slide_registry = _load_json(slide_registry_path)
-    page_type_rules = _load_json(page_type_rules_path)
     ppt_mapping = _load_json(ppt_mapping_path)
     layout_budget = _load_json(layout_budget_path)
     text_fit_rules = _load_json(text_fit_rules_path)
 
-    allowed_by_slide = {
-        int(item["slide_no"]): set(item.get("page_types") or [])
-        for item in page_type_rules.get("slides", [])
-        if isinstance(item, dict) and isinstance(item.get("slide_no"), int)
-    }
     ppt_mapping_by_slide = _ppt_mapping_by_slide(ppt_mapping)
     layout_binding = _layout_binding_by_slide(ppt_mapping)
     budget_by_key = layout_budget.get("slide_budgets", {}) if isinstance(layout_budget, dict) else {}
@@ -239,11 +228,14 @@ def build_registry(
                 {
                     "page_type": page_type,
                     "renderer": str(variant.get("renderer") or ""),
-                    "formal_allowed": page_type in allowed_by_slide.get(slide_no, set()),
                     "render_layout_key": str(variant.get("render_layout_key") or page_type),
                     "physical_slide": str(variant.get("physical_slide") or ""),
                     "supports": _registry_supports(str(variant.get("renderer") or ""), page_type, renderer_contract),
-                    "required_body_fields": list(token_contract.get("required_body_fields") or []),
+                    "strict_layout_body_fields": list(
+                        token_contract.get("strict_layout_body_fields")
+                        or token_contract.get("body_field_hints")
+                        or []
+                    ),
                     "field_roles": field_roles,
                     "capacity_notes": {
                         "layout_budget": budget_by_key.get(key, {}),
@@ -253,7 +245,6 @@ def build_registry(
                             if str(field_key).startswith(key + ":")
                         },
                     },
-                    "deprecation_status": "active" if page_type in allowed_by_slide.get(slide_no, set()) else "deprecated",
                 }
             )
         slides.append(
@@ -620,7 +611,15 @@ def _build_variants(template_registry: dict[str, Any], layout_budget: dict[str, 
             supports = variant.get("supports") if isinstance(variant.get("supports"), dict) else {}
             field_roles = variant.get("field_roles") if isinstance(variant.get("field_roles"), dict) else {}
             budget = budget_by_key.get(f"{slide_no}:{page_type}", {})
-            body_fields = [str(item) for item in (variant.get("required_body_fields") or []) if str(item)]
+            body_fields = [
+                str(item)
+                for item in (
+                    variant.get("strict_layout_body_fields")
+                    or variant.get("body_field_hints")
+                    or []
+                )
+                if str(item)
+            ]
             variants.append(
                 {
                     "slide_no": slide_no,
@@ -632,7 +631,7 @@ def _build_variants(template_registry: dict[str, Any], layout_budget: dict[str, 
                         "matrix": bool(supports.get("matrix")),
                         "cards": bool(supports.get("cards")),
                     },
-                    "required_body_fields": body_fields,
+                    "strict_layout_body_fields": body_fields,
                     "field_roles": {str(k): str(v) for k, v in field_roles.items() if str(k)},
                     "capacity_rules": {
                         "body_fields_max_units": dict((budget or {}).get("body_fields_max_units", {})),
@@ -641,7 +640,7 @@ def _build_variants(template_registry: dict[str, Any], layout_budget: dict[str, 
                             "matrix": dict((budget or {}).get("matrix", {})),
                         },
                     },
-                    "source_footer_required": bool("source_footer" in field_roles or "source_footer" in source_footer_fields),
+                    "source_footer_available": bool("source_footer" in field_roles or "source_footer" in source_footer_fields),
                 }
             )
     return variants
@@ -677,16 +676,16 @@ def _build_page_type_capability(variants: list[dict[str, Any]], inventory: dict[
                 "page_type": page_type,
                 "slides": [],
                 "supports": {},
-                "required_body_fields": [],
+                "strict_layout_body_fields": [],
                 "render_layouts": [],
                 "density_classes": [],
             },
         )
         row["slides"].append(slide_no)
         row["supports"] = _merge_supports(row.get("supports", {}), supports)
-        for field in variant.get("required_body_fields", []):
-            if field not in row["required_body_fields"]:
-                row["required_body_fields"].append(field)
+        for field in variant.get("strict_layout_body_fields", []):
+            if field not in row["strict_layout_body_fields"]:
+                row["strict_layout_body_fields"].append(field)
         render_layout = _as_str(variant.get("render_layout"))
         if render_layout and render_layout not in row["render_layouts"]:
             row["render_layouts"].append(render_layout)
@@ -722,7 +721,7 @@ def _build_source_area(inventory: dict[str, Any], source_policy: dict[str, Any])
             )
     return {
         "schema_version": "source_area_v1",
-        "required_source_footer": bool(source_policy.get("required_source_footer")),
+        "source_footer_available": bool(source_policy.get("source_footer_available")),
         "source_footer_fields": source_policy.get("source_footer_fields", ["source_footer"]),
         "source_slots": source_slots,
         "has_detected_source_area": bool(source_slots),
@@ -756,11 +755,9 @@ def _build_density_budget(layout_budget: dict[str, Any], variants: list[dict[str
 
 
 def _load_paths(args) -> tuple[dict[str, Path], Path]:
-    layout_paths = _layout_config_paths(args.layout_config)
+    layout_paths = default_layout_paths(ROOT)
     if args.slide_registry is not None:
         layout_paths["slide_registry"] = Path(args.slide_registry)
-    if args.page_type_rules is not None:
-        layout_paths["page_type_rules"] = Path(args.page_type_rules)
     if args.ppt_mapping is not None:
         layout_paths["ppt_mapping"] = Path(args.ppt_mapping)
     layout_paths["render_layouts"] = Path(args.render_layouts) if args.render_layouts else layout_paths["render_layouts"]
@@ -774,7 +771,6 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
     template_registry = build_registry(
         template=template_path,
         slide_registry_path=layout_paths["slide_registry"],
-        page_type_rules_path=layout_paths["page_type_rules"],
         ppt_mapping_path=layout_paths["ppt_mapping"],
         layout_budget_path=layout_paths["layout_budget"],
         text_fit_rules_path=layout_paths["text_fit_rules"],
@@ -799,7 +795,7 @@ def _build_profile(layout_paths: dict[str, Path], template_path: Path, output_pa
     variant_payload = _build_variants(template_registry, layout_budget, source_footer_fields)
     source_policy = {
         "source_footer_fields": source_footer_fields or ["source_footer"],
-        "required_source_footer": True if source_footer_fields else bool(
+        "source_footer_available": True if source_footer_fields else bool(
             any((item.get("supports") or {}).get("source_footer") for item in inventory.get("slides", []) if isinstance(item, dict))
         ),
     }
@@ -935,15 +931,31 @@ def _fit_capacity_conflict(slide_no: int, field_path: str, message: str, recomme
         "message": message,
         "repair_owner": "generation",
         "repair_action": recommendation,
-        "downstream_blocked": True,
+        "downstream_should_pause": True,
     }
 
 
-def _fit_check_source_footer(slide: dict[str, Any], variant: dict[str, Any], warnings: list[str], blocking: list[str]) -> None:
-    if not bool(variant.get("source_footer_required")):
+def _fit_check_source_footer(
+    slide: dict[str, Any],
+    variant: dict[str, Any],
+    warnings: list[str],
+    blocking: list[str],
+    *,
+    strict_layout: bool,
+) -> None:
+    if not bool(variant.get("source_footer_available")):
         return
     if _fit_is_blank(slide.get("source_note")):
-        blocking.append(f"slide {slide.get('slide_no')}: source footer required by template variant but source_note is empty")
+        message = (
+            f"slide {slide.get('slide_no')}: template variant has a source footer slot but source_note is empty; "
+            "style-guided mode leaves source-footer judgment to the page author/QC"
+        )
+        if strict_layout:
+            blocking.append(
+                f"slide {slide.get('slide_no')}: strict_layout expects source_note because the selected template variant has a source footer slot"
+            )
+        else:
+            warnings.append(message)
         return
     note = str(slide.get("source_note") or "")
     if note.strip().startswith("来源：") and len(note.strip()) <= 3:
@@ -1022,11 +1034,17 @@ def _fit_check_text_lines(
                 f"estimated {actual_lines} line(s), target is {target_lines}"
             )
         if max_lines and actual_lines > max_lines:
-            message = (
-                f"slide {slide_no}: '{field}' exceeds template max lines for {placeholder}; "
-                f"estimated {actual_lines} line(s), max is {max_lines}"
-            )
-            (blocking if strict_layout else warnings).append(message)
+            if strict_layout and strict_layout_blocks_line_overflow(rule):
+                blocking.append(
+                    f"slide {slide_no}: '{field}' exceeds template max lines for {placeholder}; "
+                    f"estimated {actual_lines} line(s), max is {max_lines}"
+                )
+            elif not strict_layout:
+                warnings.append(
+                    f"slide {slide_no}: '{field}' line-fit advisory for {placeholder}; "
+                    f"estimated {actual_lines} line(s) vs template hint {max_lines}. "
+                    "Preserve the page argument and choose rewrite, split-page, or layout adjustment only if the rendered page looks crowded."
+                )
 
 
 def _fit_check_payload_support(
@@ -1048,13 +1066,17 @@ def _fit_check_payload_support(
         (blocking if strict_layout else warnings).append(message)
     if _fit_has_payload(slide.get("matrix_data")) and not bool(supports.get("matrix", False)):
         warnings.append(f"slide {slide_no}: matrix payload exists for '{page_type}' but matrix support flag is false")
-    required_fields = variant.get("required_body_fields") if isinstance(variant.get("required_body_fields"), list) else []
-    required_fields = active_body_fields(required_fields, page_type, slide)
+    strict_fields = (
+        variant.get("strict_layout_body_fields")
+        if isinstance(variant.get("strict_layout_body_fields"), list)
+        else []
+    )
+    strict_fields = active_body_fields(strict_fields, page_type, slide)
     body_copy = slide.get("body_copy") or {}
     if isinstance(body_copy, dict):
-        missing = [name for name in required_fields if _fit_is_blank(body_copy.get(name))]
+        missing = [name for name in strict_fields if _fit_is_blank(body_copy.get(name))]
         if missing:
-            message = f"slide {slide_no}: required body fields missing: {', '.join(missing)}"
+            message = f"slide {slide_no}: strict-layout placeholders missing: {', '.join(missing)}"
             (blocking if strict_layout else warnings).append(message)
 
 
@@ -1126,7 +1148,7 @@ def _run_fit(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> tuple[bo
                 continue
             dynamic_style_guided_layout = True
             variant = {}
-        _fit_check_source_footer(slide, variant, warnings, blocking)
+        _fit_check_source_footer(slide, variant, warnings, blocking, strict_layout=strict_layout)
         _fit_check_text_capacity(slide, layout_budget, warnings, blocking)
         _fit_check_text_lines(slide, text_fit_fields, aliases, warnings, blocking, strict_layout=strict_layout)
         if not dynamic_style_guided_layout:
@@ -1187,7 +1209,17 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
             else:
                 recommendations.append({"slide_no": slide_no, "field_path": "selected_page_type", "recommendation_type": "dynamic_layout", "message": f"Style-guided render will place page type '{page_type}' dynamically."})
             continue
-        assignments.extend(_fit_slot_assignments(slide, variant, inventory.get(slide_no, {})))
+        if strict_layout:
+            assignments.extend(_fit_slot_assignments(slide, variant, inventory.get(slide_no, {})))
+        else:
+            recommendations.append(
+                {
+                    "slide_no": slide_no,
+                    "field_path": "page_composition",
+                    "recommendation_type": "style_guided_composition",
+                    "message": "Style-guided mode treats template slots as design cues; render from the LLM-authored page composition instead of a slot assignment map.",
+                }
+            )
         body_copy = slide.get("body_copy") if isinstance(slide.get("body_copy"), dict) else {}
         rules = layout_rules_for(slide_no, page_type, layout_budget)
         field_limits = rules.get("body_fields_max_units", {}) if isinstance(rules, dict) else {}
@@ -1204,11 +1236,11 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
         if strict_layout and _fit_has_payload(slide.get("chart_data")) and not supports.get("chart"):
             conflicts.append(_fit_capacity_conflict(slide_no, "chart_data", "renderer_spec contains chart_data but selected template variant has no chart slot", "Choose a chart-capable page type or revise visual plan in Generation."))
         elif _fit_has_payload(slide.get("chart_data")) and not supports.get("chart"):
-            recommendations.append({"slide_no": slide_no, "field_path": "chart_data", "recommendation_type": "dynamic_layout", "message": "Style-guided render will create a chart area independent of template placeholders."})
+            recommendations.append({"slide_no": slide_no, "field_path": "chart_data", "recommendation_type": "dynamic_layout", "message": "Style-guided render will create a chart area independent of sample placeholders."})
         if strict_layout and _fit_has_payload(slide.get("compare_table_data")) and not supports.get("table"):
             conflicts.append(_fit_capacity_conflict(slide_no, "compare_table_data", "renderer_spec contains compare_table_data but selected template variant has no table slot", "Choose a table-capable page type or revise visual plan in Generation."))
         elif _fit_has_payload(slide.get("compare_table_data")) and not supports.get("table"):
-            recommendations.append({"slide_no": slide_no, "field_path": "compare_table_data", "recommendation_type": "dynamic_layout", "message": "Style-guided render will create a table area independent of template placeholders."})
+            recommendations.append({"slide_no": slide_no, "field_path": "compare_table_data", "recommendation_type": "dynamic_layout", "message": "Style-guided render will create a table area independent of sample placeholders."})
         for field, value in {"headline": slide.get("headline", ""), "main_message": slide.get("main_message", "")}.items():
             alias = aliases.get(field, field)
             rule = fields.get(f"{slide_no}:{page_type}:{alias}")
@@ -1216,7 +1248,13 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
                 continue
             max_line_units = float(rule.get("max_line_units") or 0)
             max_lines = int(rule.get("max_lines") or 0)
-            if strict_layout and max_line_units and max_lines and estimate_lines(value, max_line_units) > max_lines:
+            if (
+                strict_layout
+                and max_line_units
+                and max_lines
+                and strict_layout_blocks_line_overflow(rule)
+                and estimate_lines(value, max_line_units) > max_lines
+            ):
                 actual_lines = estimate_lines(value, max_line_units)
                 conflicts.append(_fit_capacity_conflict(slide_no, field, f"{field} estimates to {actual_lines} lines but template allows {max_lines}", "Return to Generation and compress the headline/message before rendering."))
     return {
@@ -1232,18 +1270,24 @@ def _build_fit_plan(renderer_spec: dict[str, Any], profile: dict[str, Any]) -> d
 
 
 def fit_cli(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run Template Fit checks for renderer_spec against template profile.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Internal template-fit diagnostic. Use through scripts/pipeline.py render for structured-render runs; "
+            "style-guided warnings are advisory and do not replace LLM page-composition judgment."
+        )
+    )
     parser.add_argument("--renderer-spec", required=True)
-    parser.add_argument("--template-profile", default=str(ROOT / "configs" / "template_profile.json"))
+    parser.add_argument("--template-profile", required=True)
     parser.add_argument("--output", default=str(ROOT / "artifacts" / "template_fit_validation.json"))
     parser.add_argument("--fit-plan-output", help="Optional path for artifacts/template_fit_plan.json")
-    parser.add_argument("--strict", action="store_true", help="Treat warnings as blocking issues.")
+    parser.add_argument("--strict", action="store_true", help="Treat warnings as pause issues for explicit strict-layout diagnostics.")
     args = parser.parse_args(argv)
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         renderer_spec = _load_json(Path(args.renderer_spec))
         profile = _load_json(Path(args.template_profile))
+        contract_mode = _fit_contract_mode(renderer_spec)
         _is_valid, warnings, blocking = _run_fit(renderer_spec, profile)
         fit_plan = _build_fit_plan(renderer_spec, profile)
         for conflict in fit_plan.get("capacity_conflicts") or []:
@@ -1264,11 +1308,16 @@ def fit_cli(argv: list[str] | None = None) -> int:
             "warning_count": len(warnings),
             "errors": blocking,
             "warnings": warnings,
-            "blocking_issues": blocking,
+            "pause_issues": blocking,
             "capacity_conflicts": fit_plan.get("capacity_conflicts", []),
             "template_capacity_conflict": bool(fit_plan.get("template_capacity_conflict")),
             "template_fit_plan": args.fit_plan_output or "",
-            "fit_checks": {"checked_slides": len(renderer_spec.get("slides") or []), "strict_mode": args.strict},
+            "fit_checks": {
+                "checked_slides": len(renderer_spec.get("slides") or []),
+                "template_contract_mode": contract_mode,
+                "strict_mode": contract_mode == "strict_layout",
+                "warnings_as_errors": bool(args.strict),
+            },
         }
     except Exception as exc:
         result = {
@@ -1278,8 +1327,8 @@ def fit_cli(argv: list[str] | None = None) -> int:
             "error_count": 1,
             "warning_count": 0,
             "errors": [f"{type(exc).__name__}: {exc}"],
-            "warnings": ["template_profile: configs/template_profile.json"],
-            "blocking_issues": [f"{type(exc).__name__}: {exc}"],
+            "warnings": ["template_profile could not be loaded; pass the runtime-generated artifacts/template_profile.json"],
+            "pause_issues": [f"{type(exc).__name__}: {exc}"],
             "capacity_conflicts": [],
             "template_capacity_conflict": False,
         }
@@ -1294,10 +1343,14 @@ def fit_cli(argv: list[str] | None = None) -> int:
 
 
 def registry_cli(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Extract the formal template capability registry from deterministic config files.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Internal template registry extractor for pipeline rendering. "
+            "The registry is a compatibility aid, not an LLM authoring surface."
+        )
+    )
     parser.add_argument("--template", default=str(ROOT / "assets/industry_section_template_master.pptx"))
     parser.add_argument("--slide-registry", default=str(ROOT / "configs/slide_registry.json"))
-    parser.add_argument("--page-type-rules", default=str(ROOT / "configs/page_type_rules.json"))
     parser.add_argument("--ppt-mapping", default=str(ROOT / "configs/ppt_mapping.json"))
     parser.add_argument("--layout-budget", default=str(ROOT / "configs/layout_budget.json"))
     parser.add_argument("--text-fit-rules", default=str(ROOT / "configs/text_fit_rules.json"))
@@ -1307,7 +1360,6 @@ def registry_cli(argv: list[str] | None = None) -> int:
     registry = build_registry(
         template=Path(args.template),
         slide_registry_path=Path(args.slide_registry),
-        page_type_rules_path=Path(args.page_type_rules),
         ppt_mapping_path=Path(args.ppt_mapping),
         layout_budget_path=Path(args.layout_budget),
         text_fit_rules_path=Path(args.text_fit_rules),
@@ -1323,14 +1375,12 @@ def profile_cli(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--template", default="")
     parser.add_argument("--template-selection", default="", help="Path to artifacts/template_selection.json. Used when --template is omitted.")
-    parser.add_argument("--layout-config", default=str(ROOT / "configs" / "layout_config.json"))
     parser.add_argument("--slide-registry", default=None)
-    parser.add_argument("--page-type-rules", default=None)
     parser.add_argument("--ppt-mapping", default=None)
     parser.add_argument("--render-layouts", default=None)
     parser.add_argument("--text-fit-rules", default=None)
     parser.add_argument("--layout-budget", default=None)
-    parser.add_argument("--output", default=str(ROOT / "configs" / "template_profile.json"))
+    parser.add_argument("--output", required=True)
     parser.add_argument("--skip-pptextract", action="store_true", help="Skip template parsing and rely on fallback values.")
     args = parser.parse_args(argv)
 
@@ -1357,7 +1407,7 @@ def profile_cli(argv: list[str] | None = None) -> int:
         fallback_layout_budget = _load_json(layout_paths["layout_budget"])
         fallback_source_policy = {
             "source_footer_fields": ["source_footer"],
-            "required_source_footer": False,
+            "source_footer_available": False,
         }
         profile = {
             "schema_version": "template_profile_v1",

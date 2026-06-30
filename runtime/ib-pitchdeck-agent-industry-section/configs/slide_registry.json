@@ -1,6 +1,6 @@
 {
-  "description": "Single registry for logical slide roles and layout variants. Validators, converters, cleaners, renderers, and renderer-spec planning should use this as the canonical page-variant contract.",
-  "workflow_scope": "slide_registry_defined_standard",
+  "description": "Layout registry for bundled-template variants. Use it for rendering compatibility, strict-layout checks, and physical slide references. Page sequence, page strategy, and LLM authoring decisions come from the banker page pack.",
+  "workflow_scope": "style_reference",
   "slides": [
     {
       "slide_no": 1,
@@ -14,22 +14,22 @@
           "render_layout_key": "industry_overview_dynamic_page",
           "physical_slide": "slide1.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy",
               "chart_data"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "bullet_1",
               "bullet_2",
               "bullet_3"
             ],
-            "required_objects": [],
+            "strict_layout_objects": [],
             "preferred_objects": [
               "chart"
             ],
-            "conditional_required_objects": [
+            "conditional_strict_layout_objects": [
               {
                 "object": "chart",
                 "unless": "explicit_slide1_data_limitation"
@@ -37,7 +37,7 @@
             ]
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "bullet_1",
               "bullet_2",
               "bullet_3"
@@ -58,23 +58,23 @@
           "render_layout_key": "chart_page",
           "physical_slide": "slide2.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy",
               "chart_data"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "bullet_1",
               "bullet_2",
               "bullet_3"
             ],
-            "required_objects": [
+            "strict_layout_objects": [
               "chart"
             ]
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "bullet_1",
               "bullet_2",
               "bullet_3"
@@ -86,13 +86,13 @@
           "render_layout_key": "chart_plus_mini_table_page",
           "physical_slide": "slide3.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy",
               "chart_data"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "bullet_1",
               "bullet_2",
               "table_header_1",
@@ -101,13 +101,13 @@
               "table_row_2",
               "table_row_3"
             ],
-            "required_objects": [
+            "strict_layout_objects": [
               "chart",
               "table"
             ]
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "bullet_1",
               "bullet_2",
               "table_header_1",
@@ -132,21 +132,21 @@
           "render_layout_key": "driver_card_page",
           "physical_slide": "slide4.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
               "card_4"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -159,22 +159,22 @@
           "render_layout_key": "driver_card_5_page",
           "physical_slide": "slide5.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
               "card_4",
               "card_5"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -188,12 +188,12 @@
           "render_layout_key": "driver_card_6_page",
           "physical_slide": "slide6.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -201,10 +201,10 @@
               "card_5",
               "card_6"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -227,12 +227,12 @@
           "render_layout_key": "value_chain_page",
           "physical_slide": "slide7.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "top_left",
               "top_center",
               "top_right",
@@ -240,10 +240,10 @@
               "bottom_center",
               "bottom_right"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "top_left",
               "top_center",
               "top_right",
@@ -266,20 +266,20 @@
           "render_layout_key": "moat_page",
           "physical_slide": "slide8.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3"
@@ -300,23 +300,23 @@
           "render_layout_key": "compare_table_page",
           "physical_slide": "slide9.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy",
               "compare_table_data"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "right_top",
               "right_mid",
               "right_bottom"
             ],
-            "required_objects": [
+            "strict_layout_objects": [
               "table"
             ]
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "table_header",
               "table_row_1",
               "table_row_2",
@@ -335,13 +335,13 @@
           "render_layout_key": "matrix_page",
           "physical_slide": "slide10.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy",
               "chart_data"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "matrix_label_x",
               "matrix_label_y",
               "matrix_title",
@@ -350,10 +350,10 @@
               "right_mid",
               "right_bottom"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "matrix_label_x",
               "matrix_label_y",
               "matrix_title",
@@ -378,20 +378,20 @@
           "render_layout_key": "trend_page",
           "physical_slide": "slide11.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3"
@@ -403,22 +403,22 @@
           "render_layout_key": "timeline_page",
           "physical_slide": "slide12.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "stage_1",
               "stage_2",
               "stage_3",
               "stage_4",
               "timeline_note"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "stage_1",
               "stage_2",
               "stage_3",
@@ -432,21 +432,21 @@
           "render_layout_key": "trend_4_card_page",
           "physical_slide": "slide13.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
               "card_4"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -459,22 +459,22 @@
           "render_layout_key": "trend_5_card_page",
           "physical_slide": "slide14.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
               "card_4",
               "card_5"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -488,12 +488,12 @@
           "render_layout_key": "trend_6_card_page",
           "physical_slide": "slide15.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -501,10 +501,10 @@
               "card_5",
               "card_6"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "card_1",
               "card_2",
               "card_3",
@@ -527,21 +527,21 @@
           "render_layout_key": "summary_page",
           "physical_slide": "slide16.xml",
           "renderer_contract": {
-            "required_fields": [
+            "strict_layout_fields": [
               "headline",
               "main_message",
               "body_copy"
             ],
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "left_panel",
               "right_top",
               "right_mid",
               "right_bottom"
             ],
-            "required_objects": []
+            "strict_layout_objects": []
           },
           "token_contract": {
-            "required_body_fields": [
+            "strict_layout_body_fields": [
               "left_panel",
               "right_top",
               "right_mid",

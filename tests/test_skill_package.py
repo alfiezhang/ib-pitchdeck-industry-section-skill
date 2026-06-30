@@ -42,6 +42,17 @@ def test_validate_skill_package_accepts_clean_runtime(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr or result.stdout
     payload = json.loads(result.stdout)
     assert payload["is_valid"] is True
+    assert payload["file_count"] <= 36
+
+
+def test_runtime_source_tree_has_no_persistent_local_artifacts() -> None:
+    dirty = [
+        path
+        for path in RUNTIME_DIR.rglob("*")
+        if path.name in {".DS_Store", ".pytest_cache"}
+    ]
+
+    assert dirty == []
 
 
 def test_validate_skill_package_blocks_dirty_runtime_cache_files(tmp_path: Path) -> None:
@@ -79,6 +90,9 @@ def test_package_skill_builds_clean_zip_and_validator_accepts_it(tmp_path: Path)
         names = zf.namelist()
     assert "ib-pitchdeck-agent-industry-section/SKILL.md" in names
     assert "ib-pitchdeck-agent-industry-section/references/material-intake.md" in names
+    assert not any("/schemas/" in f"/{name}" for name in names)
+    assert not any("/configs/artifact_templates/" in f"/{name}" for name in names)
+    assert not any("/configs/mechanical_schemas/" in f"/{name}" for name in names)
     assert not any("/.codex-plugin/" in f"/{name}" or "/.claude-plugin/" in f"/{name}" or "/.codebuddy-plugin/" in f"/{name}" for name in names)
     assert not any("/agents/" in f"/{name}/" or "/skills/" in f"/{name}/" for name in names)
     assert not any("/docs/" in f"/{name}/" or "/tests/" in f"/{name}/" for name in names)
@@ -125,7 +139,6 @@ def test_validate_skill_package_rejects_unsafe_zip_paths(tmp_path: Path) -> None
         zf.writestr("ib-pitchdeck-agent-industry-section/assets/.keep", "")
         zf.writestr("ib-pitchdeck-agent-industry-section/references/r.md", "ref")
         zf.writestr("ib-pitchdeck-agent-industry-section/requirements.txt", "")
-        zf.writestr("ib-pitchdeck-agent-industry-section/setup.sh", "echo setup")
         zf.writestr("ib-pitchdeck-agent-industry-section/../escape.txt", "bad")
 
     validation = _run("validate_skill_package.py", ["--package", str(package)])

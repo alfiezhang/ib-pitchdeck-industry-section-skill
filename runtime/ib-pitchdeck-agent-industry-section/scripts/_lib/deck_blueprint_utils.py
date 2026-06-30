@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+BP_ID_RE = re.compile(r"^BP-\d{3}$")
+
 
 def _runtime_root() -> Path:
     for parent in Path(__file__).resolve().parents:
@@ -33,46 +35,68 @@ def _load_fixed_page_roles() -> dict[int, str]:
     return result
 
 
-def _load_generation_policy() -> dict[str, Any]:
-    path = _runtime_root() / "configs" / "generation_policy.json"
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"{path} must contain a JSON object")
-    return payload
-
-
-def _generation_list(key: str) -> list[str]:
-    values = _load_generation_policy().get(key)
-    if not isinstance(values, list) or not values:
-        raise ValueError(f"configs/generation_policy.json must define non-empty list {key}")
-    return [str(item).strip() for item in values if str(item).strip()]
-
-
-def _generation_dict(key: str) -> dict[str, str]:
-    values = _load_generation_policy().get(key)
-    if not isinstance(values, dict) or not values:
-        raise ValueError(f"configs/generation_policy.json must define non-empty object {key}")
-    return {str(k).strip(): str(v).strip() for k, v in values.items() if str(k).strip() and str(v).strip()}
-
-
-def _generation_text(key: str) -> str:
-    value = str(_load_generation_policy().get(key) or "").strip()
-    if not value:
-        raise ValueError(f"configs/generation_policy.json must define non-empty string {key}")
-    return value
-
-
 FIXED_PAGE_ROLES = _load_fixed_page_roles()
 
-VALID_CLAIM_STRENGTHS = set(_generation_list("valid_claim_strengths"))
+DECK_USE_CROSSWALK: dict[str, list[str]] = {
+    "not_allowed": ["not allowed", "not for deck", "do not use", "do not use in deck", "不要用于页面", "不可用于页面", "不能用于页面"],
+    "caveat_only": ["caveat only", "only with caveat", "caveated only", "with visible caveat", "仅作限定说明", "需加限定", "只可带限定使用"],
+    "body_only": ["body only", "body copy only", "body support only", "supporting bullets only", "exhibit only", "chart ready but not headline", "只用于正文", "正文可用", "图表可用但不作标题"],
+    "headline_allowed": ["headline ready", "title ready", "can support headline", "can be used as headline", "可作标题", "可做标题", "可用于标题", "标题可用", "可作为主标题"],
+    "supporting_context": ["supporting context", "context only", "background context", "supporting evidence only", "背景信息", "支持性信息", "仅作背景"],
+}
+INTERNAL_DECK_USE_CODES = set(DECK_USE_CROSSWALK)
+VISUAL_CAPABILITY_ALIASES = {
+    "bar_chart": "chart",
+    "line_chart": "chart",
+    "stacked_bar": "chart",
+    "bubble_chart": "chart",
+    "driver_matrix": "matrix",
+    "peer_table": "table",
+    "comparison_table": "table",
+    "fact_cards": "cards",
+    "driver_cards": "cards",
+    "trend_cards": "cards",
+    "kpi_cards": "cards",
+    "source_limits_table": "table",
+    "peer_comparison": "table",
+    "sku_traction_table": "table",
+    "flow": "table",
+    "bridge": "table",
+    "channel_flow": "table",
+    "unit_economics_bridge": "table",
+    "value_chain": "table",
+}
+PAGE_TYPE_VISUAL_HINTS = {
+    "industry_overview_dynamic_page": "chart",
+    "chart_page": "chart",
+    "chart_plus_mini_table_page": "chart",
+    "compare_table_page": "table",
+    "matrix_page": "matrix",
+    "driver_card_page": "cards",
+    "driver_card_5_page": "cards",
+    "driver_card_6_page": "cards",
+    "moat_page": "cards",
+    "trend_page": "cards",
+    "trend_4_card_page": "cards",
+    "trend_5_card_page": "cards",
+    "trend_6_card_page": "cards",
+    "timeline_page": "cards",
+    "summary_page": "cards",
+}
 
-VALID_ALLOWED_DECK_USAGES = set(_generation_list("valid_allowed_deck_usages"))
 
-PAGE_PRIMARY_SUBJECTS = set(_generation_list("page_primary_subjects"))
+def compiled_page_role(slide: dict[str, Any], slide_no: int, *, strict_layout: bool = False) -> str:
+    explicit = str(slide.get("fixed_page_role") or slide.get("page_role") or "").strip()
+    if explicit:
+        return explicit
+    return FIXED_PAGE_ROLES.get(slide_no, "") if strict_layout else ""
 
-METRIC_VISUAL_CAPABILITIES = set(_generation_list("metric_visual_capabilities"))
 
-STRUCTURED_EXHIBIT_TYPES = set(_generation_list("structured_exhibit_types"))
+def deck_blueprint_uses_strict_layout(deck_blueprint: dict[str, Any]) -> bool:
+    policy = deck_blueprint.get("rendering_policy")
+    if not isinstance(policy, dict):
+        return False
+    return str(policy.get("template_contract_mode") or "").strip() == "strict_layout"
 
 
 def as_list(value: Any) -> list[Any]:
@@ -88,6 +112,44 @@ def unique(values: list[str]) -> list[str]:
             seen.add(text)
             result.append(text)
     return result
+
+
+def _usage_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _usage_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", _usage_text(value).lower()).strip()
+
+
+def _usage_alias_match(value: Any) -> str:
+    text_value = _usage_key(value)
+    if not text_value:
+        return ""
+    # More restrictive permissions win when a phrase contains multiple cues.
+    for canonical in ("not_allowed", "caveat_only", "body_only", "headline_allowed", "supporting_context"):
+        for alias in DECK_USE_CROSSWALK.get(canonical, []):
+            alias_value = _usage_key(alias)
+            if alias_value and (text_value == alias_value or alias_value in text_value):
+                return canonical
+    return ""
+
+
+def normalize_allowed_deck_usage(value: Any, *, default: str = "supporting_context") -> str:
+    """Map natural deck-use wording to the internal render permission."""
+    usage = _usage_text(value)
+    if usage in INTERNAL_DECK_USE_CODES:
+        return usage
+    return _usage_alias_match(value) or default
+
+
+def ids_from_aliases(source: dict[str, Any], plural_key: str, singular_key: str) -> list[str]:
+    values: list[str] = []
+    for key in (plural_key, singular_key):
+        value = source.get(key)
+        items = value if isinstance(value, list) else ([] if value is None else [value])
+        values.extend(str(item or "").strip() for item in items if str(item or "").strip())
+    return unique(values)
 
 
 def non_empty_text(value: Any) -> bool:
@@ -121,18 +183,24 @@ def variant_for(template_registry: dict[str, Any], slide_no: int, page_type: str
     return template_variants_by_slide(template_registry).get(int(slide_no), {}).get(str(page_type), {})
 
 
-def required_body_fields(template_registry: dict[str, Any], slide_no: int, page_type: str) -> list[str]:
+def strict_layout_body_fields(template_registry: dict[str, Any], slide_no: int, page_type: str) -> list[str]:
     variant = variant_for(template_registry, slide_no, page_type)
-    fields = variant.get("required_body_fields")
+    fields = variant.get("strict_layout_body_fields") or variant.get("body_field_hints")
     if fields is None and isinstance(variant.get("renderer_contract"), dict):
-        fields = variant["renderer_contract"].get("required_body_fields")
+        fields = (
+            variant["renderer_contract"].get("strict_layout_body_fields")
+            or variant["renderer_contract"].get("body_field_hints")
+        )
     if fields is None and isinstance(variant.get("token_contract"), dict):
-        fields = variant["token_contract"].get("required_body_fields")
+        fields = (
+            variant["token_contract"].get("strict_layout_body_fields")
+            or variant["token_contract"].get("body_field_hints")
+        )
     return [str(item) for item in as_list(fields)]
 
 
-def active_body_fields(required_fields: list[str], page_type: str, slide_data: dict[str, Any]) -> list[str]:
-    fields = list(required_fields)
+def active_body_fields(strict_fields: list[str], page_type: str, slide_data: dict[str, Any]) -> list[str]:
+    fields = list(strict_fields)
     visual_design = slide_data.get("visual_design") if isinstance(slide_data.get("visual_design"), dict) else {}
     visual_plan = slide_data.get("visual_plan") if isinstance(slide_data.get("visual_plan"), dict) else {}
     if page_type == "compare_table_page" and (
@@ -162,10 +230,10 @@ def page_type_capability(template_registry: dict[str, Any], slide_no: int, page_
 
     contract = variant.get("renderer_contract") if isinstance(variant.get("renderer_contract"), dict) else {}
     preferred = {str(item).lower() for item in as_list(contract.get("preferred_objects"))}
-    required = {str(item).lower() for item in as_list(contract.get("required_objects"))}
+    required = {str(item).lower() for item in as_list(contract.get("strict_layout_objects"))}
     conditional = {
         str(item.get("object") or "").lower()
-        for item in as_list(contract.get("conditional_required_objects"))
+        for item in as_list(contract.get("conditional_strict_layout_objects"))
         if isinstance(item, dict)
     }
     objects = preferred | required | conditional
@@ -196,12 +264,12 @@ def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
         visual = slide["visual_plan"]
     exhibit = slide.get("exhibit") if isinstance(slide.get("exhibit"), dict) else {}
     selected_page_type = str(slide.get("selected_page_type") or "").strip()
-    capability = str(visual.get("required_capability") or visual.get("type") or exhibit.get("exhibit_type") or "").strip()
-    capability = _generation_dict("visual_capability_aliases").get(capability, capability)
+    capability = str(visual.get("visual_type") or visual.get("type") or exhibit.get("exhibit_type") or "").strip()
+    capability = VISUAL_CAPABILITY_ALIASES.get(capability, capability)
     if not capability:
-        capability = _generation_dict("page_type_default_capabilities").get(selected_page_type, "")
+        capability = PAGE_TYPE_VISUAL_HINTS.get(selected_page_type, "")
     if not capability:
-        capability = _generation_text("default_visual_capability")
+        capability = "text"
     metric_ids = [
         str(item).strip()
         for item in as_list(visual.get("visual_metric_ids") or slide.get("visual_metric_ids"))
@@ -210,14 +278,9 @@ def visual_plan_from_blueprint_slide(slide: dict[str, Any]) -> dict[str, Any]:
     if not metric_ids:
         metric_ids = metric_ids_from_visual(slide)
     return {
-        "required_capability": capability,
+        "visual_type": capability,
         "preferred_template_variant": selected_page_type,
         "visual_metric_ids": unique(metric_ids),
-        "evidence_limited_exhibit_plan": str(
-            visual.get("evidence_limited_exhibit_plan")
-            or exhibit.get("evidence_limited_exhibit_plan")
-            or slide.get("evidence_limited_exhibit_plan")
-        ).strip(),
     }
 
 
@@ -279,7 +342,7 @@ def evidence_ids_from_visual(slide: dict[str, Any]) -> list[str]:
 
 def banker_page_id_for_slide(slide: dict[str, Any]) -> str:
     explicit = str(slide.get("banker_page_id") or "").strip()
-    if explicit:
+    if explicit and BP_ID_RE.fullmatch(explicit):
         return explicit
     try:
         slide_no = int(slide.get("slide_no") or 0)
@@ -301,11 +364,10 @@ def proof_points_from_blueprint_slide(slide: dict[str, Any]) -> list[dict[str, A
         ] or ([banker_page_id] if banker_page_id else [])
         points.append(
             {
-                "point": str(block.get("copy") or block.get("point") or "").strip(),
+                "point": str(block.get("copy") or block.get("point") or block.get("text") or "").strip(),
                 "banker_page_ids": unique(source_banker_page_ids),
-                "evidence_ids": unique([str(item).strip() for item in as_list(block.get("evidence_ids")) if str(item).strip()]),
-                "metric_ids": unique([str(item).strip() for item in as_list(block.get("metric_ids")) if str(item).strip()]),
-                "claim_strength": str(block.get("claim_strength") or slide.get("claim_strength") or "").strip(),
+                "evidence_ids": ids_from_aliases(block, "evidence_ids", "evidence_id"),
+                "metric_ids": ids_from_aliases(block, "metric_ids", "metric_id"),
                 "visual_role": str(block.get("role") or block.get("visual_role") or "").strip(),
             }
         )
@@ -322,7 +384,6 @@ def proof_points_from_blueprint_slide(slide: dict[str, Any]) -> list[dict[str, A
                 "banker_page_ids": [banker_page_id] if banker_page_id else [],
                 "evidence_ids": visual_evidence_ids,
                 "metric_ids": visual_metric_ids,
-                "claim_strength": str(slide.get("claim_strength") or "").strip(),
                 "visual_role": "primary_visual",
             }
         )
@@ -331,24 +392,23 @@ def proof_points_from_blueprint_slide(slide: dict[str, Any]) -> list[dict[str, A
 
 def normalize_deck_blueprint_for_page_plan(deck_blueprint: dict[str, Any]) -> dict[str, Any]:
     slides = []
+    strict_layout = deck_blueprint_uses_strict_layout(deck_blueprint)
     for slide in deck_blueprint.get("slides") or []:
         if not isinstance(slide, dict):
             continue
         slide_no = slide.get("slide_no")
+        resolved_slide_no = int(slide_no or 0)
         banker_page_id = banker_page_id_for_slide(slide)
         slides.append(
             {
                 "slide_no": slide_no,
                 "banker_page_id": banker_page_id,
-                "fixed_page_role": slide.get("fixed_page_role") or slide.get("page_role") or FIXED_PAGE_ROLES.get(int(slide_no or 0), ""),
-                "page_question": slide.get("page_question", ""),
+                "fixed_page_role": compiled_page_role(slide, resolved_slide_no, strict_layout=strict_layout),
                 "page_answer": slide.get("page_thesis") or slide.get("page_answer") or slide.get("headline") or "",
                 "proof_points": proof_points_from_blueprint_slide(slide),
                 "visual_plan": visual_plan_from_blueprint_slide(slide),
-                "claim_strength": slide.get("claim_strength", ""),
                 "caveats": slide.get("caveats", []),
-                "evidence_boundary_notes": slide.get("evidence_boundary_notes", []),
-                "strategy_checks": slide.get("strategy_checks", {}),
+                "source_limitations": slide.get("source_limitations", []),
             }
         )
     return {

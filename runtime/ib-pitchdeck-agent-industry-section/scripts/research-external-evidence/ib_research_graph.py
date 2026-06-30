@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""State-first research graph compiler for IB industry-section research.
+"""Internal pipeline helper for IB industry-section research execution records.
 
-This module keeps the existing IB artifact contracts intact while replacing
-multi-file hand synchronization with one structured research graph state.
-External workers, including an open_deep_research/LangGraph adapter, should
-fill `research_graph_state.json`; this compiler emits the canonical artifacts
-consumed by QC, Knowledge, Reasoning, and Generation.
+Use it through the workflow described by SKILL.md and scripts/pipeline.py
+status/next. The module prepares research workbench files and compiles actual
+research execution records; it does not design the final queries, judge source
+quality, promote evidence, or decide whether the deck is ready.
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ from __future__ import annotations
 import sys as _ib_sys
 from pathlib import Path as _IbPath
 
+_ib_sys.dont_write_bytecode = True
 _IB_ROLE_SCRIPT_DIR = _IbPath(__file__).resolve().parent
 _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
@@ -51,26 +51,6 @@ NUMBER_RE = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
 PERCENT_UNITS = {"%", "percent", "percentage", "pct", "bps"}
 
 
-def _load_issue_topics_by_area() -> dict[str, set[str]]:
-    path = _IB_RUNTIME_ROOT / "configs" / "research_issue_taxonomy.json"
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    raw = payload.get("issue_topics_by_area") if isinstance(payload, dict) else None
-    if not isinstance(raw, dict) or not raw:
-        raise ValueError(f"{path} must contain non-empty issue_topics_by_area")
-    result: dict[str, set[str]] = {}
-    for issue_area, subissues in raw.items():
-        if not isinstance(issue_area, str) or not issue_area.strip():
-            raise ValueError(f"{path} contains an invalid issue area")
-        if not isinstance(subissues, list) or not subissues:
-            raise ValueError(f"{path} issue area {issue_area!r} must contain a non-empty subissue list")
-        clean = {str(item).strip() for item in subissues if str(item).strip()}
-        if not clean:
-            raise ValueError(f"{path} issue area {issue_area!r} has no usable subissues")
-        result[issue_area.strip()] = clean
-    return result
-
-
-ISSUE_TOPICS_BY_AREA = _load_issue_topics_by_area()
 FULL_URL_RE = re.compile(r"https?://[^\s,;，；\]|)）>]+", flags=re.IGNORECASE)
 VALID_RESULT_STATUS = {
     "supported",
@@ -79,6 +59,12 @@ VALID_RESULT_STATUS = {
     "not_comparable",
     "insufficient",
     "unavailable_after_research",
+    "research_context_only",
+    "needs_research_authorization",
+    "research_gap",
+    "not_executed",
+    "not_material",
+    "accounting_only",
 }
 EVIDENCE_STATUSES = {"supported", "thin", "conflicting", "not_comparable"}
 NO_ATTEMPT_TERMINAL_STATUSES = {"not_executed", "not_material", "accounting_only"}
@@ -99,16 +85,15 @@ EVIDENCE_READY_ARCHIVE_STATUSES = {
     "user_provided",
 }
 SAVED_SOURCE_ARCHIVE_STATUSES = {"saved_html", "saved_text", "saved_pdf"}
-VALID_CAPTURE_METHODS = {
-    "full_page_capture",
-    "downloaded_pdf",
-    "user_provided_file",
-    "archived_copy_reviewed",
-}
 NON_EVIDENCE_DOWNSTREAM_PERMISSIONS = {"contextual_only", "research_backlog_only", "not_allowed"}
+RESEARCH_CONTEXT_ONLY_STATUS = "research_context_only"
+NEEDS_RESEARCH_AUTHORIZATION_STATUS = "needs_research_authorization"
+RESEARCH_GAP_STATUS = "research_gap"
+NOT_EXECUTED_STATUS = "not_executed"
 RESEARCH_CONTEXT_ARCHIVE_STATUS = "research_context"
 AUDITED_METRIC_LEVEL = "audited_metric"
 RESEARCH_CONTEXT_LEVEL = "research_context"
+SOURCE_CANDIDATE_LEVEL = "candidate_source"
 ARCHIVE_STATUSES_REQUIRING_SNAPSHOT = {
     "saved_html",
     "saved_text",
@@ -250,6 +235,13 @@ def _policy_dict(key: str) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+BOUNDARY_REVIEW_ACTIONS = {"research_ready", "boundary_check", "repair_scope"}
+
+
+def _boundary_review_business_action(payload: dict[str, Any]) -> str:
+    return str(payload.get("business_action") or "").strip().lower()
+
+
 def _assert_scope_ready_for_prepare(run_dir: Path, scope_pack: dict[str, Any], *, allow_missing_scope_bootstrap: bool) -> None:
     if allow_missing_scope_bootstrap:
         return
@@ -261,17 +253,20 @@ def _assert_scope_ready_for_prepare(run_dir: Path, scope_pack: dict[str, Any], *
     if scope_pack.get("schema_version") != "industry_scope_pack_boundary_card":
         raise ValueError(
             "research prepare requires industry_scope_pack_boundary_card before formal planning. "
-            "Run industry scoping and boundary QC first."
+            "Run industry scoping first."
         )
     qc_path = run_dir / "artifacts" / "industry_boundary_qc.json"
     if not qc_path.exists():
-        raise ValueError(
-            "research prepare requires artifacts/industry_boundary_qc.json with decision=pass. "
-            "Run Boundary QC before formal research planning."
-        )
+        return
     qc_payload = load_json_file(qc_path)
-    if str((qc_payload if isinstance(qc_payload, dict) else {}).get("decision") or "").strip() != "pass":
-        raise ValueError("research prepare requires industry_boundary_qc decision=pass before formal research planning.")
+    qc = qc_payload if isinstance(qc_payload, dict) else {}
+    business_action = _boundary_review_business_action(qc)
+    if business_action in (BOUNDARY_REVIEW_ACTIONS - {"research_ready"}):
+        decision = str(qc.get("decision") or "").strip()
+        raise ValueError(
+            f"research prepare found industry_boundary_qc business_action={business_action}; decision={decision}; "
+            "repair the scope card or complete the small boundary check before formal research planning."
+        )
 
 
 def _first_text(*values: Any) -> str:
@@ -313,30 +308,67 @@ def _safe_file_stem(value: str) -> str:
 
 def _plan_rows(plan: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for issue in _as_list(plan.get("issue_search_plan")):
-        if not isinstance(issue, dict):
-            continue
-        instructions = [item for item in _as_list(issue.get("search_instructions")) if isinstance(item, dict)]
-        if not instructions:
-            continue
-        for instruction in instructions:
-            fs_id = _text(instruction.get("instruction_id"))
-            if not fs_id:
-                continue
-            rows.append(
-                {
-                    "fs_id": fs_id,
-                    "issue_area": _text(issue.get("issue_area")),
-                    "subissue": _text(issue.get("subissue")),
-                    "research_question": _text(issue.get("research_question")),
-                    "priority": _text(issue.get("priority")),
-                    "execution_expectation": _text(issue.get("execution_expectation")),
-                    "minimum_actual_searches": int(issue.get("minimum_actual_searches") or 0),
-                    "coverage_required": issue.get("coverage_required") is True,
-                    "purpose": _text(instruction.get("purpose")),
-                    "source_hint": _text(instruction.get("source_hint")),
-                }
-            )
+    seen: set[str] = set()
+
+    def add_thread(raw: dict[str, Any], idx: int, *, source: str) -> None:
+        fs_id = _first_text(
+            raw.get("thread_id"),
+            raw.get("search_instruction_id"),
+            raw.get("instruction_id"),
+            raw.get("fs_id"),
+            f"FS-{idx:03d}",
+        )
+        if fs_id in seen:
+            return
+        seen.add(fs_id)
+        thread = _first_text(
+            raw.get("thread"),
+            raw.get("research_thread"),
+            raw.get("topic"),
+            raw.get("evidence_need"),
+            raw.get("research_question"),
+            "Research thread",
+        )
+        focus = _first_text(
+            raw.get("focus"),
+            raw.get("research_focus"),
+            raw.get("decision_it_can_change"),
+            raw.get("why_it_matters"),
+            raw.get("evidence_need"),
+        )
+        research_question = _first_text(
+            raw.get("research_question"),
+            raw.get("question"),
+            raw.get("evidence_need"),
+            raw.get("research_need"),
+            thread,
+        )
+        source_hint = _first_text(
+            raw.get("source_direction"),
+            raw.get("source_hint"),
+            raw.get("suggested_sources"),
+            raw.get("expected_source"),
+            _research_planning_policy().get("default_source_hint"),
+        )
+        row = {
+            "fs_id": fs_id,
+            "research_thread": thread,
+            "thread_focus": focus,
+            "research_question": research_question,
+            "priority": _first_text(raw.get("priority"), "high" if source == "core_research_threads" else ""),
+            "execution_expectation": _first_text(raw.get("execution_expectation"), raw.get("priority"), "llm_selected"),
+            "purpose": _first_text(raw.get("purpose"), raw.get("why_it_matters"), focus),
+            "source_hint": source_hint,
+        }
+        rows.append(row)
+
+    thread_idx = 1
+    for field in ("core_research_threads", "research_threads", "industry_specific_research_threads", "custom_evidence_needs"):
+        for item in _as_list(plan.get(field)):
+            if isinstance(item, dict):
+                add_thread(item, thread_idx, source=field)
+                thread_idx += 1
+
     return rows
 
 
@@ -345,44 +377,23 @@ def _scope_summary(scope_pack: dict[str, Any]) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _expected_source_type(issue_area: str) -> str:
-    hints = _policy_dict("source_specific_hints")
-    return _text(hints.get(issue_area)) or _text(_research_planning_policy().get("default_expected_source_type")) or "public_search"
-
-
 def _to_text_query(value: Any) -> str:
     return " ".join(_text(value).split()) if value is not None else ""
 
 
-def _query_variant(query: str, issue_area: str) -> tuple[str, str]:
-    english_query = _to_text_query(query)
-    if not english_query:
-        english_query = f"LLM_REWRITE_REQUIRED: write an executable English/source-specific query for {issue_area}"
-    else:
-        english_query = f"LLM_REWRITE_REQUIRED: rewrite research question into executable query: {english_query}"
-    chinese_query = f"LLM_REWRITE_REQUIRED: write an executable Chinese/source-specific query for {issue_area}"
-    return english_query, chinese_query
-
-
 def build_coverage_map(plan: dict[str, Any]) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
-    for row in _as_list(plan.get("issue_search_plan")):
-        if not isinstance(row, dict):
-            continue
-        area = _text(row.get("issue_area"))
-        instructions = _as_list(row.get("search_instructions"))
-        first_instruction = instructions[0] if instructions and isinstance(instructions[0], dict) else {}
+    for row in _plan_rows(plan):
         rows.append(
             {
-                "issue_area": area,
-                "subissue": _text(row.get("subissue")),
+                "research_thread": row["research_thread"],
+                "thread_focus": row["thread_focus"],
                 "execution_expectation": _text(row.get("execution_expectation")),
-                "minimum_actual_searches": int(row.get("minimum_actual_searches", 0)),
-                "execution_rationale": _text(row.get("execution_rationale")),
-                "source_specific_query_type": _text(row.get("execution_expectation")),
-                "expected_source_type": _expected_source_type(area),
+                "execution_rationale": _text(row.get("purpose")),
+                "execution_focus": _text(row.get("execution_expectation")),
+                "source_direction": _text(row.get("source_hint")),
                 "research_question": _text(row.get("research_question")),
-                "plan_row": _text(first_instruction.get("instruction_id")),
+                "plan_row": _text(row.get("fs_id")),
             }
         )
     return {
@@ -396,29 +407,26 @@ def build_coverage_map(plan: dict[str, Any]) -> dict[str, Any]:
 
 def build_executable_search_batch(plan: dict[str, Any]) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
-    for row in _as_list(plan.get("issue_search_plan")):
-        if not isinstance(row, dict):
-            continue
-        issue_area = _text(row.get("issue_area"))
-        subissue = _text(row.get("subissue"))
+    for row in _plan_rows(plan):
         research_question = _to_text_query(row.get("research_question"))
-        english_query, chinese_query = _query_variant(research_question, issue_area)
-        instructions = _as_list(row.get("search_instructions"))
-        first_instruction = instructions[0] if instructions and isinstance(instructions[0], dict) else {}
         rows.append(
             {
-                "search_instruction_id": _text(first_instruction.get("instruction_id")),
-                "issue_area": issue_area,
-                "subissue": subissue,
+                "search_instruction_id": _text(row.get("fs_id")),
+                "research_thread": _text(row.get("research_thread")),
+                "thread_focus": _text(row.get("thread_focus")),
                 "research_question": research_question,
-                "query_status": "needs_authoring",
-                "english_query": english_query,
-                "chinese_query": chinese_query,
-                "source_specific_query": f"LLM_REWRITE_REQUIRED: write an executable source-specific query for {issue_area}/{subissue}",
-                "expected_source_type": _expected_source_type(issue_area),
-                "source_hint": _text(first_instruction.get("source_hint")),
-                "why_this_search_matters": _text(row.get("execution_rationale")) or _to_text_query(row.get("research_question")),
-                "how_result_will_be_used": "Drive source-reviewed evidence for the paired issue/subissue and map it to issue analysis deck rows.",
+                "query_brief": research_question,
+                "queries": [],
+                "source_direction": _text(row.get("source_hint")),
+                "why_this_search_matters": _text(row.get("purpose")) or _to_text_query(row.get("research_question")),
+                "how_result_will_be_used": (
+                    "Supply opened-source candidate facts, candidate metrics, or a clear research gap for later "
+                    "Knowledge review and banker page decisions."
+                ),
+                "authoring_instruction": (
+                    "Query Author LLM sets active=true only for searches worth running now and supplies queries[] or query_text. "
+                    "Set active=false for deferred or non-material rows and explain briefly; Python does not infer intent from wording."
+                ),
             }
         )
     return {
@@ -449,71 +457,36 @@ def _label(value: str) -> str:
     return value.replace("_", " ")
 
 
-def _execution_policy(issue_area: str, subissue: str) -> tuple[str, int, str]:
-    policy = _research_planning_policy()
-    pair_key = f"{issue_area}/{subissue}"
-    expectation = _text(_policy_dict("issue_execution_policy").get(pair_key)) or "light_search"
-    defaults = _policy_dict("execution_defaults")
-    rule = defaults.get(expectation) if isinstance(defaults.get(expectation), dict) else {}
-    minimum = int(rule.get("minimum_actual_searches") or 0)
-    rationale = _text(rule.get("rationale")) or "Configured research-planning policy."
-    return expectation, minimum, rationale
-
-
-def _priority_for_expectation(expectation: str) -> str:
-    rule = _policy_dict("execution_defaults").get(expectation)
-    if isinstance(rule, dict):
-        priority = _text(rule.get("priority"))
-        if priority:
-            return priority
-    return "medium"
-
-
-def _starter_issue_pairs() -> list[tuple[str, str]]:
-    raw_pairs = _research_planning_policy().get("starter_issue_pairs")
-    pairs: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-
-    if isinstance(raw_pairs, list):
-        for item in raw_pairs:
-            if isinstance(item, dict):
-                issue_area = _text(item.get("issue_area"))
-                subissue = _text(item.get("subissue"))
-            elif isinstance(item, str) and "/" in item:
-                issue_area, subissue = [part.strip() for part in item.split("/", 1)]
-            else:
-                raise ValueError("research_planning_policy.starter_issue_pairs entries must be objects or issue_area/subissue strings")
-
-            if not issue_area or not subissue:
-                raise ValueError("research_planning_policy.starter_issue_pairs contains a blank issue_area/subissue")
-            if subissue not in ISSUE_TOPICS_BY_AREA.get(issue_area, set()):
-                raise ValueError(f"starter issue pair is not in research_issue_taxonomy: {issue_area}/{subissue}")
-            pair = (issue_area, subissue)
-            if pair not in seen:
-                pairs.append(pair)
-                seen.add(pair)
-
-    if pairs:
-        return pairs
-
-    # Safe fallback for older policy files: seed only configured deep-search
-    # rows, not the full taxonomy. LLM authoring can add rows when material.
-    for pair_key, expectation in _policy_dict("issue_execution_policy").items():
-        if _text(expectation) != "deep_search" or "/" not in str(pair_key):
-            continue
-        issue_area, subissue = [part.strip() for part in str(pair_key).split("/", 1)]
-        if subissue in ISSUE_TOPICS_BY_AREA.get(issue_area, set()):
-            pair = (issue_area, subissue)
-            if pair not in seen:
-                pairs.append(pair)
-                seen.add(pair)
-    if pairs:
-        return pairs
-
-    for issue_area, subissues in ISSUE_TOPICS_BY_AREA.items():
-        subissue = sorted(subissues)[0]
-        pairs.append((issue_area, subissue))
-    return pairs
+def _starter_research_threads(scope_pack: dict[str, Any]) -> list[dict[str, Any]]:
+    policy_threads = _as_list(_research_planning_policy().get("starter_research_threads"))
+    threads = [item for item in policy_threads if isinstance(item, dict)]
+    if threads:
+        return threads
+    summary = _scope_summary(scope_pack)
+    working_market = _first_text(summary.get("working_market"), "the working market")
+    return [
+        {
+            "thread": "Market definition and sizing evidence",
+            "research_question": f"What source-backed market definition and sizing evidence exists for {working_market}?",
+            "why_it_matters": "Sets the investable category and prevents broad-market overclaiming.",
+            "source_direction": "official statistics, industry association, named market report, or platform category data",
+            "priority": "high",
+        },
+        {
+            "thread": "Growth drivers and channel behavior",
+            "research_question": f"What public evidence explains demand growth, channel shift, or consumer behavior in {working_market}?",
+            "why_it_matters": "Supports the market attractiveness and transaction timing argument.",
+            "source_direction": "industry report, platform data, consumer research, company disclosures, or broker commentary",
+            "priority": "high",
+        },
+        {
+            "thread": "Competitive landscape and positioning",
+            "research_question": f"Which peers, brands, or business models shape competition in {working_market}?",
+            "why_it_matters": "Shows that the pitch understands where strategic differentiation can come from.",
+            "source_direction": "company disclosures, brand reports, platform rankings, trade media with cited data",
+            "priority": "medium",
+        },
+    ]
 
 
 def _industry_specific_research_threads(scope_pack: dict[str, Any]) -> list[dict[str, Any]]:
@@ -529,31 +502,24 @@ def _industry_specific_research_threads(scope_pack: dict[str, Any]) -> list[dict
                 _first_text(item.get("why_it_matters"), "Can affect metric comparability or page-claim scope."),
             )
         )
-    for item in _as_list(scope_pack.get("boundary_validation_needed")):
+    for item in _as_list(scope_pack.get("boundary_checks_if_needed")):
         if not isinstance(item, dict):
             continue
         raw_items.append(
             (
                 _first_text(item.get("question"), "Boundary check"),
-                _first_text(item.get("suggested_validation_source"), item.get("why_needed"), "Find authoritative category or market-definition evidence."),
+                _first_text(item.get("suggested_check_source"), item.get("why_needed"), "Find authoritative category or market-definition evidence."),
                 _first_text(item.get("why_needed"), "Can affect formal research scope."),
             )
         )
     for idx, (topic, research_need, why_it_matters) in enumerate(raw_items[:8], start=1):
-        topic_text = topic.lower()
-        if any(token in topic_text for token in ("market", "size", "规模", "份额", "口径", "gmv", "revenue")):
-            mapped_area = "market_size_growth"
-        elif any(token in topic_text for token in ("channel", "platform", "渠道", "平台", "gmv")):
-            mapped_area = "demand_customer_logic"
-        else:
-            mapped_area = "transaction_relevance_context"
         threads.append(
             {
                 "thread_id": f"IST-{idx:03d}",
-                "mapped_issue_area": mapped_area,
-                "topic": topic,
-                "research_need": research_need,
+                "thread": topic,
+                "research_question": research_need,
                 "why_it_matters": why_it_matters,
+                "source_direction": _first_text(research_need, "authoritative source or source-specific search"),
                 "query_authoring_artifact": "artifacts/executable_search_batch.json",
             }
         )
@@ -562,97 +528,39 @@ def _industry_specific_research_threads(scope_pack: dict[str, Any]) -> list[dict
 
 def build_formal_search_plan(input_card: dict[str, Any], scope_pack: dict[str, Any]) -> dict[str, Any]:
     meta = _meta_from_inputs(input_card=input_card, scope_pack=scope_pack, formal_search_plan={})
-    market_terms = _market_terms(meta, scope_pack)
-    issue_search_plan: list[dict[str, Any]] = []
+    core_research_threads: list[dict[str, Any]] = []
     fs_counter = 1
 
-    for issue_area, subissue in _starter_issue_pairs():
+    for raw_thread in _starter_research_threads(scope_pack):
         fs_id = f"FS-{fs_counter:03d}"
         fs_counter += 1
-        subissue_label = _label(subissue)
-        execution_expectation, minimum_actual_searches, rationale = _execution_policy(issue_area, subissue)
-        issue_search_plan.append(
+        core_research_threads.append(
             {
-                "issue_area": issue_area,
-                "subissue": subissue,
-                "plan_layer": "starter_research_thread",
-                "priority": _priority_for_expectation(execution_expectation),
-                "execution_expectation": execution_expectation,
-                "minimum_actual_searches": minimum_actual_searches,
-                "coverage_required": True,
-                "terminal_status": "pending",
-                "execution_rationale": rationale,
-                "research_question": (
-                    f"What evidence is available for {subissue_label} within {market_terms}, "
-                    "and what source scope, period, geography, denominator, and limitations apply?"
-                ),
-                "search_instructions": [
-                    {
-                        "instruction_id": fs_id,
-                        "purpose": (
-                            f"Find formal evidence for {issue_area}/{subissue}; capture facts, metrics, "
-                            "scope, period, source authority, and limitations."
-                        ),
-                        "search_stage": "formal_research_execution",
-                        "source_hint": _text(_policy_dict("source_hints_by_area").get(issue_area))
-                        or _text(_research_planning_policy().get("default_source_hint"))
-                        or "industry report, company disclosure, official or authoritative source",
-                        "query_authoring_artifact": "artifacts/executable_search_batch.json",
-                    }
-                ],
+                "thread_id": fs_id,
+                "thread": _first_text(raw_thread.get("thread"), raw_thread.get("topic"), "Research thread"),
+                "research_question": _first_text(raw_thread.get("research_question"), raw_thread.get("evidence_need")),
+                "why_it_matters": _text(raw_thread.get("why_it_matters")),
+                "source_direction": _text(raw_thread.get("source_direction")),
+                "priority": _first_text(raw_thread.get("priority"), "high"),
+                "query_authoring_artifact": "artifacts/executable_search_batch.json",
             }
         )
 
     return {
-        "schema_version": "formal_search_plan_v1",
+        "schema_version": "formal_search_plan",
         "meta": meta,
-        "plan_mode": "coverage_audit",
+        "plan_mode": "core_threads_plus_llm_expansion",
         "industry_scope_pack": {
             "artifact_path": "artifacts/industry_scope_pack.json",
-            "purpose": (
-                "Use the scope pack as a boundary card. Do not convert scope definitions, "
-                "reconciliation instructions, or boundary checks into findings."
-            ),
+            "purpose": "Boundary and reconciliation guide only; not evidence or findings.",
         },
-        "coverage_requirement": {
-            "coverage_menu_source": "configs/research_issue_taxonomy.json",
-            "suggested_menu_is_advisory": True,
-            "python_seed_mode": "starter_issue_pairs_only",
-            "python_seed_row_count": len(issue_search_plan),
-            "suggested_issue_area_count": len(ISSUE_TOPICS_BY_AREA),
-            "suggested_subissue_count": sum(len(items) for items in ISSUE_TOPICS_BY_AREA.values()),
-            "instruction": (
-                "Python seeds only starter issue rows. Treat suggested_issue_menu as an LLM expansion menu, not as "
-                "automatic backlog. Author executable query strings only in artifacts/executable_search_batch.json, "
-                "not in this coverage plan. Execute starter or LLM-added rows when material, and explicitly account "
-                "for not_material, not_executed, or unavailable rows in formal_research_execution_report.json."
-            ),
-        },
-        "suggested_issue_menu": {area: sorted(subissues) for area, subissues in ISSUE_TOPICS_BY_AREA.items()},
-        "planning_instruction": (
-            "This plan starts from a small configured starter set so Python does not pre-fill the entire research universe. "
-            "The LLM Query Author may add, drop, rewrite, or reprioritize rows when the industry scope makes them material. "
-            "Use suggested_issue_menu for banker coverage ideas and industry_specific_research_threads for custom evidence "
-            "needs; do not force every industry into the menu. For each row, define the evidence need, source hint, and "
-            "execution expectation only. Executable queries belong in artifacts/executable_search_batch.json. Do not write "
-            "investment hypotheses, validated findings, slide conclusions, or page plans. A planned FS row is not evidence."
-        ),
-        "issue_search_plan": issue_search_plan,
+        "planning_instruction": "Treat these as starter research threads. Keep, merge, drop, or add threads based on the industry boundary and page needs. Concrete queries belong in executable_search_batch.json.",
+        "core_research_threads": core_research_threads,
         "industry_specific_research_threads": _industry_specific_research_threads(scope_pack),
         "research_discipline": {
-            "do_not_generate_hypotheses": True,
             "formal_validation_lives_in": "artifacts/formal_research_execution_report.json",
-            "execution_report_inherits_plan_taxonomy": "Copy issue_area, subissue, and research_question from the owning formal_search_plan row.",
-            "fs_vs_s_id_discipline": "FS-xxx IDs are planned search instructions. Real searches must be logged as S-xxx attempts.",
-            "planned_vs_actual_accounting": (
-                "A planned FS row is not evidence. Only actually executed S-xxx attempts can support source reviews, "
-                "research_evidence_db rows, issue analysis, or deck claims. Unexecuted FS rows must be accounted for "
-                "as not_executed, not_material, unavailable, or research_backlog; never create fake S-xxx IDs."
-            ),
-            "if_evidence_is_insufficient": (
-                "Record thin/insufficient/unavailable_after_research in the formal execution report and research pack; "
-                "do not invent a page claim."
-            ),
+            "query_authoring_artifact": "artifacts/executable_search_batch.json",
+            "planned_rows_are_not_evidence": True,
         },
     }
 
@@ -698,15 +606,13 @@ def init_graph_state(
         units.append(
             {
                 "research_unit_id": f"RU-{idx:03d}",
-                "issue_area": row["issue_area"],
-                "subissue": row["subissue"],
+                "research_thread": row["research_thread"],
+                "thread_focus": row["thread_focus"],
                 "fs_ids": [row["fs_id"]],
                 "research_question": row["research_question"],
                 "priority": row["priority"],
                 "execution_expectation": row["execution_expectation"],
-                "minimum_actual_searches": row["minimum_actual_searches"],
                 "query_authoring_ref": f"artifacts/executable_search_batch.json#{row['fs_id']}",
-                "executable_query_status": "needs_authoring",
                 "expected_source_type": row["source_hint"],
                 "status": "planned",
                 "terminal_status": "not_executed",
@@ -735,7 +641,12 @@ def init_graph_state(
             "operator_surface": {
                 "primary_write_fields": ["research_context", "metrics", "evidence"],
                 "internal_tracking_ids": ["FS", "S", "SRC"],
-                "policy": "FS/S/SRC IDs are internal traceability. Operators author executable searches in executable_search_batch.json, then write ordinary background to research_context, key numbers to audited metrics, and only hard non-numeric facts to evidence.",
+                "policy": (
+                    "FS/S/SRC IDs are internal traceability. Operators author executable searches in "
+                    "executable_search_batch.json, then write ordinary background to research_context, "
+                    "key-number candidates to metrics, and hard non-numeric candidate facts to evidence. "
+                    "Knowledge LLM decides which candidates become formal EV/MET evidence."
+                ),
             },
         },
         "research_units": units,
@@ -768,7 +679,7 @@ def _normalize_source(
     usable_as_evidence = usable if isinstance(usable, bool) else False
     audit_level = _first_text(
         source.get("audit_level"),
-        AUDITED_METRIC_LEVEL if usable_as_evidence else RESEARCH_CONTEXT_LEVEL,
+        SOURCE_CANDIDATE_LEVEL if usable_as_evidence else RESEARCH_CONTEXT_LEVEL,
     )
     default_archive_status = RESEARCH_CONTEXT_ARCHIVE_STATUS if audit_level == RESEARCH_CONTEXT_LEVEL and not usable_as_evidence else "needs_research_verification"
     archive_status = _first_text(
@@ -793,10 +704,11 @@ def _normalize_source(
         research_archive_status = _first_text(source.get("research_archive_status"), archive_status if archive_status == "manual_verified_excerpt" else "")
     verification_method = _text(source.get("verification_method"))
     capture_method = _text(source.get("capture_method") or source.get("archive_capture_method"))
-    if archive_status in SAVED_SOURCE_ARCHIVE_STATUSES and capture_method not in VALID_CAPTURE_METHODS:
+    if archive_status in SAVED_SOURCE_ARCHIVE_STATUSES and not capture_method:
         raise ValueError(
-            f"{source_id}: archive_status={archive_status} requires explicit capture_method one of "
-            f"{sorted(VALID_CAPTURE_METHODS)}; the compiler must not infer saved source status from raw text or excerpt length"
+            f"{source_id}: archive_status={archive_status} requires an explicit capture_method; "
+            "write how the source was captured or reviewed, because the compiler must not infer saved source status "
+            "from raw text or excerpt length"
         )
     review_status = _first_text(source.get("review_status"))
     if not review_status:
@@ -822,7 +734,7 @@ def _normalize_source(
         "source_reliability": _first_text(source.get("source_reliability"), source.get("reliability"), "needs_knowledge_llm_source_reliability"),
         "reliability": _first_text(source.get("reliability"), source.get("source_reliability"), "needs_knowledge_llm_source_reliability"),
         "confidence": _first_text(source.get("confidence"), "needs_knowledge_llm_source_confidence"),
-        "fact_type": _first_text(source.get("fact_type"), unit.get("issue_area")),
+        "fact_type": _first_text(source.get("fact_type"), unit.get("research_thread"), unit.get("issue_area")),
         "scope": _first_text(source.get("scope"), unit.get("research_question")),
         "audit_level": audit_level,
         "evidence_use_tier": _first_text(source.get("evidence_use_tier"), "candidate"),
@@ -873,8 +785,8 @@ def _normalize_research_context(
     return {
         "context_id": context_id,
         "audit_level": RESEARCH_CONTEXT_LEVEL,
-        "issue_area": _first_text(context.get("issue_area"), unit.get("issue_area")),
-        "subissue": _first_text(context.get("subissue"), unit.get("subissue")),
+        "research_thread": _first_text(context.get("research_thread"), unit.get("research_thread"), unit.get("issue_area")),
+        "thread_focus": _first_text(context.get("thread_focus"), unit.get("thread_focus"), unit.get("subissue")),
         "topic": _first_text(context.get("topic"), context.get("claim"), unit.get("research_question")),
         "summary": _first_text(context.get("summary"), context.get("note"), context.get("finding"), unit.get("findings_summary")),
         "source_review_ids": linked_sources,
@@ -910,10 +822,9 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
         unit = dict(raw_unit)
         unit.setdefault("research_unit_id", f"RU-{unit_index:03d}")
         unit["fs_ids"] = fs_ids
-        unit["issue_area"] = _first_text(unit.get("issue_area"), plan_row.get("issue_area"))
-        unit["subissue"] = _first_text(unit.get("subissue"), plan_row.get("subissue"))
+        unit["research_thread"] = _first_text(unit.get("research_thread"), plan_row.get("research_thread"))
+        unit["thread_focus"] = _first_text(unit.get("thread_focus"), plan_row.get("thread_focus"))
         unit["research_question"] = _first_text(unit.get("research_question"), plan_row.get("research_question"))
-        unit["minimum_actual_searches"] = int(unit.get("minimum_actual_searches") or plan_row.get("minimum_actual_searches") or 0)
         raw_sources = [item for item in _as_list(unit.get("sources")) if isinstance(item, dict)]
         raw_evidence = [item for item in _as_list(unit.get("evidence")) if isinstance(item, dict)]
         raw_metrics = [item for item in _as_list(unit.get("metrics")) if isinstance(item, dict)]
@@ -948,7 +859,7 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
                     "stage": _first_text(raw_attempt.get("stage"), raw_attempt.get("search_stage"), "formal_research_execution"),
                     "fs_ids": [_text(item) for item in _as_list(raw_attempt.get("fs_ids")) if _text(item)] or fs_ids,
                     "mode": _first_text(raw_attempt.get("mode"), "graph_worker"),
-                    "dimension": _first_text(raw_attempt.get("dimension"), unit.get("issue_area")),
+                    "dimension": _first_text(raw_attempt.get("dimension"), unit.get("research_thread"), unit.get("issue_area")),
                     "selected_source_reason": _first_text(raw_attempt.get("selected_source_reason"), "Selected by research graph worker for this FS unit."),
                     "result_count": raw_attempt.get("result_count") if raw_attempt.get("result_count") is not None else len(_http_urls(_as_list(raw_attempt.get("selected_source_urls")))),
                     "selected_source_urls": _http_urls(_as_list(raw_attempt.get("selected_source_urls"))),
@@ -1040,7 +951,7 @@ def _normalize_compiled_units(state: dict[str, Any], plan: dict[str, Any]) -> tu
             source = next((item for item in sources if item["source_review_id"] == src_id), sources[0] if sources else {})
             metric = {
                 "audit_level": _first_text(raw_metric.get("audit_level"), "needs_knowledge_llm_audit_level"),
-                "metric_group": _first_text(raw_metric.get("metric_group"), unit.get("issue_area")),
+                "metric_group": _first_text(raw_metric.get("metric_group"), unit.get("research_thread"), unit.get("issue_area")),
                 "metric_id": met_id,
                 "metric_name": _first_text(raw_metric.get("metric_name"), raw_metric.get("name"), raw_metric.get("claim_or_metric"), "needs_knowledge_llm_metric_name"),
                 "metric_type": _first_text(raw_metric.get("metric_type"), "needs_knowledge_llm_metric_type"),
@@ -1303,17 +1214,24 @@ def _terminal_status(unit: dict[str, Any], *, attempts: list[dict[str, Any]], ev
         status = raw_status
         permission = raw_permission
     elif terminal == "directional_only":
-        status = raw_status if raw_status in VALID_RESULT_STATUS else "thin"
+        status = raw_status if raw_status in VALID_RESULT_STATUS else RESEARCH_CONTEXT_ONLY_STATUS
         if status == "supported":
-            status = "thin"
+            status = RESEARCH_CONTEXT_ONLY_STATUS
         permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "contextual_only"
     elif terminal == "executed_no_usable_source":
-        status = raw_status if raw_status in VALID_RESULT_STATUS else "insufficient"
-        if candidate_evidence_without_explicit_authorization or status in EVIDENCE_STATUSES:
-            status = "insufficient"
+        status = raw_status if raw_status in VALID_RESULT_STATUS else RESEARCH_GAP_STATUS
+        if candidate_evidence_without_explicit_authorization:
+            status = NEEDS_RESEARCH_AUTHORIZATION_STATUS
+        elif status in EVIDENCE_STATUSES:
+            status = RESEARCH_GAP_STATUS
         permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "research_backlog_only"
     else:
-        status = raw_status if raw_status in {"insufficient", "unavailable_after_research"} else "insufficient"
+        if terminal in {"not_material", "accounting_only"}:
+            status = raw_status if raw_status in {"not_material", "accounting_only"} else terminal
+        elif raw_status == "unavailable_after_research":
+            status = raw_status
+        else:
+            status = NOT_EXECUTED_STATUS
         permission = raw_permission if raw_permission in NON_EVIDENCE_DOWNSTREAM_PERMISSIONS else "research_backlog_only"
     return status, terminal, permission
 
@@ -1333,7 +1251,7 @@ def _compile_execution_report(
 
     issue_results: list[dict[str, Any]] = []
     fs_status_rows: list[dict[str, Any]] = []
-    covered_areas: set[str] = set()
+    covered_threads: set[str] = set()
     thin_or_unresolved: list[str] = []
     unavailable: list[str] = []
     all_attempt_ids: set[str] = set()
@@ -1375,18 +1293,18 @@ def _compile_execution_report(
             else:
                 limitations = ["No usable formal evidence has been compiled for this planned FS row."]
         if terminal == "executed_with_evidence":
-            findings = _first_text(unit.get("findings_summary"), f"Research graph compiled reviewed evidence for {row['issue_area']}/{row['subissue']}.")
+            findings = _first_text(unit.get("findings_summary"), f"Research graph compiled reviewed evidence for {row['research_thread']}.")
             handling = _first_text(unit.get("research_pack_handling"), "Promote the linked EV/MET rows with their source scope and limitations.")
-            covered_areas.add(row["issue_area"])
+            covered_threads.add(row["research_thread"])
             if status != "supported":
-                thin_or_unresolved.append(f"{row['issue_area']}/{row['subissue']}")
+                thin_or_unresolved.append(row["research_thread"])
         else:
             findings = _first_text(
                 unit.get("findings_summary"),
                 (
-                    f"Candidate evidence exists for {row['issue_area']}/{row['subissue']}, but explicit Research authorization is missing."
+                    f"Candidate evidence exists for {row['research_thread']}, but explicit Research authorization is missing."
                     if missing_explicit_evidence_authorization
-                    else f"No usable promoted evidence has been compiled for {row['issue_area']}/{row['subissue']}."
+                    else f"No usable promoted evidence has been compiled for {row['research_thread']}."
                 ),
             )
             handling = _first_text(
@@ -1397,7 +1315,7 @@ def _compile_execution_report(
                     else "Keep as a research gap/backlog; do not use as deck evidence until a reviewed source is compiled."
                 ),
             )
-            unavailable.append(f"{row['issue_area']}/{row['subissue']}")
+            unavailable.append(row["research_thread"])
         result_id = f"FR-{idx:03d}"
         if terminal in NO_ATTEMPT_TERMINAL_STATUSES:
             attempt_ids = []
@@ -1410,13 +1328,12 @@ def _compile_execution_report(
             metric_ids = []
         result = {
             "result_id": result_id,
-            "issue_area": row["issue_area"],
-            "subissue": row["subissue"],
+            "research_thread": row["research_thread"],
+            "thread_focus": row["thread_focus"],
             "research_question": row["research_question"],
             "status": status,
             "terminal_status": terminal,
             "downstream_permission": permission,
-            "minimum_actual_searches": row["minimum_actual_searches"],
             "actual_search_attempt_count": len(attempt_ids),
             "search_instruction_ids": [row["fs_id"]],
             "search_attempt_ids": attempt_ids,
@@ -1434,10 +1351,9 @@ def _compile_execution_report(
             {
                 "fs_id": row["fs_id"],
                 "result_id": result_id,
-                "issue_area": row["issue_area"],
-                "subissue": row["subissue"],
+                "research_thread": row["research_thread"],
+                "thread_focus": row["thread_focus"],
                 "execution_expectation": row["execution_expectation"],
-                "minimum_actual_searches": row["minimum_actual_searches"],
                 "actual_search_attempt_ids": attempt_ids,
                 "actual_search_attempt_count": len(attempt_ids),
                 "terminal_status": terminal,
@@ -1457,11 +1373,8 @@ def _compile_execution_report(
             "fs_rows_executed_with_evidence": sum(1 for item in fs_status_rows if item["terminal_status"] == "executed_with_evidence"),
             "fs_rows_executed_without_evidence": sum(1 for item in fs_status_rows if item["terminal_status"] == "executed_no_usable_source"),
             "fs_rows_not_executed": sum(1 for item in fs_status_rows if item["terminal_status"] in {"not_executed", "accounting_only", "not_material"}),
-            "high_priority_rows_below_minimum": sorted(
-                item["fs_id"] for item in fs_status_rows if item["actual_search_attempt_count"] < item["minimum_actual_searches"]
-            ),
-            "covered_issue_areas": sorted(covered_areas),
-            "thin_or_unresolved_subissues": sorted(set(thin_or_unresolved)),
+            "covered_research_threads": sorted(covered_threads),
+            "thin_or_unresolved_threads": sorted(set(thin_or_unresolved)),
             "not_available_after_research": sorted(set(unavailable)),
         },
         "fs_row_execution_status": fs_status_rows,
@@ -1503,10 +1416,9 @@ def build_coverage_accounting(report: dict[str, Any]) -> dict[str, Any]:
             {
                 "fs_id": _text(item.get("fs_id")),
                 "result_id": _text(item.get("result_id")),
-                "issue_area": _text(item.get("issue_area")),
-                "subissue": _text(item.get("subissue")),
+                "research_thread": _text(item.get("research_thread")),
+                "thread_focus": _text(item.get("thread_focus")),
                 "execution_expectation": _text(item.get("execution_expectation")),
-                "minimum_actual_searches": int(item.get("minimum_actual_searches") or 0),
                 "actual_search_attempt_count": int(item.get("actual_search_attempt_count") or 0),
                 "actual_search_attempt_ids": _as_list(item.get("actual_search_attempt_ids")),
                 "terminal_status": terminal_status,
@@ -1604,7 +1516,7 @@ def compile_graph_state(
             "metric_rows": sum(len(_as_list(unit.get("metrics"))) for unit in units),
             "research_context_rows": sum(len(_as_list(unit.get("research_context"))) for unit in units),
         },
-        "next_step": "Run research_evidence_db.py build to create the Knowledge skeleton, then have Knowledge LLM author research_evidence_db.json and run research_evidence_db.py export.",
+        "owner_action": "Knowledge LLM reviews candidate extracts, authors research_evidence_db.json, and exports the readable research pack from the authored DB.",
         "normalization_meta": normalization_meta,
     }
 
@@ -1621,11 +1533,11 @@ def prepare_research_graph(
     state_path: Path | None = None,
     allow_missing_scope_bootstrap: bool = False,
 ) -> dict[str, Any]:
-    """Build the coverage plan, executable query workbench, and graph state.
+    """Prepare the coverage plan, executable query workbench, and graph state.
 
-    This is the operator-facing research preparation step. Normal workflows
-    prepare the research graph in one command, then compile from the edited
-    state after research execution.
+    This helper creates workbench files after the LLM has selected evidence
+    questions. It does not author queries, execute research, or decide evidence
+    strength.
     """
 
     run_dir = Path(run_dir)
@@ -1661,9 +1573,12 @@ def prepare_research_graph(
             "executable_search_batch": str(search_batch_path),
             "research_graph_state": str(state_path),
         },
-        "issue_search_plan_count": len(plan["issue_search_plan"]),
+        "research_thread_count": len(_plan_rows(plan)),
         "research_unit_count": len(state["research_units"]),
-        "operator_note": "Edit executable queries and fill research_graph_state.json with research_context, evidence, and audited metrics before compile.",
+        "operator_note": (
+            "Edit executable queries and fill research_graph_state.json with research_context, candidate evidence, "
+            "and candidate metrics before compile; Knowledge LLM decides formal EV/MET promotion."
+        ),
     }
 
 
@@ -1671,7 +1586,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    prepare_parser = subparsers.add_parser("prepare", help="Prepare formal_search_plan, search batch, and research_graph_state in one operator-facing step.")
+    prepare_parser = subparsers.add_parser(
+        "prepare-workbench",
+        help=(
+            "Internal workbench preparation. Creates formal_search_plan, executable_search_batch, "
+            "and research_graph_state; LLM/search workers still author and execute research."
+        ),
+    )
     prepare_parser.add_argument("--run-dir", required=True)
     prepare_parser.add_argument("--input-card")
     prepare_parser.add_argument("--scope-pack")
@@ -1683,16 +1604,22 @@ def main() -> int:
     prepare_parser.add_argument(
         "--allow-missing-scope-bootstrap",
         action="store_true",
-        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_boundary_card and boundary QC pass.",
+        help="Diagnostic/bootstrap mode only: allow prepare without industry_scope_pack_boundary_card.",
     )
 
-    compile_parser = subparsers.add_parser("compile", help="Compile research_graph_state.json into canonical research artifacts.")
+    compile_parser = subparsers.add_parser(
+        "compile",
+        help=(
+            "Internal synchronization step. Compile actual research_graph_state execution records into "
+            "search/archive/execution artifacts; does not author the evidence DB."
+        ),
+    )
     compile_parser.add_argument("--state", required=True)
     compile_parser.add_argument("--formal-search-plan", required=True)
     compile_parser.add_argument("--run-dir", required=True)
 
     args = parser.parse_args()
-    if args.command == "prepare":
+    if args.command == "prepare-workbench":
         run_dir = Path(args.run_dir)
         input_card_path = Path(args.input_card) if args.input_card else run_dir / "input_card.json"
         scope_pack_path = Path(args.scope_pack) if args.scope_pack else run_dir / "artifacts" / "industry_scope_pack.json"

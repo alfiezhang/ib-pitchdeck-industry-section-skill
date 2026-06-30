@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Run material intake end-to-end and emit manifest/extract artifacts."""
+"""Internal pipeline helper for material intake artifact synchronization.
+
+Use scripts/pipeline.py start-brief as the normal entrypoint. This module stays
+callable for pipeline internals and tests; it does not decide industry scope,
+evidence quality, page judgment, or delivery readiness.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +12,7 @@ from __future__ import annotations
 # `scripts/`; production tools live under role scripts; validators live under QC.
 import sys as _ib_sys
 from pathlib import Path as _IbPath
+_ib_sys.dont_write_bytecode = True
 _IB_ROLE_SCRIPT_DIR = _IbPath(__file__).resolve().parent
 _IB_RUNTIME_ROOT = next(
     _p for _p in _IbPath(__file__).resolve().parents
@@ -460,7 +466,7 @@ def _extract_one(material: dict[str, Any], material_texts_dir: Path) -> dict[str
             "PPT template registered for Template Layer analysis/rendering; "
             "not treated as project or industry evidence."
         )
-        material["evidence_authorization_status"] = "not_authorized_template_only"
+        material["evidence_authorization_status"] = "not_authorized_shape_hint_only"
         material["extracted_text_preview"] = ""
         return material
 
@@ -612,7 +618,7 @@ def ingest_materials(
                     else
                     "pending_llm_extraction"
                     if extracted["raw_text_available"]
-                    else "blocked_no_readable_text"
+                    else "needs_readable_text_for_llm_extraction"
                 ),
                 "evidence_authorization_status": "not_authorized_intake_only",
                 "extracted_facts": [],
@@ -636,7 +642,6 @@ def ingest_materials(
     manifest = {
         "schema_version": "material_manifest_v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "policy_context": "pre_mandate_client_pitch",
         "materials": materials,
         "source_type_policy": {
             "project_specific_material": "user_provided user input and uploaded files; candidate until extraction and review",
@@ -788,7 +793,6 @@ def _build_input_card(
             "_description": "Optional user-provided controls only. Planner-generated research choices belong in artifacts/formal_search_plan.json.",
             "priority_websites": [],
             "preferred_source_domains": [],
-            "preferred_source_packs": [],
             "priority_topics": [],
             "peer_set": [],
             "avoid_topics": [],
@@ -798,7 +802,12 @@ def _build_input_card(
 
 
 def start_brief(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Start a run from a plain user brief without hand-building intake files.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Internal helper behind scripts/pipeline.py start-brief. It records the user's brief and materials; "
+            "it does not author industry conclusions or page content."
+        )
+    )
     parser.add_argument("--case-name", required=True)
     parser.add_argument("--brief-text")
     parser.add_argument("--brief-file")
@@ -855,12 +864,15 @@ def start_brief(argv: list[str] | None = None) -> int:
     result = {
         "schema_version": "case_start_result_v1",
         "run_dir": str(run_dir),
-        "material_manifest": str(artifacts / "material_manifest.json"),
-        "material_extracts": str(artifacts / "material_extracts.json"),
-        "source_classification": str(artifacts / "source_classification.json"),
+        "primary_record": "input_card",
         "input_card": str(run_dir / "input_card.json"),
+        "material_manifest": str(artifacts / "material_manifest.json"),
+        "optional_trace_records": {
+            "material_extracts": str(artifacts / "material_extracts.json"),
+            "source_classification": str(artifacts / "source_classification.json"),
+        },
         "template_registered": bool(args.template_file),
-        "next_step": "Material role should review input_card transcription, then QC can run material/input validators.",
+        "owner_action": "Material role reviews input_card transcription; use helper checks only after that owner review.",
         "note": "This deterministic starter does not infer industry conclusions or external evidence.",
         "material_count": len(manifest.get("materials", [])),
     }
@@ -887,7 +899,7 @@ def ingest_cli(argv: list[str] | None = None) -> int:
     output_source_classification = Path(args.output_source_classification) if args.output_source_classification else None
 
     if any(not normalize_source_type(st) in CANONICAL_SOURCE_TYPES for st in [args.default_file_source_type, args.default_url_source_type]):
-        parser.error("default file/url source type must normalize to a canonical source_type")
+        parser.error("default file/url source type must normalize to a registered source_type")
 
     manifest, extracts, source_classification = ingest_materials(
         brief_text=args.brief_text,

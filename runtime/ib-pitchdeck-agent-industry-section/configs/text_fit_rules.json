@@ -1,5 +1,5 @@
 {
-  "_description": "Template-derived line-fit rules for renderer-spec headline/main_message and template token fields slide_title/main_takeaway. Main takeaway width is intentionally conservative because rendered PPT subtitles can wrap more than the estimator predicts. Regenerate after changing the PPT template.",
+  "_description": "Template-derived line-fit estimates for renderer-spec headline/main_message and template token fields slide_title/main_takeaway. In style-guided mode these are rewrite/layout hints; strict_layout may treat strict_layout_pause_if_exceeds_max_lines as a pause condition for strict placeholder conformity. Main takeaway width is intentionally conservative because rendered PPT subtitles can wrap more than the estimator predicts. Regenerate after changing the PPT template.",
   "template_file": "assets/industry_section_template_master.pptx",
   "ppt_mapping": "configs/ppt_mapping.json",
   "estimation": {
@@ -21,7 +21,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "1:industry_overview_dynamic_page:main_takeaway": {
       "placeholder": "{{slide_01_takeaway}}",
@@ -32,7 +32,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "2:chart_page:slide_title": {
       "placeholder": "{{slide_02a_title}}",
@@ -43,7 +43,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "2:chart_page:main_takeaway": {
       "placeholder": "{{slide_02a_takeaway}}",
@@ -54,7 +54,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "2:chart_plus_mini_table_page:slide_title": {
       "placeholder": "{{slide_02b_title}}",
@@ -65,7 +65,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "2:chart_plus_mini_table_page:main_takeaway": {
       "placeholder": "{{slide_02b_takeaway}}",
@@ -76,7 +76,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "3:driver_card_page:slide_title": {
       "placeholder": "{{slide_03a_title}}",
@@ -87,7 +87,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "3:driver_card_page:main_takeaway": {
       "placeholder": "{{slide_03a_takeaway}}",
@@ -98,7 +98,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "3:driver_card_5_page:slide_title": {
       "placeholder": "{{slide_03b_title}}",
@@ -109,7 +109,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "3:driver_card_5_page:main_takeaway": {
       "placeholder": "{{slide_03b_takeaway}}",
@@ -120,7 +120,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "3:driver_card_6_page:slide_title": {
       "placeholder": "{{slide_03c_title}}",
@@ -131,7 +131,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "3:driver_card_6_page:main_takeaway": {
       "placeholder": "{{slide_03c_takeaway}}",
@@ -142,7 +142,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "4:value_chain_page:slide_title": {
       "placeholder": "{{slide_04_title}}",
@@ -153,7 +153,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "4:value_chain_page:main_takeaway": {
       "placeholder": "{{slide_04_takeaway}}",
@@ -164,7 +164,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "5:moat_page:slide_title": {
       "placeholder": "{{slide_05_title}}",
@@ -175,7 +175,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "5:moat_page:main_takeaway": {
       "placeholder": "{{slide_05_takeaway}}",
@@ -186,7 +186,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "6:compare_table_page:slide_title": {
       "placeholder": "{{slide_06a_title}}",
@@ -197,7 +197,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "6:compare_table_page:main_takeaway": {
       "placeholder": "{{slide_06a_takeaway}}",
@@ -208,7 +208,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "6:matrix_page:slide_title": {
       "placeholder": "{{slide_06b_title}}",
@@ -219,7 +219,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "6:matrix_page:main_takeaway": {
       "placeholder": "{{slide_06b_takeaway}}",
@@ -230,7 +230,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_page:slide_title": {
       "placeholder": "{{slide_07a_title}}",
@@ -241,7 +241,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_page:main_takeaway": {
       "placeholder": "{{slide_07a_takeaway}}",
@@ -252,7 +252,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:timeline_page:slide_title": {
       "placeholder": "{{slide_07b_title}}",
@@ -263,7 +263,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:timeline_page:main_takeaway": {
       "placeholder": "{{slide_07b_takeaway}}",
@@ -274,7 +274,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_4_card_page:slide_title": {
       "placeholder": "{{slide_07c_title}}",
@@ -285,7 +285,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_4_card_page:main_takeaway": {
       "placeholder": "{{slide_07c_takeaway}}",
@@ -296,7 +296,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_5_card_page:slide_title": {
       "placeholder": "{{slide_07d_title}}",
@@ -307,7 +307,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_5_card_page:main_takeaway": {
       "placeholder": "{{slide_07d_takeaway}}",
@@ -318,7 +318,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_6_card_page:slide_title": {
       "placeholder": "{{slide_07e_title}}",
@@ -329,7 +329,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "7:trend_6_card_page:main_takeaway": {
       "placeholder": "{{slide_07e_takeaway}}",
@@ -340,7 +340,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "8:summary_page:slide_title": {
       "placeholder": "{{slide_08_title}}",
@@ -351,7 +351,7 @@
       "target_lines": 1,
       "max_lines": 1,
       "max_line_units": 25.8,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     },
     "8:summary_page:main_takeaway": {
       "placeholder": "{{slide_08_takeaway}}",
@@ -362,7 +362,7 @@
       "target_lines": 1,
       "max_lines": 2,
       "max_line_units": 49.9,
-      "block_if_exceeds_max_lines": true
+      "strict_layout_pause_if_exceeds_max_lines": true
     }
   }
 }

@@ -222,6 +222,11 @@ def test_ingest_materials_start_brief_runs_from_arbitrary_cwd_without_pythonpath
     assert result.returncode == 0, result.stderr or result.stdout
     payload = json.loads(result.stdout)
     assert payload["run_dir"] == str(run_dir.resolve())
+    assert payload["primary_record"] == "input_card"
+    assert "material_extracts" not in payload
+    assert "source_classification" not in payload
+    assert "material_extracts" in payload["optional_trace_records"]
+    assert "source_classification" in payload["optional_trace_records"]
     assert (run_dir / "input_card.json").exists()
     assert (run_dir / "artifacts" / "material_manifest.json").exists()
     assert (run_dir / "artifacts" / "material_extracts.json").exists()

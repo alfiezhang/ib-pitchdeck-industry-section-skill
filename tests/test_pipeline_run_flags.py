@@ -21,9 +21,9 @@ def test_pipeline_run_flags_preserve_formal_defaults(tmp_path: Path) -> None:
     _write_run_flags(run_dir, entrypoint="pytest")
     run_flags = json.loads((run_dir / "artifacts" / "run_flags.json").read_text(encoding="utf-8"))
     assert run_flags["schema_version"] == "run_flags_v1", run_flags
-    assert run_flags["research_gate"] == 1, run_flags
+    assert run_flags["research_readiness"] == 1, run_flags
     assert run_flags["banker_page_pack_layer"] == 1, run_flags
-    assert run_flags["quality_gate"] == 1, run_flags
+    assert run_flags["quality_readiness"] == 1, run_flags
     assert run_flags["debug_output_only"] is False, run_flags
     assert run_flags["pipeline_entrypoint"] == "pytest", run_flags
 
@@ -34,9 +34,9 @@ def test_pipeline_run_flags_preserves_debug_only_when_set(tmp_path: Path) -> Non
     artifacts.mkdir(parents=True)
     original = {
         "schema_version": "run_flags_v1",
-        "research_gate": 1,
+        "research_readiness": 1,
         "banker_page_pack_layer": 1,
-        "quality_gate": 1,
+        "quality_readiness": 1,
         "source_run_dir": "debug-source",
         "output_run_dir": "debug-output",
         "package_of_record": "debug-package",
@@ -62,9 +62,9 @@ def test_pipeline_run_flags_can_replace_draft_flags_for_formal_render(tmp_path: 
         json.dumps(
             {
                 "schema_version": "run_flags_v1",
-                "research_gate": 0,
+                "research_readiness": 0,
                 "banker_page_pack_layer": 0,
-                "quality_gate": 0,
+                "quality_readiness": 0,
                 "debug_output_only": True,
                 "draft_output_only": True,
                 "pipeline_entrypoint": "draft-test",
@@ -75,7 +75,7 @@ def test_pipeline_run_flags_can_replace_draft_flags_for_formal_render(tmp_path: 
         + "\n",
         encoding="utf-8",
     )
-    (run_dir / "DRAFT_NOT_CLIENT_READY.txt").write_text("draft\n", encoding="utf-8")
+    (run_dir / "DRAFT_RESEARCH_LIMITED_REVIEW.txt").write_text("draft\n", encoding="utf-8")
 
     _clear_draft_state(run_dir)
     _write_run_flags(run_dir, entrypoint="scripts/pipeline.py render")
@@ -84,7 +84,7 @@ def test_pipeline_run_flags_can_replace_draft_flags_for_formal_render(tmp_path: 
     assert run_flags["debug_output_only"] is False, run_flags
     assert run_flags.get("draft_output_only") is not True, run_flags
     assert run_flags["pipeline_entrypoint"] == "scripts/pipeline.py render", run_flags
-    assert not (run_dir / "DRAFT_NOT_CLIENT_READY.txt").exists()
+    assert not (run_dir / "DRAFT_RESEARCH_LIMITED_REVIEW.txt").exists()
 
 
 def test_pipeline_draft_command_is_not_available(tmp_path: Path) -> None:

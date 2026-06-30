@@ -63,10 +63,14 @@ def _rewrite_plan_queries_for_contract_test(plan: dict, *, market: str = "sample
     """
 
     _ = market
-    for row in plan.get("issue_search_plan", []):
-        issue_area = row.get("issue_area", "industry")
-        for instruction in row.get("search_instructions", []):
-            instruction["source_hint"] = instruction.get("source_hint") or f"{issue_area} source review"
+    for row in [
+        *plan.get("core_research_threads", []),
+        *plan.get("research_threads", []),
+        *plan.get("industry_specific_research_threads", []),
+        *plan.get("custom_evidence_needs", []),
+    ]:
+        thread = row.get("thread", "industry")
+        row["source_direction"] = row.get("source_direction") or f"{thread} source review"
     return plan
 
 
@@ -112,7 +116,6 @@ def _build_template_registry(tmp_path: Path) -> Path:
     registry = build_registry(
         template=SKILL_DIR / "assets" / "industry_section_template_master.pptx",
         slide_registry_path=SKILL_DIR / "configs" / "slide_registry.json",
-        page_type_rules_path=SKILL_DIR / "configs" / "page_type_rules.json",
         ppt_mapping_path=SKILL_DIR / "configs" / "ppt_mapping.json",
         layout_budget_path=SKILL_DIR / "configs" / "layout_budget.json",
         text_fit_rules_path=SKILL_DIR / "configs" / "text_fit_rules.json",
@@ -186,12 +189,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
         5: "Use barrier evidence to support defensibility without overclaiming.",
         6: "Compare competitive positions across practical operating dimensions.",
         7: "Use directional trend signals to frame near-term watch points.",
-        8: "Frame transaction relevance with caveated industry readthrough and evidence boundaries.",
-    }
-    evidence_roles = {
-        1: "thesis_anchor", 2: "supporting_evidence", 3: "supporting_evidence",
-        4: "thesis_anchor", 5: "supporting_evidence", 6: "supporting_evidence",
-        7: "context_setting", 8: "context_setting",
+        8: "Frame transaction relevance with caveated industry relevance and evidence boundaries.",
     }
     exhibit_types = {
         1: "chart", 2: "chart", 3: "driver_cards", 4: "value_chain",
@@ -218,40 +216,33 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     "role": role_name, "copy": theme,
                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence,
                     "metric_ids": metrics if idx == 1 else [],
-                    "claim_strength": "supported_inference",
                 })
             if no == 4:
                 blocks = [
                     {"role": "profit_pool", "target_field": "bottom_center",
                      "copy": "Profit-pool evidence shows where economics accrue across the industry chain.",
-                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
-                     "claim_strength": "supported_inference"},
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": []},
                     {"role": "upstream", "target_field": "top_left",
                      "copy": "Upstream inputs define cost exposure before operating capabilities take effect.",
-                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
-                     "claim_strength": "supported_inference"},
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": []},
                     {"role": "transaction_relevance", "target_field": "bottom_right",
                      "copy": "Transaction relevance should stay tied to sector economics, not target promotion.",
-                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
-                     "claim_strength": "supported_inference"},
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": []},
                     {"role": "manufacturing", "target_field": "top_center",
                     "copy": "Manufacturing execution explains why quality control can become a client discussion point.",
-                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
-                     "claim_strength": "supported_inference"},
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": []},
                     {"role": "brand", "target_field": "top_right",
                      "copy": "Brand ownership converts category credibility into pricing and repeat-purchase power.",
-                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
-                     "claim_strength": "supported_inference"},
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": []},
                     {"role": "channel", "target_field": "bottom_left",
                      "copy": "Channel access determines whether product strength can convert into scaled demand.",
-                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": [],
-                     "claim_strength": "supported_inference"},
+                     "source_banker_page_ids": [banker_page_id], "evidence_ids": evidence, "metric_ids": []},
                 ]
-            visual_design = {"required_capability": "text", "purpose": f"Support slide {no} page thesis."}
+            visual_design = {"visual_type": "text", "purpose": f"Support slide {no} page thesis."}
             chart_data: dict = {}
             compare_table_data: dict = {}
             if no == 1:
-                visual_design = {"required_capability": "chart", "purpose": "Show current market scale.", "visual_metric_ids": ["MET-001", "MET-002"]}
+                visual_design = {"visual_type": "chart", "purpose": "Show current market scale.", "visual_metric_ids": ["MET-001", "MET-002"]}
                 chart_data = {
                     "chart_type": "bar", "title": "Current market scale",
                     "categories": ["2022", "2024"], "series": [{"name": "Market size", "values": [80.0, 100.0]}],
@@ -262,7 +253,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     ],
                 }
             if no == 2:
-                visual_design = {"required_capability": "chart", "purpose": "Show segmentation metric.", "visual_metric_ids": ["MET-003"]}
+                visual_design = {"visual_type": "chart", "purpose": "Show segmentation metric.", "visual_metric_ids": ["MET-003"]}
                 chart_data = {
                     "chart_type": "bar", "title": "Segment split",
                     "categories": ["Segment A", "Segment B"], "series": [{"name": "Share", "values": [45.0, 55.0]}],
@@ -273,7 +264,7 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                     ],
                 }
             if no == 6:
-                visual_design = {"required_capability": "table", "purpose": "Compare competitive dimensions."}
+                visual_design = {"visual_type": "table", "purpose": "Compare competitive dimensions."}
                 compare_table_data = {
                     "headers": ["Dimension", "Evidence-backed read", "Pitch relevance"],
                     "rows": [
@@ -281,31 +272,26 @@ def _build_deck_blueprint(tmp_path: Path, *, slides_override: list | None = None
                         {"label": "Capabilities", "cells": ["Execution matters", "Assess repeatability"]},
                         {"label": "Competition", "cells": ["Differentiation varies", "Avoid target advocacy"]},
                     ],
-                    "comparison_basis_note": "Illustrative peer dimensions from selected issue analysis.",
+                    "comparison_basis_note": "Illustrative peer dimensions from selected page evidence.",
                 }
             slides.append({
                 "slide_no": no, "banker_page_id": banker_page_id, "fixed_page_role": roles[no],
-                "page_question": f"What industry point must slide {no} prove for the pitch?",
                 "page_thesis": f"Slide {no} answers a distinct industry question with evidence-backed judgment.",
                 "page_argument": page_arguments[no], "visual_intent": visual_intents[no],
-                "evidence_role": evidence_roles[no],
                 "exhibit": {
                     "exhibit_type": exhibit_types[no],
                     "why_this_exhibit": f"Slide {no} needs a structured exhibit to make the page argument scannable.",
                     "data_or_evidence_inputs": [*evidence, *metrics],
-                    "visual_structure": f"{exhibit_types[no]} using the selected evidence and active template fields.",
+                    "visual_structure": f"{exhibit_types[no]} using the selected evidence and page-fit guidance.",
                     "density_target": "Fill the formal layout with distinct evidence-backed modules.",
-                    "evidence_limited_exhibit_plan": "Use caveated cards or an evidence-boundary grid; do not use a single-point chart.",
                 },
-                "why_this_page_matters": f"Slide {no} matters because it converts research into a transaction-relevant page argument.",
                 "selected_page_type": page_types[no],
-                "claim_strength": "supported_inference",
                 "headline": f"Slide {no} industry read",
                 "main_message": f"Evidence links sector structure to transaction framing for slide {no}.",
                 "body_blocks": blocks, "visual_design": visual_design,
                 "chart_data": chart_data, "compare_table_data": compare_table_data,
                 "source_note": "Sources: " + "; ".join(evidence),
-                "caveats": [], "evidence_boundary_notes": ["Keep target-specific fit as a caveated evidence-boundary item"] if no == 8 else [],
+                "caveats": [], "source_limitations": ["Keep target-specific fit as a caveated source-limited item"] if no == 8 else [],
             })
     blueprint = {
         "schema_version": "deck_blueprint_v1",
@@ -327,16 +313,13 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
                 "slide_no": slide_no,
                 "banker_page_id": slide.get("banker_page_id") or f"BP-{slide_no:03d}",
                 "fixed_page_role": slide["fixed_page_role"],
-                "page_primary_subject": "industry" if slide_no <= 6 else "industry_with_project_relevance",
-                "page_question": slide["page_question"],
                 "banker_judgment": (
                     f"Slide {slide_no} should communicate a banker judgment about sector structure, evidence quality, "
                     "transaction framing priorities, and market economics before a mandate is signed."
                 ),
                 "page_argument": slide["page_argument"],
                 "selected_page_type": slide["selected_page_type"],
-                "claim_strength": slide["claim_strength"],
-                "allowed_deck_usage": slide.get("allowed_deck_usage", "headline_allowed"),
+                "deck_use": slide.get("deck_use", "可作标题"),
                 "headline": slide["headline"],
                 "main_message": slide["main_message"],
                 "exhibit": slide["exhibit"],
@@ -353,9 +336,9 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
                     if slide_no in {7, 8}
                     else ""
                 ),
-                "source_note": slide.get("source_note", "Sources: EV-001"),
+                "source_note": slide.get("source_note", "Source: fixture evidence database"),
                 "caveats": slide.get("caveats", []),
-                "evidence_boundary_notes": slide.get("evidence_boundary_notes", []),
+                "source_limitations": slide.get("source_limitations", []),
             }
         )
     return {
@@ -366,11 +349,7 @@ def _banker_page_pack_from_deck_blueprint(deck_blueprint: dict) -> dict:
             "into a dense pre-mandate banker view with traceable evidence and page-level caveats."
         ),
         "deliverable_readiness": {
-            "decision_status": "llm_decided",
-            "decision_owner": "generation",
-            "enough_for_client_pitch": True,
-            "evidence_limited_pitch_outline": False,
-            "research_first_required": False,
+            "business_action": "client_ready",
             "decision_note": "The fixture contains enough linked EV/MET references and page density for deterministic renderer tests.",
         },
         "key_data_audit": [],
@@ -385,6 +364,8 @@ def _compile_banker_page_pack(
     registry_path: Path | None = None,
 ) -> tuple[Path, Path]:
     """Compile banker_page_pack → page_evidence_contract + renderer_spec."""
+    from pipeline import compile_page_pack
+
     tr = registry_path or tmp_path / "template_registry.json"
     pc_out = tmp_path / "page_evidence_contract.json"
     rs_out = tmp_path / "renderer_spec.json"
@@ -392,13 +373,7 @@ def _compile_banker_page_pack(
         (tmp_path / "banker_page_pack.json").write_text(banker_page_pack_path.read_text(encoding="utf-8"), encoding="utf-8")
     if tr != tmp_path / "template_registry.json":
         (tmp_path / "template_registry.json").write_text(tr.read_text(encoding="utf-8"), encoding="utf-8")
-    result = subprocess.run(
-        [sys.executable, str(SKILL_DIR / "scripts" / "pipeline.py"), "compile", "--run-dir", str(tmp_path)],
-        text=True, capture_output=True, cwd=str(SKILL_DIR),
-        env={**__import__("os").environ, "PYTHONPATH": ":".join(str(path) for path in SCRIPT_IMPORT_PATHS)},
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"pipeline compile failed: {result.stdout}\n{result.stderr}")
+    compile_page_pack(tmp_path, sys.executable)
     return pc_out, rs_out
 
 
@@ -481,11 +456,11 @@ def _minimal_scope_pack() -> dict:
                 "research_instruction": "label every metric by source scope",
             }
         ],
-        "boundary_validation_needed": [
+        "boundary_checks_if_needed": [
             {
                 "question": "is adjacent extension in scope",
                 "why_needed": "source taxonomies may differ",
-                "suggested_validation_source": "industry taxonomy",
+                "suggested_check_source": "industry taxonomy",
             }
         ],
         "handoff_to_research": {
@@ -508,22 +483,18 @@ def _seed_industry_boundary_qc(
     del scope_pack_path, material_extracts_path, research_evidence_db_path, search_log_path
     artifacts = run_dir / "artifacts"
     payload = {
-        "schema_version": "industry_boundary_qc_v1",
-        "decision": "pass",
+        "schema_version": "industry_boundary_qc",
+        "decision": "Boundary is clear for formal research.",
+        "business_action": "research_ready",
         "is_valid": True,
-        "boundary_quality_rationale": "Synthetic boundary QC pass for fixture.",
-        "validated_scope": {
+        "rationale": "Synthetic boundary review finds the fixture scope usable for research.",
+        "reviewed_scope": {
             "working_market": "sample sector",
             "parent_market": "sample parent market",
             "broader_market": "sample broader market",
         },
-        "areas_confirmed": ["working market"],
-        "areas_uncertain": [],
-        "excluded_scope_confirmed": ["excluded adjacent scope"],
-        "feedback": [],
-        "boundary_validation_requests": [],
-        "formal_research_allowed_scope": ["sample sector"],
-        "do_not_research_as_market_scope": ["sample adjacent scope"],
+        "scope_adjustments": [],
+        "research_handoff_note": "Proceed with sample sector as the working market.",
     }
     _write_json(artifacts / "industry_boundary_qc.json", payload)
     if (artifacts / "industry_scope_pack_validation.json").exists():
@@ -556,7 +527,6 @@ def _pipeline_run_dir(tmp_path_factory):
     material_manifest = {
         "schema_version": "material_manifest_v1",
         "created_at": "2026-01-01T00:00:00+00:00",
-        "policy_context": "pre_mandate_client_pitch",
         "materials": [
             {
                 "material_id": "MAT-001",
@@ -643,17 +613,45 @@ def _pipeline_run_dir(tmp_path_factory):
         "research_as_of_date": "2026-01-01",
     }
     plan = build_formal_search_plan(input_card_payload, scope_pack)
+
+    def append_llm_research_thread(thread: str, focus: str, research_question: str) -> str:
+        rows = plan.setdefault("core_research_threads", [])
+        fs_id = f"FS-{len(rows) + len(plan.get('industry_specific_research_threads', [])) + 1:03d}"
+        rows.append(
+            {
+                "thread_id": fs_id,
+                "thread": thread,
+                "thread_focus": focus,
+                "priority": "high",
+                "why_it_matters": "Contract fixture adds this row to prove LLM expansion can carry material custom research.",
+                "research_question": research_question,
+                "source_direction": "industry report, company disclosure, official or authoritative source",
+                "query_authoring_artifact": "artifacts/executable_search_batch.json",
+            }
+        )
+        return fs_id
+
+    append_llm_research_thread(
+        "Value-chain economics",
+        "Where value accrues",
+        "Where does value accrue in the sample sector, and what source limitations apply?",
+    )
+    append_llm_research_thread(
+        "Market segmentation",
+        "Source-backed segment split",
+        "Which source-backed segment split best supports the sample-sector page pack?",
+    )
     _rewrite_plan_queries_for_contract_test(plan)
 
-    def fs_for(area, subissue):
-        for row in plan["issue_search_plan"]:
-            if row["issue_area"] == area and row["subissue"] == subissue:
-                return row["search_instructions"][0]["instruction_id"]
-        raise AssertionError(f"missing {area}/{subissue}")
+    def fs_for(thread):
+        for row in plan["core_research_threads"]:
+            if row["thread"] == thread:
+                return row["thread_id"]
+        raise AssertionError(f"missing {thread}")
 
-    market_fs = fs_for("market_size_growth", "current_market_size")
-    value_fs = fs_for("industry_structure", "value_chain")
-    segment_fs = fs_for("market_size_growth", "market_segmentation")
+    market_fs = fs_for("Market definition and sizing evidence")
+    value_fs = fs_for("Value-chain economics")
+    segment_fs = fs_for("Market segmentation")
     _write_json(artifacts / "formal_search_plan.json", plan)
     _write_json(artifacts / "coverage_map.json", build_coverage_map(plan))
     _write_json(artifacts / "executable_search_batch.json", build_executable_search_batch(plan))
@@ -1117,7 +1115,7 @@ def _pipeline_run_dir(tmp_path_factory):
         "User-provided vs external-source discrepancy": "No user-provided conflicting metric in this fixture.",
         "Chart number consistency": "Chart-ready metrics preserve original fixture values.",
     }
-    for row in research_db.get("issue_fact_inventory", []):
+    for row in research_db.get("page_evidence_inventory", []):
         if row.get("fact_status") == "needs_knowledge_llm":
             has_promoted_support = bool(row.get("evidence_ids") or row.get("metric_ids"))
             row["fact_status"] = "sufficient" if has_promoted_support else "insufficient"
@@ -1139,11 +1137,6 @@ def _pipeline_run_dir(tmp_path_factory):
     exported = export_research_pack_from_db(research_db)
     (run_dir / "industry_research_pack.md").write_text(exported, encoding="utf-8")
 
-    # Stage gate
-    stage_errors, stage_warnings = validate_artifact("pre_research_pack", run_dir)
-    stage_result = {"is_valid": not stage_errors, "errors": stage_errors, "warnings": stage_warnings}
-    _write_json(artifacts / "stage_gate_pre_research_pack_validation.json", stage_result)
-
     # Research pack validation
     pack_errors, pack_warnings = validate_artifact("research_pack", run_dir)
     pack_result = {"is_valid": not pack_errors, "errors": pack_errors, "warnings": pack_warnings}
@@ -1157,11 +1150,7 @@ def _pipeline_run_dir(tmp_path_factory):
             "section_meta": {"target_company": "Sample Target", "industry": "sample sector"},
             "deck_storyline": "Fixture banker page pack for state-machine progression.",
             "deliverable_readiness": {
-                "decision_status": "llm_decided",
-                "decision_owner": "generation",
-                "enough_for_client_pitch": True,
-                "evidence_limited_pitch_outline": False,
-                "research_first_required": False,
+                "business_action": "client_ready",
                 "decision_note": "Fixture marks enough evidence for state-machine progression.",
             },
             "key_data_audit": [],
@@ -1176,7 +1165,6 @@ def _pipeline_run_dir(tmp_path_factory):
     registry = build_registry(
         template=SKILL_DIR / "assets" / "industry_section_template_master.pptx",
         slide_registry_path=SKILL_DIR / "configs" / "slide_registry.json",
-        page_type_rules_path=SKILL_DIR / "configs" / "page_type_rules.json",
         ppt_mapping_path=SKILL_DIR / "configs" / "ppt_mapping.json",
         layout_budget_path=SKILL_DIR / "configs" / "layout_budget.json",
         text_fit_rules_path=SKILL_DIR / "configs" / "text_fit_rules.json",
